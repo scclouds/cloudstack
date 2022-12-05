@@ -252,3 +252,12 @@ FROM
     `cloud`.`user` ON `user`.`uuid` = `last_annotation_view`.`user_uuid`
 GROUP BY
     `host`.`id`;
+
+-- Create table to persist quota email template configurations
+CREATE TABLE IF NOT EXISTS `cloud_usage`.`quota_email_configuration`(
+    `account_id` int(11) NOT NULL,
+    `email_template_id` bigint(20) NOT NULL,
+    `enabled` int(1) UNSIGNED NOT NULL,
+    PRIMARY KEY (`account_id`, `email_template_id`),
+    CONSTRAINT `FK_quota_email_configuration_account_id` FOREIGN KEY (`account_id`) REFERENCES `cloud_usage`.`quota_account`(`account_id`),
+    CONSTRAINT `FK_quota_email_configuration_email_te1mplate_id` FOREIGN KEY (`email_template_id`) REFERENCES `cloud_usage`.`quota_email_templates`(`id`));
