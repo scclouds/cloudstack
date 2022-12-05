@@ -15,6 +15,7 @@
 # specific language governing permissions and limitations
 # under the License.
 
+import logging
 
 def merge(dbag, rules):
     for rule in rules["rules"]:
@@ -33,6 +34,7 @@ def merge(dbag, rules):
             newrule["public_ports"] = rule["source_port_range"]
             newrule["internal_ports"] = rule["destination_port_range"]
             newrule["protocol"] = rule["protocol"]
+            newrule["source_cidr_list"] = rule["source_cidr_list"]
 
         if not revoke:
             if rules["type"] == "staticnatrules":
@@ -59,7 +61,7 @@ def merge(dbag, rules):
                     for forward in dbag[source_ip]:
                         if ruleCompare(forward, newrule):
                             index = dbag[source_ip].index(forward)
-                            print "removing index %s" % str(index)
+                            logging.info("Removing forwarding rule index %s", forward)
                     if not index == -1:
                         del dbag[source_ip][index]
 
