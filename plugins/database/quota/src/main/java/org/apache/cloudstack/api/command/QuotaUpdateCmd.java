@@ -32,8 +32,6 @@ import javax.inject.Inject;
 @APICommand(name = "quotaUpdate", responseObject = QuotaUpdateResponse.class, description = "Update quota calculations, alerts and statements", since = "4.7.0", requestHasSensitiveInfo = false, responseHasSensitiveInfo = false)
 public class QuotaUpdateCmd extends BaseCmd {
 
-
-
     @Inject
     QuotaManager _manager;
     @Inject

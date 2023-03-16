@@ -24,12 +24,14 @@
 	<bean id="QuotaCreditsDao" class="org.apache.cloudstack.quota.dao.QuotaCreditsDaoImpl" />
 	<bean id="QuotaEmailTemplatesDao"
 		class="org.apache.cloudstack.quota.dao.QuotaEmailTemplatesDaoImpl" />
+	<bean id="QuotaUsageDetailDao" class="org.apache.cloudstack.quota.dao.QuotaUsageDetailDaoImpl" />
 	<bean id="QuotaUsageDao" class="org.apache.cloudstack.quota.dao.QuotaUsageDaoImpl" />
     <bean id="UserVmDetailsDao" class="org.apache.cloudstack.quota.dao.UserVmDetailsDaoImpl" />
+	<bean id="UserVmDetailsDao" class="org.apache.cloudstack.quota.dao.UserVmDetailsDaoImpl" />
 
 	<bean id="QuotaManager" class="org.apache.cloudstack.quota.QuotaManagerImpl" />
     <bean id="QuotaAlertManager" class="org.apache.cloudstack.quota.QuotaAlertManagerImpl" />
 	<bean id="QuotaStatement" class="org.apache.cloudstack.quota.QuotaStatementImpl" />
 	<bean id="QuotaEmailConfigurationDao" class="org.apache.cloudstack.quota.dao.QuotaEmailConfigurationDaoImpl"/>
-
+	<bean id="QuotaUsageJoinDao" class="org.apache.cloudstack.quota.dao.QuotaUsageJoinDaoImpl"/>
 </beans>

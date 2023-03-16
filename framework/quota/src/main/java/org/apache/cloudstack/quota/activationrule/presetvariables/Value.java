@@ -94,6 +94,7 @@ public class Value extends GenericPresetVariable {
     @PresetVariableDefinition(description = "The volume format. Values can be: RAW, VHD, VHDX, OVA and QCOW2.", supportedTypes = {QuotaTypes.VOLUME, QuotaTypes.VOLUME_SECONDARY})
     private String volumeFormat;
     private String state;
+    private GenericPresetVariable virtualMachine;
 
     public Host getHost() {
         return host;
@@ -264,5 +265,14 @@ public class Value extends GenericPresetVariable {
     public void setState(String state) {
         this.state = state;
         fieldNamesToIncludeInToString.add("state");
+    }
+
+    public GenericPresetVariable getVirtualMachine() {
+        return virtualMachine;
+    }
+
+    public void setVirtualMachine(GenericPresetVariable virtualMachine) {
+        this.virtualMachine = virtualMachine;
+        fieldNamesToIncludeInToString.add("virtualMachine");
     }
 }

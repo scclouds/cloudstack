@@ -39,7 +39,21 @@ import java.util.stream.Collectors;
 
 import javax.inject.Inject;
 
+import com.cloud.network.dao.IPAddressDao;
+import com.cloud.network.dao.IPAddressVO;
+import com.cloud.network.dao.NetworkVO;
+import com.cloud.offerings.NetworkOfferingVO;
+import com.cloud.offerings.dao.NetworkOfferingDao;
+import com.cloud.storage.SnapshotVO;
+import com.cloud.storage.VMTemplateVO;
+import com.cloud.storage.VolumeVO;
+import com.cloud.storage.dao.SnapshotDao;
+import com.cloud.storage.dao.VMTemplateDao;
+import com.cloud.storage.dao.VolumeDao;
 import com.cloud.utils.DateUtil;
+import com.cloud.utils.exception.CloudRuntimeException;
+import com.cloud.vm.VMInstanceVO;
+import com.cloud.vm.dao.VMInstanceDao;
 import org.apache.cloudstack.api.ApiErrorCode;
 import org.apache.cloudstack.api.ServerApiException;
 import org.apache.cloudstack.api.command.QuotaBalanceCmd;
@@ -48,9 +62,14 @@ import org.apache.cloudstack.api.command.QuotaEmailTemplateListCmd;
 import org.apache.cloudstack.api.command.QuotaEmailTemplateUpdateCmd;
 import org.apache.cloudstack.api.command.QuotaPresetVariablesListCmd;
 import org.apache.cloudstack.api.command.QuotaStatementCmd;
+import org.apache.cloudstack.api.command.QuotaStatementDetailsCmd;
 import org.apache.cloudstack.api.command.QuotaTariffCreateCmd;
 import org.apache.cloudstack.api.command.QuotaTariffListCmd;
 import org.apache.cloudstack.api.command.QuotaTariffUpdateCmd;
+import org.apache.cloudstack.backup.BackupOfferingVO;
+import org.apache.cloudstack.backup.BackupVO;
+import org.apache.cloudstack.backup.dao.BackupDao;
+import org.apache.cloudstack.backup.dao.BackupOfferingDao;
 import org.apache.cloudstack.context.CallContext;
 import org.apache.cloudstack.quota.QuotaManager;
 import org.apache.cloudstack.quota.QuotaManagerImpl;
@@ -63,20 +82,26 @@ import org.apache.cloudstack.quota.activationrule.presetvariables.PresetVariable
 import org.apache.cloudstack.quota.activationrule.presetvariables.Value;
 import org.apache.cloudstack.quota.constant.QuotaConfig;
 import org.apache.cloudstack.quota.constant.QuotaTypes;
+import org.apache.cloudstack.quota.dao.NetworkDao;
 import org.apache.cloudstack.quota.dao.QuotaAccountDao;
 import org.apache.cloudstack.quota.dao.QuotaBalanceDao;
 import org.apache.cloudstack.quota.dao.QuotaCreditsDao;
 import org.apache.cloudstack.quota.dao.QuotaEmailConfigurationDao;
 import org.apache.cloudstack.quota.dao.QuotaEmailTemplatesDao;
 import org.apache.cloudstack.quota.dao.QuotaTariffDao;
-import org.apache.cloudstack.quota.vo.QuotaAccountVO;
 import org.apache.cloudstack.quota.dao.QuotaUsageDao;
+import org.apache.cloudstack.quota.dao.QuotaUsageDetailDao;
+import org.apache.cloudstack.quota.dao.QuotaUsageJoinDao;
+import org.apache.cloudstack.quota.vo.QuotaAccountVO;
 import org.apache.cloudstack.quota.vo.QuotaBalanceVO;
 import org.apache.cloudstack.quota.vo.QuotaCreditsVO;
 import org.apache.cloudstack.quota.vo.QuotaEmailConfigurationVO;
 import org.apache.cloudstack.quota.vo.QuotaEmailTemplatesVO;
 import org.apache.cloudstack.quota.vo.QuotaTariffVO;
+import org.apache.cloudstack.quota.vo.QuotaUsageDetailVO;
+import org.apache.cloudstack.quota.vo.QuotaUsageJoinVO;
 import org.apache.cloudstack.quota.vo.QuotaUsageVO;
+import org.apache.cloudstack.usage.UsageTypes;
 import org.apache.cloudstack.utils.reflectiontostringbuilderutils.ReflectionToStringBuilderUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.reflect.FieldUtils;
@@ -123,6 +148,12 @@ public class QuotaResponseBuilderImpl implements QuotaResponseBuilder {
     @Inject
     private QuotaAccountDao quotaAccountDao;
     @Inject
+    private QuotaUsageJoinDao quotaUsageJoinDao;
+    @Inject
+    private QuotaUsageDetailDao quotaUsageDetailDao;
+    @Inject
+    private VMInstanceDao vmInstanceDao;
+    @Inject
     private DomainDao _domainDao;
     @Inject
     private AccountManager _accountMgr;
@@ -130,6 +161,22 @@ public class QuotaResponseBuilderImpl implements QuotaResponseBuilder {
     private QuotaStatement _statement;
     @Inject
     private QuotaManager _quotaManager;
+    @Inject
+    private NetworkDao networkDao;
+    @Inject
+    private IPAddressDao ipAddressDao;
+    @Inject
+    private VolumeDao volumeDao;
+    @Inject
+    private SnapshotDao snapshotDao;
+    @Inject
+    private NetworkOfferingDao networkOfferingDao;
+    @Inject
+    private BackupOfferingDao backupOfferingDao;
+    @Inject
+    private VMTemplateDao vmTemplateDao;
+    @Inject
+    private BackupDao backupDao;
     @Inject
     private QuotaEmailConfigurationDao quotaEmailConfigurationDao;
 
@@ -913,5 +960,193 @@ public class QuotaResponseBuilderImpl implements QuotaResponseBuilder {
         quotaConfigureEmailResponse.setMinBalance(quotaAccountVO.getQuotaMinBalance().doubleValue());
 
         return quotaConfigureEmailResponse;
+    }
+
+    public QuotaUsageDetailsResponse listUsageDetails(QuotaStatementDetailsCmd cmd) {
+        String resourceUuid = cmd.getId();
+        Integer usageType = cmd.getUsageType();
+        Date startDate = cmd.getStartDate();
+        Date endDate = cmd.getEndDate();
+
+        if (startDate.after(endDate)) {
+            throw new InvalidParameterValueException(String.format("The start date [%s] must be before the end date [%s].", startDate, endDate));
+        }
+
+        Pair<Long, String> resourceIdAndName = retrieveResourceIdAndNamePair(resourceUuid, usageType);
+        if (resourceIdAndName == null) {
+            throw new CloudRuntimeException(String.format("Unable to find resource with ID [%s] and usage type [%s].", resourceUuid, usageType));
+        }
+
+        String resourceName = resourceIdAndName.second();
+        Long resourceId = null;
+        Long networkId = null;
+        Long offeringId = null;
+
+        switch (usageType) {
+            case UsageTypes.NETWORK_OFFERING:
+            case UsageTypes.BACKUP:
+                offeringId = resourceIdAndName.first();
+                break;
+            case UsageTypes.NETWORK_BYTES_RECEIVED:
+            case UsageTypes.NETWORK_BYTES_SENT:
+                networkId = resourceIdAndName.first();
+                break;
+            default:
+                resourceId = resourceIdAndName.first();
+        }
+
+        logger.debug(String.format("Attempting to find quota usages with parameters usage type [%s], usage id [%s], network id [%s], offering id [%s], and between [%s] and [%s].",
+            usageType, resourceId, networkId, offeringId, startDate, endDate));
+
+        List<QuotaUsageJoinVO> quotaUsageJoinList = quotaUsageJoinDao.findQuotaUsage(null, null, usageType, resourceId, networkId, offeringId, startDate, endDate, null);
+
+        logger.debug(String.format("Found [%s] quota usages using as parameter usage type [%s], usage id [%s], network id [%s], offering id [%s], and between [%s] and [%s].",
+                quotaUsageJoinList.size(), usageType, resourceId, networkId, offeringId, startDate, endDate));
+
+        List<QuotaUsageDetailsItemResponse> quotaUsageDetailsItemResponseList = new ArrayList<>();
+        BigDecimal totalQuotaUsed = new BigDecimal(0);
+        List<QuotaTariffVO> quotaTariffs = _quotaTariffDao.listQuotaTariffs(null, null, usageType, null, null, true, null, null).first();
+
+        for (QuotaUsageJoinVO quotaUsageJoin : quotaUsageJoinList) {
+            List<QuotaUsageDetailVO> quotaUsageDetailsList = quotaUsageDetailDao.listQuotaUsageDetails(quotaUsageJoin.getId());
+            logger.debug(String.format("Found [%s] quota usage details associated to the quota usage [%s] of resource [%s] and type [%s] between [%s] and [%s].",
+                    quotaUsageDetailsList.size(), quotaUsageJoin, resourceUuid, usageType, startDate, endDate));
+            for (QuotaUsageDetailVO quotaUsageDetail: quotaUsageDetailsList) {
+                quotaUsageDetailsItemResponseList.add(createQuotaUsageDetailsItemResponse(quotaUsageDetail, quotaTariffs, quotaUsageJoin.getStartDate(),
+                    quotaUsageJoin.getEndDate()));
+                totalQuotaUsed = totalQuotaUsed.add(quotaUsageDetail.getQuotaUsed());
+            }
+        }
+        logger.debug(String.format("The total quota used of type [%s] between [%s] and [%s] for the resource [%s] was [%s].", usageType, startDate, endDate, resourceUuid,
+                totalQuotaUsed));
+
+        return createQuotaUsageDetailsResponse(resourceName, resourceUuid, usageType, quotaUsageDetailsItemResponseList, totalQuotaUsed);
+    }
+
+    protected Pair<Long, String> retrieveResourceIdAndNamePair(String resourceUuid, Integer usageType) {
+        Pair<Long, String> resourceIdAndName = null;
+
+        logger.debug(String.format("Attempting to find a resource with ID [%s] and of type [%s].", resourceUuid, usageType));
+        switch (usageType) {
+            case QuotaTypes.ALLOCATED_VM:
+            case QuotaTypes.RUNNING_VM:
+                VMInstanceVO vmInstance = vmInstanceDao.findByUuidIncludingRemoved(resourceUuid);
+                if (vmInstance != null) {
+                    logger.debug(String.format("Found VM [%s] with ID [%s] and of type [%s].", vmInstance, resourceUuid, usageType));
+                    resourceIdAndName = new Pair<>(vmInstance.getId(), vmInstance.getName());
+                }
+                break;
+            case QuotaTypes.VOLUME:
+            case QuotaTypes.VOLUME_SECONDARY:
+            case QuotaTypes.VM_DISK_BYTES_READ:
+            case QuotaTypes.VM_DISK_BYTES_WRITE:
+            case QuotaTypes.VM_DISK_IO_READ:
+            case QuotaTypes.VM_DISK_IO_WRITE:
+                VolumeVO volume = volumeDao.findByUuidIncludingRemoved(resourceUuid);
+                if (volume != null) {
+                    logger.debug(String.format("Found volume [%s] with ID [%s] and of type [%s].", volume, resourceUuid, usageType));
+                    resourceIdAndName = new Pair<>(volume.getId(), volume.getName());
+                }
+                break;
+            case QuotaTypes.VM_SNAPSHOT_ON_PRIMARY:
+            case QuotaTypes.VM_SNAPSHOT:
+            case QuotaTypes.SNAPSHOT:
+                SnapshotVO snapshot = snapshotDao.findByUuidIncludingRemoved(resourceUuid);
+                if (snapshot != null) {
+                    logger.debug(String.format("Found snapshot [%s] with ID [%s] and of type [%s].", snapshot, resourceUuid, usageType));
+                    resourceIdAndName = new Pair<>(snapshot.getId(), snapshot.getName());
+                }
+                break;
+            case QuotaTypes.NETWORK_BYTES_SENT:
+            case QuotaTypes.NETWORK_BYTES_RECEIVED:
+                NetworkVO network = networkDao.findByUuidIncludingRemoved(resourceUuid);
+                if (network != null) {
+                    logger.debug(String.format("Found network [%s] with ID [%s] and of type [%s].", network, resourceUuid, usageType));
+                    resourceIdAndName = new Pair<>(network.getId(), network.getName());
+                }
+                break;
+            case QuotaTypes.TEMPLATE:
+            case QuotaTypes.ISO:
+                VMTemplateVO image = vmTemplateDao.findByUuidIncludingRemoved(resourceUuid);
+                if (image != null) {
+                    logger.debug(String.format("Found image [%s] with ID [%s] and of type [%s].", image, resourceUuid, usageType));
+                    resourceIdAndName = new Pair<>(image.getId(), image.getName());
+                }
+                break;
+            case QuotaTypes.BACKUP:
+                BackupOfferingVO backupOffering = backupOfferingDao.findByUuidIncludingRemoved(resourceUuid);
+                if (backupOffering != null) {
+                    logger.debug(String.format("Found backup offering [%s] with ID [%s] and of type [%s].", backupOffering, resourceUuid, usageType));
+                    resourceIdAndName = new Pair<>(backupOffering.getId(), backupOffering.getName());
+                }
+                break;
+            case QuotaTypes.BACKUP_OBJECT:
+                BackupVO backup = backupDao.findByUuidIncludingRemoved(resourceUuid);
+                if (backup != null) {
+                    logger.debug(String.format("Found backup [%s] with ID [%s] and of type [%s].", backup, resourceUuid, usageType));
+                    resourceIdAndName = new Pair<>(backup.getId(), backup.getName());
+                }
+                break;
+            case QuotaTypes.NETWORK_OFFERING:
+                NetworkOfferingVO networkOffering = networkOfferingDao.findByUuidIncludingRemoved(resourceUuid);
+                if (networkOffering != null) {
+                    logger.debug(String.format("Found network offering [%s] with ID [%s] and of type [%s].", networkOffering, resourceUuid, usageType));
+                    resourceIdAndName = new Pair<>(networkOffering.getId(), networkOffering.getName());
+                }
+                break;
+            case QuotaTypes.IP_ADDRESS:
+                IPAddressVO ipAddress = ipAddressDao.findByUuidIncludingRemoved(resourceUuid);
+                if (ipAddress != null) {
+                    logger.debug(String.format("Found IP address [%s] with ID [%s] and of type [%s].", ipAddress, resourceUuid, usageType));
+                    resourceIdAndName = new Pair<>(ipAddress.getId(), ipAddress.getName());
+                }
+                break;
+            case QuotaTypes.LOAD_BALANCER_POLICY:
+            case QuotaTypes.PORT_FORWARDING_RULE:
+            case QuotaTypes.SECURITY_GROUP:
+            case QuotaTypes.VPN_USERS:
+                throw new CloudRuntimeException(String.format("Quota details for type [%s] is not available yet.", usageType));
+            default:
+                throw new InvalidParameterValueException(String.format("Invalid usage type [%s] provided.", usageType));
+        }
+
+        return resourceIdAndName;
+    }
+
+    protected QuotaUsageDetailsItemResponse createQuotaUsageDetailsItemResponse(QuotaUsageDetailVO quotaUsageDetail, List<QuotaTariffVO> quotaTariffs, Date startDate, Date endDate) {
+        logger.trace(String.format("Creating quota usage details item associated to quota usage detail [%s].", quotaUsageDetail));
+        QuotaUsageDetailsItemResponse quotaUsageDetailsItemResponse = new QuotaUsageDetailsItemResponse();
+
+        QuotaTariffVO quotaTariff = quotaTariffs.stream().filter(quotaTariffVO -> quotaUsageDetail.getTariffId().equals(quotaTariffVO.getId())).findAny().orElse(null);
+
+        quotaUsageDetailsItemResponse.setQuotaUsed(quotaUsageDetail.getQuotaUsed());
+        quotaUsageDetailsItemResponse.setStartDate(startDate);
+        quotaUsageDetailsItemResponse.setEndDate(endDate);
+        if (quotaTariff != null) {
+            logger.trace(String.format("Quota usage details item will be associated to the quota tariff [%s].", quotaTariff));
+            quotaUsageDetailsItemResponse.setTariffId(quotaTariff.getUuid());
+            quotaUsageDetailsItemResponse.setTariffName(quotaTariff.getName());
+        }
+
+        return quotaUsageDetailsItemResponse;
+    }
+
+    protected QuotaUsageDetailsResponse createQuotaUsageDetailsResponse(String resourceName, String resourceUuid, Integer usageType,
+                                                                        List<QuotaUsageDetailsItemResponse> quotaUsageDetailsItems, BigDecimal totalQuotaUsed) {
+        logger.trace(String.format("Creating quota usage details list response associated to the resource of name [%s] and UUID [%s], with an usage type of [%s], [%s] quota" +
+                " usage details items, and a total quota used of [%s].", resourceName, resourceUuid, usageType, quotaUsageDetailsItems.size(), totalQuotaUsed));
+        QuotaUsageDetailsResponse quotaUsageDetailsResponse = new QuotaUsageDetailsResponse();
+
+        quotaUsageDetailsResponse.setResourceName(resourceName);
+        quotaUsageDetailsResponse.setResourceId(resourceUuid);
+
+        QuotaTypes quotaType = QuotaTypes.getQuotaType(usageType);
+        quotaUsageDetailsResponse.setUsageName(quotaType.getQuotaName());
+        quotaUsageDetailsResponse.setUnit(quotaType.getQuotaUnit());
+
+        quotaUsageDetailsResponse.setQuotaUsageDetails(quotaUsageDetailsItems);
+        quotaUsageDetailsResponse.setTotalQuotaUsed(totalQuotaUsed);
+
+        return quotaUsageDetailsResponse;
     }
 }
