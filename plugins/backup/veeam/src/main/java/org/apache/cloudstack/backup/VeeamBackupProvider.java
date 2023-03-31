@@ -27,6 +27,9 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.stream.Collectors;
 
+import com.cloud.storage.VolumeVO;
+import com.cloud.storage.dao.VolumeDao;
+import com.google.gson.Gson;
 import javax.inject.Inject;
 
 import org.apache.cloudstack.api.InternalIdentity;
@@ -89,6 +92,8 @@ public class VeeamBackupProvider extends AdapterBase implements BackupProvider, 
     private BackupDao backupDao;
     @Inject
     private VMInstanceDao vmInstanceDao;
+    @Inject
+    private VolumeDao volumeDao;
 
     protected VeeamClient getClient(final Long zoneId) {
         try {
@@ -149,7 +154,7 @@ public class VeeamBackupProvider extends AdapterBase implements BackupProvider, 
     public boolean assignVMToBackupOffering(final VirtualMachine vm, final BackupOffering backupOffering) {
         final VeeamClient client = getClient(vm.getDataCenterId());
         final Job parentJob = client.listJob(backupOffering.getExternalId());
-        final String clonedJobName = getGuestBackupName(vm.getInstanceName(), vm.getUuid());
+        final String clonedJobName = getGuestBackupName(vm.getInstanceName(), backupOffering.getUuid());
 
         if (!client.cloneVeeamJob(parentJob, clonedJobName)) {
             LOG.error("Failed to clone pre-defined Veeam job (backup offering) for backup offering ID: " + backupOffering.getExternalId() + " but will check the list of jobs again if it was eventually succeeded.");
@@ -165,6 +170,7 @@ public class VeeamBackupProvider extends AdapterBase implements BackupProvider, 
                 final VmwareDatacenter vmwareDC = findVmwareDatacenterForVM(vm);
                 if (client.addVMToVeeamJob(job.getExternalId(), vm.getInstanceName(), vmwareDC.getVcenterHost())) {
                     ((VMInstanceVO) vm).setBackupExternalId(job.getExternalId());
+                    ((VMInstanceVO) vm).setBackupName(clonedJobName);
                     return true;
                 }
             }
@@ -173,21 +179,22 @@ public class VeeamBackupProvider extends AdapterBase implements BackupProvider, 
     }
 
     @Override
-    public boolean removeVMFromBackupOffering(final VirtualMachine vm) {
+    public boolean removeVMFromBackupOffering(final VirtualMachine vm, boolean removeBackups) {
         final VeeamClient client = getClient(vm.getDataCenterId());
         final VmwareDatacenter vmwareDC = findVmwareDatacenterForVM(vm);
-        try {
-            if (!client.removeVMFromVeeamJob(vm.getBackupExternalId(), vm.getInstanceName(), vmwareDC.getVcenterHost())) {
-                LOG.warn("Failed to remove VM from Veeam Job id: " + vm.getBackupExternalId());
-            }
-        } catch (Exception e) {
-            LOG.debug("VM was removed from the job so could not remove again, trying to delete the veeam job now.", e);
+
+        final String clonedJobName = vm.getBackupName();
+        boolean result = false;
+
+        if (removeBackups) {
+            result = client.deleteJobAndBackup(clonedJobName);
+        } else {
+            result = client.disableJob(clonedJobName);
         }
 
-        final String clonedJobName = getGuestBackupName(vm.getInstanceName(), vm.getUuid());
-        if (!client.deleteJobAndBackup(clonedJobName)) {
-            LOG.warn("Failed to remove Veeam job and backup for job: " + clonedJobName);
-            throw new CloudRuntimeException("Failed to delete Veeam B&R job and backup, an operation may be in progress. Please try again after some time.");
+        if (!result) {
+            LOG.warn(String.format("Failed to remove Veeam %s for job: [name: %s].", removeBackups ? "job and backup" : "job", clonedJobName));
+            throw new CloudRuntimeException("Failed to delete Veeam B&R job, an operation may be in progress. Please try again after some time.");
         }
         return true;
     }
@@ -257,11 +264,11 @@ public class VeeamBackupProvider extends AdapterBase implements BackupProvider, 
 
         final Map<String, Backup.Metric> backendMetrics = getClient(zoneId).getBackupMetrics();
         for (final VirtualMachine vm : vms) {
-            if (vm == null || !backendMetrics.containsKey(vm.getUuid())) {
+            if (vm == null || !backendMetrics.containsKey(vm.getInstanceName())) {
                 continue;
             }
 
-            Metric metric = backendMetrics.get(vm.getUuid());
+            Metric metric = backendMetrics.get(vm.getInstanceName());
             LOG.debug(String.format("Metrics for VM [uuid: %s, name: %s] is [backup size: %s, data size: %s].", vm.getUuid(),
                     vm.getInstanceName(), metric.getBackupSize(), metric.getDataSize()));
             metrics.put(vm, metric);
@@ -270,8 +277,7 @@ public class VeeamBackupProvider extends AdapterBase implements BackupProvider, 
     }
 
     private List<Backup.RestorePoint> listRestorePoints(VirtualMachine vm) {
-        String backupName = getGuestBackupName(vm.getInstanceName(), vm.getUuid());
-        return getClient(vm.getDataCenterId()).listRestorePoints(backupName, vm.getInstanceName());
+        return getClient(vm.getDataCenterId()).listRestorePoints(vm.getBackupName(), vm.getInstanceName());
     }
 
     private Backup checkAndUpdateIfBackupEntryExistsForRestorePoint(List<Backup> backupsInDb, Backup.RestorePoint restorePoint, Backup.Metric metric) {
@@ -338,6 +344,30 @@ public class VeeamBackupProvider extends AdapterBase implements BackupProvider, 
                 }
             }
         });
+    }
+
+    protected String createVolumeInfoFromVolumes(List<String> paths) {
+        List<VolumeVO> vmVolumes = new ArrayList<>();
+        try {
+            for (String diskName : paths) {
+                VolumeVO volumeVO = volumeDao.findByPath(diskName);
+                if (volumeVO != null) {
+                    vmVolumes.add(volumeVO);
+                }
+            }
+            List<Backup.VolumeInfo> list = new ArrayList<>();
+            for (VolumeVO vol : vmVolumes) {
+                list.add(new Backup.VolumeInfo(vol.getUuid(), vol.getPath(), vol.getVolumeType(), vol.getSize(), vol.getDeviceId()));
+            }
+            return new Gson().toJson(list.toArray(), Backup.VolumeInfo[].class);
+        } catch (Exception e) {
+            if (CollectionUtils.isEmpty(vmVolumes) || vmVolumes.get(0).getInstanceId() == null) {
+                LOG.error(String.format("Failed to create VolumeInfo of VM [id: null] volumes due to: [%s].", e.getMessage()), e);
+            } else {
+                LOG.error(String.format("Failed to create VolumeInfo of VM [id: %s] volumes due to: [%s].", vmVolumes.get(0).getInstanceId(), e.getMessage()), e);
+            }
+            throw e;
+        }
     }
 
     @Override
