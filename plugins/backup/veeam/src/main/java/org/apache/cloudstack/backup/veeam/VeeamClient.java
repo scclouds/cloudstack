@@ -50,8 +50,6 @@ import org.apache.cloudstack.backup.veeam.api.HierarchyItems;
 import org.apache.cloudstack.backup.veeam.api.Job;
 import org.apache.cloudstack.backup.veeam.api.JobCloneSpec;
 import org.apache.cloudstack.backup.veeam.api.Link;
-import org.apache.cloudstack.backup.veeam.api.ObjectInJob;
-import org.apache.cloudstack.backup.veeam.api.ObjectsInJob;
 import org.apache.cloudstack.backup.veeam.api.Ref;
 import org.apache.cloudstack.backup.veeam.api.RestoreSession;
 import org.apache.cloudstack.backup.veeam.api.Task;
@@ -473,6 +471,10 @@ public class VeeamClient {
                         + "repository associated with backup job [id: %s, uid: %s, backupServerId: %s, name: %s].",
                         parentJob.getId(), parentJob.getUid(), parentJob.getBackupServerId(), parentJob.getName()));
             }
+            if (checkIfBackupAlreadyExistsAndIsDisabled(clonedJobName)) {
+                LOG.debug(String.format("Job with name [%s] already exists in Veeam, but it is disable. Enabling it now.", clonedJobName));
+                return enableJob(clonedJobName);
+            }
             final BackupJobCloneInfo cloneInfo = new BackupJobCloneInfo();
             cloneInfo.setJobName(clonedJobName);
             cloneInfo.setFolderName(clonedJobName);
@@ -486,11 +488,36 @@ public class VeeamClient {
         return false;
     }
 
+    private boolean enableJob(String clonedJobName) {
+        String action = "if ($job) { Enable-VBRJob -Job $job } else { Write-Output \"Failed\" }";
+        return checkJobAndDoAction(clonedJobName, action);
+    }
+
+    private boolean checkIfBackupAlreadyExistsAndIsDisabled(String clonedJobName) {
+        String action = "if ($job) { $job.IsScheduleEnabled -eq $False -or $job.Options.JobOptions.RunManually -eq $True } else { Write-Output \"Failed\" }";
+        return checkJobAndDoAction(clonedJobName, action);
+    }
+
+    private boolean checkJobAndDoAction(String clonedJobName, String action) {
+        List<String> cmds = Arrays.asList(
+                String.format("$job = Get-VBRJob -Name \"%s\"", clonedJobName),
+                action
+        );
+        Pair<Boolean, String> result = executePowerShellCommands(cmds);
+        return result.first() && !result.second().contains("Failed");
+    }
+
     public boolean addVMToVeeamJob(final String jobId, final String vmwareInstanceName, final String vmwareDcName) {
         LOG.debug("Trying to add VM to backup offering that is Veeam job: " + jobId);
         try {
             final String heirarchyId = findDCHierarchy(vmwareDcName);
             final String veeamVmRefId = lookupVM(heirarchyId, vmwareInstanceName);
+            if (checkIfVmAlreadyExistsInJob(jobId, vmwareInstanceName)) {
+                LOG.debug(String.format("VM [name: %s] is already assigned to the Backup Job [%s].", vmwareInstanceName, jobId));
+                return true;
+            }
+
+            LOG.debug(String.format("Trying to add VM [name: %s] to job [%s].", vmwareInstanceName, jobId));
             final CreateObjectInJobSpec vmToBackupJob = new CreateObjectInJobSpec();
             vmToBackupJob.setObjName(vmwareInstanceName);
             vmToBackupJob.setObjRef(veeamVmRefId);
@@ -503,33 +530,18 @@ public class VeeamClient {
         throw new CloudRuntimeException("Failed to add VM to backup offering likely due to timeout, please check Veeam tasks");
     }
 
-    public boolean removeVMFromVeeamJob(final String jobId, final String vmwareInstanceName, final String vmwareDcName) {
-        LOG.debug("Trying to remove VM from backup offering that is a Veeam job: " + jobId);
-        try {
-            final String hierarchyId = findDCHierarchy(vmwareDcName);
-            final String veeamVmRefId = lookupVM(hierarchyId, vmwareInstanceName);
-            final HttpResponse response = get(String.format("/jobs/%s/includes", jobId));
-            checkResponseOK(response);
-            final ObjectMapper objectMapper = new XmlMapper();
-            objectMapper.configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
-            final ObjectsInJob jobObjects = objectMapper.readValue(response.getEntity().getContent(), ObjectsInJob.class);
-            if (jobObjects == null || jobObjects.getObjects() == null) {
-                LOG.warn("No objects found in the Veeam job " + jobId);
-                return false;
-            }
-            for (final ObjectInJob jobObject : jobObjects.getObjects()) {
-                if (jobObject.getName().equals(vmwareInstanceName) && jobObject.getHierarchyObjRef().equals(veeamVmRefId)) {
-                    final HttpResponse deleteResponse = delete(String.format("/jobs/%s/includes/%s", jobId, jobObject.getObjectInJobId()));
-                    return checkTaskStatus(deleteResponse);
-                }
-            }
-            LOG.warn(vmwareInstanceName + " VM was not found to be attached to Veaam job (backup offering): " + jobId);
-            return false;
-        } catch (final IOException e) {
-            LOG.error("Failed to list Veeam jobs due to:", e);
-            checkResponseTimeOut(e);
-        }
-        return false;
+    private boolean checkIfVmAlreadyExistsInJob(String jobId, String vmwareInstanceName) {
+        jobId = jobId.replace("urn:veeam:Job:", "");
+        LOG.debug(String.format("Checking if VM [name: %s] is already assigned to the Backup Job [name: %s].", vmwareInstanceName, jobId));
+        List<String> cmds = Arrays.asList(
+                String.format("$job = (Get-VBRJob ^| Where-Object { $_.Id -eq '%s' })", jobId),
+                "if ($job) { ",
+                String.format("$vm = Get-VBRJobObject -Job $job -Name '%s'", vmwareInstanceName),
+                "if ($vm) { Write-Output \"VM has already in Job\" } else  { Write-Output \"False\" }",
+                "} else { Write-Output \"False\" }"
+        );
+        Pair<Boolean, String> result = executePowerShellCommands(cmds);
+        return result.first() && !result.second().contains("False");
     }
 
     public boolean restoreFullVM(final String vmwareInstanceName, final String restorePointId) {
@@ -537,7 +549,7 @@ public class VeeamClient {
         try {
             final HttpResponse response = post(String.format("/vmRestorePoints/%s?action=restore", restorePointId), null);
             return checkTaskStatus(response);
-        } catch (final IOException e) {
+        } catch (final Exception e) {
             LOG.error("Failed to restore full VM due to: ", e);
             checkResponseTimeOut(e);
         }
@@ -588,6 +600,22 @@ public class VeeamClient {
                 "if ($job) { Set-VBRJobSchedule -Job $job -Daily -At \"11:00\" -DailyKind Weekdays }"
         ));
         return result.first() && !result.second().isEmpty() && !result.second().contains(FAILED_TO_DELETE);
+    }
+
+    public boolean disableJob(final String jobName) {
+        String separator = ";";
+        String action = String.join(separator,
+                "if ($job) {",
+                "if ($job.Options.JobOptions.RunManually -eq $False) { ",
+                "Disable-VBRJob -Job $job",
+                "$repo = Get-VBRBackupRepository",
+                "Sync-VBRBackupRepository -Repository $repo",
+                "}",
+                "} else {",
+                "Write-Output \"Failed\"",
+                "Exit 1",
+                "}");
+        return checkJobAndDoAction(jobName, action);
     }
 
     public boolean deleteJobAndBackup(final String jobName) {
@@ -651,7 +679,7 @@ public class VeeamClient {
             final String backupName = parts[0];
             if (backupName != null && backupName.contains(BACKUP_IDENTIFIER)) {
                 final String[] names = backupName.split(BACKUP_IDENTIFIER);
-                sizes.put(names[names.length - 1], new Backup.Metric(Long.valueOf(parts[1]), Long.valueOf(parts[2])));
+                sizes.put(names[0], new Backup.Metric(Long.valueOf(parts[1]), Long.valueOf(parts[2])));
             }
         }
         return sizes;
@@ -659,6 +687,7 @@ public class VeeamClient {
 
     private Backup.RestorePoint getRestorePointFromBlock(String[] parts) {
         LOG.debug(String.format("Processing block of restore points: [%s].", StringUtils.join(parts, ", ")));
+        List<String> paths = new ArrayList<>();
         String id = null;
         String created = null;
         String type = null;
@@ -672,16 +701,31 @@ public class VeeamClient {
             } else if (part.matches("Type(\\s)+:(.)*")) {
                 String [] split = part.split(":");
                 type = split[1].trim();
+            } else if (part.matches("Path(\\s)+:(.)*")) {
+                String diskPath = part.split(":")[1].trim();
+                String path = diskPath.split("/")[1].replace(".vmdk", "");
+                paths.add(path);
             }
         }
-        return new Backup.RestorePoint(id, created, type);
+        return new Backup.RestorePoint(id, created, type, paths);
     }
 
     public List<Backup.RestorePoint> listRestorePoints(String backupName, String vmInternalName) {
         final List<String> cmds = Arrays.asList(
                 String.format("$backup = Get-VBRBackup -Name \"%s\"", backupName),
-                String.format("if ($backup) { $restore = (Get-VBRRestorePoint -Backup:$backup -Name \"%s\" ^| Where-Object {$_.IsConsistent -eq $true})", vmInternalName),
-                "if ($restore) { $restore ^| Format-List } }"
+                "if ($backup) {",
+                  String.format("$restorePoints = (Get-VBRRestorePoint -Backup:$backup -Name \"%s\" ^| Where-Object {$_.IsConsistent -eq $true})", vmInternalName),
+                  "if ($restorePoints) {",
+                    "ForEach ($restore in $restorePoints) {",
+                      "$restoreId = 'Id : ' + $restore.Id.Guid",
+                      "$creationTime = 'CreationTime : ' + $restore.CreationTime.ToString('MM/dd/yyyy HH:mm:ss')",
+                      "$type = 'Type : ' + $restore.Type",
+                      "$path = 'Path : '",
+                      "$paths = $restore.AuxData.Disks.Path ^| ForEach-Object { $path + $_ }",
+                      "Write-Output $restoreId $creationTime $type $paths `r`n",
+                    "}",
+                  "}",
+                "}"
         );
         Pair<Boolean, String> response = executePowerShellCommands(cmds);
         final List<Backup.RestorePoint> restorePoints = new ArrayList<>();
