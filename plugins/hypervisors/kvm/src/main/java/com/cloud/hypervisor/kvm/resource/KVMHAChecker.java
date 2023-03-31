@@ -20,6 +20,8 @@ import java.util.List;
 import java.util.concurrent.Callable;
 import java.util.stream.Collectors;
 
+import com.cloud.agent.properties.AgentProperties;
+import com.cloud.agent.properties.AgentPropertiesFileHandler;
 import org.apache.log4j.Logger;
 
 import com.cloud.utils.script.OutputInterpreter;
@@ -29,7 +31,7 @@ public class KVMHAChecker extends KVMHABase implements Callable<Boolean> {
     private static final Logger s_logger = Logger.getLogger(KVMHAChecker.class);
     private List<NfsStoragePool> nfsStoragePools;
     private String hostIp;
-    private long heartBeatCheckerTimeout = 360000; // 6 minutes
+    private long heartBeatCheckerTimeout = AgentPropertiesFileHandler.getPropertyValue(AgentProperties.KVM_HEARTBEAT_CHECKER_TIMEOUT);
 
     public KVMHAChecker(List<NfsStoragePool> pools, String host) {
         this.nfsStoragePools = pools;
