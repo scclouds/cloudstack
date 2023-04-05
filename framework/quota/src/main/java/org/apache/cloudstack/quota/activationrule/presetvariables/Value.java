@@ -41,6 +41,7 @@ public class Value extends GenericPresetVariable {
     private Storage storage;
     private ComputingResources computingResources;
     private BackupOffering backupOffering;
+    private String state;
 
     public Host getHost() {
         return host;
@@ -184,5 +185,14 @@ public class Value extends GenericPresetVariable {
     public void setBackupOffering(BackupOffering backupOffering) {
         this.backupOffering = backupOffering;
         fieldNamesToIncludeInToString.add("backupOffering");
+    }
+
+    public String getState() {
+        return state;
+    }
+
+    public void setState(String state) {
+        this.state = state;
+        fieldNamesToIncludeInToString.add("state");
     }
 }
