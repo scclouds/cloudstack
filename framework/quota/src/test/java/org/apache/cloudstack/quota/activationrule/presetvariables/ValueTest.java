@@ -136,4 +136,12 @@ public class ValueTest {
         variable.setBackupOffering(null);
         Assert.assertTrue(variable.fieldNamesToIncludeInToString.contains("backupOffering"));
     }
+
+    @Test
+    public void setStateTestAddFieldStateToCollection() {
+        Value variable = new Value();
+        variable.setState(null);
+        Assert.assertTrue(variable.fieldNamesToIncludeInToString.contains("state"));
+    }
+
 }

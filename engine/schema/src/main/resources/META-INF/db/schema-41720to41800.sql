@@ -1601,3 +1601,19 @@ WHERE
 
 -- create_public_parameter_on_roles. #6960
 ALTER TABLE `cloud`.`roles` ADD COLUMN `public_role` tinyint(1) NOT NULL DEFAULT '1' COMMENT 'Indicates whether the role will be visible to all users (public) or only to root admins (private). If this parameter is not specified during the creation of the role its value will be defaulted to true (public).';
+
+
+CREATE TABLE IF NOT EXISTS `cloud_usage`.`usage_networks` (
+  `id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+  `network_offering_id` bigint(20) unsigned NOT NULL,
+  `zone_id` bigint(20) unsigned NOT NULL,
+  `network_id` bigint(20) unsigned NOT NULL,
+  `account_id` bigint(20) unsigned NOT NULL,
+  `domain_id` bigint(20) unsigned NOT NULL,
+  `state` varchar(100) DEFAULT NULL,
+  `removed` datetime DEFAULT NULL,
+  `created` datetime NOT NULL,
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB CHARSET=utf8;
+
+ALTER TABLE `cloud_usage`.`cloud_usage` ADD COLUMN state VARCHAR(100) DEFAULT NULL;

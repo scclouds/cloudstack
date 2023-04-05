@@ -1120,6 +1120,10 @@ public class EventTypes {
         entityEventDetails.put(EVENT_LIVE_PATCH_SYSTEMVM, "SystemVMs");
     }
 
+    public static boolean isNetworkEvent(String eventType) {
+        return EVENT_NETWORK_CREATE.equals(eventType) || EVENT_NETWORK_DELETE.equals(eventType) ||
+                EVENT_NETWORK_UPDATE.equals(eventType);
+    }
     public static String getEntityForEvent(String eventName) {
         Object entityClass = entityEventDetails.get(eventName);
         if (entityClass == null) {
