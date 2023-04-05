@@ -44,6 +44,7 @@ import java.util.TimeZone;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
+import com.vmware.vim25.StorageIOAllocationInfo;
 import javax.naming.ConfigurationException;
 import javax.xml.datatype.XMLGregorianCalendar;
 
@@ -68,6 +69,7 @@ import org.apache.commons.collections.MapUtils;
 import org.apache.commons.lang.ArrayUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang.math.NumberUtils;
+import org.apache.commons.lang3.ObjectUtils;
 import org.apache.log4j.Logger;
 import org.apache.log4j.NDC;
 import org.joda.time.Duration;
@@ -860,6 +862,8 @@ public class VmwareResource extends ServerResourceBase implements StoragePoolRes
         boolean managed = cmd.isManaged();
         String poolUUID = cmd.getPoolUuid();
         String chainInfo = cmd.getChainInfo();
+        Long newMinIops = cmd.getNewMinIops();
+        Long newMaxIops = cmd.getNewMaxIops();
         boolean useWorkerVm = false;
 
         VmwareContext context = getServiceContext();
@@ -874,7 +878,7 @@ public class VmwareResource extends ServerResourceBase implements StoragePoolRes
                         oldSize / Float.valueOf(ResourceType.bytesToMiB), newSize / Float.valueOf(ResourceType.bytesToMiB), vmName);
                 s_logger.error(errorMsg);
                 throw new Exception(errorMsg);
-            } else if (newSize == oldSize) {
+            } else if (newSize == oldSize && ObjectUtils.allNull(newMaxIops, newMinIops)) {
                 return new ResizeVolumeAnswer(cmd, true, "success", newSize * ResourceType.bytesToKiB);
             }
 
@@ -964,11 +968,21 @@ public class VmwareResource extends ServerResourceBase implements StoragePoolRes
             VirtualDisk disk = getDiskAfterResizeDiskValidations(vmMo, path);
             String vmdkAbsFile = getAbsoluteVmdkFile(disk);
 
+            StorageIOAllocationInfo limitIops = disk.getStorageIOAllocation();
+            if (ObjectUtils.allNotNull(newMinIops, newMaxIops)) {
+                Long iops = newMinIops + newMaxIops;
+                s_logger.debug(LogUtils.logGsonWithoutException("Adding [%s] as the new IOPS limit of disk [%s].", iops, disk));
+                StorageIOAllocationInfo newIops = new StorageIOAllocationInfo();
+                newIops.setLimit(iops);
+                limitIops = newIops;
+            }
+
             if (vmdkAbsFile != null && !vmdkAbsFile.isEmpty()) {
                 vmMo.updateAdapterTypeIfRequired(vmdkAbsFile);
             }
 
             disk.setCapacityInKB(newSize);
+            disk.setStorageIOAllocation(limitIops);
 
             VirtualDeviceConfigSpec deviceConfigSpec = new VirtualDeviceConfigSpec();
 
@@ -5054,6 +5068,29 @@ public class VmwareResource extends ServerResourceBase implements StoragePoolRes
                     if (disk.getKey() == diskId) {
                         volumePath = vmMo.getVmdkFileBaseName(disk);
                     }
+            }
+            if (cmd.getNewIops() != null) {
+                String vmwareDocumentation = "https://kb.vmware.com/s/article/68164";
+                Long newIops = cmd.getNewIops();
+                VirtualDisk disk = vmMo.getDiskDevice(volumePath, true).first();
+                try {
+                    s_logger.debug(LogUtils.logGsonWithoutException("Trying to change disk [%s] IOPS to [%s].", disk, newIops));
+                    VirtualMachineConfigSpec vmConfigSpec = new VirtualMachineConfigSpec();
+                    VirtualDeviceConfigSpec deviceConfigSpec = new VirtualDeviceConfigSpec();
+
+                    StorageIOAllocationInfo storageIOAllocation = new StorageIOAllocationInfo();
+                    storageIOAllocation.setLimit(newIops);
+                    disk.setStorageIOAllocation(storageIOAllocation);
+
+                    deviceConfigSpec.setDevice(disk);
+                    deviceConfigSpec.setOperation(VirtualDeviceConfigSpecOperation.EDIT);
+                    vmConfigSpec.getDeviceChange().add(deviceConfigSpec);
+                    vmMo.configureVm(vmConfigSpec);
+                } catch (Exception e) {
+                    s_logger.error(LogUtils.logGsonWithoutException("Failed to change disk [%s] IOPS to [%s] due to [%s]. This happens "
+                            + "when the disk controller is IDE. Please read this documentation for more information: [%s]. ", disk, newIops,
+                            e.getMessage(), vmwareDocumentation), e);
+                }
             }
             VirtualMachineDiskInfoBuilder diskInfoBuilder = vmMo.getDiskInfoBuilder();
             chainInfo = _gson.toJson(diskInfoBuilder.getDiskInfoByBackingFileBaseName(volumePath, targetDsMo.getName()));
