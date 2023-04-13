@@ -63,9 +63,6 @@ import org.springframework.test.context.ContextConfiguration;
 import org.springframework.test.context.support.AnnotationConfigContextLoader;
 
 import com.cloud.hypervisor.vmware.mo.VirtualMachineMO;
-import com.cloud.storage.VolumeVO;
-import com.vmware.vim25.VirtualDisk;
-import com.vmware.vim25.VirtualDiskFlatVer2BackingInfo;
 
 import java.util.Date;
 import java.util.HashMap;

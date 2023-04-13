@@ -36,8 +36,6 @@ import org.apache.commons.lang3.builder.HashCodeBuilder;
 import com.cloud.network.Networks.AddressFormat;
 import com.cloud.network.Networks.Mode;
 import com.cloud.utils.db.GenericDao;
-import org.apache.commons.lang3.builder.EqualsBuilder;
-import org.apache.commons.lang3.builder.HashCodeBuilder;
 
 @Entity
 @Table(name = "nics")
@@ -419,15 +417,5 @@ public class NicVO implements Nic {
 
     public void setMtu(Integer mtu) {
         this.mtu = mtu;
-    }
-
-    @Override
-    public int hashCode() {
-        return new HashCodeBuilder(17, 31).append(id).toHashCode();
-    }
-
-    @Override
-    public boolean equals(Object obj) {
-        return EqualsBuilder.reflectionEquals(this, obj);
     }
 }

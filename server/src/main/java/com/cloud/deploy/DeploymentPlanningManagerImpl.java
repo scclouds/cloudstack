@@ -32,6 +32,7 @@ import java.util.stream.Collectors;
 import javax.inject.Inject;
 import javax.naming.ConfigurationException;
 
+import com.cloud.host.dao.HostTagsDao;
 import org.apache.cloudstack.affinity.AffinityGroupDomainMapVO;
 import com.cloud.storage.VMTemplateVO;
 import com.cloud.storage.dao.VMTemplateDao;
@@ -43,9 +44,11 @@ import com.cloud.utils.fsm.StateMachine2;
 
 import org.apache.cloudstack.framework.config.ConfigKey;
 import org.apache.cloudstack.framework.config.Configurable;
+import org.apache.cloudstack.utils.jsinterpreter.TagAsRuleHelper;
 import org.apache.commons.collections.CollectionUtils;
 import org.apache.commons.collections.MapUtils;
 import org.apache.commons.lang3.StringUtils;
+import org.apache.commons.lang3.BooleanUtils;
 import org.apache.log4j.Logger;
 import org.apache.cloudstack.affinity.AffinityGroupProcessor;
 import org.apache.cloudstack.affinity.AffinityGroupService;
@@ -429,9 +432,15 @@ StateListener<State, VirtualMachine.Event, VirtualMachine>, Configurable {
 
             if (offering.getHostTag() != null) {
                 _hostDao.loadHostTags(host);
-                if (!(host.getHostTags() != null && host.getHostTags().contains(offering.getHostTag()))) {
-                    s_logger.debug(String.format("Cannot deploy VM [%s] to the last host [%s] because this host does not contain the tags [%s] used by the VM offering [%s].",
+                List<String> hostTags = host.getHostTags();
+                if (BooleanUtils.isFalse(host.getIsTagARule()) && !(hostTags != null && host.getHostTags().contains(offering.getHostTag()))) {
+                    s_logger.debug(String.format("Cannot deploy VM's [%s] to the last host [%s] because this host does not contain the tags [%s] used by the VM offering [%s].",
                             vm.getUuid(), host.getUuid(), offering.getHostTag(), offering.getUuid()));
+                    return null;
+                } else if (BooleanUtils.isTrue(host.getIsTagARule()) && !TagAsRuleHelper.interpretTagAsRule(host.getHostTags().get(0), offering.getHostTag(),
+                        HostTagsDao.hostTagRuleExecutionTimeout.value())) {
+                    s_logger.debug(String.format("Cannot deploy VM [%s] to the last host [%s] because this host's tag rule [%s] does not accept the tags [%s] of the VM's offering.",
+                            vm.getUuid(), host.getUuid(), host.getHostTags(), offering.getHostTag()));
                     return null;
                 }
             }
@@ -1353,7 +1362,7 @@ StateListener<State, VirtualMachine.Event, VirtualMachine>, Configurable {
 
             if (vmRequiresSharedStorage) {
                 // check shared pools
-                List<StoragePoolVO> allPoolsInCluster = _storagePoolDao.findPoolsByTags(clusterVO.getDataCenterId(), clusterVO.getPodId(), clusterVO.getId(), null);
+                List<StoragePoolVO> allPoolsInCluster = _storagePoolDao.findPoolsByTags(clusterVO.getDataCenterId(), clusterVO.getPodId(), clusterVO.getId(), null, false, 0);
                 for (StoragePoolVO pool : allPoolsInCluster) {
                     if (!allocatorAvoidOutput.shouldAvoid(pool)) {
                         // there's some pool in the cluster that is not yet in avoid set
@@ -1366,7 +1375,7 @@ StateListener<State, VirtualMachine.Event, VirtualMachine>, Configurable {
             if (vmRequiresLocalStorege) {
                 // check local pools
                 List<StoragePoolVO> allLocalPoolsInCluster =
-                        _storagePoolDao.findLocalStoragePoolsByTags(clusterVO.getDataCenterId(), clusterVO.getPodId(), clusterVO.getId(), null);
+                        _storagePoolDao.findLocalStoragePoolsByTags(clusterVO.getDataCenterId(), clusterVO.getPodId(), clusterVO.getId(), null, false);
                 for (StoragePoolVO pool : allLocalPoolsInCluster) {
                     if (!allocatorAvoidOutput.shouldAvoid(pool)) {
                         // there's some pool in the cluster that is not yet

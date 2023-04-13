@@ -32,10 +32,12 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Random;
+import java.util.stream.Collectors;
 
 import javax.inject.Inject;
 import javax.naming.ConfigurationException;
 
+import com.cloud.host.HostTagVO;
 import com.cloud.exception.StorageConflictException;
 import com.cloud.exception.StorageUnavailableException;
 import org.apache.cloudstack.annotation.AnnotationService;
@@ -842,7 +844,7 @@ public class ResourceManagerImpl extends ManagerBase implements ResourceManager,
                                     if (s_logger.isTraceEnabled()) {
                                         s_logger.trace("Adding Host Tags for KVM host, tags:  :" + hostTags);
                                     }
-                                    _hostTagsDao.persist(host.getId(), hostTags);
+                                    _hostTagsDao.persist(host.getId(), hostTags, false);
                                 }
                                 hosts.add(host);
 
@@ -1835,7 +1837,7 @@ public class ResourceManagerImpl extends ManagerBase implements ResourceManager,
             if (s_logger.isDebugEnabled()) {
                 s_logger.debug("Updating Host Tags to :" + hostTags);
             }
-            _hostTagsDao.persist(hostId, new ArrayList(new HashSet<String>(hostTags)));
+            _hostTagsDao.persist(hostId, new ArrayList(new HashSet<String>(hostTags)), cmd.getIsTagARule());
         }
 
         final String url = cmd.getUrl();
@@ -2181,7 +2183,7 @@ public class ResourceManagerImpl extends ManagerBase implements ResourceManager,
             final List<String> implicitHostTags = ssCmd.getHostTags();
             if (!implicitHostTags.isEmpty()) {
                 if (hostTags == null) {
-                    hostTags = _hostTagsDao.getHostTags(host.getId());
+                    hostTags = _hostTagsDao.getHostTags(host.getId()).parallelStream().map(HostTagVO::getTag).collect(Collectors.toList());
                 }
                 if (hostTags != null) {
                     implicitHostTags.removeAll(hostTags);
@@ -2209,7 +2211,7 @@ public class ResourceManagerImpl extends ManagerBase implements ResourceManager,
         host.setManagementServerId(_nodeId);
         host.setStorageUrl(startup.getIqn());
         host.setLastPinged(System.currentTimeMillis() >> 10);
-        host.setHostTags(hostTags);
+        host.setHostTags(hostTags, false);
         host.setDetails(details);
         if (startup.getStorageIpAddressDeux() != null) {
             host.setStorageIpAddressDeux(startup.getStorageIpAddressDeux());
@@ -3193,7 +3195,7 @@ public class ResourceManagerImpl extends ManagerBase implements ResourceManager,
 
     @Override
     public String getHostTags(final long hostId) {
-        final List<String> hostTags = _hostTagsDao.getHostTags(hostId);
+        final List<String> hostTags = _hostTagsDao.getHostTags(hostId).parallelStream().map(HostTagVO::getTag).collect(Collectors.toList());
         if (hostTags == null) {
             return null;
         } else {
