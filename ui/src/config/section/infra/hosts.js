@@ -63,7 +63,7 @@ export default {
       icon: 'edit-outlined',
       label: 'label.edit',
       dataView: true,
-      args: ['name', 'hosttags', 'oscategoryid'],
+      args: ['name', 'hosttags', 'istagarule', 'oscategoryid'],
       mapping: {
         oscategoryid: {
           api: 'listOsCategories'

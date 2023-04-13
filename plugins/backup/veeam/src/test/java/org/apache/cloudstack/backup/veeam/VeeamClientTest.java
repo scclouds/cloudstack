@@ -17,6 +17,7 @@
 
 package org.apache.cloudstack.backup.veeam;
 
+import com.cloud.utils.Pair;
 import static com.github.tomakehurst.wiremock.client.WireMock.aResponse;
 import static com.github.tomakehurst.wiremock.client.WireMock.get;
 import static com.github.tomakehurst.wiremock.client.WireMock.getRequestedFor;

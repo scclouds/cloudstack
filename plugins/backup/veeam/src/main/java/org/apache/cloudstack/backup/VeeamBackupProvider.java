@@ -51,7 +51,6 @@ import com.cloud.hypervisor.vmware.VmwareDatacenterZoneMap;
 import com.cloud.hypervisor.vmware.dao.VmwareDatacenterDao;
 import com.cloud.hypervisor.vmware.dao.VmwareDatacenterZoneMapDao;
 import com.cloud.serializer.GsonHelper;
-import com.cloud.storage.VolumeVO;
 import com.cloud.utils.Pair;
 import com.cloud.utils.component.AdapterBase;
 import com.cloud.utils.db.Transaction;
