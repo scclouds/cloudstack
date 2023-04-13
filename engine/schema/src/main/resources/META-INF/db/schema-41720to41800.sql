@@ -411,8 +411,7 @@ GROUP BY
     `service_offering`.`id`;
 
 -- Add cidr_list column to load_balancing_rules
-ALTER TABLE `cloud`.`load_balancing_rules`
-ADD cidr_list VARCHAR(4096);
+ALTER TABLE `cloud`.`load_balancing_rules` ADD IF NOT EXISTS cidr_list VARCHAR(4096);
 
 -- savely add resources in parallel
 -- PR#5984 Create table to persist VM stats.
@@ -1005,7 +1004,7 @@ UPDATE `cloud`.`networks` ntwk
 ----- PR Quota custom tariffs #5909---
 -- Create column 'uuid'
 ALTER TABLE cloud_usage.quota_tariff
-    ADD COLUMN  `uuid` varchar(40);
+    ADD COLUMN IF NOT EXISTS `uuid` varchar(40);
 
 UPDATE  cloud_usage.quota_tariff
 SET     uuid = UUID()
@@ -1017,7 +1016,7 @@ ALTER TABLE cloud_usage.quota_tariff
 
 -- Create column 'name'
 ALTER TABLE cloud_usage.quota_tariff
-    ADD COLUMN  `name` text
+    ADD COLUMN IF NOT EXISTS   `name` text
     COMMENT     'A name, deﬁned by the user, to the tariff. This column will be used as identiﬁer along the tariff updates.';
 
 UPDATE  cloud_usage.quota_tariff
@@ -1030,24 +1029,24 @@ ALTER TABLE cloud_usage.quota_tariff
 
 -- Create column 'description'
 ALTER TABLE cloud_usage.quota_tariff
-    ADD COLUMN  `description` text DEFAULT NULL
+    ADD COLUMN IF NOT EXISTS  `description` text DEFAULT NULL
     COMMENT     'The description of the tariff.';
 
 
 -- Create column 'activation_rule'
 ALTER TABLE cloud_usage.quota_tariff
-    ADD COLUMN  `activation_rule` text DEFAULT NULL
+    ADD COLUMN IF NOT EXISTS  `activation_rule` text DEFAULT NULL
     COMMENT     'JS expression that defines when the tariff should be activated.';
 
 
 -- Create column 'removed'
 ALTER TABLE cloud_usage.quota_tariff
-    ADD COLUMN  `removed` datetime DEFAULT NULL;
+    ADD COLUMN IF NOT EXISTS  `removed` datetime DEFAULT NULL;
 
 
 -- Create column 'end_date'
 ALTER TABLE cloud_usage.quota_tariff
-    ADD COLUMN  `end_date` datetime DEFAULT NULL
+    ADD COLUMN IF NOT EXISTS  `end_date` datetime DEFAULT NULL
     COMMENT     'Defines the end date of the tariff.';
 
 
@@ -1222,12 +1221,14 @@ AND     role_id in (SELECT id FROM `cloud`.`roles` WHERE name = 'Read-Only Admin
 INSERT  INTO `cloud`.`role_permissions` (uuid, role_id, rule, permission, sort_order)
 SELECT  UUID(), role_id, 'quotaStatement', 'ALLOW', MAX(sort_order)-1
 FROM    `cloud`.`role_permissions` RP
-WHERE   role_id = (SELECT id FROM `cloud`.`roles` WHERE name = 'Read-Only Admin - Default');
+WHERE   role_id = (SELECT id FROM `cloud`.`roles` WHERE name = 'Read-Only Admin - Default')
+ON DUPLICATE KEY UPDATE `permission`='ALLOW';
 
 INSERT  INTO `cloud`.`role_permissions` (uuid, role_id, rule, permission, sort_order)
 SELECT  UUID(), role_id, 'quotaBalance', 'ALLOW', MAX(sort_order)-2
 FROM    `cloud`.`role_permissions` RP
-WHERE   role_id = (SELECT id FROM `cloud`.`roles` WHERE name = 'Read-Only Admin - Default');
+WHERE   role_id = (SELECT id FROM `cloud`.`roles` WHERE name = 'Read-Only Admin - Default')
+ON DUPLICATE KEY UPDATE `permission`='ALLOW';
 
 UPDATE  `cloud`.`role_permissions`
 SET     sort_order = sort_order + 2
@@ -1238,18 +1239,21 @@ AND     role_id in (SELECT id FROM `cloud`.`roles` WHERE name = 'Read-Only User 
 INSERT  INTO `cloud`.`role_permissions` (uuid, role_id, rule, permission, sort_order)
 SELECT  UUID(), role_id, 'quotaStatement', 'ALLOW', MAX(sort_order)-1
 FROM    `cloud`.`role_permissions` RP
-WHERE   role_id = (SELECT id FROM `cloud`.`roles` WHERE name = 'Read-Only User - Default');
+WHERE   role_id = (SELECT id FROM `cloud`.`roles` WHERE name = 'Read-Only User - Default')
+ON DUPLICATE KEY UPDATE `permission`='ALLOW';
 
 INSERT  INTO `cloud`.`role_permissions` (uuid, role_id, rule, permission, sort_order)
 SELECT  UUID(), role_id, 'quotaBalance', 'ALLOW', MAX(sort_order)-2
 FROM    `cloud`.`role_permissions` RP
-WHERE   role_id = (SELECT id FROM `cloud`.`roles` WHERE name = 'Read-Only User - Default');
+WHERE   role_id = (SELECT id FROM `cloud`.`roles` WHERE name = 'Read-Only User - Default')
+ON DUPLICATE KEY UPDATE `permission`='ALLOW';
 
 -- Add permission for domain admins to call isAccountAllowedToCreateOfferingsWithTags API
 
 INSERT INTO `cloud`.`role_permissions` (`uuid`, `role_id`, `rule`, `permission`)
 SELECT UUID(), `roles`.`id`, 'isAccountAllowedToCreateOfferingsWithTags', 'ALLOW'
-FROM `cloud`.`roles` WHERE `role_type` = 'DomainAdmin';
+FROM `cloud`.`roles` WHERE `role_type` = 'DomainAdmin'
+ON DUPLICATE KEY UPDATE `permission`='ALLOW';
 
 --
 -- Update Configuration Groups and Subgroups
@@ -1514,8 +1518,8 @@ CREATE TABLE IF NOT EXISTS `cloud`.`console_session` (
 );
 
 -- Add assignVolume API permission to default resource admin and domain admin
-INSERT INTO `cloud`.`role_permissions` (`uuid`, `role_id`, `rule`, `permission`) VALUES (UUID(), 2, 'assignVolume', 'ALLOW');
-INSERT INTO `cloud`.`role_permissions` (`uuid`, `role_id`, `rule`, `permission`) VALUES (UUID(), 3, 'assignVolume', 'ALLOW');
+INSERT INTO `cloud`.`role_permissions` (`uuid`, `role_id`, `rule`, `permission`) VALUES (UUID(), 2, 'assignVolume', 'ALLOW') ON DUPLICATE KEY UPDATE `permission`='ALLOW';
+INSERT INTO `cloud`.`role_permissions` (`uuid`, `role_id`, `rule`, `permission`) VALUES (UUID(), 3, 'assignVolume', 'ALLOW') ON DUPLICATE KEY UPDATE `permission`='ALLOW';
 
 -- Increases the precision of the column `quota_used` from 15 to 20, keeping the scale of 8.
 
@@ -1575,22 +1579,6 @@ CREATE VIEW `cloud`.`user_view` AS
 DELETE FROM `cloud`.`snapshot_store_ref`
 WHERE store_role = "Primary" AND store_id IN (SELECT id FROM storage_pool WHERE removed IS NOT NULL);
 
-
-ALTER TABLE `cloud`.`backups` ADD backup_volumes TEXT NULL COMMENT 'details of backedup volumes';
-
--- Populate column backup_volumes in table backups with a GSON
--- formed by concatenating the UUID, type, size, path and deviceId
--- of the volumes of VMs that have some backup offering.
--- Required for the restore process of a backup using Veeam
--- The Gson result can be in one of this formats:
--- When VM has only ROOT disk: [{"uuid":"<uuid>","type":"<type>","size":<size>,"path":"<path>","deviceId":<deviceId>}]
--- When VM has more tha one disk: [{"uuid":"<uuid>","type":"<type>","size":<size>,"path":"<path>","deviceId":<deviceId>}, {"uuid":"<uuid>","type":"<type>","size":<size>,"path":"<path>","deviceId":<deviceId>}, <>]
-UPDATE `cloud`.`backups` b INNER JOIN `cloud`.`vm_instance` vm ON b.vm_id = vm.id SET b.backup_volumes = (SELECT CONCAT("[", GROUP_CONCAT( CONCAT("{\"uuid\":\"", v.uuid, "\",\"type\":\"", v.volume_type, "\",\"size\":", v.`size`, ",\"path\":\"", v.path, "\",\"deviceId\":", v.device_id, "}") SEPARATOR ","), "]") FROM `cloud`.`volumes` v WHERE v.instance_id = vm.id);
-
-ALTER TABLE `cloud`.`vm_instance` ADD backup_name varchar(255) NULL COMMENT 'backup job name when using Veeam provider';
-
-UPDATE `cloud`.`vm_instance` vm INNER JOIN `cloud`.`backup_offering` bo ON vm.backup_offering_id = bo.id SET vm.backup_name = CONCAT(vm.instance_name, "-CSBKP-", vm.uuid);
-
 -- Change usage of VM_DISK_IO_WRITE to use right usage_type
 UPDATE
   `cloud_usage`.`cloud_usage`
@@ -1598,37 +1586,3 @@ SET
   usage_type = 22
 WHERE
   usage_type = 24 AND usage_display like '% io write';
-
--- create_public_parameter_on_roles. #6960
-ALTER TABLE `cloud`.`roles` ADD COLUMN `public_role` tinyint(1) NOT NULL DEFAULT '1' COMMENT 'Indicates whether the role will be visible to all users (public) or only to root admins (private). If this parameter is not specified during the creation of the role its value will be defaulted to true (public).';
-
-
-CREATE TABLE IF NOT EXISTS `cloud_usage`.`usage_networks` (
-  `id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
-  `network_offering_id` bigint(20) unsigned NOT NULL,
-  `zone_id` bigint(20) unsigned NOT NULL,
-  `network_id` bigint(20) unsigned NOT NULL,
-  `account_id` bigint(20) unsigned NOT NULL,
-  `domain_id` bigint(20) unsigned NOT NULL,
-  `state` varchar(100) DEFAULT NULL,
-  `removed` datetime DEFAULT NULL,
-  `created` datetime NOT NULL,
-  PRIMARY KEY (`id`)
-) ENGINE=InnoDB CHARSET=utf8;
-
-ALTER TABLE `cloud_usage`.`cloud_usage` ADD COLUMN state VARCHAR(100) DEFAULT NULL;
-
-CREATE TABLE IF NOT EXISTS `cloud_usage`.`usage_vpc` (
-  `id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
-  `vpc_id` bigint(20) unsigned NOT NULL,
-  `zone_id` bigint(20) unsigned NOT NULL,
-  `account_id` bigint(20) unsigned NOT NULL,
-  `domain_id` bigint(20) unsigned NOT NULL,
-  `state` varchar(100) DEFAULT NULL,
-  `created` datetime NOT NULL,
-  `removed` datetime DEFAULT NULL,
-  PRIMARY KEY (`id`)
-) ENGINE=InnoDB CHARSET=utf8;
-
-ALTER TABLE `cloud_usage`.`cloud_usage` ADD state VARCHAR(100) DEFAULT NULL;
-
