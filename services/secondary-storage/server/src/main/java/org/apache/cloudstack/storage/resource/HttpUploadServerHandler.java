@@ -18,7 +18,6 @@ package org.apache.cloudstack.storage.resource;
 
 import static io.netty.buffer.Unpooled.copiedBuffer;
 import static io.netty.handler.codec.http.HttpHeaders.Names.CONNECTION;
-import static io.netty.handler.codec.http.HttpHeaders.Names.CONTENT_LENGTH;
 import static io.netty.handler.codec.http.HttpHeaders.Names.CONTENT_TYPE;
 
 import java.io.IOException;
@@ -87,6 +86,8 @@ public class HttpUploadServerHandler extends SimpleChannelInboundHandler<HttpObj
 
     private static final String HEADER_HOST = "x-forwarded-host";
 
+    private static final String CONTENT_LENGTH = "content-length";
+
     private static long processTimeout;
 
     public HttpUploadServerHandler(NfsSecondaryStorageResource storageResource) {
@@ -130,7 +131,7 @@ public class HttpUploadServerHandler extends SimpleChannelInboundHandler<HttpObj
                 long contentLength = 0;
 
                 for (Entry<String, String> entry : request.headers()) {
-                    switch (entry.getKey()) {
+                    switch (entry.getKey().toLowerCase()) {
                         case HEADER_SIGNATURE:
                             signature = entry.getValue();
                             break;
@@ -143,7 +144,7 @@ public class HttpUploadServerHandler extends SimpleChannelInboundHandler<HttpObj
                         case HEADER_HOST:
                             hostname = entry.getValue();
                             break;
-                        case HttpHeaders.Names.CONTENT_LENGTH:
+                        case CONTENT_LENGTH:
                             contentLength = Long.parseLong(entry.getValue());
                             break;
                     }
@@ -280,7 +281,7 @@ public class HttpUploadServerHandler extends SimpleChannelInboundHandler<HttpObj
         response.headers().set(CONTENT_TYPE, "text/plain; charset=UTF-8");
         if (!close) {
             // There's no need to add 'content-length' header if this is the last response.
-            response.headers().set(CONTENT_LENGTH, buf.readableBytes());
+            response.headers().set(HttpHeaders.Names.CONTENT_LENGTH, buf.readableBytes());
         }
         // Write the response.
         ChannelFuture future = channel.writeAndFlush(response);
