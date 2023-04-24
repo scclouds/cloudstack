@@ -605,7 +605,7 @@ public class NetworkerBackupProvider extends AdapterBase implements BackupProvid
                         strayBackup.setVmId(vm.getId());
                         strayBackup.setExternalId(strayNetworkerBackup.getId());
                         strayBackup.setType(strayNetworkerBackup.getType());
-                        strayBackup.setDate(strayNetworkerBackup.getSaveTime());
+                        strayBackup.setDate(null);
                         strayBackup.setStatus(Backup.Status.BackedUp);
                         for ( Backup.VolumeInfo thisVMVol : vm.getBackupVolumeList()) {
                             vmBackupSize += (thisVMVol.getSize() / 1024L /1024L);
