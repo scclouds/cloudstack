@@ -252,7 +252,7 @@ public class NetworkerClient {
             backup.setVmId(vm.getId());
             backup.setExternalId(networkerLatestBackup.getId());
             backup.setType(networkerLatestBackup.getType());
-            backup.setDate(networkerLatestBackup.getCreationTime());
+            backup.setDate(null);
             backup.setSize(networkerLatestBackup.getSize().getValue());
             backup.setProtectedSize(networkerLatestBackup.getSize().getValue());
             backup.setStatus(org.apache.cloudstack.backup.Backup.Status.BackedUp);

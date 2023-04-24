@@ -50,7 +50,7 @@
         <status :text="text ? text : ''" />{{ text }}
       </template>
 
-      <template slot="created" slot-scope="item">
+      <template v-slot:created="{ item }">
         {{ $toLocaleDate(item) }}
       </template>
 
