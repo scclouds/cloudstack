@@ -120,8 +120,7 @@ public class VpcDaoImpl extends GenericDaoBase<VpcVO, Long> implements VpcDao {
     public long countByAccountId(long accountId) {
         SearchCriteria<Long> sc = CountByAccountId.create();
         sc.setParameters("accountId", accountId);
-        List<Long> results = customSearch(sc, null);
-        return results.get(0);
+        return customSearch(sc, null).get(0);
     }
 
     @Override

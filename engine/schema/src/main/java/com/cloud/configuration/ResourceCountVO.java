@@ -16,6 +16,9 @@
 // under the License.
 package com.cloud.configuration;
 
+import org.apache.commons.lang3.builder.ReflectionToStringBuilder;
+import org.apache.commons.lang3.builder.ToStringStyle;
+
 import javax.persistence.Column;
 import javax.persistence.Entity;
 import javax.persistence.EnumType;
@@ -99,16 +102,7 @@ public class ResourceCountVO implements ResourceCount {
 
     @Override
     public String toString() {
-        return new StringBuilder("REsourceCount[").append("-")
-            .append(id)
-            .append("-")
-            .append(type)
-            .append("-")
-            .append(accountId)
-            .append("-")
-            .append(domainId)
-            .append("]")
-            .toString();
+        return ReflectionToStringBuilder.toString(this, ToStringStyle.JSON_STYLE);
     }
 
     @Override

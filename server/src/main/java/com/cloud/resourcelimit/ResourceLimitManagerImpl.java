@@ -17,18 +17,20 @@
 package com.cloud.resourcelimit;
 
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.EnumMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
+import java.util.stream.Collectors;
 
 import javax.inject.Inject;
 import javax.naming.ConfigurationException;
 
+import com.cloud.utils.Pair;
 import org.apache.cloudstack.acl.SecurityChecker.AccessType;
 import org.apache.cloudstack.context.CallContext;
 import org.apache.cloudstack.engine.subsystem.api.storage.ObjectInDataStoreStateMachine;
@@ -42,7 +44,9 @@ import org.apache.cloudstack.storage.datastore.db.SnapshotDataStoreVO;
 import org.apache.cloudstack.storage.datastore.db.TemplateDataStoreDao;
 import org.apache.cloudstack.storage.datastore.db.TemplateDataStoreVO;
 import org.apache.cloudstack.user.ResourceReservation;
+import org.apache.commons.collections.CollectionUtils;
 import org.apache.log4j.Logger;
+import org.jetbrains.annotations.NotNull;
 import org.springframework.stereotype.Component;
 
 import com.cloud.alert.AlertManager;
@@ -104,7 +108,6 @@ import com.cloud.utils.db.TransactionCallbackWithExceptionNoReturn;
 import com.cloud.utils.db.TransactionStatus;
 import com.cloud.utils.exception.CloudRuntimeException;
 import com.cloud.vm.VirtualMachineManager;
-import com.cloud.vm.VirtualMachine.State;
 import com.cloud.vm.dao.UserVmDao;
 import com.cloud.vm.dao.VMInstanceDao;
 
@@ -119,11 +122,11 @@ public class ResourceLimitManagerImpl extends ManagerBase implements ResourceLim
     @Inject
     private AlertManager _alertMgr;
     @Inject
-    private AccountDao _accountDao;
+    protected AccountDao _accountDao;
     @Inject
     private ConfigurationDao _configDao;
     @Inject
-    private DomainDao _domainDao;
+    protected DomainDao _domainDao;
     @Inject
     private EntityManager _entityMgr;
     @Inject
@@ -131,11 +134,11 @@ public class ResourceLimitManagerImpl extends ManagerBase implements ResourceLim
     @Inject
     private NetworkDao _networkDao;
     @Inject
-    private ProjectDao _projectDao;
+    protected ProjectDao _projectDao;
     @Inject
     private ProjectAccountDao _projectAccountDao;
     @Inject
-    private ResourceCountDao _resourceCountDao;
+    protected ResourceCountDao _resourceCountDao;
     @Inject
     private ResourceLimitDao _resourceLimitDao;
     @Inject
@@ -486,13 +489,21 @@ public class ResourceLimitManagerImpl extends ManagerBase implements ResourceLim
 
     private List<ResourceCountVO> lockAccountAndOwnerDomainRows(long accountId, final ResourceType type) {
         Set<Long> rowIdsToLock = _resourceCountDao.listAllRowsToUpdate(accountId, ResourceOwnerType.Account, type);
+
+        s_logger.trace(String.format("Locking [%s] rows in table resource_count for [%s] and type [%s]. IDs that will be locked: [%s].", rowIdsToLock.size(), accountId,
+                type, rowIdsToLock));
+
         SearchCriteria<ResourceCountVO> sc = ResourceCountSearch.create();
         sc.setParameters("id", rowIdsToLock.toArray());
         return _resourceCountDao.lockRows(sc, null, true);
     }
 
-    private List<ResourceCountVO> lockDomainRows(long domainId, final ResourceType type) {
+    protected List<ResourceCountVO> lockDomainRows(long domainId, final ResourceType type) {
         Set<Long> rowIdsToLock = _resourceCountDao.listAllRowsToUpdate(domainId, ResourceOwnerType.Domain, type);
+
+        s_logger.trace(String.format("Locking [%s] rows in table resource_count for domain [%s] and resource type [%s]. IDs that will be locked: %s.",
+                rowIdsToLock.size(), domainId, type, rowIdsToLock));
+
         SearchCriteria<ResourceCountVO> sc = ResourceCountSearch.create();
         sc.setParameters("id", rowIdsToLock.toArray());
         return _resourceCountDao.lockRows(sc, null, true);
@@ -775,49 +786,155 @@ public class ResourceLimitManagerImpl extends ManagerBase implements ResourceLim
     }
 
     @Override
-    public List<ResourceCountVO> recalculateResourceCount(Long accountId, Long domainId, Integer typeId) throws InvalidParameterValueException, CloudRuntimeException, PermissionDeniedException {
+    public List<ResourceCountVO> recalculateResourceCount(Long accountId, Long domainId, Integer typeId) throws CloudRuntimeException {
+        s_logger.info(String.format("Recalculating resource count according to the following parameters: account [%s], domain [%s], and resource type [%s].", accountId, domainId,
+                typeId));
+
         Account callerAccount = CallContext.current().getCallingAccount();
-        long count = 0;
-        List<ResourceCountVO> counts = new ArrayList<ResourceCountVO>();
-        List<ResourceType> resourceTypes = new ArrayList<ResourceType>();
-
-        ResourceType resourceType = null;
-
-        if (typeId != null) {
-            for (ResourceType type : Resource.ResourceType.values()) {
-                if (type.getOrdinal() == typeId.intValue()) {
-                    resourceType = type;
-                }
-            }
-            if (resourceType == null) {
-                throw new InvalidParameterValueException("Please specify valid resource type");
-            }
-        }
-
-        DomainVO domain = _domainDao.findById(domainId);
-        if (domain == null) {
-            throw new InvalidParameterValueException("Please specify a valid domain ID.");
-        }
+        Domain domain = _domainDao.findById(domainId);
         _accountMgr.checkAccess(callerAccount, domain);
 
-        if (resourceType != null) {
-            resourceTypes.add(resourceType);
-        } else {
-            resourceTypes = Arrays.asList(Resource.ResourceType.values());
+        Account account = null;
+        if (accountId != null) {
+            account = _accountDao.findById(accountId);
         }
 
-        for (ResourceType type : resourceTypes) {
-            if (accountId != null) {
-                count = recalculateAccountResourceCount(accountId, type);
-                counts.add(new ResourceCountVO(type, count, accountId, ResourceOwnerType.Account));
+        ResourceType resourceType = getResourceType(typeId);
+        List<ResourceCountVO> resourceCounts = new ArrayList<>();
 
-            } else {
-                count = recalculateDomainResourceCount(domainId, type);
-                counts.add(new ResourceCountVO(type, count, domainId, ResourceOwnerType.Domain));
+        if (resourceType != null) {
+            resourceCounts.add(getAccountOrDomainResourceCountRecalculated(account, domain, resourceType));
+        } else {
+            s_logger.debug("As the resource type was not informed, the recalculation will be done for all the resource types.");
+            for (ResourceType type : Resource.ResourceType.values()) {
+                resourceCounts.add(getAccountOrDomainResourceCountRecalculated(account, domain, type));
             }
         }
 
-        return counts;
+        resourceCounts = resourceCounts.stream().filter(Objects::nonNull).collect(Collectors.toList());
+        s_logger.info(String.format("Recalculated resource count for [%s] resources: %s.", resourceCounts.size(), resourceCounts));
+        return resourceCounts;
+    }
+
+    protected ResourceCountVO getAccountOrDomainResourceCountRecalculated(Account account, Domain domain, @NotNull ResourceType type) {
+        if (account != null) {
+            long count = recalculateAccountResourceCount(account, type);
+            return new ResourceCountVO(type, count, account.getId(), ResourceOwnerType.Account);
+        }
+
+        long count = recalculateResourceCountForDomainAndResourceTypeInTransaction(domain, type);
+        return new ResourceCountVO(type, count, domain.getId(), ResourceOwnerType.Domain);
+    }
+
+    /**
+     * Retrieves the {@link ResourceType} according to its ordinal value. If the parameter is null, returns null. If it is an invalid value, throws a
+     * {@link InvalidParameterValueException}.
+     */
+    protected ResourceType getResourceType(Integer typeId) throws InvalidParameterValueException {
+        s_logger.trace(String.format("Retrieving resource type according to ordinal [%s].", typeId));
+        if (typeId == null) {
+            s_logger.trace("Type is null; skipping the retrieval of the resource type.");
+            return null;
+        }
+
+        ResourceType resourceType = ResourceType.fromOrdinal(typeId);
+        if (resourceType == null) {
+            s_logger.trace(String.format("There is no resource type with ordinal [%s].", typeId));
+            throw new InvalidParameterValueException("Please specify a valid resource type.");
+        }
+
+        s_logger.debug(String.format("Found resource type [%s] with ordinal [%s].", resourceType, typeId));
+        return resourceType;
+    }
+
+    @DB
+    protected long recalculateResourceCountForDomainAndResourceTypeInTransaction(final Domain domain, @NotNull ResourceType type) {
+        return Transaction.execute((TransactionCallback<Long>) status -> recalculateResourceCountForDomainAndResourceType(domain, type));
+    }
+
+    /**
+     * Recalculates the resource count of the domain, passing by the whole domain tree (subdomains) and accounts.
+     *
+     * @param domain the domain level to start at.
+     * @param type the resource type to do the recalculation for.
+     * @return the resulting of the resource count.
+     */
+    protected long recalculateResourceCountForDomainAndResourceType(@NotNull Domain domain, @NotNull ResourceType type) {
+        long domainId = domain.getId();
+        lockDomainRows(domainId, type);
+
+        long newResourceCount = getNewResourceCountForDomainAndResourceType(domain, type);
+        _resourceCountDao.setResourceCount(domainId, ResourceOwnerType.Domain, type, newResourceCount);
+
+        ResourceCountVO domainRC = _resourceCountDao.findByOwnerAndType(domainId, ResourceOwnerType.Domain, type);
+        long oldResourceCount = domainRC.getCount();
+        if (oldResourceCount != newResourceCount) {
+            s_logger.info(String.format("The discrepancy in the resource count of resource type [%s] for domain [%s] was fixed during the resource recalculation. Original " +
+                    "count: [%s]; correct count: [%s].", type, domain, oldResourceCount, newResourceCount));
+        }
+
+        return newResourceCount;
+    }
+
+    protected long getNewResourceCountForAccountsOfDomainAndResourceType(@NotNull Domain domain, @NotNull ResourceType type) {
+        long newResourceCount = 0;
+        long domainId = domain.getId();
+
+        s_logger.trace(String.format("Listing active accounts of domain [%s] for resource type [%s] count recalculation.", domain, type));
+        List<AccountVO> accounts = _accountDao.findActiveAccountsForDomain(domainId);
+
+        if (CollectionUtils.isEmpty(accounts)) {
+            s_logger.trace(String.format("Domain [%s] has no accounts.", domain));
+            return newResourceCount;
+        }
+
+        s_logger.debug(String.format("Found [%s] accounts in domain [%s]. Accounts: %s.", accounts.size(), domain, accounts));
+        for (AccountVO account : accounts) {
+            long accountResourceCount = recalculateAccountResourceCount(account, type);
+            newResourceCount += accountResourceCount;
+        }
+
+        return newResourceCount;
+    }
+
+    protected long getNewResourceCountForDomainAndResourceType(@NotNull Domain domain, @NotNull ResourceType type) {
+        long newResourceCount = 0;
+        s_logger.debug(String.format("Recalculating resource count of resource type [%s] for domain [%s].", type, domain));
+
+        long domainId = domain.getId();
+        if (type == ResourceType.project) {
+            newResourceCount += _projectDao.countProjectsForDomain(domainId);
+            s_logger.debug(String.format("Accounted [%s] projects for domain [%s].", newResourceCount, domain));
+        }
+
+        newResourceCount += getNewResourceCountForAccountsOfDomainAndResourceType(domain, type);
+        newResourceCount += getNewResourceCountForSubdomainsAndResourceType(domain, type);
+
+        s_logger.debug(String.format("New resource count of resource type [%s] for domain [%s] is [%s].", type, domain, newResourceCount));
+        return newResourceCount;
+    }
+
+
+    protected long getNewResourceCountForSubdomainsAndResourceType(@NotNull Domain domain, @NotNull ResourceType type) {
+        long newResourceCount = 0;
+        s_logger.trace(String.format("Listing children domains of domain [%s].", domain));
+
+        long domainId = domain.getId();
+        List<DomainVO> domainChildren = _domainDao.findImmediateChildrenForParent(domainId);
+        if (CollectionUtils.isEmpty(domainChildren)) {
+            s_logger.trace(String.format("Domain [%s] has no children domains, returning 0.", domain));
+            return newResourceCount;
+        }
+
+        s_logger.debug(String.format("Found [%s] children of domain [%s]. Children: %s.", domainChildren.size(), domain, domainChildren));
+
+        for (DomainVO childDomain : domainChildren) {
+            s_logger.debug(String.format("Recalculating resource count of resource type [%s] for child domain [%s] of domain [%s].", type, childDomain, domain));
+            long childDomainResourceCount = recalculateResourceCountForDomainAndResourceTypeInTransaction(childDomain, type);
+            newResourceCount += childDomainResourceCount;
+        }
+
+        return newResourceCount;
     }
 
     @DB
@@ -850,63 +967,17 @@ public class ResourceLimitManagerImpl extends ManagerBase implements ResourceLim
         }
     }
 
-    /**
-     * This will take care of re-calculation of resource counts for root and sub-domains
-     * and accounts of the sub-domains also. so just loop through immediate children of root domain
-     *
-     * @param domainId the domain level to start at
-     * @param type the resource type to do the recalculation for
-     * @return the resulting new resource count
-     */
     @DB
-    protected long recalculateDomainResourceCount(final long domainId, final ResourceType type) {
-        return Transaction.execute(new TransactionCallback<Long>() {
-            @Override
-            public Long doInTransaction(TransactionStatus status) {
-                long newResourceCount = 0;
-                lockDomainRows(domainId, type);
-                ResourceCountVO domainRC = _resourceCountDao.findByOwnerAndType(domainId, ResourceOwnerType.Domain, type);
-                long oldResourceCount = domainRC.getCount();
+    protected long recalculateAccountResourceCount(@NotNull Account account, @NotNull ResourceType type) {
+        s_logger.debug(String.format("Recalculating resource count of resource type [%s] for %s.", type, account));
+        long accountId = account.getId();
 
-                List<DomainVO> domainChildren = _domainDao.findImmediateChildrenForParent(domainId);
-                // for each child domain update the resource count
-
-                // calculate project count here
-                if (type == ResourceType.project) {
-                    newResourceCount += _projectDao.countProjectsForDomain(domainId);
-                }
-
-                for (DomainVO childDomain : domainChildren) {
-                    long childDomainResourceCount = recalculateDomainResourceCount(childDomain.getId(), type);
-                    newResourceCount += childDomainResourceCount; // add the child domain count to parent domain count
-                }
-
-                List<AccountVO> accounts = _accountDao.findActiveAccountsForDomain(domainId);
-                for (AccountVO account : accounts) {
-                    long accountResourceCount = recalculateAccountResourceCount(account.getId(), type);
-                    newResourceCount += accountResourceCount; // add account's resource count to parent domain count
-                }
-
-                _resourceCountDao.setResourceCount(domainId, ResourceOwnerType.Domain, type, newResourceCount);
-
-                if (oldResourceCount != newResourceCount) {
-                    s_logger.warn("Discrepency in the resource count has been detected " + "(original count = " + oldResourceCount + " correct count = " + newResourceCount + ") for Type = " + type
-                            + " for Domain ID = " + domainId + " is fixed during resource count recalculation.");
-                }
-
-                return newResourceCount;
-            }
-        });
-    }
-
-    @DB
-    protected long recalculateAccountResourceCount(final long accountId, final ResourceType type) {
-        final Long newCount;
+        Long newCount = null;
         if (type == Resource.ResourceType.user_vm) {
             newCount = _userVmDao.countAllocatedVMsForAccount(accountId, VirtualMachineManager.ResourceCountRunningVMsonly.value());
         } else if (type == Resource.ResourceType.volume) {
             long virtualRouterCount = _vmDao.findIdsOfAllocatedVirtualRoutersForAccount(accountId).size();
-            newCount = _volumeDao.countAllocatedVolumesForAccount(accountId) - virtualRouterCount; // don't count the volumes of virtual router
+            newCount = _volumeDao.countAllocatedVolumesForAccount(accountId) - virtualRouterCount;
         } else if (type == Resource.ResourceType.snapshot) {
             newCount = _snapshotDao.countSnapshotsForAccount(accountId);
         } else if (type == Resource.ResourceType.public_ip) {
@@ -920,91 +991,77 @@ public class ResourceLimitManagerImpl extends ManagerBase implements ResourceLim
         } else if (type == Resource.ResourceType.vpc) {
             newCount = _vpcDao.countByAccountId(accountId);
         } else if (type == Resource.ResourceType.cpu) {
-            newCount = countCpusForAccount(accountId);
+            newCount = getCpuAndMemoryCountForAccount(accountId).first();
         } else if (type == Resource.ResourceType.memory) {
-            newCount = calculateMemoryForAccount(accountId);
+            newCount = getCpuAndMemoryCountForAccount(accountId).second();
         } else if (type == Resource.ResourceType.primary_storage) {
             List<Long> virtualRouters = _vmDao.findIdsOfAllocatedVirtualRoutersForAccount(accountId);
             newCount = _volumeDao.primaryStorageUsedForAccount(accountId, virtualRouters);
         } else if (type == Resource.ResourceType.secondary_storage) {
             newCount = calculateSecondaryStorageForAccount(accountId);
-        } else {
-            throw new InvalidParameterValueException("Unsupported resource type " + type);
         }
+
+        s_logger.debug(String.format("New resource count of resource type [%s] for %s is [%s].", type, account, newCount));
 
         long oldCount = 0;
         final ResourceCountVO accountRC = _resourceCountDao.findByOwnerAndType(accountId, ResourceOwnerType.Account, type);
         if (accountRC != null) {
             oldCount = accountRC.getCount();
+            s_logger.trace(String.format("Found [%s] as previous resource count of resource type [%s] for %s.", oldCount, type, account));
         }
 
         if (newCount == null || !newCount.equals(oldCount)) {
+            Long finalNewCount = newCount;
+            long finalOldCount = oldCount;
             Transaction.execute(new TransactionCallbackNoReturn() {
                 @Override
                 public void doInTransactionWithoutResult(TransactionStatus status) {
                     lockAccountAndOwnerDomainRows(accountId, type);
-                    _resourceCountDao.setResourceCount(accountId, ResourceOwnerType.Account, type, (newCount == null) ? 0 : newCount);
+                    long countToUpdate = finalNewCount == null ? 0 : finalNewCount;
+                    s_logger.debug(String.format("New resource count of resource type [%s] for %s is different from current resource count. Current count: [%s]; " +
+                            "new count: [%s]. Updating resource count to [%s].", type, account, finalOldCount, finalNewCount, countToUpdate));
+                    _resourceCountDao.setResourceCount(accountId, ResourceOwnerType.Account, type, countToUpdate);
                 }
             });
         }
 
-        // No need to log message for primary and secondary storage because both are recalculating the
-        // resource count which will not lead to any discrepancy.
-        if (newCount != null && !newCount.equals(oldCount) &&
-                type != Resource.ResourceType.primary_storage && type != Resource.ResourceType.secondary_storage) {
-            s_logger.warn("Discrepancy in the resource count " + "(original count=" + oldCount + " correct count = " + newCount + ") for type " + type +
-                    " for account ID " + accountId + " is fixed during resource count recalculation.");
+        if (newCount != null && !newCount.equals(oldCount) && type != Resource.ResourceType.primary_storage && type != Resource.ResourceType.secondary_storage) {
+            s_logger.info(String.format("The discrepancy in the resource count of resource type [%s] for %s was fixed during the resource recalculation. Original " +
+                    "count: [%s]; correct count: [%s].", type, account, oldCount, newCount));
         }
 
-        return (newCount == null) ? 0 : newCount;
+        return newCount == null ? 0 : newCount;
     }
 
-    public long countCpusForAccount(long accountId) {
-        long cputotal = 0;
-        // user vms
+
+    /**
+     * Counts CPU and memory used by account.
+     * @return CPU count (first element) and memory count (second element).
+     */
+    protected Pair<Long, Long> getCpuAndMemoryCountForAccount(long accountId) {
         SearchBuilder<UserVmJoinVO> userVmSearch = _userVmJoinDao.createSearchBuilder();
         userVmSearch.and("accountId", userVmSearch.entity().getAccountId(), Op.EQ);
-        userVmSearch.and("state", userVmSearch.entity().getState(), SearchCriteria.Op.NIN);
+        userVmSearch.and("state", userVmSearch.entity().getState(), Op.NIN);
         userVmSearch.and("displayVm", userVmSearch.entity().isDisplayVm(), Op.EQ);
-        userVmSearch.groupBy(userVmSearch.entity().getId()); // select distinct
+        userVmSearch.groupBy(userVmSearch.entity().getId());
         userVmSearch.done();
 
         SearchCriteria<UserVmJoinVO> sc1 = userVmSearch.create();
         sc1.setParameters("accountId", accountId);
-        if (VirtualMachineManager.ResourceCountRunningVMsonly.value())
-            sc1.setParameters("state", new Object[] {State.Destroyed, State.Error, State.Expunging, State.Stopped});
-        else
-            sc1.setParameters("state", new Object[] {State.Destroyed, State.Error, State.Expunging});
+        sc1.setParameters("state", VirtualMachineManager.ResourceCountRunningVMsonly.value() ?
+                _userVmDao.statesForNotAccountingRunningVmResources :
+                _userVmDao.statesForNotAccountingVmResources);
         sc1.setParameters("displayVm", 1);
-        List<UserVmJoinVO> userVms = _userVmJoinDao.search(sc1,null);
-        for (UserVmJoinVO vm : userVms) {
-            cputotal += Long.valueOf(vm.getCpu());
-        }
-        return cputotal;
-    }
+        List<UserVmJoinVO> userVms = _userVmJoinDao.search(sc1, null);
 
-    public long calculateMemoryForAccount(long accountId) {
-        long ramtotal = 0;
-        // user vms
-        SearchBuilder<UserVmJoinVO> userVmSearch = _userVmJoinDao.createSearchBuilder();
-        userVmSearch.and("accountId", userVmSearch.entity().getAccountId(), Op.EQ);
-        userVmSearch.and("state", userVmSearch.entity().getState(), SearchCriteria.Op.NIN);
-        userVmSearch.and("displayVm", userVmSearch.entity().isDisplayVm(), Op.EQ);
-        userVmSearch.groupBy(userVmSearch.entity().getId()); // select distinct
-        userVmSearch.done();
+        long cpuCount = 0l;
+        long memoryCount = 0l;
 
-        SearchCriteria<UserVmJoinVO> sc1 = userVmSearch.create();
-        sc1.setParameters("accountId", accountId);
-        if (VirtualMachineManager.ResourceCountRunningVMsonly.value())
-            sc1.setParameters("state", new Object[] {State.Destroyed, State.Error, State.Expunging, State.Stopped});
-        else
-            sc1.setParameters("state", new Object[] {State.Destroyed, State.Error, State.Expunging});
-        sc1.setParameters("displayVm", 1);
-        List<UserVmJoinVO> userVms = _userVmJoinDao.search(sc1,null);
         for (UserVmJoinVO vm : userVms) {
-            ramtotal += Long.valueOf(vm.getRamSize());
+            cpuCount += vm.getCpu();
+            memoryCount += vm.getRamSize();
         }
-        return ramtotal;
+        return new Pair<>(cpuCount, memoryCount);
     }
 
     public long calculateSecondaryStorageForAccount(long accountId) {
@@ -1033,20 +1090,16 @@ public class ResourceLimitManagerImpl extends ManagerBase implements ResourceLim
     }
 
     private long calculatePublicIpForAccount(long accountId) {
-        Long dedicatedCount = 0L;
-        Long allocatedCount = 0L;
+        long dedicatedCount = 0L;
 
         List<VlanVO> dedicatedVlans = _vlanDao.listDedicatedVlans(accountId);
         for (VlanVO dedicatedVlan : dedicatedVlans) {
             List<IPAddressVO> ips = _ipAddressDao.listByVlanId(dedicatedVlan.getId());
-            dedicatedCount += new Long(ips.size());
+            dedicatedCount += ips.size();
         }
-        allocatedCount = _ipAddressDao.countAllocatedIPsForAccount(accountId);
-        if (dedicatedCount > allocatedCount) {
-            return dedicatedCount;
-        } else {
-            return allocatedCount;
-        }
+
+        long allocatedCount = _ipAddressDao.countAllocatedIPsForAccount(accountId);
+        return Math.max(dedicatedCount, allocatedCount);
     }
 
     @Override
@@ -1127,18 +1180,19 @@ public class ResourceLimitManagerImpl extends ManagerBase implements ResourceLim
         @Override
         protected void runInContext() {
             s_logger.info("Started resource counters recalculation periodic task.");
+            DomainVO rootDomain = _domainDao.findById(Domain.ROOT_DOMAIN);
             List<DomainVO> domains = _domainDao.findImmediateChildrenForParent(Domain.ROOT_DOMAIN);
             List<AccountVO> accounts = _accountDao.findActiveAccountsForDomain(Domain.ROOT_DOMAIN);
 
             for (ResourceType type : ResourceType.values()) {
-                recalculateDomainResourceCount(Domain.ROOT_DOMAIN, type);
+                recalculateResourceCountForDomainAndResourceTypeInTransaction(rootDomain, type);
                 for (Domain domain : domains) {
-                    recalculateDomainResourceCount(domain.getId(), type);
+                    recalculateResourceCountForDomainAndResourceTypeInTransaction(domain, type);
                 }
 
                 // run through the accounts in the root domain
                 for (AccountVO account : accounts) {
-                    recalculateAccountResourceCount(account.getId(), type);
+                    recalculateAccountResourceCount(account, type);
                 }
             }
         }
