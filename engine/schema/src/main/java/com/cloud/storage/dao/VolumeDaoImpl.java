@@ -505,23 +505,19 @@ public class VolumeDaoImpl extends GenericDaoBase<VolumeVO, Long> implements Vol
 
     @Override
     public long primaryStorageUsedForAccount(long accountId, List<Long> virtualRouters) {
-        SearchCriteria<SumCount> sc;
+        SearchCriteria<SumCount> sc = primaryStorageSearch.create();
         if (!virtualRouters.isEmpty()) {
             sc = primaryStorageSearch2.create();
-            sc.setParameters("virtualRouterVmIds", virtualRouters.toArray(new Object[virtualRouters.size()]));
-        } else {
-            sc = primaryStorageSearch.create();
+            sc.setParameters("virtualRouterVmIds", virtualRouters.toArray(new Object[0]));
         }
+
         sc.setParameters("accountId", accountId);
         sc.setParameters("states", State.Allocated);
         sc.setParameters("NotCountStates", State.Destroy, State.Expunged);
         sc.setParameters("displayVolume", 1);
         List<SumCount> storageSpace = customSearch(sc, null);
-        if (storageSpace != null) {
-            return storageSpace.get(0).sum;
-        } else {
-            return 0;
-        }
+
+        return storageSpace != null ? storageSpace.get(0).sum : 0;
     }
 
     @Override

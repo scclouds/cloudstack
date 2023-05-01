@@ -692,14 +692,11 @@ public class UserVmDaoImpl extends GenericDaoBase<UserVmVO, Long> implements Use
     }
 
     @Override
-    public Long countAllocatedVMsForAccount(long accountId, boolean runningVMsonly) {
+    public Long countAllocatedVMsForAccount(long accountId, boolean runningVmsOnly) {
         SearchCriteria<Long> sc = CountByAccount.create();
         sc.setParameters("account", accountId);
         sc.setParameters("type", VirtualMachine.Type.User);
-        if (runningVMsonly)
-            sc.setParameters("state", new Object[] {State.Destroyed, State.Error, State.Expunging, State.Stopped});
-        else
-            sc.setParameters("state", new Object[] {State.Destroyed, State.Error, State.Expunging});
+        sc.setParameters("state", runningVmsOnly ? statesForNotAccountingRunningVmResources.toArray() : statesForNotAccountingVmResources.toArray());
         sc.setParameters("displayVm", 1);
         return customSearch(sc, null).get(0);
     }

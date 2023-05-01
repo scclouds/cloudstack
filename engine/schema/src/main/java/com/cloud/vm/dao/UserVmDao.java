@@ -29,6 +29,9 @@ import com.cloud.vm.VirtualMachine;
 import com.cloud.vm.VirtualMachine.State;
 
 public interface UserVmDao extends GenericDao<UserVmVO, Long> {
+    List<State> statesForNotAccountingRunningVmResources = List.of(State.Destroyed, State.Error, State.Expunging, State.Stopped);
+    List<State> statesForNotAccountingVmResources = List.of(State.Destroyed, State.Error, State.Expunging);
+
     List<UserVmVO> listByAccountId(long id);
 
     List<UserVmVO> listByAccountAndPod(long accountId, long podId);
