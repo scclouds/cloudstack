@@ -44,6 +44,7 @@ import org.apache.cloudstack.api.response.UserResponse;
 import org.apache.cloudstack.api.response.UserVmResponse;
 import org.apache.cloudstack.api.response.VpcResponse;
 import org.apache.cloudstack.api.response.ZoneResponse;
+import org.apache.commons.lang3.BooleanUtils;
 import org.apache.log4j.Logger;
 
 import com.cloud.exception.InvalidParameterValueException;
@@ -148,6 +149,9 @@ public class ListVMsCmd extends BaseListTaggedResourcesCmd implements UserCmd {
     @Parameter(name = ApiConstants.USER_DATA, type = CommandType.BOOLEAN, description = "Whether to return the VMs' user data or not. By default, user data will not be returned.", since = "4.18.0.0")
     private Boolean showUserData;
 
+    @Parameter(name = ApiConstants.ONLY_RETRIEVE_RESOURCE_COUNT, type = CommandType.BOOLEAN, description = ApiConstants.PARAMETER_DESCRIPTION_ONLY_RETRIEVE_RESOURCE_COUNT,
+            since = "4.19.0.0")
+    private Boolean onlyRetrieveResourceCount;
 
     /////////////////////////////////////////////////////
     /////////////////// Accessors ///////////////////////
@@ -269,6 +273,9 @@ public class ListVMsCmd extends BaseListTaggedResourcesCmd implements UserCmd {
         return accumulate;
     }
 
+    public Boolean getOnlyRetrieveResourceCount() {
+        return BooleanUtils.toBooleanDefaultIfNull(onlyRetrieveResourceCount, false);
+    }
     /////////////////////////////////////////////////////
     /////////////// API Implementation///////////////////
     /////////////////////////////////////////////////////

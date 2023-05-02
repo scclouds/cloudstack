@@ -35,6 +35,7 @@ import org.apache.cloudstack.api.response.StoragePoolResponse;
 import org.apache.cloudstack.api.response.UserVmResponse;
 import org.apache.cloudstack.api.response.VolumeResponse;
 import org.apache.cloudstack.api.response.ZoneResponse;
+import org.apache.commons.lang3.BooleanUtils;
 import org.apache.log4j.Logger;
 
 import com.cloud.storage.Volume;
@@ -95,6 +96,10 @@ public class ListVolumesCmd extends BaseListTaggedResourcesCmd implements UserCm
     @Parameter(name = ApiConstants.STATE, type = CommandType.STRING, description = "state of the volume. Possible values are: Ready, Allocated, Destroy, Expunging, Expunged.")
     private String state;
 
+    @Parameter(name = ApiConstants.ONLY_RETRIEVE_RESOURCE_COUNT, type = CommandType.BOOLEAN, description = ApiConstants.PARAMETER_DESCRIPTION_ONLY_RETRIEVE_RESOURCE_COUNT,
+            since = "4.19.0.0")
+    private Boolean onlyRetrieveResourceCount;
+
     /////////////////////////////////////////////////////
     /////////////////// Accessors ///////////////////////
     /////////////////////////////////////////////////////
@@ -154,6 +159,11 @@ public class ListVolumesCmd extends BaseListTaggedResourcesCmd implements UserCm
     public String getState() {
         return state;
     }
+
+    public Boolean getOnlyRetrieveResourceCount() {
+        return BooleanUtils.toBooleanDefaultIfNull(onlyRetrieveResourceCount, false);
+    }
+
     /////////////////////////////////////////////////////
     /////////////// API Implementation///////////////////
     /////////////////////////////////////////////////////

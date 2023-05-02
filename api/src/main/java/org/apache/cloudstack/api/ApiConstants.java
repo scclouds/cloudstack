@@ -308,6 +308,7 @@ public class ApiConstants {
     public static final String IS_SYSTEM_OFFERING = "issystem";
     public static final String IS_DEFAULT_USE = "defaultuse";
     public static final String OLD_FORMAT = "oldformat";
+    public static final String ONLY_RETRIEVE_RESOURCE_COUNT = "onlyretrieveresourcecount";
     public static final String OP = "op";
     public static final String OPTIONS = "options";
     public static final String OS_CATEGORY_ID = "oscategoryid";
@@ -1028,6 +1029,7 @@ public class ApiConstants {
     public static final String IS_TAG_A_RULE = "istagarule";
 
     public static final String PARAMETER_DESCRIPTION_IS_TAG_A_RULE = "Whether the informed tag is a JS interpretable rule or not.";
+    public static final String PARAMETER_DESCRIPTION_ONLY_RETRIEVE_RESOURCE_COUNT = "Makes the API return contain only the resource count. Default is 'false'.";
 
     /**
      * This enum specifies IO Drivers, each option controls specific policies on I/O.
