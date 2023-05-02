@@ -23,6 +23,7 @@ import com.cloud.server.ResourceIcon;
 import com.cloud.server.ResourceTag;
 import org.apache.cloudstack.api.response.NetworkOfferingResponse;
 import org.apache.cloudstack.api.response.ResourceIconResponse;
+import org.apache.commons.lang3.BooleanUtils;
 import org.apache.log4j.Logger;
 
 import org.apache.cloudstack.acl.RoleType;
@@ -118,6 +119,10 @@ public class ListNetworksCmd extends BaseListTaggedResourcesCmd implements UserC
                     + "* all : all networks (account, domain and shared).")
     private String networkFilter;
 
+    @Parameter(name = ApiConstants.ONLY_RETRIEVE_RESOURCE_COUNT, type = CommandType.BOOLEAN, description = ApiConstants.PARAMETER_DESCRIPTION_ONLY_RETRIEVE_RESOURCE_COUNT,
+            since = "4.19.0.0")
+    private Boolean onlyRetrieveResourceCount;
+
     /////////////////////////////////////////////////////
     /////////////////// Accessors ///////////////////////
     /////////////////////////////////////////////////////
@@ -197,7 +202,11 @@ public class ListNetworksCmd extends BaseListTaggedResourcesCmd implements UserC
     }
 
     public Boolean getShowIcon() {
-        return showIcon != null ? showIcon : false;
+        return BooleanUtils.toBooleanDefaultIfNull(showIcon, false);
+    }
+
+    public Boolean getOnlyRetrieveResourceCount() {
+        return BooleanUtils.toBooleanDefaultIfNull(onlyRetrieveResourceCount, false);
     }
 
     public String getNetworkFilter() {
@@ -215,16 +224,20 @@ public class ListNetworksCmd extends BaseListTaggedResourcesCmd implements UserC
     @Override
     public void execute() {
         Pair<List<? extends Network>, Integer> networks = _networkService.searchForNetworks(this);
-        ListResponse<NetworkResponse> response = new ListResponse<NetworkResponse>();
-        List<NetworkResponse> networkResponses = new ArrayList<NetworkResponse>();
-        for (Network network : networks.first()) {
-            NetworkResponse networkResponse = _responseGenerator.createNetworkResponse(getResponseView(), network);
-            networkResponses.add(networkResponse);
+        ListResponse<NetworkResponse> response = new ListResponse<>();
+        List<NetworkResponse> networkResponses = new ArrayList<>();
+
+        if (!getOnlyRetrieveResourceCount()) {
+            for (Network network : networks.first()) {
+                NetworkResponse networkResponse = _responseGenerator.createNetworkResponse(getResponseView(), network);
+                networkResponses.add(networkResponse);
+            }
         }
+
         response.setResponses(networkResponses, networks.second());
         response.setResponseName(getCommandName());
         setResponseObject(response);
-        if (response != null && response.getCount() > 0 && getShowIcon()) {
+        if (!getOnlyRetrieveResourceCount() && response.getCount() > 0 && getShowIcon()) {
             updateNetworkResponse(response.getResponses());
         }
     }
