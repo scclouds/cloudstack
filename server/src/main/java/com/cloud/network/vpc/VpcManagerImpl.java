@@ -60,6 +60,7 @@ import org.apache.cloudstack.engine.orchestration.service.NetworkOrchestrationSe
 import org.apache.cloudstack.framework.config.dao.ConfigurationDao;
 import org.apache.cloudstack.managed.context.ManagedContextRunnable;
 import org.apache.cloudstack.query.QueryService;
+import org.apache.cloudstack.utils.reflectiontostringbuilderutils.ReflectionToStringBuilderUtils;
 import org.apache.commons.collections.CollectionUtils;
 import org.apache.commons.lang3.ObjectUtils;
 import org.apache.log4j.Logger;
@@ -1016,9 +1017,17 @@ public class VpcManagerImpl extends ManagerBase implements VpcManager, VpcProvis
     }
 
     @Override
+    public Vpc createVpc(final long zoneId, final long vpcOffId, final long vpcOwnerId, final String vpcName, final String displayText, final String cidr, String networkDomain,
+                         final String ip4Dns1, final String ip4Dns2, final String ip6Dns1, final String ip6Dns2, final Boolean displayVpc, Integer publicMtu)
+                         throws ResourceAllocationException {
+        return createVpc(zoneId, vpcOffId, vpcOwnerId, vpcName, displayText, cidr, networkDomain, ip4Dns1, ip4Dns2, ip6Dns1, ip6Dns2, displayVpc, publicMtu, null);
+    }
+
+    @Override
     @ActionEvent(eventType = EventTypes.EVENT_VPC_CREATE, eventDescription = "creating vpc", create = true)
     public Vpc createVpc(final long zoneId, final long vpcOffId, final long vpcOwnerId, final String vpcName, final String displayText, final String cidr, String networkDomain,
-            final String ip4Dns1, final String ip4Dns2, final String ip6Dns1, final String ip6Dns2, final Boolean displayVpc, Integer publicMtu) throws ResourceAllocationException {
+            final String ip4Dns1, final String ip4Dns2, final String ip6Dns1, final String ip6Dns2, final Boolean displayVpc, Integer publicMtu, String sourceNatIp)
+            throws ResourceAllocationException {
         final Account caller = CallContext.current().getCallingAccount();
         final Account owner = _accountMgr.getAccount(vpcOwnerId);
 
@@ -1093,7 +1102,7 @@ public class VpcManagerImpl extends ManagerBase implements VpcManager, VpcProvis
                 vpcOff.isRedundantRouter(), ip4Dns1, ip4Dns2, ip6Dns1, ip6Dns2);
             vpc.setPublicMtu(publicMtu);
 
-        return createVpc(displayVpc, vpc);
+        return createVpc(displayVpc, vpc, sourceNatIp);
     }
 
     @Override
@@ -1101,11 +1110,11 @@ public class VpcManagerImpl extends ManagerBase implements VpcManager, VpcProvis
     public Vpc createVpc(CreateVPCCmd cmd) throws ResourceAllocationException {
         return createVpc(cmd.getZoneId(), cmd.getVpcOffering(), cmd.getEntityOwnerId(), cmd.getVpcName(), cmd.getDisplayText(),
             cmd.getCidr(), cmd.getNetworkDomain(), cmd.getIp4Dns1(), cmd.getIp4Dns2(), cmd.getIp6Dns1(),
-            cmd.getIp6Dns2(), cmd.isDisplay(), cmd.getPublicMtu());
+            cmd.getIp6Dns2(), cmd.isDisplay(), cmd.getPublicMtu(), cmd.getSourceNatIp());
     }
 
     @DB
-    protected Vpc createVpc(final Boolean displayVpc, final VpcVO vpc) {
+    protected Vpc createVpc(final Boolean displayVpc, final VpcVO vpc, String sourceNatIp) {
         final String cidr = vpc.getCidr();
         // Validate CIDR
         if (!NetUtils.isValidIp4Cidr(cidr)) {
@@ -1135,6 +1144,9 @@ public class VpcManagerImpl extends ManagerBase implements VpcManager, VpcProvis
                 _resourceLimitMgr.incrementResourceCount(vpc.getAccountId(), ResourceType.vpc);
                 s_logger.debug("Created VPC " + persistedVpc);
                 CallContext.current().putContextParameter(Vpc.class, persistedVpc.getUuid());
+
+                acquireIpAsSourceNatOnVpcCreation(sourceNatIp, vpc);
+
                 return persistedVpc;
             }
         });
@@ -1142,6 +1154,34 @@ public class VpcManagerImpl extends ManagerBase implements VpcManager, VpcProvis
             UsageEventUtils.publishUsageEvent(EventTypes.EVENT_VPC_CREATE, vpcVO.getAccountId(), vpcVO.getZoneId(), vpcVO.getId(), vpcVO.getName(), Vpc.class.getName(), vpcVO.getUuid(), vpcVO.isDisplay());
         }
         return vpcVO;
+    }
+
+    /**
+     * Acquires the VPC's first IP; the first IP acquired for a VPC becomes its source NAT. If the sourceNatIp is null, does nothing. Should be used only while creating a VPC.
+     * @Throws {@link InvalidParameterValueException} if the sourceNatIp is not a valid IPv4 OR the IP is already being used.
+     */
+    protected void acquireIpAsSourceNatOnVpcCreation(String sourceNatIp, VpcVO vpc) {
+        if (sourceNatIp == null) {
+            return;
+        }
+
+        if (!NetUtils.isIpv4(sourceNatIp)) {
+            throw new InvalidParameterValueException(String.format("Invalid value passed on parameter [%s].", ApiConstants.SOURCE_NAT_IP));
+        }
+
+        String vpcToString = ReflectionToStringBuilderUtils.reflectOnlySelectedFields(vpc, "uuid", "name");
+        s_logger.info(String.format("Acquiring the first IP [%s] of VPC [%s]; the first IP acquired for a VPC will become its source NAT.", sourceNatIp, vpcToString));
+
+        try {
+            Account account = _accountMgr.getAccount(vpc.getAccountId());
+            IpAddress ip = _ntwkSvc.allocateIP(account, vpc.getZoneId(), null, true, sourceNatIp);
+            associateIPToVpc(ip.getId(), vpc.getId());
+
+            s_logger.info(String.format("Acquired IP [%s] to VPC %s on %s.", sourceNatIp, vpcToString, account));
+        } catch (ResourceUnavailableException | ResourceAllocationException | InsufficientAddressCapacityException e) {
+            s_logger.error(String.format("Failed to acquire IP [%s] as source NAT of VPC %s.", sourceNatIp, vpc), e);
+            throw new InvalidParameterValueException(String.format("Unable to use IP [%s] as source NAT for the VPC.", sourceNatIp));
+        }
     }
 
     private Map<String, List<String>> finalizeServicesAndProvidersForVpc(final long zoneId, final long offeringId) {

@@ -170,6 +170,7 @@ import Status from '@/components/widgets/Status'
 import TooltipButton from '@/components/widgets/TooltipButton'
 import BulkActionView from '@/components/view/BulkActionView'
 import eventBus from '@/config/eventBus'
+import * as networkUtils from '@/utils/network'
 
 export default {
   name: 'IpAddressesTab',
@@ -284,21 +285,6 @@ export default {
         this.ips = json.listpublicipaddressesresponse.publicipaddress || []
       }).finally(() => {
         this.fetchLoading = false
-      })
-    },
-    fetchListPublicIpAddress () {
-      return new Promise((resolve, reject) => {
-        const params = {
-          zoneid: this.resource.zoneid,
-          domainid: this.resource.domainid,
-          account: this.resource.account,
-          forvirtualnetwork: true,
-          allocatedonly: false
-        }
-        api('listPublicIpAddresses', params).then(json => {
-          const listPublicIps = json.listpublicipaddressesresponse.publicipaddress || []
-          resolve(listPublicIps)
-        }).catch(reject)
       })
     },
     handleTierSelect (tier) {
@@ -445,20 +431,7 @@ export default {
       this.listPublicIpAddress = []
 
       try {
-        const listPublicIpAddress = await this.fetchListPublicIpAddress()
-        listPublicIpAddress.forEach(item => {
-          if (item.state === 'Free' || item.state === 'Reserved') {
-            this.listPublicIpAddress.push({
-              ipaddress: item.ipaddress,
-              state: item.state
-            })
-          }
-        })
-        this.listPublicIpAddress.sort(function (a, b) {
-          if (a.ipaddress < b.ipaddress) { return -1 }
-          if (a.ipaddress > b.ipaddress) { return 1 }
-          return 0
-        })
+        this.listPublicIpAddress = await networkUtils.getAvailablePublicIpAddresses(this.resource.zoneid, this.resource.domainid, this.resource.account)
         this.acquireIp = this.listPublicIpAddress && this.listPublicIpAddress.length > 0 ? this.listPublicIpAddress[0].ipaddress : null
         this.acquireLoading = false
       } catch (e) {

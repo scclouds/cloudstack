@@ -1646,6 +1646,7 @@
 "label.routercount": "Total of virtual routers",
 "label.routerip": "IPv4 address for the VR in this shared network.",
 "label.routeripv6": "IPv6 address for the VR in this shared network.",
+"label.router.source.nat.ip": "Source NAT IP for router",
 "label.resourcegroup": "Resource group",
 "label.routing.policy": "Routing policy",
 "label.routing.policy.terms": "Routing policy terms",

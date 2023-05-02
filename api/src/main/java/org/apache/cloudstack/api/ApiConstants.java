@@ -965,6 +965,7 @@ public class ApiConstants {
     public static final String ROUTER_CHECK_TYPE = "checktype";
     public static final String ROUTER_IP = "routerip";
     public static final String ROUTER_IPV6 = "routeripv6";
+    public static final String SOURCE_NAT_IP = "sourcenatip";
     public static final String ROUTER_PRIVATE_INTERFACE_MAX_MTU = "routerprivateinterfacemaxmtu";
     public static final String ROUTER_PUBLIC_INTERFACE_MAX_MTU = "routerpublicinterfacemaxmtu";
     public static final String LAST_UPDATED = "lastupdated";

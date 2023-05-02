@@ -1380,6 +1380,7 @@
 "label.routercount": "Total de roteadores virtuais",
 "label.routerip": "Endere\u00e7os IPv4 para o roteador dentro da rede compartilhada",
 "label.routeripv6": "Endere\u00e7os IPv6 para o roteador dentro da rede compartilhada",
+"label.router.source.nat.ip": "IP source NAT do roteador",
 "label.resourcegroup": "Grupo de recurso",
 "label.rule": "Regra",
 "label.rule.number": "Regra n\u00famero",

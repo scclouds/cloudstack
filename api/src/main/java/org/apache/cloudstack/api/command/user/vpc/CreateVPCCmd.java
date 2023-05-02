@@ -112,6 +112,10 @@ public class CreateVPCCmd extends BaseAsyncCreateCmd implements UserCmd {
     @Parameter(name = ApiConstants.IP6_DNS2, type = CommandType.STRING, description = "the second IPv6 DNS for the VPC", since = "4.18.0")
     private String ip6Dns2;
 
+    @Parameter(name = ApiConstants.SOURCE_NAT_IP, type = CommandType.STRING, description = "IPv4 address to be assigned as source NAT of the VPC's router. If not informed, an " +
+            "IP will be automatically assigned when starting the VPC.", since = "4.18.0.0")
+    private String sourceNatIp;
+
     // ///////////////////////////////////////////////////
     // ///////////////// Accessors ///////////////////////
     // ///////////////////////////////////////////////////
@@ -177,6 +181,10 @@ public class CreateVPCCmd extends BaseAsyncCreateCmd implements UserCmd {
 
     public Boolean getDisplayVpc() {
         return display;
+    }
+
+    public String getSourceNatIp() {
+        return sourceNatIp;
     }
 
     @Override
