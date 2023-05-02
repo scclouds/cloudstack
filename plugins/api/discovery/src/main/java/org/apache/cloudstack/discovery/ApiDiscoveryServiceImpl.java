@@ -24,6 +24,7 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 import javax.inject.Inject;
 
@@ -42,6 +43,7 @@ import org.apache.cloudstack.api.response.ApiDiscoveryResponse;
 import org.apache.cloudstack.api.response.ApiParameterResponse;
 import org.apache.cloudstack.api.response.ApiResponseResponse;
 import org.apache.cloudstack.api.response.ListResponse;
+import org.apache.cloudstack.framework.config.PluginAccessConfigs;
 import org.apache.cloudstack.utils.reflectiontostringbuilderutils.ReflectionToStringBuilderUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.log4j.Logger;
@@ -66,6 +68,8 @@ public class ApiDiscoveryServiceImpl extends ComponentLifecycleBase implements A
     List<PluggableService> _services = null;
     protected static Map<String, ApiDiscoveryResponse> s_apiNameDiscoveryResponseMap = null;
 
+    List<String> quotaCmdList;
+
     @Inject
     AccountService accountService;
 
@@ -84,6 +88,9 @@ public class ApiDiscoveryServiceImpl extends ComponentLifecycleBase implements A
             Set<Class<?>> cmdClasses = new LinkedHashSet<Class<?>>();
             for (PluggableService service : _services) {
                 s_logger.debug(String.format("getting api commands of service: %s", service.getClass().getName()));
+                if (service.getClass().getSimpleName().equals("QuotaServiceImpl") && PluginAccessConfigs.QuotaPluginEnabled.value()) {
+                    quotaCmdList = service.getCommands().parallelStream().map(cmdClass -> cmdClass.getAnnotation(APICommand.class).name()).collect(Collectors.toList());
+                }
                 cmdClasses.addAll(service.getCommands());
             }
             cmdClasses.addAll(this.getCommands());
@@ -247,12 +254,24 @@ public class ApiDiscoveryServiceImpl extends ComponentLifecycleBase implements A
         List<ApiDiscoveryResponse> responseList = new ArrayList<>();
         List<String> apisAllowed = new ArrayList<>(s_apiNameDiscoveryResponseMap.keySet());
 
-        if (user == null)
+        if (user == null) {
             return null;
+        }
+
+        Account account = accountService.getAccount(user.getAccountId());
+        if (account == null) {
+            throw new PermissionDeniedException(String.format("The account with id [%s] for user [%s] is null.", user.getAccountId(), user));
+        }
 
         if (name != null) {
             if (!s_apiNameDiscoveryResponseMap.containsKey(name))
                 return null;
+
+            if (account.getType() != Account.Type.ADMIN && PluginAccessConfigs.QuotaPluginEnabled.value() &&
+                !PluginAccessConfigs.QuotaAccountEnabled.valueIn(user.getAccountId()) && quotaCmdList.parallelStream().anyMatch(name::equalsIgnoreCase)) {
+
+                return null;
+            }
 
             for (APIChecker apiChecker : _apiAccessCheckers) {
                 try {
@@ -265,11 +284,6 @@ public class ApiDiscoveryServiceImpl extends ComponentLifecycleBase implements A
             responseList.add(s_apiNameDiscoveryResponseMap.get(name));
 
         } else {
-            Account account = accountService.getAccount(user.getAccountId());
-            if (account == null) {
-                throw new PermissionDeniedException(String.format("The account with id [%s] for user [%s] is null.", user.getAccountId(), user));
-            }
-
             final Role role = roleService.findRole(account.getRoleId());
             if (role == null || role.getId() < 1L) {
                 throw new PermissionDeniedException(String.format("The account [%s] has role null or unknown.",
@@ -280,6 +294,11 @@ public class ApiDiscoveryServiceImpl extends ComponentLifecycleBase implements A
                 s_logger.info(String.format("Account [%s] is Root Admin, all APIs are allowed.",
                         ReflectionToStringBuilderUtils.reflectOnlySelectedFields(account, "accountName", "uuid")));
             } else {
+                if (PluginAccessConfigs.QuotaPluginEnabled.value() && !PluginAccessConfigs.QuotaAccountEnabled.valueIn(user.getAccountId())) {
+                    apisAllowed.removeAll(quotaCmdList);
+                    apisAllowed.add("quotaIsEnabled");
+                }
+
                 for (APIChecker apiChecker : _apiAccessCheckers) {
                     apisAllowed = apiChecker.getApisAllowedToUser(role, user, apisAllowed);
                 }
