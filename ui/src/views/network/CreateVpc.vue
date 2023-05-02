@@ -96,6 +96,24 @@
             </a-select-option>
           </a-select>
         </a-form-item>
+        <a-form-item v-if="'listPublicIpAddresses' in $store.getters.apis">
+          <tooltip-label :title="$t('label.router.source.nat.ip')" :tooltip="apiParams.sourcenatip.description"/>
+          <a-select
+            :loading="loadingIp"
+            v-decorator="['sourcenatip']"
+            showSearch
+            optionFilterProp="children"
+            :placeholder="apiParams.sourcenatip.description"
+            :filterOption="(input, option) => {
+              return option.componentOptions.children[0].text.toLowerCase().indexOf(input.toLowerCase()) >= 0
+            }" >
+            <a-select-option
+              v-for="ip in publicIpAddresses"
+              :key="ip.ipaddress">
+              {{ ip.ipaddress }}
+            </a-select-option>
+          </a-select>
+        </a-form-item>
         <div v-if="setMTU">
           <a-form-item
             ref="publicmtu"
@@ -174,6 +192,7 @@ import { ref, reactive, toRaw } from 'vue'
 import { api } from '@/api'
 import ResourceIcon from '@/components/view/ResourceIcon'
 import TooltipLabel from '@/components/widgets/TooltipLabel'
+import * as networkUtils from '@/utils/network'
 
 export default {
   name: 'CreateVpc',
@@ -193,7 +212,9 @@ export default {
       publicMtuMax: 1500,
       minMTU: 68,
       errorPublicMtu: '',
-      selectedVpcOffering: {}
+      selectedVpcOffering: {},
+      loadingIp: false,
+      publicIpAddresses: []
     }
   },
   beforeCreate () {
@@ -266,6 +287,7 @@ export default {
         }
       }
       this.fetchOfferings()
+      this.fetchIps()
     },
     fetchOfferings () {
       this.loadingOffering = true
@@ -276,6 +298,20 @@ export default {
       }).finally(() => {
         this.loadingOffering = false
       })
+    },
+    async fetchIps () {
+      if (this.loadingIp || !('listPublicIpAddresses' in this.$store.getters.apis)) return
+
+      this.loadingIp = true
+      this.publicIpAddresses = []
+
+      try {
+        this.publicIpAddresses = await networkUtils.getAvailablePublicIpAddresses(this.selectedZone)
+      } catch (e) {
+        this.$notifyError(e)
+      }
+
+      this.loadingIp = false
     },
     handleVpcOfferingChange (value) {
       this.selectedVpcOffering = {}

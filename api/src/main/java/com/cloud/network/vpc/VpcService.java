@@ -56,6 +56,10 @@ public interface VpcService {
                          String dns1, String dns2, String ip6Dns1, String ip6Dns2, Boolean displayVpc, Integer publicMtu)
             throws ResourceAllocationException;
 
+    public Vpc createVpc(long zoneId, long vpcOffId, long vpcOwnerId, String vpcName, String displayText, String cidr, String networkDomain,
+                         String dns1, String dns2, String ip6Dns1, String ip6Dns2, Boolean displayVpc, Integer publicMtu, String sourceNatIp)
+            throws ResourceAllocationException;
+
     /**
      * Deletes a VPC
      *
