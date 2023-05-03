@@ -391,6 +391,14 @@ public class VMInstanceDaoImpl extends GenericDaoBase<VMInstanceVO, Long> implem
     }
 
     @Override
+    public List<VMInstanceVO> listByZoneIdAndTypeIncludingRemoved(long zoneId, VirtualMachine.Type type) {
+        SearchCriteria<VMInstanceVO> sc = AllFieldsSearch.create();
+        sc.setParameters("zone", zoneId);
+        sc.setParameters("type", type.toString());
+        return listIncludingRemovedBy(sc);
+    }
+
+    @Override
     public List<VMInstanceVO> listNonExpungedByTemplate(long templateId) {
         SearchCriteria<VMInstanceVO> sc = TemplateNonExpungedSearch.create();
 

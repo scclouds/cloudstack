@@ -28,6 +28,7 @@ import com.cloud.utils.fsm.StateDao;
 import com.cloud.vm.VMInstanceVO;
 import com.cloud.vm.VirtualMachine;
 import com.cloud.vm.VirtualMachine.State;
+import com.cloud.vm.VirtualMachine.Type;
 
 /*
  * Data Access Object for vm_instance table
@@ -167,4 +168,6 @@ public interface VMInstanceDao extends GenericDao<VMInstanceVO, Long>, StateDao<
     List<VMInstanceVO> listByHostOrLastHostOrHostPod(long hostId, long podId);
 
     VMInstanceVO findVMInStatesAndWithInternalNameIncludingRemoved(String vmInternalName,  State ... states);
+
+    List<VMInstanceVO> listByZoneIdAndTypeIncludingRemoved(long zoneId, Type type);
 }

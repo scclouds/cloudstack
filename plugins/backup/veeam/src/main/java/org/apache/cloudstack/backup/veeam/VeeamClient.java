@@ -707,6 +707,7 @@ public class VeeamClient {
         String id = null;
         Date created = null;
         String type = null;
+        String backupUuid = null;
         for (String part : parts) {
             if (part.matches("Id(\\s)+:(.)*")) {
                 String[] split = part.split(":");
@@ -725,26 +726,29 @@ public class VeeamClient {
                 String diskPath = part.split(":")[1].trim();
                 String path = diskPath.split("/")[1].replace(".vmdk", "");
                 paths.add(path);
+            } else if (part.matches("Backup(\\s)+:(.)*")) {
+                backupUuid = part.split(":")[1].trim().split("-CSBKP-")[1];
             }
         }
-        return new Backup.RestorePoint(id, created, type, paths);
+        return new Backup.RestorePoint(id, created, type, paths, backupUuid);
     }
 
     public List<Backup.RestorePoint> listRestorePoints(String backupName, String vmInternalName) {
         final List<String> cmds = Arrays.asList(
-                String.format("$backup = Get-VBRBackup -Name \"%s\"", backupName),
+                String.format("$backup = Get-VBRBackup ^| Where-Object {$_.Name.StartsWith('%s-CSBKP')} ", vmInternalName),
                 "if ($backup) {",
-                  String.format("$restorePoints = (Get-VBRRestorePoint -Backup:$backup -Name \"%s\" ^| Where-Object {$_.IsConsistent -eq $true})", vmInternalName),
-                  "if ($restorePoints) {",
-                    "ForEach ($restore in $restorePoints) {",
-                      "$restoreId = 'Id : ' + $restore.Id.Guid",
-                      "$creationTime = 'CreationTime : ' + $restore.CreationTime.ToString('MM/dd/yyyy HH:mm:ss')",
-                      "$type = 'Type : ' + $restore.Type",
-                      "$path = 'Path : '",
-                      "$paths = $restore.AuxData.Disks.Path ^| ForEach-Object { $path + $_ }",
-                      "Write-Output $restoreId $creationTime $type $paths `r`n",
+                    String.format("$restorePoints = (Get-VBRRestorePoint -Backup:$backup -Name \"%s\" ^| Where-Object {$_.IsConsistent -eq $true})", vmInternalName),
+                    "if ($restorePoints) {",
+                        "ForEach ($restore in $restorePoints) {",
+                            "$restoreId = 'Id : ' + $restore.Id.Guid",
+                            "$creationTime = 'CreationTime : ' + $restore.CreationTime.ToString('MM/dd/yyyy HH:mm:ss')",
+                            "$type = 'Type : ' + $restore.Type",
+                            "$path = 'Path : '",
+                            "$paths = $restore.AuxData.Disks.Path ^| ForEach-Object { $path + $_ }",
+                            "$back = 'Backup : ' + $restore.FindBackup().Name",
+                            "Write-Output $restoreId $creationTime $type $paths $back `r`n",
+                        "}",
                     "}",
-                  "}",
                 "}"
         );
         Pair<Boolean, String> response = executePowerShellCommands(cmds);
