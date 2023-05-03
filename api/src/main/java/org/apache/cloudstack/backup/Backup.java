@@ -65,12 +65,14 @@ public interface Backup extends ControlledEntity, InternalIdentity, Identity {
         private Date created;
         private String type;
         private List<String> paths;
+        private String backupUuid;
 
-        public RestorePoint(String id, Date created, String type, List<String> paths) {
+        public RestorePoint(String id, Date created, String type, List<String> paths, String backupUuid) {
             this.id = id;
             this.created = created;
             this.type = type;
             this.paths = paths;
+            this.backupUuid =  backupUuid;
         }
 
         public String getId() {
@@ -103,6 +105,14 @@ public interface Backup extends ControlledEntity, InternalIdentity, Identity {
 
         public List<String> getPaths() {
             return paths;
+        }
+
+        public String getBackupUuid() {
+            return backupUuid;
+        }
+
+        public void setBackupUuid(String backupUuid) {
+            this.backupUuid = backupUuid;
         }
     }
 

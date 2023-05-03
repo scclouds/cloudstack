@@ -68,6 +68,7 @@ import org.apache.cloudstack.poll.BackgroundPollTask;
 import org.apache.cloudstack.storage.datastore.db.PrimaryDataStoreDao;
 import org.apache.cloudstack.storage.datastore.db.StoragePoolVO;
 import org.apache.cloudstack.utils.reflectiontostringbuilderutils.ReflectionToStringBuilderUtils;
+import org.apache.commons.collections.CollectionUtils;
 import org.apache.commons.lang3.BooleanUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.log4j.Logger;
@@ -745,7 +746,7 @@ public class BackupManagerImpl extends ManagerBase implements BackupManager {
         BackupProvider backupProvider = getBackupProvider(offering.getProvider());
 
         String[] hostPossibleValues = {host.getPrivateIpAddress(), host.getName()};
-        String[] datastoresPossibleValues = {datastore.getUuid(), datastore.getName()};
+        String[] datastoresPossibleValues = {datastore.getUuid(), datastore.getName(), StringUtils.substringAfterLast(datastore.getPath(), "/")};;
 
         updateVmState(vm, VirtualMachine.Event.RestoringRequested, VirtualMachine.State.Restoring);
         Pair<Boolean, String> result = restoreBackedUpVolume(backedUpVolumeUuid, backup, backupProvider, hostPossibleValues, datastoresPossibleValues, vm, startVm);
@@ -780,7 +781,7 @@ public class BackupManagerImpl extends ManagerBase implements BackupManager {
                         return result;
                     }
                 } catch (Exception e) {
-                    LOG.debug(String.format("Failed to restore volume [UUID: %s], using host [%s] and datastore [%s] due to: [%s].",
+                    LOG.error(String.format("Failed to restore volume [UUID: %s], using host [%s] and datastore [%s] due to: [%s].",
                             backedUpVolumeUuid, hostData, datastoreData, e.getMessage()), e);
                 }
             }
@@ -1172,10 +1173,13 @@ public class BackupManagerImpl extends ManagerBase implements BackupManager {
                         continue;
                     }
 
-                    List<VMInstanceVO> vms = vmInstanceDao.listByZoneWithBackups(dataCenter.getId(), null);
-                    if (vms == null || vms.isEmpty()) {
-                        LOG.debug(String.format("Can't find any VM to sync backups in zone [id: %s].", dataCenter.getId()));
-                        continue;
+                    List<VMInstanceVO> vms = new ArrayList<>();
+                    if (!backupProvider.getName().equals("veeam")) {
+                        vms = vmInstanceDao.listByZoneWithBackups(dataCenter.getId(), null);
+                        if (CollectionUtils.isEmpty(vms)) {
+                            LOG.debug(String.format("Cannot find any VM to sync backups in zone [%s].", dataCenter.getUuid()));
+                            continue;
+                        }
                     }
 
                     final Map<VirtualMachine, Backup.Metric> metrics = backupProvider.getBackupMetrics(dataCenter.getId(), new ArrayList<>(vms));
