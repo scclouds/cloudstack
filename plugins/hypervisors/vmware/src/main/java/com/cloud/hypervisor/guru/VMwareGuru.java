@@ -542,7 +542,7 @@ public class VMwareGuru extends HypervisorGuruBase implements HypervisorGuru, Co
     /**
      * Get pool ID for disk
      */
-    private Long getPoolId(VirtualDisk disk, long datacenterId, long clusterId) {
+    private Long getPoolId(VirtualDisk disk, Long datacenterId, Long clusterId) {
         VirtualDeviceBackingInfo backing = disk.getBacking();
         checkBackingInfo(backing);
         VirtualDiskFlatVer2BackingInfo info = (VirtualDiskFlatVer2BackingInfo)backing;
@@ -551,24 +551,39 @@ public class VMwareGuru extends HypervisorGuruBase implements HypervisorGuru, Co
         if (UuidUtils.isUuid(datastore)) {
             return getPoolIdFromDatastoreUuid(datastore);
         }
-        return getPoolIdFromDatastoreNameOrPath(datastore, datacenterId, clusterId);
+        String errorMsg = String.format("Could not find storage pool with name or path [%s].", datastore);
+        StoragePoolVO storagePoolVO = getPoolIdFromDatastoreNameOrPath(datastore, datacenterId, clusterId);
+        if (storagePoolVO != null) {
+            return storagePoolVO.getId();
+        }
+
+        if (clusterId == null) {
+            throw new CloudRuntimeException(errorMsg);
+        }
+
+        storagePoolVO = getPoolIdFromDatastoreNameOrPath(datastore, datacenterId, null);
+        if (storagePoolVO == null) {
+            throw new CloudRuntimeException(errorMsg);
+        }
+        return storagePoolVO.getId();
+
     }
 
-    protected Long getPoolIdFromDatastoreNameOrPath(String datastore, long datacenterId, long clusterId) {
+    protected StoragePoolVO getPoolIdFromDatastoreNameOrPath(String datastore, Long datacenterId, Long clusterId) {
         s_logger.debug(String.format("Trying to find pool Id for datastore: [%s].", datastore));
 
         String errorMessage = String.format("Could not find storage pool with name or path [%s].", datastore);
         StoragePoolVO poolVO = _storagePoolDao.findPoolByName(datastore, datacenterId, clusterId);
         if (poolVO != null) {
-            return poolVO.getId();
+            return poolVO;
         }
         s_logger.debug(String.format("Could not find storage pool with name [%s]. Trying to search by path [%s] in datacenter [%s] and cluster [%s].", datastore, datastore, datacenterId, clusterId));
 
         poolVO = _storagePoolDao.findPoolByPathLike(datastore, datacenterId, clusterId);
         if (poolVO == null) {
-            throw new CloudRuntimeException(errorMessage);
+            s_logger.debug(String.format("Could not find storage pool with path [%s] in datacenter [%s] and cluster [%s].", datastore, datacenterId, clusterId));
         }
-        return poolVO.getId();
+        return poolVO;
     }
 
     /**
