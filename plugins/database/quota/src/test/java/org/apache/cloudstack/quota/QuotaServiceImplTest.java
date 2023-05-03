@@ -16,7 +16,6 @@
 // under the License.
 package org.apache.cloudstack.quota;
 
-import com.cloud.configuration.Config;
 import com.cloud.domain.dao.DomainDao;
 import com.cloud.user.dao.AccountDao;
 import com.cloud.utils.db.TransactionLegacy;
@@ -97,9 +96,6 @@ public class QuotaServiceImplTest extends TestCase {
         Field QuotaResponseBuilderField = QuotaServiceImpl.class.getDeclaredField("_respBldr");
         QuotaResponseBuilderField.setAccessible(true);
         QuotaResponseBuilderField.set(quotaService, respBldr);
-
-        Mockito.when(configDao.getValue(Mockito.eq(Config.UsageAggregationTimezone.toString()))).thenReturn("IST");
-        Mockito.when(configDao.getValue(Mockito.eq(Config.UsageStatsJobAggregationRange.toString()))).thenReturn("1");
         quotaService.configure("randomName", null);
     }
 

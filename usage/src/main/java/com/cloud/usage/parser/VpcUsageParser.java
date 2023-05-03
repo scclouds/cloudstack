@@ -16,6 +16,7 @@
 // under the License.
 package com.cloud.usage.parser;
 
+import com.cloud.usage.UsageManagerImpl;
 import com.cloud.usage.UsageVpcVO;
 import com.cloud.usage.dao.UsageDao;
 import com.cloud.usage.UsageVO;
@@ -23,6 +24,8 @@ import com.cloud.usage.dao.UsageVpcDao;
 import com.cloud.user.AccountVO;
 import javax.annotation.PostConstruct;
 import javax.inject.Inject;
+
+import com.cloud.utils.DateUtil;
 import org.apache.cloudstack.usage.UsageTypes;
 import org.springframework.stereotype.Component;
 
@@ -77,10 +80,15 @@ public class VpcUsageParser {
             DecimalFormat dFormat = new DecimalFormat("#.######");
             String usageDisplay = dFormat.format(usage);
 
-            String description = String.format("VPC usage for VPC ID: %d", usageVPC.getVpcId());
+            long vpcId = usageVPC.getVpcId();
+            LOGGER.debug(String.format("Creating VPC usage record with id [%s], usage [%s], startDate [%s], and endDate [%s], for account [%s].",
+                    vpcId, usageDisplay, DateUtil.displayDateInTimezone(UsageManagerImpl.getUsageTimeZone(), startDate),
+                    DateUtil.displayDateInTimezone(UsageManagerImpl.getUsageTimeZone(), endDate), account.getId()));
+
+            String description = String.format("VPC usage for VPC ID: %d", vpcId);
             UsageVO usageRecord =
                     new UsageVO(zoneId, account.getAccountId(), account.getDomainId(), description, usageDisplay + " Hrs",
-                            UsageTypes.VPC, (double) usage, null, null, null, null, usageVPC.getVpcId(),
+                            UsageTypes.VPC, (double) usage, null, null, null, null, vpcId,
                             (long)0, null, startDate, endDate);
             s_usageDao.persist(usageRecord);
         }

@@ -4211,7 +4211,7 @@ public class ApiResponseHelper implements ResponseGenerator {
             return null;
         }
 
-        TimeZone tz = _usageSvc.getUsageTimezone();
+        TimeZone tz = TimeZone.getTimeZone(UsageService.UsageTimeZone.value());
         Calendar cal = Calendar.getInstance(tz);
         cal.setTime(inputDate);
 

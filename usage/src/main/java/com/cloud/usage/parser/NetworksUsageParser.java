@@ -18,6 +18,7 @@ package com.cloud.usage.parser;
 
 
 
+import com.cloud.usage.UsageManagerImpl;
 import com.cloud.usage.UsageNetworksVO;
 import com.cloud.usage.UsageVO;
 import com.cloud.usage.dao.UsageDao;
@@ -25,6 +26,8 @@ import com.cloud.usage.dao.UsageNetworksDao;
 import com.cloud.user.AccountVO;
 import javax.annotation.PostConstruct;
 import javax.inject.Inject;
+
+import com.cloud.utils.DateUtil;
 import org.apache.cloudstack.usage.UsageTypes;
 import org.apache.log4j.Logger;
 import org.springframework.stereotype.Component;
@@ -59,7 +62,8 @@ public class NetworksUsageParser {
 
         final List<UsageNetworksVO> usageNetworksVO = staticNetworksDao.getUsageRecords(account.getId(), startDate, endDate);
         if (usageNetworksVO == null || usageNetworksVO.isEmpty()) {
-            LOGGER.debug(String.format("Could not find any network usage for account [%s], between [%s] and [%s].", account, startDate, endDate));
+            LOGGER.debug(String.format("Could not find any network usage for account [%s], between [%s] and [%s].", account,
+                    DateUtil.displayDateInTimezone(UsageManagerImpl.getUsageTimeZone(), startDate), DateUtil.displayDateInTimezone(UsageManagerImpl.getUsageTimeZone(), endDate)));
             return true;
         }
 
@@ -80,10 +84,16 @@ public class NetworksUsageParser {
             DecimalFormat dFormat = new DecimalFormat("#.######");
             String usageDisplay = dFormat.format(usage);
 
-            String description = String.format("Network usage for network ID: %d, network offering: %d", usageNetwork.getNetworkId(), usageNetwork.getNetworkOfferingId());
+            long networkId = usageNetwork.getNetworkId();
+            long networkOfferingId = usageNetwork.getNetworkOfferingId();
+            LOGGER.debug(String.format("Creating network usage record with id [%s], network offering [%s], usage [%s], startDate [%s], and endDate [%s], for account [%s].",
+                    networkId, networkOfferingId, usageDisplay, DateUtil.displayDateInTimezone(UsageManagerImpl.getUsageTimeZone(), startDate),
+                    DateUtil.displayDateInTimezone(UsageManagerImpl.getUsageTimeZone(), endDate), account.getId()));
+
+            String description = String.format("Network usage for network ID: %d, network offering: %d", networkId, networkOfferingId);
             UsageVO usageRecord =
                     new UsageVO(zoneId, account.getAccountId(), account.getDomainId(), description, usageDisplay + " Hrs",
-                            UsageTypes.NETWORK, (double) usage, null, null, usageNetwork.getNetworkOfferingId(), null, usageNetwork.getNetworkId(),
+                            UsageTypes.NETWORK, (double) usage, null, null, networkOfferingId, null, networkId,
                             (long)0, null, startDate, endDate);
             usageRecord.setState(usageNetwork.getState());
             staticUsageDao.persist(usageRecord);

@@ -225,13 +225,7 @@ class TestUsage(cloudstackTestCase):
 
         Configurations.update(
             cls.apiclient,
-            name="usage.aggregation.timezone",
-            value="GMT"
-        )
-
-        Configurations.update(
-            cls.apiclient,
-            name="usage.execution.timezone",
+            name="usage.timezone",
             value="GMT"
         )
 
@@ -3136,13 +3130,7 @@ class TestUsageDirectMeteringBasicZone(cloudstackTestCase):
 
         Configurations.update(
             cls.apiclient,
-            name="usage.aggregation.timezone",
-            value="GMT"
-        )
-
-        Configurations.update(
-            cls.apiclient,
-            name="usage.execution.timezone",
+            name="usage.timezone",
             value="GMT"
         )
 

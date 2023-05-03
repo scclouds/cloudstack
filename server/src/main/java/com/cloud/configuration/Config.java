@@ -1211,7 +1211,6 @@ public enum Config {
             null),
 
     // Usage
-    UsageExecutionTimezone("Usage", ManagementServer.class, String.class, "usage.execution.timezone", null, "The timezone to use for usage job execution time", null),
     UsageStatsJobAggregationRange(
             "Usage",
             ManagementServer.class,
@@ -1245,7 +1244,6 @@ public enum Config {
             null,
             "Interval (in days) to check sanity of usage data. To disable set it to 0 or negative.",
             null),
-    UsageAggregationTimezone("Usage", ManagementServer.class, String.class, "usage.aggregation.timezone", "GMT", "The timezone to use for usage stats aggregation", null),
     TrafficSentinelIncludeZones(
             "Usage",
             ManagementServer.class,
