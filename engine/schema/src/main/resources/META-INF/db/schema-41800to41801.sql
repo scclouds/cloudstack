@@ -253,6 +253,26 @@ FROM
 GROUP BY
     `host`.`id`;
 
+
+-- Via Java the configuration is inserted after the upgrade. Therefore, in order to derive the 'usage.timezone' value from `usage.aggregation.timezone' and
+-- `usage.execution.timezone', we need to insert the configuration manually.
+
+INSERT INTO `cloud`.`configuration` (category, `instance`, component, name, value, description, default_value, `scope`, is_dynamic)
+SELECT 'Usage', 'DEFAULT', 'UsageServiceImpl', 'usage.timezone', 'GMT', 'The timezone that will be used in the Usage plugin for executing the usage job and aggregating the stats. The dates in logs in the processes will be presented according to this configuration.', 'GMT', 'Global', 0
+FROM cloud.configuration
+WHERE NOT EXISTS (SELECT 1 FROM cloud.configuration WHERE name = 'usage.timezone');
+
+UPDATE `cloud`.`configuration` a
+INNER JOIN `cloud`.`configuration` b ON b.name = 'usage.execution.timezone'
+INNER JOIN `cloud`.`configuration` c ON c.name = 'usage.aggregation.timezone'
+SET a.value=IFNULL(IFNULL(b.value,c.value), 'GMT')
+WHERE  a.name = 'usage.timezone'
+AND NOT EXISTS (SELECT 1 FROM cloud.configuration WHERE name = 'usage.execution.timezone');
+
+DELETE
+FROM    `cloud`.`configuration`
+WHERE   name in ('usage.execution.timezone', 'usage.aggregation.timezone');
+
 -- Create table to persist quota email template configurations
 CREATE TABLE IF NOT EXISTS `cloud_usage`.`quota_email_configuration`(
     `account_id` int(11) NOT NULL,

@@ -21,11 +21,14 @@ import org.apache.cloudstack.api.command.admin.usage.GenerateUsageRecordsCmd;
 import org.apache.cloudstack.api.command.admin.usage.ListUsageRecordsCmd;
 import org.apache.cloudstack.api.command.admin.usage.RemoveRawUsageRecordsCmd;
 import org.apache.cloudstack.api.response.UsageTypeResponse;
+import org.apache.cloudstack.framework.config.ConfigKey;
 
 import java.util.List;
-import java.util.TimeZone;
 
 public interface UsageService {
+    ConfigKey<String> UsageTimeZone = new ConfigKey<>("Usage", String.class, "usage.timezone", "GMT", "The timezone that will be used in the Usage plugin for " +
+            "executing the usage job and aggregating the stats. The dates in logs in those processes will be presented according to this configuration.", false);
+
     /**
      * Generate Billing Records from the last time it was generated to the
      * time specified.
@@ -53,13 +56,6 @@ public interface UsageService {
      * @return a list of usage records
      */
     Pair<List<? extends Usage>, Integer> getUsageRecords(ListUsageRecordsCmd cmd);
-
-    /**
-     * Retrieves the timezone used for usage aggregation.  One day is represented as midnight to 11:59:59pm
-     * in the given time zone
-     * @return the timezone specified by the config value usage.aggregation.timezone, or GMT if null
-     */
-    TimeZone getUsageTimezone();
 
     boolean removeRawUsageRecords(RemoveRawUsageRecordsCmd cmd);
 

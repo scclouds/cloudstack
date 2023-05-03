@@ -381,7 +381,7 @@ under the License.
     </configuration>
 
     <!--
-    usage.aggregation.timezone is the timezone to use for aggregating usage.  This timezone
+    usage.timezone is the timezone to use for aggregating usage.  This timezone
     will specify the boundaries for one day, i.e. when daily usage records are generated, it will
     be one day's worth of usage in this timezone's day.  The value of must be a valid Java 1.6
     timezone id, a list of timezone ids is here (but not guaranteed to be 100% accurate)
@@ -393,7 +393,7 @@ under the License.
     day.
     -->
     <configuration>
-      <name>usage.aggregation.timezone</name>
+      <name>usage.timezone</name>
       <value>GMT</value>
     </configuration>
     <configuration>

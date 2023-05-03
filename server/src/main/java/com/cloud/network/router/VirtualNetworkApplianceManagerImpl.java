@@ -69,6 +69,7 @@ import org.apache.cloudstack.managed.context.ManagedContextRunnable;
 import org.apache.cloudstack.network.router.deployment.RouterDeploymentDefinitionBuilder;
 import org.apache.cloudstack.network.topology.NetworkTopology;
 import org.apache.cloudstack.network.topology.NetworkTopologyContext;
+import org.apache.cloudstack.usage.UsageService;
 import org.apache.cloudstack.utils.CloudStackVersion;
 import org.apache.cloudstack.utils.identity.ManagementServerNode;
 import org.apache.cloudstack.utils.usage.UsageUtils;
@@ -388,7 +389,6 @@ Configurable, StateListener<VirtualMachine.State, VirtualMachine.Event, VirtualM
     private boolean _disableRpFilter = false;
     private int _routerExtraPublicNics = 2;
     private int _usageAggregationRange = 1440;
-    private String _usageTimeZone = "GMT";
     private final long mgmtSrvrId = MacAddress.getMacAddress().toLong();
     private static final int ACQUIRE_GLOBAL_LOCK_TIMEOUT_FOR_COOPERATION = 5; // 5 seconds
     private boolean _dailyOrHourly = false;
@@ -630,10 +630,6 @@ Configurable, StateListener<VirtualMachine.State, VirtualMachine.Event, VirtualM
 
         final String aggregationRange = configs.get("usage.stats.job.aggregation.range");
         _usageAggregationRange = NumbersUtil.parseInt(aggregationRange, 1440);
-        _usageTimeZone = configs.get("usage.aggregation.timezone");
-        if (_usageTimeZone == null) {
-            _usageTimeZone = "GMT";
-        }
 
         _agentMgr.registerForHostEvents(this, true, false, false);
 
@@ -654,8 +650,10 @@ Configurable, StateListener<VirtualMachine.State, VirtualMachine.Event, VirtualM
         //Network stats aggregation should align with aggregation range
         //For daily aggregation, update stats at the end of the day
         //For hourly aggregation, update stats at the end of the hour
-        final TimeZone usageTimezone = TimeZone.getTimeZone(_usageTimeZone);
-        final Calendar cal = Calendar.getInstance(usageTimezone);
+        TimeZone usageTimeZone = TimeZone.getTimeZone(UsageService.UsageTimeZone.value());
+        s_logger.info(String.format("Using time zone [%s] from configuration [%s] as the time zone for the network usage stats update executor.", usageTimeZone.getID(),
+                UsageService.UsageTimeZone.key()));
+        final Calendar cal = Calendar.getInstance(usageTimeZone);
         cal.setTime(new Date());
         //aggDate is the time in millis when the aggregation should happen
         long aggDate = 0;

@@ -56,6 +56,7 @@ import org.apache.cloudstack.managed.context.ManagedContextRunnable;
 import org.apache.cloudstack.management.ManagementServerHost;
 import org.apache.cloudstack.storage.datastore.db.PrimaryDataStoreDao;
 import org.apache.cloudstack.storage.datastore.db.StoragePoolVO;
+import org.apache.cloudstack.usage.UsageService;
 import org.apache.cloudstack.utils.bytescale.ByteScaleUtils;
 import org.apache.cloudstack.utils.graphite.GraphiteClient;
 import org.apache.cloudstack.utils.graphite.GraphiteException;
@@ -377,7 +378,6 @@ public class StatsCollector extends ManagerBase implements ComponentMethodInterc
 
     private ScheduledExecutorService _diskStatsUpdateExecutor;
     private int _usageAggregationRange = 1440;
-    private String _usageTimeZone = "GMT";
     private final long mgmtSrvrId = MacAddress.getMacAddress().toLong();
     private static final int ACQUIRE_GLOBAL_LOCK_TIMEOUT_FOR_COOPERATION = 5;    // 5 seconds
     private boolean _dailyOrHourly = false;
@@ -534,12 +534,11 @@ public class StatsCollector extends ManagerBase implements ComponentMethodInterc
 
         String aggregationRange = configs.get("usage.stats.job.aggregation.range");
         _usageAggregationRange = NumbersUtil.parseInt(aggregationRange, 1440);
-        _usageTimeZone = configs.get("usage.aggregation.timezone");
-        if (_usageTimeZone == null) {
-            _usageTimeZone = "GMT";
-        }
-        TimeZone usageTimezone = TimeZone.getTimeZone(_usageTimeZone);
-        Calendar cal = Calendar.getInstance(usageTimezone);
+
+        TimeZone usageTimeZone = TimeZone.getTimeZone(UsageService.UsageTimeZone.value());
+        LOGGER.info(String.format("Using time zone [%s] from configuration [%s] as the time zone for the disk usage stats update executor.", usageTimeZone.getID(),
+                UsageService.UsageTimeZone.key()));
+        Calendar cal = Calendar.getInstance(usageTimeZone);
         cal.setTime(new Date());
         long endDate = 0;
         if (_usageAggregationRange == DAILY_TIME) {

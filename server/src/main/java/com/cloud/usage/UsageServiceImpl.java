@@ -32,10 +32,13 @@ import org.apache.cloudstack.api.command.admin.usage.ListUsageRecordsCmd;
 import org.apache.cloudstack.api.command.admin.usage.RemoveRawUsageRecordsCmd;
 import org.apache.cloudstack.api.response.UsageTypeResponse;
 import org.apache.cloudstack.context.CallContext;
+import org.apache.cloudstack.framework.config.ConfigKey;
+import org.apache.cloudstack.framework.config.Configurable;
 import org.apache.cloudstack.framework.config.dao.ConfigurationDao;
 import org.apache.cloudstack.usage.Usage;
 import org.apache.cloudstack.usage.UsageService;
 import org.apache.cloudstack.usage.UsageTypes;
+import org.apache.commons.lang3.ObjectUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.log4j.Logger;
 import org.jetbrains.annotations.NotNull;
@@ -82,7 +85,7 @@ import com.cloud.vm.VMInstanceVO;
 import com.cloud.vm.dao.VMInstanceDao;
 
 @Component
-public class UsageServiceImpl extends ManagerBase implements UsageService, Manager {
+public class UsageServiceImpl extends ManagerBase implements UsageService, Manager, Configurable {
     public static final Logger s_logger = Logger.getLogger(UsageServiceImpl.class);
 
     //ToDo: Move implementation to ManagaerImpl
@@ -99,7 +102,6 @@ public class UsageServiceImpl extends ManagerBase implements UsageService, Manag
     private ConfigurationDao _configDao;
     @Inject
     private ProjectManager _projectMgr;
-    private TimeZone _usageTimezone;
     @Inject
     private AccountService _accountService;
     @Inject
@@ -123,17 +125,16 @@ public class UsageServiceImpl extends ManagerBase implements UsageService, Manag
     @Inject
     private HostDao _hostDao;
 
+    private TimeZone usageTimeZone = TimeZone.getTimeZone("GMT");
+
     public UsageServiceImpl() {
     }
 
     @Override
     public boolean configure(String name, Map<String, Object> params) throws ConfigurationException {
         super.configure(name, params);
-        String timeZoneStr = _configDao.getValue(Config.UsageAggregationTimezone.toString());
-        if (timeZoneStr == null) {
-           timeZoneStr = "GMT";
-        }
-        _usageTimezone = TimeZone.getTimeZone(timeZoneStr);
+        String timeZone = ObjectUtils.defaultIfNull(_configDao.getValue(UsageService.UsageTimeZone.key()), UsageService.UsageTimeZone.defaultValue());
+        usageTimeZone = TimeZone.getTimeZone(timeZone);
         return true;
     }
 
@@ -209,9 +210,9 @@ public class UsageServiceImpl extends ManagerBase implements UsageService, Manag
         if (startDate.after(endDate)) {
             throw new InvalidParameterValueException("Incorrect Date Range. Start date: " + startDate + " is after end date:" + endDate);
         }
-        TimeZone usageTZ = getUsageTimezone();
-        Date adjustedStartDate = computeAdjustedTime(startDate, usageTZ);
-        Date adjustedEndDate = computeAdjustedTime(endDate, usageTZ);
+
+        Date adjustedStartDate = computeAdjustedTime(startDate, usageTimeZone);
+        Date adjustedEndDate = computeAdjustedTime(endDate, usageTimeZone);
 
         if (s_logger.isDebugEnabled()) {
             s_logger.debug("getting usage records for account: " + accountId + ", domainId: " + domainId + ", between " + adjustedStartDate + " and " + adjustedEndDate +
@@ -454,11 +455,6 @@ public class UsageServiceImpl extends ManagerBase implements UsageService, Manag
     }
 
     @Override
-    public TimeZone getUsageTimezone() {
-        return _usageTimezone;
-    }
-
-    @Override
     public boolean removeRawUsageRecords(RemoveRawUsageRecordsCmd cmd) throws InvalidParameterValueException {
         Integer interval = cmd.getInterval();
         if (interval != null && interval > 0 ) {
@@ -466,12 +462,7 @@ public class UsageServiceImpl extends ManagerBase implements UsageService, Manag
             if (jobExecTime != null ) {
                 String[] segments = jobExecTime.split(":");
                 if (segments.length == 2) {
-                    String timeZoneStr = _configDao.getValue(Config.UsageExecutionTimezone.toString());
-                    if (timeZoneStr == null) {
-                        timeZoneStr = "GMT";
-                    }
-                    TimeZone tz = TimeZone.getTimeZone(timeZoneStr);
-                    Calendar cal = Calendar.getInstance(tz);
+                    Calendar cal = Calendar.getInstance(usageTimeZone);
                     cal.setTime(new Date());
                     long curTS = cal.getTimeInMillis();
                     cal.set(Calendar.HOUR_OF_DAY, Integer.parseInt(segments[0]));
@@ -522,4 +513,13 @@ public class UsageServiceImpl extends ManagerBase implements UsageService, Manag
         return UsageTypes.listUsageTypes();
     }
 
+    @Override
+    public String getConfigComponentName() {
+        return this.getClass().getSimpleName();
+    }
+
+    @Override
+    public ConfigKey<?>[] getConfigKeys() {
+        return new ConfigKey<?>[] {UsageTimeZone};
+    }
 }

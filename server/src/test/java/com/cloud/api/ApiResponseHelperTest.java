@@ -27,7 +27,6 @@ import java.lang.reflect.Field;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.Date;
-import java.util.TimeZone;
 import java.util.UUID;
 
 import org.apache.cloudstack.annotation.dao.AnnotationDao;
@@ -119,8 +118,6 @@ public class ApiResponseHelperTest {
 
     @Test
     public void getDateStringInternal() throws ParseException {
-        Mockito.when(usageService.getUsageTimezone()).thenReturn(
-                TimeZone.getTimeZone("UTC"));
         assertEquals("2014-06-29'T'23:45:00+00:00", helper
                 .getDateStringInternal(dateFormat.parse("2014-06-29 23:45:00 UTC")));
         assertEquals("2014-06-29'T'23:45:01+00:00", helper
