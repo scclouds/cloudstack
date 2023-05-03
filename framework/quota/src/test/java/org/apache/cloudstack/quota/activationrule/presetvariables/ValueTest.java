@@ -144,4 +144,17 @@ public class ValueTest {
         Assert.assertTrue(variable.fieldNamesToIncludeInToString.contains("state"));
     }
 
+    @Test
+    public void setHypervisorTypeTestAddFieldHypervisorTypeToCollection() {
+        Value variable = new Value();
+        variable.setHypervisorType(null);
+        Assert.assertTrue(variable.fieldNamesToIncludeInToString.contains("hypervisorType"));
+    }
+
+    @Test
+    public void setVolumeFormatTestAddFieldVolumeFormatToCollection() {
+        Value variable = new Value();
+        variable.setVolumeFormat(null);
+        Assert.assertTrue(variable.fieldNamesToIncludeInToString.contains("volumeFormat"));
+    }
 }
