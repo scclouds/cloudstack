@@ -26,6 +26,7 @@ import java.util.Map;
 import java.util.stream.Collectors;
 
 import com.cloud.host.HostTagVO;
+import com.cloud.hypervisor.Hypervisor;
 import com.cloud.network.vpc.VpcVO;
 import com.cloud.network.dao.NetworkVO;
 import javax.inject.Inject;
@@ -71,6 +72,7 @@ import com.cloud.storage.DiskOfferingVO;
 import com.cloud.storage.GuestOSVO;
 import com.cloud.storage.Snapshot;
 import com.cloud.storage.SnapshotVO;
+import com.cloud.storage.Storage.ImageFormat;
 import com.cloud.storage.VMTemplateVO;
 import com.cloud.storage.VolumeVO;
 import com.cloud.storage.dao.DiskOfferingDao;
@@ -333,6 +335,10 @@ public class PresetVariableHelper {
 
         value.setTags(getPresetVariableValueResourceTags(vmId, ResourceObjectType.UserVm));
         value.setTemplate(getPresetVariableValueTemplate(vmVo.getTemplateId()));
+        Hypervisor.HypervisorType hypervisorType = vmVo.getHypervisorType();
+        if (hypervisorType != null) {
+            value.setHypervisorType(hypervisorType.name());
+        }
     }
 
     protected void logNotLoadingMessageInTrace(String resource, int usageType) {
@@ -495,6 +501,11 @@ public class PresetVariableHelper {
 
         value.setTags(getPresetVariableValueResourceTags(volumeId, ResourceObjectType.Volume));
         value.setSize(ByteScaleUtils.bytesToMebibytes(volumeVo.getSize()));
+
+        ImageFormat format = volumeVo.getFormat();
+        if (format != null) {
+            value.setVolumeFormat(format.name());
+        }
     }
 
     protected GenericPresetVariable getPresetVariableValueDiskOffering(Long diskOfferingId) {
@@ -593,6 +604,10 @@ public class PresetVariableHelper {
         value.setSnapshotType(Snapshot.Type.values()[snapshotVo.getSnapshotType()]);
         value.setStorage(getPresetVariableValueStorage(getSnapshotDataStoreId(snapshotId), usageType));
         value.setTags(getPresetVariableValueResourceTags(snapshotId, ResourceObjectType.Snapshot));
+        Hypervisor.HypervisorType hypervisorType = snapshotVo.getHypervisorType();
+        if (hypervisorType != null) {
+            value.setHypervisorType(hypervisorType.name());
+        }
     }
 
     /**
@@ -645,6 +660,11 @@ public class PresetVariableHelper {
         value.setName(vmSnapshotVo.getName());
         value.setTags(getPresetVariableValueResourceTags(vmSnapshotId, ResourceObjectType.VMSnapshot));
         value.setVmSnapshotType(vmSnapshotVo.getType());
+
+        VMInstanceVO vmVo = vmInstanceDao.findByIdIncludingRemoved(vmSnapshotVo.getVmId());
+        if (vmVo != null && vmVo.getHypervisorType() != null) {
+            value.setHypervisorType(vmVo.getHypervisorType().name());
+        }
     }
 
     protected void loadPresetVariableValueForBackup(UsageVO usageRecord, Value value) {
