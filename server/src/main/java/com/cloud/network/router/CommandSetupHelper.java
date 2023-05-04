@@ -34,6 +34,7 @@ import com.cloud.domain.Domain;
 import com.cloud.domain.dao.DomainDao;
 import org.apache.cloudstack.api.ApiConstants;
 import org.apache.cloudstack.engine.orchestration.service.NetworkOrchestrationService;
+import com.cloud.network.rules.PortForwardingRuleVO;
 import org.apache.cloudstack.framework.config.dao.ConfigurationDao;
 import org.apache.log4j.Logger;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -391,6 +392,7 @@ public class CommandSetupHelper {
         final List<PortForwardingRuleTO> rulesTO = new ArrayList<PortForwardingRuleTO>();
         if (rules != null) {
             for (final PortForwardingRule rule : rules) {
+                _rulesDao.loadSourceCidrs((PortForwardingRuleVO) rule);
                 final IpAddress sourceIp = _networkModel.getIp(rule.getSourceIpAddressId());
                 final PortForwardingRuleTO ruleTO = new PortForwardingRuleTO(rule, null, sourceIp.getAddress().addr());
                 rulesTO.add(ruleTO);
