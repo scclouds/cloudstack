@@ -956,6 +956,10 @@ public class RulesManagerImpl extends ManagerBase implements RulesManager, Rules
             return true;
         }
 
+        for (PortForwardingRuleVO rule: rules){
+            rule.setSourceCidrList(firewallCidrsDao.getSourceCidrs(rule.getId()));
+        }
+
         if (caller != null) {
             _accountMgr.checkAccess(caller, null, true, rules.toArray(new PortForwardingRuleVO[rules.size()]));
         }
