@@ -16,6 +16,7 @@
 // under the License.
 package org.apache.cloudstack.api.command.user.offering;
 
+import org.apache.cloudstack.api.response.ProjectResponse;
 import org.apache.cloudstack.api.response.ZoneResponse;
 import org.apache.log4j.Logger;
 
@@ -88,6 +89,12 @@ public class ListServiceOfferingsCmd extends BaseListDomainResourcesCmd {
         since = "4.18")
     private Boolean encryptRoot;
 
+    @Parameter(name = ApiConstants.ACCOUNT, type = CommandType.STRING, description = "list resources by account. Must be used with the domainId parameter.")
+    private String accountName;
+
+    @Parameter(name = ApiConstants.PROJECT_ID, type = CommandType.UUID, entityType = ProjectResponse.class, description = "list objects by project.")
+    private Long projectId;
+
     /////////////////////////////////////////////////////
     /////////////////// Accessors ///////////////////////
     /////////////////////////////////////////////////////
@@ -126,6 +133,14 @@ public class ListServiceOfferingsCmd extends BaseListDomainResourcesCmd {
 
     public Integer getCpuSpeed() {
         return cpuSpeed;
+    }
+
+    public String getAccountName() {
+        return accountName;
+    }
+
+    public Long getProjectId() {
+        return projectId;
     }
 
     public Boolean getEncryptRoot() { return encryptRoot; }
