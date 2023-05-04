@@ -482,7 +482,7 @@ public class KubernetesClusterResourceModifierActionWorker extends KubernetesClu
                                         srcPortFinal, srcPortFinal,
                                         vmIp,
                                         22, 22,
-                                        "tcp", networkId, accountId, domainId, vmIdFinal);
+                                        "tcp", networkId, accountId, domainId, vmIdFinal, null);
                         newRule.setDisplay(true);
                         newRule.setState(FirewallRule.State.Add);
                         newRule = portForwardingRulesDao.persist(newRule);

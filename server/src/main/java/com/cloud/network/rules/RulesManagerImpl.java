@@ -114,7 +114,7 @@ public class RulesManagerImpl extends ManagerBase implements RulesManager, Rules
     @Inject
     PortForwardingRulesDao _portForwardingDao;
     @Inject
-    FirewallRulesCidrsDao _firewallCidrsDao;
+    FirewallRulesCidrsDao firewallCidrsDao;
     @Inject
     FirewallRulesDao _firewallDao;
     @Inject
@@ -248,6 +248,7 @@ public class RulesManagerImpl extends ManagerBase implements RulesManager, Rules
 
             final Long accountId = ipAddress.getAllocatedToAccountId();
             final Long domainId = ipAddress.getAllocatedInDomainId();
+            List<String> cidrList = rule.getSourceCidrList();
 
             // start port can't be bigger than end port
             if (rule.getDestinationPortStart() > rule.getDestinationPortEnd()) {
@@ -314,7 +315,7 @@ public class RulesManagerImpl extends ManagerBase implements RulesManager, Rules
                 public PortForwardingRuleVO doInTransaction(TransactionStatus status) throws NetworkRuleConflictException {
                     PortForwardingRuleVO newRule =
                         new PortForwardingRuleVO(rule.getXid(), rule.getSourceIpAddressId(), rule.getSourcePortStart(), rule.getSourcePortEnd(), dstIpFinal,
-                            rule.getDestinationPortStart(), rule.getDestinationPortEnd(), rule.getProtocol().toLowerCase(), networkId, accountId, domainId, vmId);
+                            rule.getDestinationPortStart(), rule.getDestinationPortEnd(), rule.getProtocol().toLowerCase(), networkId, accountId, domainId, vmId, cidrList);
 
                     if (forDisplay != null) {
                         newRule.setDisplay(forDisplay);
@@ -900,6 +901,10 @@ public class RulesManagerImpl extends ManagerBase implements RulesManager, Rules
 
         if (caller != null) {
             _accountMgr.checkAccess(caller, null, true, rules.toArray(new PortForwardingRuleVO[rules.size()]));
+        }
+
+        for (PortForwardingRuleVO rule: rules){
+            rule.setSourceCidrList(firewallCidrsDao.getSourceCidrs(rule.getId()));
         }
 
         try {
