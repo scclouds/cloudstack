@@ -29,6 +29,17 @@
             layout="vertical"
           >
             <a-steps direction="vertical" size="small">
+              <a-step
+                v-if="!isNormalUserOrProject"
+                :title="this.$t('label.assign.instance.another')">
+                <template #description v-if="zoneSelected">
+                  <div style="margin-top: 15px">
+                    {{ $t('label.assigning.vms') }}
+                    <ownership-selection
+                      @fetch-owner="fetchOwnerOptions"/>
+                  </div>
+                </template>
+              </a-step>
               <a-step :title="$t('label.select.deployment.infrastructure')" status="process">
                 <template #description>
                   <div style="margin-top: 15px">
@@ -836,6 +847,7 @@ import UserDataSelection from '@views/compute/wizard/UserDataSelection'
 import SecurityGroupSelection from '@views/compute/wizard/SecurityGroupSelection'
 import TooltipLabel from '@/components/widgets/TooltipLabel'
 import InstanceNicsNetworkSelectListView from '@/components/view/InstanceNicsNetworkSelectListView.vue'
+import OwnershipSelection from '@views/compute/wizard/OwnershipSelection'
 import { sanitizeReverse } from '@/utils/util'
 
 export default {
@@ -856,7 +868,8 @@ export default {
     SecurityGroupSelection,
     ResourceIcon,
     TooltipLabel,
-    InstanceNicsNetworkSelectListView
+    InstanceNicsNetworkSelectListView,
+    OwnershipSelection
   },
   props: {
     visible: {
@@ -937,6 +950,11 @@ export default {
         clusters: false,
         hosts: false,
         groups: false
+      },
+      owner: {
+        projectid: store.getters.projectid,
+        domainid: store.getters.userInfo.domainid,
+        account: store.getters.userInfo.account
       },
       instanceConfig: {},
       template: {},
@@ -1029,6 +1047,9 @@ export default {
     isNormalAndDomainUser () {
       return ['DomainAdmin', 'User'].includes(this.$store.getters.userInfo.roletype)
     },
+    isNormalUserOrProject () {
+      return ['User'].includes(this.$store.getters.userInfo.roletype) || store.getters.project.id
+    },
     diskSize () {
       const rootDiskSize = _.get(this.instanceConfig, 'rootdisksize', 0)
       const customDiskSize = _.get(this.instanceConfig, 'size', 0)
@@ -1052,6 +1073,9 @@ export default {
           list: 'listServiceOfferings',
           options: {
             zoneid: _.get(this.zone, 'id'),
+            projectid: this.owner.projectid,
+            domainid: this.owner.domainid,
+            account: this.owner.account,
             issystem: false,
             page: 1,
             pageSize: 10,
@@ -1062,6 +1086,9 @@ export default {
           list: 'listDiskOfferings',
           options: {
             zoneid: _.get(this.zone, 'id'),
+            projectid: this.owner.projectid,
+            domainid: this.owner.domainid,
+            account: this.owner.account,
             page: 1,
             pageSize: 10,
             keyword: undefined
@@ -1111,9 +1138,9 @@ export default {
           options: {
             zoneid: _.get(this.zone, 'id'),
             canusefordeploy: true,
-            projectid: store.getters.project ? store.getters.project.id : null,
-            domainid: store.getters.project && store.getters.project.id ? null : store.getters.userInfo.domainid,
-            account: store.getters.project && store.getters.project.id ? null : store.getters.userInfo.account,
+            projectid: store.getters.project.id || this.owner.projectid,
+            domainid: store.getters.project.id ? null : this.owner.domainid,
+            account: store.getters.project.id ? null : this.owner.account,
             page: 1,
             pageSize: 10,
             keyword: undefined,
@@ -1361,7 +1388,7 @@ export default {
         } else {
           this.overrideDiskOffering = null
         }
-        this.zone = _.find(this.options.zones, (option) => option.id === instanceConfig.zoneid)
+        this.zone = _.find(this.options.zones, (option) => option.id === this.instanceConfig.zoneid)
         this.affinityGroups = _.filter(this.options.affinityGroups, (option) => _.includes(instanceConfig.affinitygroupids, option.id))
         this.networks = this.getSelectedNetworksWithExistingConfig(_.filter(this.options.networks, (option) => _.includes(instanceConfig.networkids, option.id)))
 
@@ -1863,7 +1890,7 @@ export default {
       this.userDataParams = []
       api('listUserData', { id: id }).then(json => {
         const resp = json?.listuserdataresponse?.userdata || []
-        if (resp) {
+        if (resp[0]) {
           var params = resp[0].params
           if (params) {
             var dataParams = params.split(',')
@@ -1886,7 +1913,7 @@ export default {
 
       api('listUserData', { id: id }).then(json => {
         const resp = json?.listuserdataresponse?.userdata || []
-        if (resp) {
+        if (resp[0]) {
           var params = resp[0].params
           if (params) {
             var dataParams = params.split(',')
@@ -2115,6 +2142,14 @@ export default {
           deployVmData.bootintosetup = values.bootintosetup
         }
 
+        if (this.owner.account) {
+          deployVmData.account = this.owner.account
+          deployVmData.domainid = this.owner.domainid
+        } else if (this.owner.projectid) {
+          deployVmData.domainid = this.owner.domainid
+          deployVmData.projectid = this.owner.projectid
+        }
+
         const title = this.$t('label.launch.vm')
         const description = values.name || ''
         const password = this.$t('label.password')
@@ -2197,6 +2232,22 @@ export default {
           })
         }
       })
+    },
+    fetchOwnerOptions (OwnerOptions) {
+      this.owner = {}
+      if (OwnerOptions.selectedAccountType === this.$t('label.account')) {
+        if (!OwnerOptions.selectedAccount) {
+          return
+        }
+        this.owner.account = OwnerOptions.selectedAccount
+        this.owner.domainid = OwnerOptions.selectedDomain
+      } else if (OwnerOptions.selectedAccountType === this.$t('label.project')) {
+        if (!OwnerOptions.selectedProject) {
+          return
+        }
+        this.owner.projectid = OwnerOptions.selectedProject
+      }
+      this.resetData()
     },
     fetchZones (zoneId, listZoneAllow) {
       this.zones = []
@@ -2295,6 +2346,9 @@ export default {
         args.pageSize = args.pageSize || 10
       }
       args.zoneid = _.get(this.zone, 'id')
+      args.account = this.owner.account
+      args.domainid = this.owner.domainid
+      args.projectid = this.owner.projectid
       args.templatefilter = templateFilter
       args.details = 'all'
       args.showicon = 'true'
