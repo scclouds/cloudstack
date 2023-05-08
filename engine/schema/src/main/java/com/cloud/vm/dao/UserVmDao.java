@@ -106,4 +106,5 @@ public interface UserVmDao extends GenericDao<UserVmVO, Long> {
 
     List<UserVmVO> findByUserDataId(long userdataId);
 
+    List<UserVmVO> listByIds(List<Long> ids);
 }

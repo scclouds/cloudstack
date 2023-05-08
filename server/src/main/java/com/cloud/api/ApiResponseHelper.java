@@ -2533,13 +2533,8 @@ public class ApiResponseHelper implements ResponseGenerator {
         }
 
         response.setSpecifyIpRanges(network.getSpecifyIpRanges());
-        if (network.getVpcId() != null) {
-            Vpc vpc = ApiDBUtils.findVpcById(network.getVpcId());
-            if (vpc != null) {
-                response.setVpcId(vpc.getUuid());
-                response.setVpcName(vpc.getName());
-            }
-        }
+
+        setVpcIdInResponse(network, response);
 
         setResponseAssociatedNetworkInformation(response, network.getId());
 
@@ -2610,6 +2605,23 @@ public class ApiResponseHelper implements ResponseGenerator {
         response.setObjectName("network");
         return response;
     }
+
+
+    private void setVpcIdInResponse(Network network, NetworkResponse response) {
+        if (network.getVpcId() != null) {
+            Vpc vpc = ApiDBUtils.findVpcById(network.getVpcId());
+            if (vpc != null) {
+                try {
+                    _accountMgr.checkAccess(CallContext.current().getCallingAccount(), null, false, vpc);
+                    response.setVpcId(vpc.getUuid());
+                } catch (PermissionDeniedException e) {
+                    s_logger.debug("Not setting the vpcId to the response because the caller does not have access to the VPC");
+                }
+                response.setVpcName(vpc.getName());
+            }
+        }
+    }
+
 
     private void setResponseAssociatedNetworkInformation(BaseResponseWithAssociatedNetwork response, Long networkId) {
         final NetworkDetailVO detail = networkDetailsDao.findDetail(networkId, Network.AssociatedNetworkId);
