@@ -1810,10 +1810,8 @@ public class VpcManagerImpl extends ManagerBase implements VpcManager, VpcProvis
                         }
                     }
 
-                    // 4) vpc and network should belong to the same owner
-                    if (vpc.getAccountId() != networkOwner.getId()) {
-                        throw new InvalidParameterValueException("Vpc " + vpc + " owner is different from the network owner " + networkOwner);
-                    }
+                    // 4) Vpc's account should be able to access network owner's account
+                    CheckAccountsAccess(vpc, networkOwner);
 
                     // 5) network domain should be the same as VPC's
                     if (!networkDomain.equalsIgnoreCase(vpc.getNetworkDomain())) {
@@ -1830,6 +1828,17 @@ public class VpcManagerImpl extends ManagerBase implements VpcManager, VpcProvis
                 }
             }
         });
+    }
+
+    private void CheckAccountsAccess(Vpc vpc, Account networkAccount) {
+        Account vpcaccount = _accountMgr.getAccount(vpc.getAccountId());
+        try {
+            _accountMgr.checkAccess(vpcaccount, null, false, networkAccount);
+        }
+        catch (PermissionDeniedException e) {
+            s_logger.error(e.getMessage());
+            throw new InvalidParameterValueException(String.format("VPC owner does not have access to account [%s].", networkAccount.getAccountName()));
+        }
     }
 
     public List<VpcProvider> getVpcElements() {
@@ -2832,11 +2841,11 @@ public class VpcManagerImpl extends ManagerBase implements VpcManager, VpcProvis
         }
 
         // check permissions
-        _accountMgr.checkAccess(caller, null, true, owner, vpc);
+        _accountMgr.checkAccess(caller, null, false, owner, vpc);
 
         s_logger.debug("Associating ip " + ipToAssoc + " to vpc " + vpc);
 
-        final boolean isSourceNatFinal = isSrcNatIpRequired(vpc.getVpcOfferingId()) && getExistingSourceNatInVpc(owner.getId(), vpcId) == null;
+        final boolean isSourceNatFinal = isSrcNatIpRequired(vpc.getVpcOfferingId()) && getExistingSourceNatInVpc(vpc.getAccountId(), vpcId) == null;
         Transaction.execute(new TransactionCallbackNoReturn() {
             @Override
             public void doInTransactionWithoutResult(final TransactionStatus status) {
