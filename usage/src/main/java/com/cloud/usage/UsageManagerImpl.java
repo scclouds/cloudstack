@@ -31,7 +31,9 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 
 import com.cloud.network.Network;
+import com.cloud.usage.dao.UsageBackupObjectDao;
 import com.cloud.usage.dao.UsageNetworksDao;
+import com.cloud.usage.parser.BackupObjectUsageParser;
 import com.cloud.usage.parser.NetworksUsageParser;
 import com.cloud.network.vpc.Vpc;
 import com.cloud.usage.dao.UsageVpcDao;
@@ -177,6 +179,9 @@ public class UsageManagerImpl extends ManagerBase implements UsageManager, Runna
 
     @Inject
     private UsageVpcDao usageVpcDao;
+
+    @Inject
+    private UsageBackupObjectDao usageBackupObjectDao;
 
     private String _version = null;
     private final Calendar _jobExecTime = Calendar.getInstance();
@@ -992,6 +997,10 @@ public class UsageManagerImpl extends ManagerBase implements UsageManager, Runna
                 s_logger.debug("VM Backup usage successfully parsed? " + parsed + " (for account: " + account.getAccountName() + ", id: " + account.getId() + ")");
             }
         }
+        parsed = BackupObjectUsageParser.parse(account, currentStartDate, currentEndDate);
+        if (!parsed) {
+            s_logger.debug(String.format("Backup object usage not parsed for account [%s].", account));
+        }
         parsed = NetworksUsageParser.parse(account, currentStartDate, currentEndDate);
         if (!parsed) {
             s_logger.debug(String.format("Networks usage not parsed for account [%s].", account));
@@ -1033,6 +1042,8 @@ public class UsageManagerImpl extends ManagerBase implements UsageManager, Runna
             createVmSnapshotOnPrimaryEvent(event);
         } else if (isBackupEvent(eventType)) {
             createBackupEvent(event);
+        } else if (EventTypes.isBackupObjectEvent(eventType)) {
+            handleBackupObjectEvent(event);
         } else if (EventTypes.isNetworkEvent(eventType)) {
             handleNetworkEvent(event);
         } else if (EventTypes.isVpcEvent(eventType)) {
@@ -2076,6 +2087,35 @@ public class UsageManagerImpl extends ManagerBase implements UsageManager, Runna
             usageBackupDao.removeUsage(accountId, vmId, event.getCreateDate());
         } else if (EventTypes.EVENT_VM_BACKUP_USAGE_METRIC.equals(event.getType())) {
             usageBackupDao.updateMetrics(vmId, event.getSize(), event.getVirtualSize());
+        }
+    }
+
+    protected void handleBackupObjectEvent(UsageEventVO event) {
+        Long backupId = event.getResourceId();
+
+        Long accountId = event.getAccountId();
+        Account account = _accountDao.findByIdIncludingRemoved(accountId);
+        Long domainId = account.getDomainId();
+
+        String eventType = event.getType();
+
+        if (EventTypes.EVENT_VM_BACKUP_CREATE.equals(eventType)) {
+            UsageEventDetailsVO detailVO = _usageEventDetailsDao.findDetail(event.getId(), UsageEventVO.DynamicParameters.vmId.name());
+
+            Long vmId = null;
+            if (detailVO != null) {
+                vmId = Long.valueOf(detailVO.getValue());
+            }
+
+            UsageBackupObjectVO usageBackupObject = new UsageBackupObjectVO(backupId, event.getOfferingId(), vmId, event.getZoneId(), domainId, accountId,
+                    event.getSize(), event.getVirtualSize(), event.getCreateDate(), null);
+            usageBackupObjectDao.persistUsageBackupObject(usageBackupObject);
+            s_logger.trace(String.format("Created usage backup object [%s].", usageBackupObject));
+        } else if (EventTypes.EVENT_VM_BACKUP_DELETE.equals(eventType)) {
+            usageBackupObjectDao.removeUsageBackupObjectByBackupId(backupId);
+            s_logger.trace(String.format("Deleted usage backup object with ID [%s].", backupId));
+        } else {
+            s_logger.error(String.format("Unknown event type [%s] in backup object event parser. Skipping it.", eventType));
         }
     }
 

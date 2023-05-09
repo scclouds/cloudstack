@@ -44,6 +44,7 @@ public class Value extends GenericPresetVariable {
     private String state;
     private String hypervisorType;
     private String volumeFormat;
+    private GenericPresetVariable virtualMachine;
 
     public Host getHost() {
         return host;
@@ -214,5 +215,14 @@ public class Value extends GenericPresetVariable {
 
     public String getVolumeFormat() {
         return volumeFormat;
+    }
+
+    public GenericPresetVariable getVirtualMachine() {
+        return virtualMachine;
+    }
+
+    public void setVirtualMachine(GenericPresetVariable virtualMachine) {
+        this.virtualMachine = virtualMachine;
+        fieldNamesToIncludeInToString.add("virtualMachine");
     }
 }

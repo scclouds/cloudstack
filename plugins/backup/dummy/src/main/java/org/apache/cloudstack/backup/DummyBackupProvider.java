@@ -24,6 +24,9 @@ import java.util.Map;
 
 import javax.inject.Inject;
 
+import com.cloud.event.EventTypes;
+import com.cloud.event.UsageEventUtils;
+import com.cloud.event.UsageEventVO;
 import org.apache.cloudstack.backup.dao.BackupDao;
 import org.apache.log4j.Logger;
 
@@ -125,7 +128,20 @@ public class DummyBackupProvider extends AdapterBase implements BackupProvider {
         backup.setAccountId(vm.getAccountId());
         backup.setDomainId(vm.getDomainId());
         backup.setZoneId(vm.getDataCenterId());
-        return backupDao.persist(backup) != null;
+        BackupVO persistedBackup = backupDao.persist(backup);
+
+        if (persistedBackup != null) {
+            Map<String, String> details = new HashMap<>();
+            details.put(UsageEventVO.DynamicParameters.vmId.name(), String.valueOf(vm.getId()));
+
+            UsageEventUtils.publishUsageEvent(EventTypes.EVENT_VM_BACKUP_CREATE, persistedBackup.getAccountId(), persistedBackup.getZoneId(), persistedBackup.getId(),
+                    String.format("Backup %s - VM %s", backup.getUuid(), vm.getUuid()), persistedBackup.getBackupOfferingId(), null, persistedBackup.getSize(),
+                    persistedBackup.getProtectedSize(), Backup.class.getName(), persistedBackup.getUuid(), details);
+
+            return true;
+        }
+
+        return false;
     }
 
     @Override
