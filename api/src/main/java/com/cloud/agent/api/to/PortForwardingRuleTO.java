@@ -18,8 +18,8 @@ package com.cloud.agent.api.to;
 
 import com.cloud.network.rules.FirewallRule;
 import com.cloud.network.rules.PortForwardingRule;
-import com.cloud.utils.StringUtils;
 import com.cloud.utils.net.NetUtils;
+import org.apache.commons.lang3.StringUtils;
 
 import java.util.List;
 
