@@ -1158,4 +1158,8 @@ public class EventTypes {
     public static boolean isVpcEvent(String eventType) {
         return EventTypes.EVENT_VPC_CREATE.equals(eventType) || EventTypes.EVENT_VPC_DELETE.equals(eventType);
     }
+
+    public static boolean isBackupObjectEvent(String eventType) {
+        return EventTypes.EVENT_VM_BACKUP_CREATE.equals(eventType) || EventTypes.EVENT_VM_BACKUP_DELETE.equals(eventType);
+    }
 }

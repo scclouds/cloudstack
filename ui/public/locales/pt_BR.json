@@ -1,5 +1,12 @@
 {
 "alert.service.domainrouter": "Roteador do dom\u00ednio",
+<<<<<<< HEAD
+=======
+"ALLOCATED_VM": "VM alocada",
+"BACKUP": "Backup",
+"BACKUP_OBJECT": "Objeto de backup",
+"Compute-Month": "Recurso * M\u00eas",
+>>>>>>> 9359c6e410 (Merge branch 'quota-backup-object-billing' into '4.16.0.0-scclouds')
 "error.dedicate.cluster.failed": "Falha ao dedicar cluster",
 "error.dedicate.host.failed": "Falha ao dedicar host",
 "error.dedicate.pod.failed": "Falha ao dedicar pod",

@@ -810,6 +810,9 @@ public class BackupManagerImpl extends ManagerBase implements BackupManager {
         final BackupProvider backupProvider = getBackupProvider(offering.getProvider());
         boolean result = backupProvider.deleteBackup(backup, forced);
         if (result) {
+            UsageEventUtils.publishUsageEvent(EventTypes.EVENT_VM_BACKUP_DELETE, backup.getAccountId(), backup.getZoneId(), backup.getId(),
+                    String.format("Backup %s - VM %s", backup.getUuid(), vm.getUuid()), backup.getBackupOfferingId(), null, backup.getSize(), backup.getProtectedSize(),
+                    Backup.class.getName(), backup.getUuid());
             return backupDao.remove(backup.getId());
         }
         throw new CloudRuntimeException("Failed to delete the backup");

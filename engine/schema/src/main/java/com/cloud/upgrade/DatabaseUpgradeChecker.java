@@ -32,6 +32,7 @@ import java.util.Date;
 import javax.inject.Inject;
 
 import com.cloud.upgrade.dao.Upgrade41800to41801;
+import com.cloud.upgrade.dao.Upgrade41510to41520;
 import org.apache.cloudstack.utils.CloudStackVersion;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.log4j.Logger;
@@ -74,7 +75,6 @@ import com.cloud.upgrade.dao.Upgrade41300to41310;
 import com.cloud.upgrade.dao.Upgrade41310to41400;
 import com.cloud.upgrade.dao.Upgrade41400to41500;
 import com.cloud.upgrade.dao.Upgrade41500to41510;
-import com.cloud.upgrade.dao.Upgrade41510to41520;
 import com.cloud.upgrade.dao.Upgrade41520to41600;
 import com.cloud.upgrade.dao.Upgrade41600to41610;
 import com.cloud.upgrade.dao.Upgrade41610to41700;

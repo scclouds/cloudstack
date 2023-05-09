@@ -32,6 +32,9 @@ import com.cloud.storage.dao.VolumeDao;
 import com.google.gson.Gson;
 import javax.inject.Inject;
 
+import com.cloud.event.EventTypes;
+import com.cloud.event.UsageEventUtils;
+import com.cloud.event.UsageEventVO;
 import org.apache.cloudstack.api.InternalIdentity;
 import org.apache.cloudstack.backup.Backup.Metric;
 import org.apache.cloudstack.backup.Backup.RestorePoint;
@@ -342,7 +345,6 @@ public class VeeamBackupProvider extends AdapterBase implements BackupProvider, 
                             removeList.remove(existingBackupEntry.getId());
                             continue;
                         }
-
                         BackupVO backup = new BackupVO();
                         backup.setVmId(vm.getId());
                         backup.setExternalId(restorePoint.getId());
@@ -361,7 +363,16 @@ public class VeeamBackupProvider extends AdapterBase implements BackupProvider, 
                         LOG.debug(String.format("Creating a new entry in backups: [uuid: %s, vm_id: %s, external_id: %s, type: %s, date: %s, backup_offering_id: %s, account_id: %s, "
                                         + "domain_id: %s, zone_id: %s].", backup.getUuid(), backup.getVmId(), backup.getExternalId(), backup.getType(), backup.getDate(),
                                 backup.getBackupOfferingId(), backup.getAccountId(), backup.getDomainId(), backup.getZoneId()));
-                        backupDao.persist(backup);
+                        BackupVO persistedBackup = backupDao.persist(backup);
+
+                        if (persistedBackup != null) {
+                            Map<String, String> details = new HashMap<>();
+                            details.put(UsageEventVO.DynamicParameters.vmId.name(), String.valueOf(vm.getId()));
+
+                            UsageEventUtils.publishUsageEvent(EventTypes.EVENT_VM_BACKUP_CREATE, persistedBackup.getAccountId(), persistedBackup.getZoneId(), persistedBackup.getId(),
+                                    String.format("Backup %s - VM %s", backup.getUuid(), vm.getUuid()), persistedBackup.getBackupOfferingId(), null, persistedBackup.getSize(),
+                                    persistedBackup.getProtectedSize(), Backup.class.getName(), persistedBackup.getUuid(), details);
+                        }
                     }
                 }
                 for (final Long backupIdToRemove : removeList) {
@@ -371,6 +382,7 @@ public class VeeamBackupProvider extends AdapterBase implements BackupProvider, 
             }
         });
     }
+
     private long findBackupOfferingOfBackup(RestorePoint restorePoint, VirtualMachine vm) {
         LOG.debug(String.format("Trying to find backup offering of restore point [%s] of VM [%s] using backup UUID [%s].", restorePoint.getId(), vm.getUuid(), restorePoint.getBackupUuid()));
         BackupOffering backupOffering = backupOfferingDao.findByUuid(restorePoint.getBackupUuid());
