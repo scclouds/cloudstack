@@ -30,14 +30,18 @@ import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.ListIterator;
+import java.util.Map;
 import java.util.function.Consumer;
+import java.util.stream.Collectors;
 
 import javax.inject.Inject;
+import javax.ws.rs.InternalServerErrorException;
 
 import org.apache.cloudstack.api.ApiErrorCode;
 import org.apache.cloudstack.api.ServerApiException;
 import org.apache.cloudstack.api.command.QuotaBalanceCmd;
 import org.apache.cloudstack.api.command.QuotaConfigureEmailCmd;
+import org.apache.cloudstack.api.command.QuotaCreditsListCmd;
 import org.apache.cloudstack.api.command.QuotaEmailTemplateListCmd;
 import org.apache.cloudstack.api.command.QuotaEmailTemplateUpdateCmd;
 import org.apache.cloudstack.api.command.QuotaStatementCmd;
@@ -64,6 +68,7 @@ import org.apache.cloudstack.quota.vo.QuotaEmailTemplatesVO;
 import org.apache.cloudstack.quota.vo.QuotaTariffVO;
 import org.apache.cloudstack.quota.vo.QuotaUsageVO;
 import org.apache.cloudstack.utils.reflectiontostringbuilderutils.ReflectionToStringBuilderUtils;
+import org.apache.commons.collections.CollectionUtils;
 import org.apache.log4j.Logger;
 import org.springframework.stereotype.Component;
 
@@ -88,7 +93,7 @@ public class QuotaResponseBuilderImpl implements QuotaResponseBuilder {
     @Inject
     private QuotaBalanceDao _quotaBalanceDao;
     @Inject
-    private QuotaCreditsDao _quotaCreditsDao;
+    private QuotaCreditsDao quotaCreditsDao;
     @Inject
     private QuotaUsageDao _quotaUsageDao;
     @Inject
@@ -500,7 +505,7 @@ public class QuotaResponseBuilderImpl implements QuotaResponseBuilder {
 
         QuotaCreditsVO credits = new QuotaCreditsVO(accountId, domainId, new BigDecimal(amount), updatedBy);
         credits.setUpdatedOn(despositedOn);
-        QuotaCreditsVO result = _quotaCreditsDao.saveCredits(credits);
+        QuotaCreditsVO result = quotaCreditsDao.saveCredits(credits);
 
         final AccountVO account = _accountDao.findById(accountId);
         if (account == null) {
@@ -532,7 +537,13 @@ public class QuotaResponseBuilderImpl implements QuotaResponseBuilder {
         if (creditorUser != null) {
             creditor = creditorUser.getUsername();
         }
-        QuotaCreditsResponse response = new QuotaCreditsResponse(result, creditor);
+        QuotaCreditsResponse response = new QuotaCreditsResponse();
+
+        if (result != null) {
+            response.setCredit(result.getCredit());
+            response.setCreditedOn(new Date());
+            response.setAccountCreditorId(creditor);
+        }
         response.setCurrency(QuotaConfig.QuotaCurrencySymbol.value());
         return response;
     }
@@ -736,6 +747,72 @@ public class QuotaResponseBuilderImpl implements QuotaResponseBuilder {
         }
 
         return quotaConfigureEmailResponseList;
+    }
+
+    @Override
+    public Pair<List<QuotaCreditsResponse>, Integer> createQuotaCreditsListResponse(QuotaCreditsListCmd cmd) {
+        List<QuotaCreditsVO> credits = getCreditsForQuotaCreditsList(cmd);
+
+        Map<Long, AccountVO> mapAccount = new HashMap<>();
+        List<QuotaCreditsResponse> creditResponses = credits.stream().map(credit -> getQuotaCreditsResponse(mapAccount, credit)).collect(Collectors.toList());
+
+        return new Pair<>(creditResponses, creditResponses.size());
+    }
+
+    protected QuotaCreditsResponse getQuotaCreditsResponse(Map<Long, AccountVO> mapAccount, QuotaCreditsVO credit) {
+        QuotaCreditsResponse response = new QuotaCreditsResponse();
+
+        AccountVO account = getAccountById(credit, mapAccount);
+
+        response.setAccountCreditorId(account.getUuid());
+        response.setAccountCreditorName(account.getAccountName());
+        response.setCredit(credit.getCredit());
+        response.setCreditedOn(credit.getUpdatedOn());
+        response.setCurrency(QuotaConfig.QuotaCurrencySymbol.value());
+        response.setObjectName("credit");
+
+        return response;
+    }
+
+    protected List<QuotaCreditsVO> getCreditsForQuotaCreditsList(QuotaCreditsListCmd cmd) {
+        Long accountId = cmd.getAccountId();
+        Long domainId = cmd.getDomainId();
+        Date startDate = cmd.getStartDate();
+        Date endDate = cmd.getEndDate();
+
+        if (startDate.after(endDate)) {
+            throw new InvalidParameterValueException("The start date must be before the end date.");
+        }
+
+        List<QuotaCreditsVO> credits = quotaCreditsDao.findCredits(accountId, domainId, startDate, endDate);
+
+        if (CollectionUtils.isNotEmpty(credits)) {
+            return credits;
+        }
+
+        String message = String.format("There are no credit statements for parameters [%s].", ReflectionToStringBuilderUtils.reflectOnlySelectedFields(cmd, "accountName",
+                "domainId", "startDate", "endDate"));
+        s_logger.debug(message);
+        throw new InvalidParameterValueException(message);
+    }
+
+    protected AccountVO getAccountById(QuotaCreditsVO credit, Map<Long, AccountVO> mapAccount) {
+        Long accountId = credit.getUpdatedBy();
+        AccountVO accountVo = mapAccount.get(accountId);
+
+        if (accountVo != null) {
+            return accountVo;
+        }
+
+        accountVo = _accountDao.findByIdIncludingRemoved(accountId);
+
+        if (accountVo == null) {
+            s_logger.error(String.format("Could not find creditor account with ID [%s] for credit [%s].", accountId, credit.toString()));
+            throw new InternalServerErrorException("Could not find creditor's account.");
+        }
+
+        mapAccount.put(accountId, accountVo);
+        return accountVo;
     }
 
     protected QuotaConfigureEmailResponse createQuotaConfigureEmailResponse(QuotaEmailConfigurationVO quotaEmailConfigurationVO, Account account, QuotaAccountVO quotaAccountVO) {
