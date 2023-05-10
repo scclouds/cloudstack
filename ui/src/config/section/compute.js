@@ -29,7 +29,8 @@ export default {
       title: 'label.instances',
       icon: 'desktop-outlined',
       docHelp: 'adminguide/virtual_machines.html',
-      permission: ['listVirtualMachinesMetrics'],
+      permission: ['listVirtualMachines', 'listVirtualMachinesMetrics'],
+      getApiToCall: () => store.getters.metrics ? 'listVirtualMachinesMetrics' : 'listVirtualMachines',
       resourceType: 'UserVm',
       params: () => {
         var params = {}

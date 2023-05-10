@@ -16,9 +16,10 @@
 // under the License.
 package org.apache.cloudstack.api.command.user.vm;
 
-import java.util.ArrayList;
 import java.util.EnumSet;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
 import org.apache.cloudstack.acl.RoleType;
 import org.apache.cloudstack.affinity.AffinityGroupResponse;
@@ -44,6 +45,7 @@ import org.apache.cloudstack.api.response.UserResponse;
 import org.apache.cloudstack.api.response.UserVmResponse;
 import org.apache.cloudstack.api.response.VpcResponse;
 import org.apache.cloudstack.api.response.ZoneResponse;
+import org.apache.commons.collections.CollectionUtils;
 import org.apache.commons.lang3.BooleanUtils;
 import org.apache.log4j.Logger;
 
@@ -57,8 +59,6 @@ import com.cloud.vm.VirtualMachine;
         requestHasSensitiveInfo = false, responseHasSensitiveInfo = true)
 public class ListVMsCmd extends BaseListTaggedResourcesCmd implements UserCmd {
     public static final Logger s_logger = Logger.getLogger(ListVMsCmd.class.getName());
-
-    private static final String s_name = "listvirtualmachinesresponse";
 
     /////////////////////////////////////////////////////
     //////////////// API parameters /////////////////////
@@ -98,7 +98,8 @@ public class ListVMsCmd extends BaseListTaggedResourcesCmd implements UserCmd {
                collectionType = CommandType.STRING,
                description = "comma separated list of host details requested, "
                    + "value can be a list of [all, group, nics, stats, secgrp, tmpl, servoff, diskoff, iso, volume, min, affgrp]."
-                   + " If no parameter is passed in, the details will be defaulted to all")
+                   + " If no parameter is passed in, the details will be defaulted to [group, nics, secgrp, tmpl, servoff, diskoff, iso, volume, min, affgrp] for single VM "
+                   + "listing and to [all] for VM listing with metrics")
     private List<String> viewDetails;
 
     @Parameter(name = ApiConstants.TEMPLATE_ID, type = CommandType.UUID, entityType = TemplateResponse.class, description = "list vms by template")
@@ -239,22 +240,28 @@ public class ListVMsCmd extends BaseListTaggedResourcesCmd implements UserCmd {
         return autoScaleVmGroupId;
     }
 
+    protected boolean isViewDetailsEmpty() {
+        return CollectionUtils.isEmpty(viewDetails);
+    }
+
     public EnumSet<VMDetails> getDetails() throws InvalidParameterValueException {
-        EnumSet<VMDetails> dv;
-        if (viewDetails == null || viewDetails.size() <= 0) {
-            dv = EnumSet.of(VMDetails.all);
-        } else {
-            try {
-                ArrayList<VMDetails> dc = new ArrayList<VMDetails>();
-                for (String detail : viewDetails) {
-                    dc.add(VMDetails.valueOf(detail));
-                }
-                dv = EnumSet.copyOf(dc);
-            } catch (IllegalArgumentException e) {
-                throw new InvalidParameterValueException("The details parameter contains a non permitted value. The allowed values are " + EnumSet.allOf(VMDetails.class));
-            }
+        if (isViewDetailsEmpty()) {
+            Set<VMDetails> allDetails = new HashSet<>(Set.of(VMDetails.values()));
+            allDetails.remove(VMDetails.stats);
+            allDetails.remove(VMDetails.all);
+            return EnumSet.copyOf(allDetails);
         }
-        return dv;
+
+        try {
+            Set<VMDetails> dc = new HashSet<>();
+            for (String detail : viewDetails) {
+                dc.add(VMDetails.valueOf(detail));
+            }
+
+            return EnumSet.copyOf(dc);
+        } catch (IllegalArgumentException e) {
+            throw new InvalidParameterValueException("The details parameter contains a non permitted value. The allowed values are " + EnumSet.allOf(VMDetails.class));
+        }
     }
 
     @Override
@@ -279,11 +286,6 @@ public class ListVMsCmd extends BaseListTaggedResourcesCmd implements UserCmd {
     /////////////////////////////////////////////////////
     /////////////// API Implementation///////////////////
     /////////////////////////////////////////////////////
-    @Override
-    public String getCommandName() {
-        return s_name;
-    }
-
     @Override
     public ApiCommandResourceType getApiResourceType() {
         return ApiCommandResourceType.VirtualMachine;
