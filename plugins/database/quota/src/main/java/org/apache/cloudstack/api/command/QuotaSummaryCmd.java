@@ -20,52 +20,49 @@ import com.cloud.user.Account;
 import com.cloud.utils.Pair;
 
 import org.apache.cloudstack.api.APICommand;
+import org.apache.cloudstack.api.ApiArgValidator;
 import org.apache.cloudstack.api.ApiConstants;
 import org.apache.cloudstack.api.Parameter;
 import org.apache.cloudstack.api.response.DomainResponse;
 import org.apache.cloudstack.api.response.ListResponse;
 import org.apache.cloudstack.api.response.QuotaResponseBuilder;
 import org.apache.cloudstack.api.response.QuotaSummaryResponse;
-import org.apache.cloudstack.context.CallContext;
+import org.apache.cloudstack.quota.QuotaAccountStateFilter;
+import org.apache.commons.lang3.BooleanUtils;
+import org.apache.commons.lang3.StringUtils;
 import org.apache.log4j.Logger;
 
 import java.util.List;
 
 import javax.inject.Inject;
 
-@APICommand(name = "quotaSummary", responseObject = QuotaSummaryResponse.class, description = "Lists balance and quota usage for all accounts", since = "4.7.0", requestHasSensitiveInfo = false, responseHasSensitiveInfo = false)
+@APICommand(name = "quotaSummary", responseObject = QuotaSummaryResponse.class, description = "\"Lists accounts' balance summary.", since = "4.7.0",
+    requestHasSensitiveInfo = false, responseHasSensitiveInfo = false)
 public class QuotaSummaryCmd extends QuotaBaseListCmd {
     public static final Logger s_logger = Logger.getLogger(QuotaSummaryCmd.class);
 
-    @Parameter(name = ApiConstants.ACCOUNT, type = CommandType.STRING, required = false, description = "Optional, Account Id for which statement needs to be generated")
+    @Parameter(name = ApiConstants.ACCOUNT, type = CommandType.STRING, description = "Account's name for which balance will be listed.")
     private String accountName;
 
-    @Parameter(name = ApiConstants.DOMAIN_ID, type = CommandType.UUID, required = false, entityType = DomainResponse.class, description = "Optional, If domain Id is given and the caller is domain admin then the statement is generated for domain.")
-    private Long domainId;
+    @Parameter(name = ApiConstants.DOMAIN_ID, type = CommandType.STRING, entityType = DomainResponse.class, description = "ID of the account's domain.",
+        validations = {ApiArgValidator.UuidString})
+    private String domainId;
 
-    @Parameter(name = ApiConstants.LIST_ALL, type = CommandType.BOOLEAN, required = false, description = "Optional, to list all accounts irrespective of the quota activity")
+    @Parameter(name = ApiConstants.LIST_ALL, type = CommandType.BOOLEAN, description = "False (default) lists balance summary for account. True lists balance summary for " +
+        "accounts which the caller has access.")
     private Boolean listAll;
 
-    @Inject
-    QuotaResponseBuilder _responseBuilder;
+    @Parameter(name = ApiConstants.ACCOUNT_STATE_TO_SHOW, type = CommandType.STRING, description =  "Possible values are [ALL, ACTIVE, REMOVED]. ALL will list summaries for " +
+        "active and removed accounts; ACTIVE will list summaries only for active accounts; REMOVED will list summaries only for removed accounts. The default value is ACTIVE.")
+    private String accountStateToShow;
 
-    public QuotaSummaryCmd() {
-        super();
-    }
+    @Inject
+    QuotaResponseBuilder quotaResponseBuilder;
 
     @Override
     public void execute() {
-        Account caller = CallContext.current().getCallingAccount();
-        Pair<List<QuotaSummaryResponse>, Integer> responses;
-        if (caller.getType() == Account.Type.ADMIN) {
-            if (getAccountName() != null && getDomainId() != null)
-                responses = _responseBuilder.createQuotaSummaryResponse(getAccountName(), getDomainId());
-            else
-                responses = _responseBuilder.createQuotaSummaryResponse(isListAll(), getKeyword(), getStartIndex(), getPageSizeVal());
-        } else {
-            responses = _responseBuilder.createQuotaSummaryResponse(caller.getAccountName(), caller.getDomainId());
-        }
-        final ListResponse<QuotaSummaryResponse> response = new ListResponse<QuotaSummaryResponse>();
+        Pair<List<QuotaSummaryResponse>, Integer> responses = quotaResponseBuilder.createQuotaSummaryResponse(this);
+        ListResponse<QuotaSummaryResponse> response = new ListResponse<>();
         response.setResponses(responses.first(), responses.second());
         response.setResponseName(getCommandName());
         setResponseObject(response);
@@ -79,20 +76,31 @@ public class QuotaSummaryCmd extends QuotaBaseListCmd {
         this.accountName = accountName;
     }
 
-    public Long getDomainId() {
+    public String getDomainId() {
         return domainId;
     }
 
-    public void setDomainId(Long domainId) {
+    public void setDomainId(String domainId) {
         this.domainId = domainId;
     }
 
     public Boolean isListAll() {
-        return listAll == null ? false: listAll;
+        return BooleanUtils.toBoolean(listAll);
     }
 
     public void setListAll(Boolean listAll) {
         this.listAll = listAll;
+    }
+
+    public QuotaAccountStateFilter getAccountStateToShow() {
+        if (StringUtils.isNotBlank(accountStateToShow)) {
+            QuotaAccountStateFilter state = QuotaAccountStateFilter.getValue(accountStateToShow);
+            if (state != null) {
+                return state;
+            }
+        }
+
+        return QuotaAccountStateFilter.ACTIVE;
     }
 
     @Override
