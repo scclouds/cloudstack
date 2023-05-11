@@ -16,16 +16,12 @@
 // under the License.
 package org.apache.cloudstack.api.command;
 
-import java.lang.reflect.Field;
-import java.util.ArrayList;
-import java.util.Date;
-import java.util.List;
-
 import org.apache.cloudstack.api.response.QuotaBalanceResponse;
 import org.apache.cloudstack.api.response.QuotaResponseBuilder;
-import org.apache.cloudstack.quota.vo.QuotaBalanceVO;
+import org.junit.Assert;
 import org.junit.Test;
 import org.junit.runner.RunWith;
+import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.Mockito;
 import org.mockito.runners.MockitoJUnitRunner;
@@ -36,31 +32,19 @@ import junit.framework.TestCase;
 public class QuotaBalanceCmdTest extends TestCase {
 
     @Mock
-    QuotaResponseBuilder responseBuilder;
+    QuotaResponseBuilder quotaResponseBuilderMock;
+
+    @InjectMocks
+    QuotaBalanceCmd quotaBalanceCmdSpy = Mockito.spy(QuotaBalanceCmd.class);
 
     @Test
-    public void testQuotaBalanceCmd() throws NoSuchFieldException, IllegalAccessException {
-        QuotaBalanceCmd cmd = new QuotaBalanceCmd();
-        Field rbField = QuotaBalanceCmd.class.getDeclaredField("_responseBuilder");
-        rbField.setAccessible(true);
-        rbField.set(cmd, responseBuilder);
+    public void executeTestSetResponseObject() {
+        QuotaBalanceResponse expected = new QuotaBalanceResponse();
 
-        List<QuotaBalanceVO> quotaBalanceVOList = new ArrayList<QuotaBalanceVO>();
-        Mockito.when(responseBuilder.getQuotaBalance(Mockito.any(cmd.getClass()))).thenReturn(quotaBalanceVOList);
-        Mockito.when(responseBuilder.createQuotaLastBalanceResponse(Mockito.eq(quotaBalanceVOList), Mockito.any(Date.class))).thenReturn(new QuotaBalanceResponse());
-        Mockito.when(responseBuilder.createQuotaBalanceResponse(Mockito.eq(quotaBalanceVOList), Mockito.any(Date.class), Mockito.any(Date.class))).thenReturn(new QuotaBalanceResponse());
-        Mockito.lenient().when(responseBuilder.startOfNextDay(Mockito.any(Date.class))).thenReturn(new Date());
+        Mockito.doReturn(expected).when(quotaResponseBuilderMock).createQuotaBalanceResponse(Mockito.eq(quotaBalanceCmdSpy));
 
-        // end date not specified
-        cmd.setStartDate(new Date());
-        cmd.setEndDate(null);
-        cmd.execute();
-        Mockito.verify(responseBuilder, Mockito.times(1)).createQuotaLastBalanceResponse(Mockito.eq(quotaBalanceVOList), Mockito.any(Date.class));
-        Mockito.verify(responseBuilder, Mockito.times(0)).createQuotaBalanceResponse(Mockito.eq(quotaBalanceVOList), Mockito.any(Date.class), Mockito.any(Date.class));
+        quotaBalanceCmdSpy.execute();
 
-        // end date specified
-        cmd.setEndDate(new Date());
-        cmd.execute();
-        Mockito.verify(responseBuilder, Mockito.times(1)).createQuotaBalanceResponse(Mockito.eq(quotaBalanceVOList), Mockito.any(Date.class), Mockito.any(Date.class));
+        Assert.assertEquals(expected, quotaBalanceCmdSpy.getResponseObject());
     }
 }

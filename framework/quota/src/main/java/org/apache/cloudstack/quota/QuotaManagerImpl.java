@@ -149,7 +149,7 @@ public class QuotaManagerImpl extends ManagerBase implements QuotaManager {
 
         QuotaUsageVO firstQuotaUsage = accountQuotaUsages.get(0);
         Date startDate = firstQuotaUsage.getStartDate();
-        Date endDate = firstQuotaUsage.getStartDate();
+        Date endDate = firstQuotaUsage.getEndDate();
 
         s_logger.info(String.format("Processing quota balance for account [%s] between [%s] and [%s].", accountToString, startDate,
                 accountQuotaUsages.get(accountQuotaUsages.size() - 1).getEndDate()));
@@ -158,7 +158,7 @@ public class QuotaManagerImpl extends ManagerBase implements QuotaManager {
         long accountId = accountVo.getAccountId();
         long domainId = accountVo.getDomainId();
 
-        aggregatedUsage = getUsageValueAccordingToLastQuotaUsageEntryAndLastQuotaBalance(accountId, domainId, startDate, endDate, aggregatedUsage, accountToString);
+        aggregatedUsage = getUsageValueAccordingToLastQuotaUsageEntryAndLastQuotaBalance(accountId, domainId, startDate, aggregatedUsage, accountToString);
 
         for (QuotaUsageVO quotaUsage : accountQuotaUsages) {
             Date quotaUsageStartDate = quotaUsage.getStartDate();
@@ -181,7 +181,7 @@ public class QuotaManagerImpl extends ManagerBase implements QuotaManager {
             startDate = quotaUsageStartDate;
             endDate = quotaUsageEndDate;
 
-            QuotaBalanceVO lastRealBalanceEntry = _quotaBalanceDao.findLastBalanceEntry(accountId, domainId, endDate);
+            QuotaBalanceVO lastRealBalanceEntry = _quotaBalanceDao.getLastQuotaBalanceEntry(accountId, domainId, endDate);
             Date lastBalanceDate = new Date(0);
 
             if (lastRealBalanceEntry != null) {
@@ -197,7 +197,7 @@ public class QuotaManagerImpl extends ManagerBase implements QuotaManager {
         saveQuotaAccount(accountId, aggregatedUsage, endDate);
     }
 
-    protected BigDecimal getUsageValueAccordingToLastQuotaUsageEntryAndLastQuotaBalance(long accountId, long domainId, Date startDate, Date endDate, BigDecimal aggregatedUsage,
+    protected BigDecimal getUsageValueAccordingToLastQuotaUsageEntryAndLastQuotaBalance(long accountId, long domainId, Date startDate, BigDecimal aggregatedUsage,
             String accountToString) {
         QuotaUsageVO lastQuotaUsage = _quotaUsageDao.findLastQuotaUsageEntry(accountId, domainId, startDate);
 
@@ -208,11 +208,11 @@ public class QuotaManagerImpl extends ManagerBase implements QuotaManager {
             s_logger.debug(String.format("Persisting the first quota balance [%s] for account [%s].", firstBalance, accountToString));
             _quotaBalanceDao.saveQuotaBalance(firstBalance);
         } else {
-            QuotaBalanceVO lastRealBalance = _quotaBalanceDao.findLastBalanceEntry(accountId, domainId, endDate);
+            QuotaBalanceVO lastRealBalance = _quotaBalanceDao.getLastQuotaBalanceEntry(accountId, domainId, startDate);
 
             if (lastRealBalance != null) {
                 aggregatedUsage = aggregatedUsage.add(lastRealBalance.getCreditBalance());
-                aggregatedUsage = aggregatedUsage.add(aggregateCreditBetweenDates(accountId, domainId, lastRealBalance.getUpdatedOn(), endDate, accountToString));
+                aggregatedUsage = aggregatedUsage.add(aggregateCreditBetweenDates(accountId, domainId, lastRealBalance.getUpdatedOn(), startDate, accountToString));
             } else {
                 s_logger.warn(String.format("Account [%s] has quota usage entries, however it does not have a quota balance.", accountToString));
             }
@@ -238,7 +238,7 @@ public class QuotaManagerImpl extends ManagerBase implements QuotaManager {
     }
 
     protected BigDecimal aggregateCreditBetweenDates(Long accountId, Long domainId, Date startDate, Date endDate, String accountToString) {
-        List<QuotaBalanceVO> creditsReceived = _quotaBalanceDao.findCreditBalance(accountId, domainId, startDate, endDate);
+        List<QuotaBalanceVO> creditsReceived = _quotaBalanceDao.findCreditBalances(accountId, domainId, startDate, endDate);
         s_logger.debug(String.format("Account [%s] has [%s] credit entries before [%s].", accountToString, creditsReceived.size(), endDate));
 
         BigDecimal aggregatedUsage = BigDecimal.ZERO;

@@ -17,6 +17,7 @@
 package org.apache.cloudstack.quota;
 
 import java.math.BigDecimal;
+import java.security.InvalidParameterException;
 import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.Date;
@@ -27,6 +28,7 @@ import java.util.TimeZone;
 import javax.inject.Inject;
 import javax.naming.ConfigurationException;
 
+import com.cloud.utils.DateUtil;
 import org.apache.cloudstack.api.command.QuotaBalanceCmd;
 import org.apache.cloudstack.api.command.QuotaConfigureEmailCmd;
 import org.apache.cloudstack.api.command.QuotaCreditsCmd;
@@ -56,6 +58,7 @@ import org.apache.cloudstack.quota.vo.QuotaBalanceVO;
 import org.apache.cloudstack.quota.vo.QuotaUsageVO;
 import org.apache.cloudstack.usage.UsageService;
 import org.apache.commons.lang3.ObjectUtils;
+import org.apache.commons.lang3.time.DateUtils;
 import org.apache.log4j.Logger;
 import org.springframework.stereotype.Component;
 
@@ -83,7 +86,7 @@ public class QuotaServiceImpl extends ManagerBase implements QuotaService, Confi
     @Inject
     private ConfigurationDao _configDao;
     @Inject
-    private QuotaBalanceDao _quotaBalanceDao;
+    private QuotaBalanceDao quotaBalanceDao;
     @Inject
     private QuotaResponseBuilder _respBldr;
 
@@ -144,91 +147,87 @@ public class QuotaServiceImpl extends ManagerBase implements QuotaService, Confi
     }
 
     @Override
-    public List<QuotaBalanceVO> findQuotaBalanceVO(Long accountId, String accountName, Long domainId, Date startDate, Date endDate) {
-        if ((accountId == null) && (accountName != null) && (domainId != null)) {
-            Account userAccount = null;
-            Account caller = CallContext.current().getCallingAccount();
-            if (_domainDao.isChildDomain(caller.getDomainId(), domainId)) {
-                Filter filter = new Filter(AccountVO.class, "id", Boolean.FALSE, null, null);
-                List<AccountVO> accounts = _accountDao.listAccounts(accountName, domainId, filter);
-                if (!accounts.isEmpty()) {
-                    userAccount = accounts.get(0);
-                }
-                if (userAccount != null) {
-                    accountId = userAccount.getId();
-                } else {
-                    throw new InvalidParameterValueException("Unable to find account " + accountName + " in domain " + domainId);
-                }
-            } else {
-                throw new PermissionDeniedException("Invalid Domain Id or Account");
-            }
-        }
+    public List<QuotaBalanceVO> listQuotaBalancesForAccount(Long accountId, String accountName, Long domainId, Date startDate, Date endDate) {
+        accountId = getAccountToWhomQuotaBalancesWillBeListed(accountId, accountName, domainId);
 
-        startDate = startDate == null ? new Date() : startDate;
+        validateStartDateAndEndDateForListQuotaBalancesForAccount(startDate, endDate);
+
+        if (startDate == null && endDate == null) {
+            s_logger.debug(String.format("Retrieving last quota balance for account [%s] and domain [%s].", accountId, domainId));
+            QuotaBalanceVO lastQuotaBalance = quotaBalanceDao.getLastQuotaBalanceEntry(accountId, domainId, null);
+
+            if (lastQuotaBalance == null) {
+                s_logger.debug(String.format("Did not found a quota balance entry for account [%s] and domain [%s].", accountId, domainId));
+                return null;
+            }
+
+            return List.of(lastQuotaBalance);
+        }
 
         if (endDate == null) {
-            // adjust start date to end of day as there is no end date
-            Date adjustedStartDate = computeAdjustedTime(_respBldr.startOfNextDay(startDate));
-            if (s_logger.isDebugEnabled()) {
-                s_logger.debug("getQuotaBalance1: Getting quota balance records for account: " + accountId + ", domainId: " + domainId + ", on or before " + adjustedStartDate);
-            }
-            List<QuotaBalanceVO> qbrecords = _quotaBalanceDao.lastQuotaBalanceVO(accountId, domainId, adjustedStartDate);
-            if (s_logger.isDebugEnabled()) {
-                s_logger.debug("Found records size=" + qbrecords.size());
-            }
-            if (qbrecords.isEmpty()) {
-                s_logger.info("Incorrect Date there are no quota records before this date " + adjustedStartDate);
-                return qbrecords;
-            } else {
-                return qbrecords;
-            }
-        } else {
-            Date adjustedStartDate = computeAdjustedTime(startDate);
-            if (endDate.after(_respBldr.startOfNextDay())) {
-                throw new InvalidParameterValueException("Incorrect Date Range. End date:" + endDate + " should not be in future. ");
-            } else if (startDate.before(endDate)) {
-                Date adjustedEndDate = computeAdjustedTime(endDate);
-                if (s_logger.isDebugEnabled()) {
-                    s_logger.debug("getQuotaBalance2: Getting quota balance records for account: " + accountId + ", domainId: " + domainId + ", between " + adjustedStartDate
-                            + " and " + adjustedEndDate);
-                }
-                List<QuotaBalanceVO> qbrecords = _quotaBalanceDao.findQuotaBalance(accountId, domainId, adjustedStartDate, adjustedEndDate);
-                if (s_logger.isDebugEnabled()) {
-                    s_logger.debug("getQuotaBalance3: Found records size=" + qbrecords.size());
-                }
-                if (qbrecords.isEmpty()) {
-                    s_logger.info("There are no quota records between these dates start date " + adjustedStartDate + " and end date:" + endDate);
-                    return qbrecords;
-                } else {
-                    return qbrecords;
-                }
-            } else {
-                throw new InvalidParameterValueException("Incorrect Date Range. Start date: " + startDate + " is after end date:" + endDate);
+            endDate = DateUtils.addDays(new Date(), -1);
+        }
+
+        List<QuotaBalanceVO> quotaBalances = quotaBalanceDao.listQuotaBalances(accountId, domainId, startDate, endDate);
+
+        if (quotaBalances.isEmpty()) {
+            s_logger.info(String.format("There are no quota balances for account [%s] in domain [%s], between [%s] and [%s].", accountId, domainId,
+                    DateUtil.getOutputString(startDate), DateUtil.getOutputString(endDate)));
+        }
+
+        return quotaBalances;
+
+    }
+
+    protected void validateStartDateAndEndDateForListQuotaBalancesForAccount(Date startDate, Date endDate) {
+        if (startDate == null && endDate != null) {
+            throw new InvalidParameterException("Parameter \"enddate\" must be informed together with parameter \"startdate\".");
+        }
+
+        Date now = new Date();
+        if (startDate != null && startDate.after(now)) {
+            throw new InvalidParameterValueException("The last balance can be at most from yesterday; therefore, the start date must be before today.");
+        }
+
+        if (ObjectUtils.allNotNull(startDate, endDate) && startDate.after(endDate)) {
+            throw new InvalidParameterValueException("The start date cannot be after the end date.");
+        }
+    }
+
+    protected Long getAccountToWhomQuotaBalancesWillBeListed(Long accountId, String accountName, Long domainId) {
+        if (accountId != null) {
+            return accountId;
+        }
+
+        validateIsChildDomain(accountName, domainId);
+
+        List<AccountVO> accounts = _accountDao.listAccounts(accountName, domainId, new Filter(AccountVO.class, "id", false));
+        if (!accounts.isEmpty()) {
+            Account userAccount = accounts.get(0);
+
+            if (userAccount != null) {
+                return userAccount.getId();
             }
         }
+
+        throw new InvalidParameterValueException(String.format("Unable to find account [%s] in domain [%s].", accountName, domainId));
+    }
+
+    protected void validateIsChildDomain(String accountName, Long domainId) {
+        Account caller = CallContext.current().getCallingAccount();
+
+        long callerDomainId = caller.getDomainId();
+        if (_domainDao.isChildDomain(callerDomainId, domainId)) {
+            return;
+        }
+
+        s_logger.debug(String.format("Domain with ID [%s] is not a child of the caller's domain [%s].", domainId, callerDomainId));
+        throw new PermissionDeniedException(String.format("Account [%s] or domain [%s] is invalid.", accountName, domainId));
     }
 
     @Override
     public List<QuotaUsageVO> getQuotaUsage(Long accountId, String accountName, Long domainId, Integer usageType, Date startDate, Date endDate) {
-        // if accountId is not specified, use accountName and domainId
-        if ((accountId == null) && (accountName != null) && (domainId != null)) {
-            Account userAccount = null;
-            Account caller = CallContext.current().getCallingAccount();
-            if (_domainDao.isChildDomain(caller.getDomainId(), domainId)) {
-                Filter filter = new Filter(AccountVO.class, "id", Boolean.FALSE, null, null);
-                List<AccountVO> accounts = _accountDao.listAccounts(accountName, domainId, filter);
-                if (!accounts.isEmpty()) {
-                    userAccount = accounts.get(0);
-                }
-                if (userAccount != null) {
-                    accountId = userAccount.getId();
-                } else {
-                    throw new InvalidParameterValueException("Unable to find account " + accountName + " in domain " + domainId);
-                }
-            } else {
-                throw new PermissionDeniedException("Invalid Domain Id or Account");
-            }
-        }
+        accountId = getAccountToWhomQuotaBalancesWillBeListed(accountId, accountName, domainId);
 
         if (startDate.after(endDate)) {
             throw new InvalidParameterValueException("Incorrect Date Range. Start date: " + startDate + " is after end date:" + endDate);

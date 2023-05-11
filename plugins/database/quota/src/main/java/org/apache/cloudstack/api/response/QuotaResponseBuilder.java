@@ -26,7 +26,6 @@ import org.apache.cloudstack.api.command.QuotaSummaryCmd;
 import org.apache.cloudstack.api.command.QuotaTariffCreateCmd;
 import org.apache.cloudstack.api.command.QuotaTariffListCmd;
 import org.apache.cloudstack.api.command.QuotaTariffUpdateCmd;
-import org.apache.cloudstack.quota.vo.QuotaBalanceVO;
 import org.apache.cloudstack.quota.vo.QuotaEmailConfigurationVO;
 import org.apache.cloudstack.quota.vo.QuotaTariffVO;
 import org.apache.cloudstack.quota.vo.QuotaUsageVO;
@@ -46,15 +45,11 @@ public interface QuotaResponseBuilder {
 
     QuotaStatementResponse createQuotaStatementResponse(List<QuotaUsageVO> quotaUsage);
 
-    QuotaBalanceResponse createQuotaBalanceResponse(List<QuotaBalanceVO> quotaUsage, Date startDate, Date endDate);
+    QuotaBalanceResponse createQuotaBalanceResponse(QuotaBalanceCmd cmd);
 
     Pair<List<QuotaSummaryResponse>, Integer> createQuotaSummaryResponse(QuotaSummaryCmd cmd);
 
-    QuotaBalanceResponse createQuotaLastBalanceResponse(List<QuotaBalanceVO> quotaBalance, Date startDate);
-
     List<QuotaUsageVO> getQuotaUsage(QuotaStatementCmd cmd);
-
-    List<QuotaBalanceVO> getQuotaBalance(QuotaBalanceCmd cmd);
 
     QuotaCreditsResponse addQuotaCredits(Long accountId, Long domainId, Double amount, Long updatedBy, Boolean enforce);
 
