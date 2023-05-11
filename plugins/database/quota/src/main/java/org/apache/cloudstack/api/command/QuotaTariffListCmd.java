@@ -17,14 +17,17 @@
 package org.apache.cloudstack.api.command;
 
 import com.cloud.user.Account;
+import com.cloud.user.User;
 import com.cloud.utils.Pair;
 
 import org.apache.cloudstack.api.APICommand;
+import org.apache.cloudstack.api.ApiArgValidator;
 import org.apache.cloudstack.api.ApiConstants;
 import org.apache.cloudstack.api.Parameter;
 import org.apache.cloudstack.api.response.ListResponse;
 import org.apache.cloudstack.api.response.QuotaResponseBuilder;
 import org.apache.cloudstack.api.response.QuotaTariffResponse;
+import org.apache.cloudstack.context.CallContext;
 import org.apache.cloudstack.quota.vo.QuotaTariffVO;
 import org.apache.cloudstack.utils.reflectiontostringbuilderutils.ReflectionToStringBuilderUtils;
 import org.apache.log4j.Logger;
@@ -60,20 +63,30 @@ public class QuotaTariffListCmd extends QuotaBaseListCmd {
             + "list all, including the removed ones. The default is false.", since = "4.18.0.0")
     private boolean listAll = false;
 
-    public QuotaTariffListCmd() {
-        super();
-    }
+    @Parameter(name = ApiConstants.LIST_ONLY_REMOVED, type = CommandType.BOOLEAN, description = "If set to True, we will list only the removed tariffs."
+            + " The default is false.")
+    private boolean listOnlyRemoved = false;
+
+    @Parameter(name = ApiConstants.UUID, type = CommandType.STRING, entityType = QuotaTariffResponse.class, description = "The quota tariff's uuid.",
+        validations = {ApiArgValidator.UuidString})
+    private String uuid;
 
     @Override
     public void execute() {
         final Pair<List<QuotaTariffVO>, Integer> result = _responseBuilder.listQuotaTariffPlans(this);
+
+        User user = CallContext.current().getCallingUser();
+        boolean returnActivationRules = _responseBuilder.isUserAllowedToSeeActivationRules(user);
+        if (!returnActivationRules) {
+            s_logger.debug(String.format("User [%s] does not have permission to create or update quota tariffs, therefore we will not return the activation rules.", user.getUuid()));
+        }
 
         final List<QuotaTariffResponse> responses = new ArrayList<>();
 
         s_logger.trace(String.format("Adding quota tariffs [%s] to response of API quotaTariffList.", ReflectionToStringBuilderUtils.reflectCollection(responses)));
 
         for (final QuotaTariffVO resource : result.first()) {
-            responses.add(_responseBuilder.createQuotaTariffResponse(resource));
+            responses.add(_responseBuilder.createQuotaTariffResponse(resource, returnActivationRules));
         }
 
         final ListResponse<QuotaTariffResponse> response = new ListResponse<>();
@@ -107,4 +120,19 @@ public class QuotaTariffListCmd extends QuotaBaseListCmd {
         return listAll;
     }
 
+    public String getUuid() {
+        return uuid;
+    }
+
+    public void setUuid(String uuid) {
+        this.uuid = uuid;
+    }
+
+    public boolean isListOnlyRemoved() {
+        return listOnlyRemoved;
+    }
+
+    public void setListOnlyRemoved(boolean listOnlyRemoved) {
+        this.listOnlyRemoved = listOnlyRemoved;
+    }
 }
