@@ -46,11 +46,9 @@ import javax.script.ScriptEngine;
 @PowerMockIgnore({"javax.xml.*", "org.apache.xerces.*", "org.xml.*", "org.w3c.*"})
 @PrepareForTest(JsInterpreter.class)
 public class JsInterpreterTest {
-    private long timeout = 2000;
-
     @InjectMocks
     @Spy
-    JsInterpreter jsInterpreterSpy = new JsInterpreter(timeout);
+    JsInterpreter jsInterpreterSpy = new JsInterpreter();
 
     @Mock
     ExecutorService executorMock;
