@@ -16,11 +16,16 @@
 // under the License.
 package org.apache.cloudstack.quota;
 
+import com.cloud.configuration.Config;
 import com.cloud.domain.dao.DomainDao;
+import com.cloud.exception.InvalidParameterValueException;
+import com.cloud.exception.PermissionDeniedException;
+import com.cloud.user.Account;
+import com.cloud.user.AccountVO;
 import com.cloud.user.dao.AccountDao;
-import com.cloud.utils.db.TransactionLegacy;
 import junit.framework.TestCase;
 import org.apache.cloudstack.api.response.QuotaResponseBuilder;
+import org.apache.cloudstack.context.CallContext;
 import org.apache.cloudstack.framework.config.dao.ConfigurationDao;
 import org.apache.cloudstack.quota.constant.QuotaTypes;
 import org.apache.cloudstack.quota.dao.QuotaAccountDao;
@@ -28,107 +33,57 @@ import org.apache.cloudstack.quota.dao.QuotaBalanceDao;
 import org.apache.cloudstack.quota.dao.QuotaUsageDao;
 import org.apache.cloudstack.quota.vo.QuotaAccountVO;
 import org.apache.cloudstack.quota.vo.QuotaBalanceVO;
+import org.apache.commons.lang3.time.DateUtils;
 import org.joda.time.DateTime;
-import org.joda.time.DateTimeZone;
+import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
+import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.Mockito;
-import org.mockito.runners.MockitoJUnitRunner;
+import org.powermock.api.mockito.PowerMockito;
+import org.powermock.core.classloader.annotations.PrepareForTest;
+import org.powermock.modules.junit4.PowerMockRunner;
 
 import javax.naming.ConfigurationException;
-import java.lang.reflect.Field;
-import java.math.BigDecimal;
+import java.security.InvalidParameterException;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.Date;
 import java.util.List;
 
-@RunWith(MockitoJUnitRunner.class)
+@RunWith(PowerMockRunner.class)
 public class QuotaServiceImplTest extends TestCase {
 
     @Mock
-    AccountDao accountDao;
-    @Mock
-    QuotaAccountDao quotaAcc;
-    @Mock
-    QuotaUsageDao quotaUsageDao;
-    @Mock
-    DomainDao domainDao;
-    @Mock
-    ConfigurationDao configDao;
-    @Mock
-    QuotaBalanceDao quotaBalanceDao;
-    @Mock
-    QuotaResponseBuilder respBldr;
+    AccountDao accountDaoMock;
 
-    QuotaServiceImpl quotaService = new QuotaServiceImpl();
+    @Mock
+    QuotaAccountDao quotaAccountDaoMock;
+
+    @Mock
+    QuotaUsageDao quotaUsageDaoMock;
+
+    @Mock
+    DomainDao domainDaoMock;
+
+    @Mock
+    ConfigurationDao configurationDaoMock;
+
+    @Mock
+    QuotaResponseBuilder quotaResponseBuilderMock;
+
+    @Mock
+    QuotaBalanceDao quotaBalanceDaoMock;
+
+    @InjectMocks
+    QuotaServiceImpl quotaServiceImplSpy = Mockito.spy(QuotaServiceImpl.class);
 
     @Before
-    public void setup() throws IllegalAccessException, NoSuchFieldException, ConfigurationException {
-        // Dummy transaction stack setup
-        TransactionLegacy.open("QuotaServiceImplTest");
-
-        Field accountDaoField = QuotaServiceImpl.class.getDeclaredField("_accountDao");
-        accountDaoField.setAccessible(true);
-        accountDaoField.set(quotaService, accountDao);
-
-        Field quotaAccountDaoField = QuotaServiceImpl.class.getDeclaredField("_quotaAcc");
-        quotaAccountDaoField.setAccessible(true);
-        quotaAccountDaoField.set(quotaService, quotaAcc);
-
-        Field quotaUsageDaoField = QuotaServiceImpl.class.getDeclaredField("_quotaUsageDao");
-        quotaUsageDaoField.setAccessible(true);
-        quotaUsageDaoField.set(quotaService, quotaUsageDao);
-
-        Field domainDaoField = QuotaServiceImpl.class.getDeclaredField("_domainDao");
-        domainDaoField.setAccessible(true);
-        domainDaoField.set(quotaService, domainDao);
-
-        Field configDaoField = QuotaServiceImpl.class.getDeclaredField("_configDao");
-        configDaoField.setAccessible(true);
-        configDaoField.set(quotaService, configDao);
-
-        Field balanceDaoField = QuotaServiceImpl.class.getDeclaredField("_quotaBalanceDao");
-        balanceDaoField.setAccessible(true);
-        balanceDaoField.set(quotaService, quotaBalanceDao);
-
-        Field QuotaResponseBuilderField = QuotaServiceImpl.class.getDeclaredField("_respBldr");
-        QuotaResponseBuilderField.setAccessible(true);
-        QuotaResponseBuilderField.set(quotaService, respBldr);
-        quotaService.configure("randomName", null);
-    }
-
-    @Test
-    public void testComputeAdjustedTime() {
-        DateTime now = new DateTime(DateTimeZone.UTC);
-        DateTime result = new DateTime(quotaService.computeAdjustedTime(now.toDate()));
-        // FIXME: fix this test
-    }
-
-    @Test
-    public void testFindQuotaBalanceVO() {
-        final long accountId = 2L;
-        final String accountName = "admin123";
-        final long domainId = 1L;
-        final Date startDate = new DateTime().minusDays(2).toDate();
-        final Date endDate = new Date();
-
-        List<QuotaBalanceVO> records = new ArrayList<>();
-        QuotaBalanceVO qb = new QuotaBalanceVO();
-        qb.setCreditBalance(new BigDecimal(100));
-        qb.setAccountId(accountId);
-        records.add(qb);
-
-        Mockito.when(respBldr.startOfNextDay()).thenReturn(endDate);
-        Mockito.when(respBldr.startOfNextDay(Mockito.any(Date.class))).thenReturn(startDate);
-        Mockito.when(quotaBalanceDao.findQuotaBalance(Mockito.eq(accountId), Mockito.eq(domainId), Mockito.any(Date.class), Mockito.any(Date.class))).thenReturn(records);
-        Mockito.when(quotaBalanceDao.lastQuotaBalanceVO(Mockito.eq(accountId), Mockito.eq(domainId), Mockito.any(Date.class))).thenReturn(records);
-
-        // with enddate
-        assertTrue(quotaService.findQuotaBalanceVO(accountId, accountName, domainId, startDate, endDate).get(0).equals(qb));
-        // without enddate
-        assertTrue(quotaService.findQuotaBalanceVO(accountId, accountName, domainId, startDate, null).get(0).equals(qb));
+    public void setup() throws ConfigurationException {
+        Mockito.when(configurationDaoMock.getValue(Mockito.eq(Config.UsageStatsJobAggregationRange.toString()))).thenReturn("1");
+        quotaServiceImplSpy.configure("randomName", null);
     }
 
     @Test
@@ -139,24 +94,25 @@ public class QuotaServiceImplTest extends TestCase {
         final Date startDate = new DateTime().minusDays(2).toDate();
         final Date endDate = new Date();
 
-        Mockito.when(respBldr.startOfNextDay()).thenReturn(endDate);
-        quotaService.getQuotaUsage(accountId, accountName, domainId, QuotaTypes.IP_ADDRESS, startDate, endDate);
-        Mockito.verify(quotaUsageDao, Mockito.times(1)).findQuotaUsage(Mockito.eq(accountId), Mockito.eq(domainId), Mockito.eq(QuotaTypes.IP_ADDRESS), Mockito.any(Date.class), Mockito.any(Date.class));
+        Mockito.when(quotaResponseBuilderMock.startOfNextDay()).thenReturn(endDate);
+        quotaServiceImplSpy.getQuotaUsage(accountId, accountName, domainId, QuotaTypes.IP_ADDRESS, startDate, endDate);
+        Mockito.verify(quotaUsageDaoMock, Mockito.times(1)).findQuotaUsage(Mockito.eq(accountId), Mockito.eq(domainId), Mockito.eq(QuotaTypes.IP_ADDRESS),
+            Mockito.any(Date.class), Mockito.any(Date.class));
     }
 
     @Test
     public void testSetLockAccount() {
         // existing account
         QuotaAccountVO quotaAccountVO = new QuotaAccountVO();
-        Mockito.when(quotaAcc.findByIdQuotaAccount(Mockito.anyLong())).thenReturn(quotaAccountVO);
-        quotaService.setLockAccount(2L, true);
-        Mockito.verify(quotaAcc, Mockito.times(0)).persistQuotaAccount(Mockito.any(QuotaAccountVO.class));
-        Mockito.verify(quotaAcc, Mockito.times(1)).updateQuotaAccount(Mockito.anyLong(), Mockito.any(QuotaAccountVO.class));
+        Mockito.when(quotaAccountDaoMock.findByIdQuotaAccount(Mockito.anyLong())).thenReturn(quotaAccountVO);
+        quotaServiceImplSpy.setLockAccount(2L, true);
+        Mockito.verify(quotaAccountDaoMock, Mockito.times(0)).persistQuotaAccount(Mockito.any(QuotaAccountVO.class));
+        Mockito.verify(quotaAccountDaoMock, Mockito.times(1)).updateQuotaAccount(Mockito.anyLong(), Mockito.any(QuotaAccountVO.class));
 
         // new account
-        Mockito.when(quotaAcc.findByIdQuotaAccount(Mockito.anyLong())).thenReturn(null);
-        quotaService.setLockAccount(2L, true);
-        Mockito.verify(quotaAcc, Mockito.times(1)).persistQuotaAccount(Mockito.any(QuotaAccountVO.class));
+        Mockito.when(quotaAccountDaoMock.findByIdQuotaAccount(Mockito.anyLong())).thenReturn(null);
+        quotaServiceImplSpy.setLockAccount(2L, true);
+        Mockito.verify(quotaAccountDaoMock, Mockito.times(1)).persistQuotaAccount(Mockito.any(QuotaAccountVO.class));
     }
 
     @Test
@@ -166,14 +122,143 @@ public class QuotaServiceImplTest extends TestCase {
 
         // existing account setting
         QuotaAccountVO quotaAccountVO = new QuotaAccountVO();
-        Mockito.when(quotaAcc.findByIdQuotaAccount(Mockito.anyLong())).thenReturn(quotaAccountVO);
-        quotaService.setMinBalance(accountId, balance);
-        Mockito.verify(quotaAcc, Mockito.times(0)).persistQuotaAccount(Mockito.any(QuotaAccountVO.class));
-        Mockito.verify(quotaAcc, Mockito.times(1)).updateQuotaAccount(Mockito.anyLong(), Mockito.any(QuotaAccountVO.class));
+        Mockito.when(quotaAccountDaoMock.findByIdQuotaAccount(Mockito.anyLong())).thenReturn(quotaAccountVO);
+        quotaServiceImplSpy.setMinBalance(accountId, balance);
+        Mockito.verify(quotaAccountDaoMock, Mockito.times(0)).persistQuotaAccount(Mockito.any(QuotaAccountVO.class));
+        Mockito.verify(quotaAccountDaoMock, Mockito.times(1)).updateQuotaAccount(Mockito.anyLong(), Mockito.any(QuotaAccountVO.class));
 
         // no account with limit set
-        Mockito.when(quotaAcc.findByIdQuotaAccount(Mockito.anyLong())).thenReturn(null);
-        quotaService.setMinBalance(accountId, balance);
-        Mockito.verify(quotaAcc, Mockito.times(1)).persistQuotaAccount(Mockito.any(QuotaAccountVO.class));
+        Mockito.when(quotaAccountDaoMock.findByIdQuotaAccount(Mockito.anyLong())).thenReturn(null);
+        quotaServiceImplSpy.setMinBalance(accountId, balance);
+        Mockito.verify(quotaAccountDaoMock, Mockito.times(1)).persistQuotaAccount(Mockito.any(QuotaAccountVO.class));
+    }
+
+    @Test
+    public void getAccountToWhomQuotaBalancesWillBeListedTestAccountIdIsNotNullReturnsIt() {
+        long expected = 1L;
+        long result = quotaServiceImplSpy.getAccountToWhomQuotaBalancesWillBeListed(expected, "test", 2L);
+        Assert.assertEquals(expected, result);
+    }
+
+    @Test(expected = InvalidParameterValueException.class)
+    public void getAccountToWhomQuotaBalancesWillBeListedTestAccountsIsEmptyThrowsInvalidParameterValueException() {
+        Mockito.doNothing().when(quotaServiceImplSpy).validateIsChildDomain(Mockito.anyString(), Mockito.anyLong());
+        Mockito.doReturn(new ArrayList<>()).when(accountDaoMock).listAccounts(Mockito.anyString(), Mockito.anyLong(), Mockito.any());
+
+        quotaServiceImplSpy.getAccountToWhomQuotaBalancesWillBeListed(null, "test", 41L);
+    }
+
+    @Test(expected = InvalidParameterValueException.class)
+    public void getAccountToWhomQuotaBalancesWillBeListedTestFirstAccountIsNullThrowsInvalidParameterValueException() {
+        Mockito.doNothing().when(quotaServiceImplSpy).validateIsChildDomain(Mockito.anyString(), Mockito.anyLong());
+
+        AccountVO accountVo = null;
+        Mockito.doReturn(Collections.singletonList(accountVo)).when(accountDaoMock).listAccounts(Mockito.anyString(), Mockito.anyLong(), Mockito.any());
+
+        quotaServiceImplSpy.getAccountToWhomQuotaBalancesWillBeListed(null, "test", 5423L);
+    }
+
+    @Test
+    public void getAccountToWhomQuotaBalancesWillBeListedTestReturnsFirstAccountId() {
+        long expected = 8302L;
+
+        Mockito.doNothing().when(quotaServiceImplSpy).validateIsChildDomain(Mockito.anyString(), Mockito.anyLong());
+
+        AccountVO accountVo = new AccountVO();
+        accountVo.setId(expected);
+
+        Mockito.doReturn(List.of(accountVo)).when(accountDaoMock).listAccounts(Mockito.anyString(), Mockito.anyLong(), Mockito.any());
+
+        long result = quotaServiceImplSpy.getAccountToWhomQuotaBalancesWillBeListed(null, "test", 9136L);
+
+        Assert.assertEquals(expected, result);
+    }
+
+    @Test(expected = PermissionDeniedException.class)
+    @PrepareForTest(CallContext.class)
+    public void validateIsChildDomainTestIsNotChildDomainThrowsPermissionDeniedException() {
+        CallContext callContextMock = Mockito.mock(CallContext.class);
+
+        PowerMockito.mockStatic(CallContext.class);
+        PowerMockito.when(CallContext.current()).thenReturn(callContextMock);
+        Mockito.doReturn(Mockito.mock(Account.class)).when(callContextMock).getCallingAccount();
+        Mockito.doReturn(false).when(domainDaoMock).isChildDomain(Mockito.anyLong(), Mockito.anyLong());
+
+        quotaServiceImplSpy.validateIsChildDomain("test", 1L);
+    }
+
+    @Test
+    @PrepareForTest(CallContext.class)
+    public void validateIsChildDomainTestIsChildDomainDoNothing() {
+        CallContext callContextMock = Mockito.mock(CallContext.class);
+
+        PowerMockito.mockStatic(CallContext.class);
+        PowerMockito.when(CallContext.current()).thenReturn(callContextMock);
+        Mockito.doReturn(Mockito.mock(Account.class)).when(callContextMock).getCallingAccount();
+        Mockito.doReturn(true).when(domainDaoMock).isChildDomain(Mockito.anyLong(), Mockito.anyLong());
+
+        quotaServiceImplSpy.validateIsChildDomain("test", 1L);
+    }
+
+    @Test(expected = InvalidParameterException.class)
+    public void validateStartDateAndEndDateForListQuotaBalancesForAccountTestStartDateIsNullAndEndDateIsNotNullThrowsInvalidParameterException() {
+        quotaServiceImplSpy.validateStartDateAndEndDateForListQuotaBalancesForAccount(null, new Date());
+    }
+
+    @Test(expected = InvalidParameterValueException.class)
+    public void validateStartDateAndEndDateForListQuotaBalancesForAccountTestStartDateIsAfterNowThrowsInvalidParameterValueException() {
+        Date startDate = DateUtils.addMinutes(new Date(), 1);
+        quotaServiceImplSpy.validateStartDateAndEndDateForListQuotaBalancesForAccount(startDate, null);
+    }
+
+    @Test
+    public void validateStartDateAndEndDateForListQuotaBalancesForAccountTestEndDateIsAfterNowDoesNothing() {
+        Date startDate = DateUtils.addMinutes(new Date(), -1);
+        Date endDate = DateUtils.addMinutes(new Date(), 1);
+        quotaServiceImplSpy.validateStartDateAndEndDateForListQuotaBalancesForAccount(startDate, endDate);
+    }
+
+    @Test(expected = InvalidParameterValueException.class)
+    public void validateStartDateAndEndDateForListQuotaBalancesForAccountTestStartDateIsAfterEndDateThrowsInvalidParameterValueException() {
+        Date startDate = DateUtils.addMinutes(new Date(), -10);
+        Date endDate = DateUtils.addMinutes(new Date(), -15);
+        quotaServiceImplSpy.validateStartDateAndEndDateForListQuotaBalancesForAccount(startDate, endDate);
+    }
+
+    @Test
+    public void listQuotaBalancesForAccountTestLastQuotaBalanceIsNullReturnsNull() {
+        Mockito.doReturn(1L).when(quotaServiceImplSpy).getAccountToWhomQuotaBalancesWillBeListed(Mockito.anyLong(), Mockito.anyString(), Mockito.anyLong());
+        Mockito.doNothing().when(quotaServiceImplSpy).validateStartDateAndEndDateForListQuotaBalancesForAccount(Mockito.any(), Mockito.any());
+        Mockito.doReturn(null).when(quotaBalanceDaoMock).getLastQuotaBalanceEntry(Mockito.anyLong(), Mockito.anyLong(), Mockito.any());
+
+        List<QuotaBalanceVO> result = quotaServiceImplSpy.listQuotaBalancesForAccount(1L, "test", 2L, null, null);
+
+        Assert.assertNull(result);
+    }
+
+    @Test
+    public void listQuotaBalancesForAccountTestLastQuotaBalanceIsNotNullReturnsIt() {
+        QuotaBalanceVO expected = new QuotaBalanceVO();
+
+        Mockito.doReturn(1L).when(quotaServiceImplSpy).getAccountToWhomQuotaBalancesWillBeListed(Mockito.anyLong(), Mockito.anyString(), Mockito.anyLong());
+        Mockito.doNothing().when(quotaServiceImplSpy).validateStartDateAndEndDateForListQuotaBalancesForAccount(Mockito.any(), Mockito.any());
+        Mockito.doReturn(expected).when(quotaBalanceDaoMock).getLastQuotaBalanceEntry(Mockito.anyLong(), Mockito.anyLong(), Mockito.any());
+
+        List<QuotaBalanceVO> result = quotaServiceImplSpy.listQuotaBalancesForAccount(1L, "test", 2L, null, null);
+
+        Assert.assertEquals(expected, result.get(0));
+    }
+
+    @Test
+    public void listQuotaBalancesForAccountTestReturnsQuotaBalances() {
+        List<QuotaBalanceVO> expected = new ArrayList<>();
+
+        Mockito.doReturn(1L).when(quotaServiceImplSpy).getAccountToWhomQuotaBalancesWillBeListed(Mockito.anyLong(), Mockito.anyString(), Mockito.anyLong());
+        Mockito.doNothing().when(quotaServiceImplSpy).validateStartDateAndEndDateForListQuotaBalancesForAccount(Mockito.any(), Mockito.any());
+        Mockito.doReturn(expected).when(quotaBalanceDaoMock).listQuotaBalances(Mockito.anyLong(), Mockito.anyLong(), Mockito.any(), Mockito.any());
+
+        List<QuotaBalanceVO> result = quotaServiceImplSpy.listQuotaBalancesForAccount(1L, "test", 2L, new Date(), null);
+
+        Assert.assertEquals(expected, result);
     }
 }

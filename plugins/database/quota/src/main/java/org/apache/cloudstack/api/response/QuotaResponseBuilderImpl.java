@@ -27,9 +27,7 @@ import java.util.Collections;
 import java.util.Comparator;
 import java.util.Date;
 import java.util.HashMap;
-import java.util.Iterator;
 import java.util.List;
-import java.util.ListIterator;
 import java.util.Set;
 import java.util.Map;
 import java.util.function.Consumer;
@@ -156,93 +154,25 @@ public class QuotaResponseBuilderImpl implements QuotaResponseBuilder {
     }
 
     @Override
-    public QuotaBalanceResponse createQuotaBalanceResponse(List<QuotaBalanceVO> quotaBalance, Date startDate, Date endDate) {
-        if (quotaBalance == null || quotaBalance.isEmpty()) {
-            throw new InvalidParameterValueException("The request period does not contain balance entries.");
-        }
-        Collections.sort(quotaBalance, new Comparator<QuotaBalanceVO>() {
-            @Override
-            public int compare(QuotaBalanceVO o1, QuotaBalanceVO o2) {
-                o1 = o1 == null ? new QuotaBalanceVO() : o1;
-                o2 = o2 == null ? new QuotaBalanceVO() : o2;
-                return o2.getUpdatedOn().compareTo(o1.getUpdatedOn()); // desc
-            }
-        });
+    public QuotaBalanceResponse createQuotaBalanceResponse(QuotaBalanceCmd cmd) {
+        List<QuotaBalanceVO> quotaBalances = _quotaService.listQuotaBalancesForAccount(cmd.getAccountId(), cmd.getAccountName(), cmd.getDomainId(), cmd.getStartDate(), cmd.getEndDate());
 
-        boolean have_balance_entries = false;
-        //check that there is at least one balance entry
-        for (Iterator<QuotaBalanceVO> it = quotaBalance.iterator(); it.hasNext();) {
-            QuotaBalanceVO entry = it.next();
-            if (entry.isBalanceEntry()) {
-                have_balance_entries = true;
-                break;
-            }
-        }
-        //if last entry is a credit deposit then remove that as that is already
-        //accounted for in the starting balance after that entry, note the sort is desc
-        if (have_balance_entries) {
-            ListIterator<QuotaBalanceVO> li = quotaBalance.listIterator(quotaBalance.size());
-            // Iterate in reverse.
-            while (li.hasPrevious()) {
-                QuotaBalanceVO entry = li.previous();
-                if (s_logger.isDebugEnabled()) {
-                    s_logger.debug("createQuotaBalanceResponse: Entry=" + entry);
-                }
-                if (entry.getCreditsId() > 0) {
-                    li.remove();
-                } else {
-                    break;
-                }
-            }
+        if (CollectionUtils.isEmpty(quotaBalances)) {
+            throw new InvalidParameterValueException(String.format("There are no quota balances for the parameters [%s].",
+                    ReflectionToStringBuilderUtils.reflectOnlySelectedFields(cmd, "accountId", "accountName", "domainId", "startDate", "endDate")));
         }
 
-        int quota_activity = quotaBalance.size();
-        QuotaBalanceResponse resp = new QuotaBalanceResponse();
-        BigDecimal lastCredits = new BigDecimal(0);
-        boolean consecutive = true;
-        for (Iterator<QuotaBalanceVO> it = quotaBalance.iterator(); it.hasNext();) {
-            QuotaBalanceVO entry = it.next();
-            if (s_logger.isDebugEnabled()) {
-                s_logger.debug("createQuotaBalanceResponse: All Credit Entry=" + entry);
-            }
-            if (entry.getCreditsId() > 0) {
-                if (consecutive) {
-                    lastCredits = lastCredits.add(entry.getCreditBalance());
-                }
-                resp.addCredits(entry);
-                it.remove();
-            } else {
-                consecutive = false;
-            }
-        }
+        List<QuotaBalanceResponse> balances =
+            quotaBalances
+                .stream()
+                .map(balance -> new QuotaBalanceResponse(balance.getUpdatedOn(), balance.getCreditBalance()))
+                .collect(Collectors.toList());
 
-        if (quota_activity > 0 && quotaBalance.size() > 0) {
-            // order is desc last item is the start item
-            QuotaBalanceVO startItem = quotaBalance.get(quotaBalance.size() - 1);
-            QuotaBalanceVO endItem = quotaBalance.get(0);
-            resp.setStartDate(startDate);
-            resp.setStartQuota(startItem.getCreditBalance());
-            resp.setEndDate(endDate);
-            if (s_logger.isDebugEnabled()) {
-                s_logger.debug("createQuotaBalanceResponse: Start Entry=" + startItem);
-                s_logger.debug("createQuotaBalanceResponse: End Entry=" + endItem);
-            }
-            resp.setEndQuota(endItem.getCreditBalance().add(lastCredits));
-        } else if (quota_activity > 0) {
-            // order is desc last item is the start item
-            resp.setStartDate(startDate);
-            resp.setStartQuota(new BigDecimal(0));
-            resp.setEndDate(endDate);
-            resp.setEndQuota(new BigDecimal(0).add(lastCredits));
-        } else {
-            resp.setStartDate(startDate);
-            resp.setEndDate(endDate);
-            resp.setStartQuota(new BigDecimal(0));
-            resp.setEndQuota(new BigDecimal(0));
-        }
-        resp.setCurrency(QuotaConfig.QuotaCurrencySymbol.value());
-        resp.setObjectName("balance");
-        return resp;
+        QuotaBalanceResponse response = new QuotaBalanceResponse();
+        response.setCurrency(QuotaConfig.QuotaCurrencySymbol.value());
+        response.setBalances(balances);
+
+        return response;
     }
 
     @Override
@@ -579,7 +509,7 @@ public class QuotaResponseBuilderImpl implements QuotaResponseBuilder {
             throw new InvalidParameterValueException("Account does not exist with account id " + accountId);
         }
         final boolean lockAccountEnforcement = "true".equalsIgnoreCase(QuotaConfig.QuotaEnableEnforcement.value());
-        final BigDecimal currentAccountBalance = _quotaBalanceDao.lastQuotaBalance(accountId, domainId, startOfNextDay(new Date(despositedOn.getTime())));
+        final BigDecimal currentAccountBalance = _quotaBalanceDao.getLastQuotaBalance(accountId, domainId);
         if (s_logger.isDebugEnabled()) {
             s_logger.debug("AddQuotaCredits: Depositing " + amount + " on adjusted date " + despositedOn + ", current balance " + currentAccountBalance);
         }
@@ -657,37 +587,10 @@ public class QuotaResponseBuilderImpl implements QuotaResponseBuilder {
     }
 
     @Override
-    public QuotaBalanceResponse createQuotaLastBalanceResponse(List<QuotaBalanceVO> quotaBalance, Date startDate) {
-        if (quotaBalance == null) {
-            throw new InvalidParameterValueException("There are no balance entries on or before the requested date.");
-        }
-        if (startDate == null) {
-            startDate = new Date();
-        }
-        QuotaBalanceResponse resp = new QuotaBalanceResponse();
-        BigDecimal lastCredits = new BigDecimal(0);
-        for (QuotaBalanceVO entry : quotaBalance) {
-            if (s_logger.isDebugEnabled()) {
-                s_logger.debug("createQuotaLastBalanceResponse Date=" + entry.getUpdatedOn() + " balance=" + entry.getCreditBalance() + " credit=" + entry.getCreditsId());
-            }
-            lastCredits = lastCredits.add(entry.getCreditBalance());
-        }
-        resp.setStartQuota(lastCredits);
-        resp.setStartDate(startDate);
-        resp.setCurrency(QuotaConfig.QuotaCurrencySymbol.value());
-        resp.setObjectName("balance");
-        return resp;
-    }
-
-    @Override
     public List<QuotaUsageVO> getQuotaUsage(QuotaStatementCmd cmd) {
         return _quotaService.getQuotaUsage(cmd.getAccountId(), cmd.getAccountName(), cmd.getDomainId(), cmd.getUsageType(), cmd.getStartDate(), cmd.getEndDate());
     }
 
-    @Override
-    public List<QuotaBalanceVO> getQuotaBalance(QuotaBalanceCmd cmd) {
-        return _quotaService.findQuotaBalanceVO(cmd.getAccountId(), cmd.getAccountName(), cmd.getDomainId(), cmd.getStartDate(), cmd.getEndDate());
-    }
     @Override
     public Date startOfNextDay(Date date) {
         LocalDate localDate = date.toInstant().atZone(ZoneId.systemDefault()).toLocalDate();
