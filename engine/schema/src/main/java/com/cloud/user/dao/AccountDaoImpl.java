@@ -333,4 +333,11 @@ public class AccountDaoImpl extends GenericDaoBase<AccountVO, Long> implements A
         sc.setParameters("state", "enabled");
         return customSearch(sc, null).size();
     }
+
+    @Override
+    public AccountVO findAccountByNameAndDomainIncludingRemoved(String accountName, Long domainId) {
+        SearchCriteria<AccountVO> sc = AllFieldsSearch.create("accountName", accountName);
+        sc.setParameters("domainId", domainId);
+        return findOneIncludingRemovedBy(sc);
+    }
 }

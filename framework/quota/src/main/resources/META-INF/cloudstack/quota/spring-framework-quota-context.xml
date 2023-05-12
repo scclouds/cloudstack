@@ -33,5 +33,6 @@
     <bean id="QuotaAlertManager" class="org.apache.cloudstack.quota.QuotaAlertManagerImpl" />
 	<bean id="QuotaStatement" class="org.apache.cloudstack.quota.QuotaStatementImpl" />
 	<bean id="QuotaEmailConfigurationDao" class="org.apache.cloudstack.quota.dao.QuotaEmailConfigurationDaoImpl"/>
+    <bean id="QuotaUsageJoinDao" class="org.apache.cloudstack.quota.dao.QuotaUsageJoinDaoImpl"/>
 
 </beans>

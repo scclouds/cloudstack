@@ -29,7 +29,7 @@ import org.apache.cloudstack.api.response.DomainResponse;
 import org.apache.cloudstack.api.response.QuotaResponseBuilder;
 import org.apache.cloudstack.api.response.QuotaStatementItemResponse;
 import org.apache.cloudstack.api.response.QuotaStatementResponse;
-import org.apache.cloudstack.quota.vo.QuotaUsageVO;
+import org.apache.cloudstack.quota.vo.QuotaUsageJoinVO;
 import org.apache.log4j.Logger;
 
 import com.cloud.user.Account;
@@ -39,27 +39,32 @@ public class QuotaStatementCmd extends QuotaBaseCmd {
 
     public static final Logger s_logger = Logger.getLogger(QuotaStatementCmd.class);
 
-
-    @Parameter(name = ApiConstants.ACCOUNT, type = CommandType.STRING, required = true, description = "Optional, Account Id for which statement needs to be generated")
+    @Parameter(name = ApiConstants.ACCOUNT, type = CommandType.STRING, required = true, description = "Account name for which statement will be generated.")
     private String accountName;
 
-    @Parameter(name = ApiConstants.DOMAIN_ID, type = CommandType.UUID, required = true, entityType = DomainResponse.class, description = "Optional, If domain Id is given and the caller is domain admin then the statement is generated for domain.")
+    @Parameter(name = ApiConstants.DOMAIN_ID, type = CommandType.UUID, required = true, entityType = DomainResponse.class, description = "If domain Id is given and the caller is "
+        + "domain admin then the statement is generated for domain.")
     private Long domainId;
 
-    @Parameter(name = ApiConstants.END_DATE, type = CommandType.DATE, required = true, description = "End date range for quota query. Use yyyy-MM-dd as the date format, e.g. startDate=2009-06-03.")
+    @Parameter(name = ApiConstants.END_DATE, type = CommandType.DATE, required = true, description = "End date range for quota query. " +
+            ApiConstants.PARAMETER_DESCRIPTION_END_DATE_POSSIBLE_FORMATS)
     private Date endDate;
 
-    @Parameter(name = ApiConstants.START_DATE, type = CommandType.DATE, required = true, description = "Start date range quota query. Use yyyy-MM-dd as the date format, e.g. startDate=2009-06-01.")
+    @Parameter(name = ApiConstants.START_DATE, type = CommandType.DATE, required = true, description = "Start date range quota query. " +
+            ApiConstants.PARAMETER_DESCRIPTION_START_DATE_POSSIBLE_FORMATS)
     private Date startDate;
 
-    @Parameter(name = ApiConstants.TYPE, type = CommandType.INTEGER, description = "List quota usage records for the specified usage type")
+    @Parameter(name = ApiConstants.TYPE, type = CommandType.INTEGER, description = "List quota usage records for the specified usage type.")
     private Integer usageType;
 
     @Parameter(name = ApiConstants.ACCOUNT_ID, type = CommandType.UUID, entityType = AccountResponse.class, description = "List usage records for the specified account")
     private Long accountId;
 
+    @Parameter(name = ApiConstants.SHOW_RESOURCES, type = CommandType.BOOLEAN, description = "List the resources of each quota type in the period.")
+    private boolean showResources;
+
     @Inject
-    private QuotaResponseBuilder _responseBuilder;
+    protected QuotaResponseBuilder responseBuilder;
 
     public Long getAccountId() {
         return accountId;
@@ -94,19 +99,27 @@ public class QuotaStatementCmd extends QuotaBaseCmd {
     }
 
     public Date getEndDate() {
-        return _responseBuilder.startOfNextDay(endDate == null ? new Date() : new Date(endDate.getTime()));
+        return endDate;
     }
 
     public void setEndDate(Date endDate) {
-        this.endDate = endDate == null ? null : new Date(endDate.getTime());
+        this.endDate = endDate;
     }
 
     public Date getStartDate() {
-        return startDate == null ? null : new Date(startDate.getTime());
+        return startDate;
     }
 
     public void setStartDate(Date startDate) {
-        this.startDate = startDate == null ? null : new Date(startDate.getTime());
+        this.startDate = startDate;
+    }
+
+    public boolean isShowResources() {
+        return showResources;
+    }
+
+    public void setShowResources(boolean showResources) {
+        this.showResources = showResources;
     }
 
     @Override
@@ -120,11 +133,11 @@ public class QuotaStatementCmd extends QuotaBaseCmd {
 
     @Override
     public void execute() {
-        List<QuotaUsageVO> quotaUsage = _responseBuilder.getQuotaUsage(this);
+        List<QuotaUsageJoinVO> quotaUsage = responseBuilder.getQuotaUsage(this);
 
-        QuotaStatementResponse response = _responseBuilder.createQuotaStatementResponse(quotaUsage);
-        response.setStartDate(startDate == null ? null : new Date(startDate.getTime()));
-        response.setEndDate(endDate == null ? null : new Date(endDate.getTime()));
+        QuotaStatementResponse response = responseBuilder.createQuotaStatementResponse(quotaUsage, this);
+        response.setStartDate(startDate);
+        response.setEndDate(endDate);
 
         response.setResponseName(getCommandName());
         setResponseObject(response);

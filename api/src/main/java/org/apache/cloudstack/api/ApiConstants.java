@@ -395,6 +395,8 @@ public class ApiConstants {
     public static final String SHOW_RESOURCE_ICON = "showicon";
     public static final String SHOW_INACTIVE = "showinactive";
     public static final String SHOW_UNIQUE = "showunique";
+    public static final String SHOW_RESOURCES = "showresources";
+    public static final String RESOURCES = "resources";
     public static final String SIGNATURE = "signature";
     public static final String SIGNATURE_VERSION = "signatureversion";
     public static final String SIZE = "size";
