@@ -100,4 +100,9 @@ public class QuotaTypes extends UsageTypes {
         }
         return null;
     }
+
+    static public QuotaTypes getQuotaType(int quotaType) {
+        return quotaTypeMap.get(quotaType);
+    }
+
 }

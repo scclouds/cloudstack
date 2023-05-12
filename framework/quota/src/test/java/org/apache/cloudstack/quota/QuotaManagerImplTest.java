@@ -22,6 +22,7 @@ import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Date;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -33,7 +34,9 @@ import org.apache.cloudstack.quota.activationrule.presetvariables.Value;
 import org.apache.cloudstack.quota.constant.QuotaTypes;
 import org.apache.cloudstack.quota.dao.QuotaTariffDao;
 import org.apache.cloudstack.quota.dao.QuotaUsageDao;
+import org.apache.cloudstack.quota.dao.QuotaUsageDetailDao;
 import org.apache.cloudstack.quota.vo.QuotaTariffVO;
+import org.apache.cloudstack.quota.vo.QuotaUsageDetailVO;
 import org.apache.cloudstack.quota.vo.QuotaUsageVO;
 import org.apache.cloudstack.usage.UsageUnitTypes;
 import org.apache.cloudstack.utils.bytescale.ByteScaleUtils;
@@ -87,6 +90,12 @@ public class QuotaManagerImplTest {
 
     @Mock
     PresetVariables presetVariablesMock;
+
+    @Mock
+    QuotaUsageDetailDao quotaUsageDetailDaoMock;
+
+    @Mock
+    QuotaUsageVO quotaUsageVoMock;
 
     SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
 
@@ -475,27 +484,27 @@ public class QuotaManagerImplTest {
     }
 
     @Test
-    public void aggregateQuotaTariffsValuesTestTariffsWereNotInPeriodToBeAppliedReturnZero() {
+    public void aggregateQuotaTariffsValuesTestTariffsWereNotInPeriodToBeAppliedReturnEmptyMap() {
         List<QuotaTariffVO> tariffs = new ArrayList<>();
         tariffs.add(new QuotaTariffVO());
         tariffs.add(new QuotaTariffVO());
         tariffs.add(new QuotaTariffVO());
 
         Mockito.doReturn(false).when(quotaManagerImplSpy).isQuotaTariffInPeriodToBeApplied(Mockito.any(), Mockito.any(), Mockito.anyString());
-        BigDecimal result = quotaManagerImplSpy.aggregateQuotaTariffsValues(usageVoMock, tariffs, false, jsInterpreterMock, "");
+        Map<QuotaTariffVO, BigDecimal> result = quotaManagerImplSpy.aggregateQuotaTariffsValues(usageVoMock, tariffs, false, jsInterpreterMock, "");
 
-        Assert.assertEquals(BigDecimal.ZERO, result);
+        Assert.assertTrue(result.isEmpty());
     }
 
     @Test
-    public void aggregateQuotaTariffsValuesTestTariffsIsEmptyReturnZero() {
-        BigDecimal result = quotaManagerImplSpy.aggregateQuotaTariffsValues(usageVoMock, new ArrayList<>(), false, jsInterpreterMock, "");
+    public void aggregateQuotaTariffsValuesTestTariffsIsEmptyReturnEmptyMap() {
+        Map<QuotaTariffVO, BigDecimal> result = quotaManagerImplSpy.aggregateQuotaTariffsValues(usageVoMock, new ArrayList<>(), false, jsInterpreterMock, "");
 
-        Assert.assertEquals(BigDecimal.ZERO, result);
+        Assert.assertTrue(result.isEmpty());
     }
 
     @Test
-    public void aggregateQuotaTariffsValuesTestTariffsAreInPeriodToBeAppliedReturnAggregation() {
+    public void aggregateQuotaTariffsValuesTestTariffsAreInPeriodToBeAppliedReturnTariffsWithTheirValues() {
         List<QuotaTariffVO> tariffs = new ArrayList<>();
         tariffs.add(new QuotaTariffVO());
         tariffs.add(new QuotaTariffVO());
@@ -503,28 +512,68 @@ public class QuotaManagerImplTest {
 
         Mockito.doReturn(true, false, true).when(quotaManagerImplSpy).isQuotaTariffInPeriodToBeApplied(Mockito.any(), Mockito.any(), Mockito.anyString());
         Mockito.doReturn(BigDecimal.TEN).when(quotaManagerImplSpy).getQuotaTariffValueToBeApplied(Mockito.any(), Mockito.any(), Mockito.any());
-        BigDecimal result = quotaManagerImplSpy.aggregateQuotaTariffsValues(usageVoMock, tariffs, false, jsInterpreterMock, "");
+        Map<QuotaTariffVO, BigDecimal> result = quotaManagerImplSpy.aggregateQuotaTariffsValues(usageVoMock, tariffs, false, jsInterpreterMock, "");
 
-        Assert.assertEquals(BigDecimal.TEN.multiply(new BigDecimal(2)), result);
+        Assert.assertEquals(2, result.size());
+        Assert.assertTrue(result.values().stream().allMatch(value -> value.equals(BigDecimal.TEN)));
     }
 
     @Test
     public void persistUsagesAndQuotaUsagesAndRetrievePersistedQuotaUsagesTestReturnOnlyPersistedQuotaUsageVo() {
-        List<Pair<UsageVO, QuotaUsageVO>> listPair = new ArrayList<>();
+        Map<UsageVO, Pair<QuotaUsageVO, List<QuotaUsageDetailVO>>> mapUsageQuotaUsage = new LinkedHashMap<>();
         QuotaUsageVO quotaUsageVoMock1 = Mockito.mock(QuotaUsageVO.class);
         QuotaUsageVO quotaUsageVoMock2 = Mockito.mock(QuotaUsageVO.class);
 
-        listPair.add(new Pair<>(new UsageVO(), quotaUsageVoMock1));
-        listPair.add(new Pair<>(new UsageVO(), null));
-        listPair.add(new Pair<>(new UsageVO(), quotaUsageVoMock2));
+        mapUsageQuotaUsage.put(new UsageVO(), new Pair<>(quotaUsageVoMock1, new ArrayList<>()));
+        mapUsageQuotaUsage.put(new UsageVO(), null);
+        mapUsageQuotaUsage.put(new UsageVO(), new Pair<>(quotaUsageVoMock2, new ArrayList<>()));
 
         Mockito.doReturn(null).when(usageDaoMock).persistUsage(Mockito.any());
         Mockito.doReturn(null).when(quotaUsageDaoMock).persistQuotaUsage(Mockito.any());
 
-        List<QuotaUsageVO> result = quotaManagerImplSpy.persistUsagesAndQuotaUsagesAndRetrievePersistedQuotaUsages(listPair);
+        Mockito.doNothing().when(quotaManagerImplSpy).persistQuotaUsageDetails(Mockito.any(), Mockito.any());
+
+        List<QuotaUsageVO> result = quotaManagerImplSpy.persistUsagesAndQuotaUsagesAndRetrievePersistedQuotaUsages(mapUsageQuotaUsage);
 
         Assert.assertEquals(2, result.size());
         Assert.assertEquals(quotaUsageVoMock1, result.get(0));
         Assert.assertEquals(quotaUsageVoMock2, result.get(1));
+    }
+
+    @Test
+    public void createQuotaUsageDetailsTestTariffValueIsNotZeroReturnDetailedUsageVo() {
+        Mockito.doReturn(1).when(usageVoMock).getUsageType();
+        Mockito.doReturn(BigDecimal.TEN).when(quotaManagerImplSpy).getUsageValueAccordingToUsageUnitType(Mockito.any(), Mockito.any(), Mockito.any());
+        Mockito.doReturn(1l).when(quotaTariffVoMock).getId();
+
+        QuotaUsageDetailVO result = quotaManagerImplSpy.createQuotaUsageDetail(usageVoMock, quotaTariffVoMock, BigDecimal.TEN);
+
+        Assert.assertEquals(1l, result.getTariffId().longValue());
+        Assert.assertEquals(BigDecimal.TEN, result.getQuotaUsed());
+    }
+
+    @Test
+    public void persistQuotaUsageDetailsTestZeroQuotaUsageDetailsZeroPersisted() {
+        List<QuotaUsageDetailVO> quotaUsageDetails = new ArrayList<>();
+
+        quotaManagerImplSpy.persistQuotaUsageDetails(quotaUsageDetails, 1l);
+
+        Mockito.verify(quotaUsageDetailDaoMock, Mockito.never()).persistQuotaUsageDetail(Mockito.any());
+    }
+
+    @Test
+    public void persistQuotaUsageDetailsTestTwoQuotaUsageDetailsTwoPersisted() {
+        List<QuotaUsageDetailVO> quotaUsageDetails = new ArrayList<>();
+        QuotaUsageDetailVO quotaUsageDetailVoMock1 = Mockito.mock(QuotaUsageDetailVO.class);
+        QuotaUsageDetailVO quotaUsageDetailVoMock2 = Mockito.mock(QuotaUsageDetailVO.class);
+
+        quotaUsageDetails.add(quotaUsageDetailVoMock1);
+        quotaUsageDetails.add(quotaUsageDetailVoMock2);
+
+        Mockito.doNothing().when(quotaUsageDetailDaoMock).persistQuotaUsageDetail(Mockito.any());
+
+        quotaManagerImplSpy.persistQuotaUsageDetails(quotaUsageDetails, 1l);
+
+        Mockito.verify(quotaUsageDetailDaoMock, Mockito.times(2)).persistQuotaUsageDetail(Mockito.any());
     }
 }
