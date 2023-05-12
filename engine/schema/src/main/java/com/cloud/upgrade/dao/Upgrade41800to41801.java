@@ -39,7 +39,7 @@ public class Upgrade41800to41801 implements DbUpgrade, DbUpgradeSystemVmTemplate
 
     @Override
     public InputStream[] getPrepareScripts() {
-        final String scriptFile = "META-INF/db/schema-41720to41800.sql";
+        final String scriptFile = "META-INF/db/schema-41800to41801.sql";
         final InputStream script = Thread.currentThread().getContextClassLoader().getResourceAsStream(scriptFile);
         if (script == null) {
             throw new CloudRuntimeException("Unable to find " + scriptFile);
