@@ -312,20 +312,37 @@ FROM
         INNER JOIN cloud.domain ON (cloud.domain.id = cloud.account.domain_id)
         LEFT JOIN cloud.projects ON (cloud.account.type = 5 AND cloud.account.id = cloud.projects.project_account_id);
 
---
+DROP VIEW IF EXISTS `cloud_usage`.`quota_usage_view`;
+CREATE VIEW `cloud_usage`.`quota_usage_view` AS
+SELECT  qu.id,
+        qu.usage_item_id,
+        qu.zone_id,
+        qu.account_id,
+        qu.domain_id,
+        qu.usage_type,
+        qu.quota_used,
+        qu.start_date,
+        qu.end_date,
+        cu.usage_id AS resource_id,
+        cu.network_id as network_id,
+        cu.offering_id as offering_id
+FROM    `cloud_usage`.`quota_usage` qu
+INNER   JOIN `cloud_usage`.`cloud_usage` cu ON (cu.id = qu.usage_item_id);
+
+
 CREATE TABLE IF NOT EXISTS `cloud_usage`.`usage_backup_object` (
-                                                                   `id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
-                                                                   `backup_id` bigint(20) unsigned NOT NULL,
-                                                                   `backup_offering_id` bigint(20) unsigned NOT NULL,
-                                                                   `vm_id` bigint(20) unsigned NOT NULL,
-                                                                   `zone_id` bigint(20) unsigned NOT NULL,
-                                                                   `domain_id` bigint(20) unsigned NOT NULL,
-                                                                   `account_id` bigint(20) unsigned NOT NULL,
-                                                                   `size` bigint(20) unsigned NOT NULL,
-                                                                   `protected_size` bigint(20) unsigned NOT NULL,
-                                                                   `created` datetime DEFAULT NULL,
-                                                                   `removed` datetime DEFAULT NULL,
-                                                                   PRIMARY KEY (`id`)
+  `id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+  `backup_id` bigint(20) unsigned NOT NULL,
+  `backup_offering_id` bigint(20) unsigned NOT NULL,
+  `vm_id` bigint(20) unsigned NOT NULL,
+  `zone_id` bigint(20) unsigned NOT NULL,
+  `domain_id` bigint(20) unsigned NOT NULL,
+  `account_id` bigint(20) unsigned NOT NULL,
+  `size` bigint(20) unsigned NOT NULL,
+  `protected_size` bigint(20) unsigned NOT NULL,
+  `created` datetime DEFAULT NULL,
+  `removed` datetime DEFAULT NULL,
+  PRIMARY KEY (`id`)
 );
 
 -- update 'vm.allocation.algorithm' description

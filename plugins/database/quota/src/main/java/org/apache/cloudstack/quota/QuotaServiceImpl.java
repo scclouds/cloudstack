@@ -52,10 +52,10 @@ import org.apache.cloudstack.framework.config.dao.ConfigurationDao;
 import org.apache.cloudstack.quota.constant.QuotaConfig;
 import org.apache.cloudstack.quota.dao.QuotaAccountDao;
 import org.apache.cloudstack.quota.dao.QuotaBalanceDao;
-import org.apache.cloudstack.quota.dao.QuotaUsageDao;
+import org.apache.cloudstack.quota.dao.QuotaUsageJoinDao;
 import org.apache.cloudstack.quota.vo.QuotaAccountVO;
 import org.apache.cloudstack.quota.vo.QuotaBalanceVO;
-import org.apache.cloudstack.quota.vo.QuotaUsageVO;
+import org.apache.cloudstack.quota.vo.QuotaUsageJoinVO;
 import org.apache.cloudstack.usage.UsageService;
 import org.apache.commons.lang3.ObjectUtils;
 import org.apache.commons.lang3.time.DateUtils;
@@ -80,7 +80,7 @@ public class QuotaServiceImpl extends ManagerBase implements QuotaService, Confi
     @Inject
     private QuotaAccountDao _quotaAcc;
     @Inject
-    private QuotaUsageDao _quotaUsageDao;
+    private QuotaUsageJoinDao quotaUsageJoinDao;
     @Inject
     private DomainDao _domainDao;
     @Inject
@@ -226,7 +226,7 @@ public class QuotaServiceImpl extends ManagerBase implements QuotaService, Confi
     }
 
     @Override
-    public List<QuotaUsageVO> getQuotaUsage(Long accountId, String accountName, Long domainId, Integer usageType, Date startDate, Date endDate) {
+    public List<QuotaUsageJoinVO> getQuotaUsage(Long accountId, String accountName, Long domainId, Integer usageType, Date startDate, Date endDate) {
         accountId = getAccountToWhomQuotaBalancesWillBeListed(accountId, accountName, domainId);
 
         if (startDate.after(endDate)) {
@@ -240,7 +240,8 @@ public class QuotaServiceImpl extends ManagerBase implements QuotaService, Confi
         if (s_logger.isDebugEnabled()) {
             s_logger.debug("Getting quota records for account: " + accountId + ", domainId: " + domainId + ", between " + adjustedStartDate + " and " + adjustedEndDate);
         }
-        return _quotaUsageDao.findQuotaUsage(accountId, domainId, usageType, adjustedStartDate, adjustedEndDate);
+
+        return quotaUsageJoinDao.findQuotaUsage(accountId, domainId, usageType, null, null, null, startDate, endDate);
     }
 
     @Override

@@ -29,7 +29,7 @@ import org.apache.cloudstack.api.command.QuotaTariffListCmd;
 import org.apache.cloudstack.api.command.QuotaTariffUpdateCmd;
 import org.apache.cloudstack.quota.vo.QuotaEmailConfigurationVO;
 import org.apache.cloudstack.quota.vo.QuotaTariffVO;
-import org.apache.cloudstack.quota.vo.QuotaUsageVO;
+import org.apache.cloudstack.quota.vo.QuotaUsageJoinVO;
 
 import java.util.Date;
 import java.util.List;
@@ -46,13 +46,13 @@ public interface QuotaResponseBuilder {
 
     boolean isUserAllowedToSeeActivationRules(User user);
 
-    QuotaStatementResponse createQuotaStatementResponse(List<QuotaUsageVO> quotaUsage);
+    QuotaStatementResponse createQuotaStatementResponse(List<QuotaUsageJoinVO> quotaUsage, QuotaStatementCmd cmd);
 
     QuotaBalanceResponse createQuotaBalanceResponse(QuotaBalanceCmd cmd);
 
     Pair<List<QuotaSummaryResponse>, Integer> createQuotaSummaryResponse(QuotaSummaryCmd cmd);
 
-    List<QuotaUsageVO> getQuotaUsage(QuotaStatementCmd cmd);
+    List<QuotaUsageJoinVO> getQuotaUsage(QuotaStatementCmd cmd);
 
     QuotaCreditsResponse addQuotaCredits(Long accountId, Long domainId, Double amount, Long updatedBy, Boolean enforce);
 

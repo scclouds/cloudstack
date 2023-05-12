@@ -31,6 +31,7 @@ import org.apache.cloudstack.quota.constant.QuotaTypes;
 import org.apache.cloudstack.quota.dao.QuotaAccountDao;
 import org.apache.cloudstack.quota.dao.QuotaBalanceDao;
 import org.apache.cloudstack.quota.dao.QuotaUsageDao;
+import org.apache.cloudstack.quota.dao.QuotaUsageJoinDao;
 import org.apache.cloudstack.quota.vo.QuotaAccountVO;
 import org.apache.cloudstack.quota.vo.QuotaBalanceVO;
 import org.apache.commons.lang3.time.DateUtils;
@@ -77,6 +78,9 @@ public class QuotaServiceImplTest extends TestCase {
     @Mock
     QuotaBalanceDao quotaBalanceDaoMock;
 
+    @Mock
+    QuotaUsageJoinDao quotaUsageDaoJoinMock;
+
     @InjectMocks
     QuotaServiceImpl quotaServiceImplSpy = Mockito.spy(QuotaServiceImpl.class);
 
@@ -96,8 +100,9 @@ public class QuotaServiceImplTest extends TestCase {
 
         Mockito.when(quotaResponseBuilderMock.startOfNextDay()).thenReturn(endDate);
         quotaServiceImplSpy.getQuotaUsage(accountId, accountName, domainId, QuotaTypes.IP_ADDRESS, startDate, endDate);
-        Mockito.verify(quotaUsageDaoMock, Mockito.times(1)).findQuotaUsage(Mockito.eq(accountId), Mockito.eq(domainId), Mockito.eq(QuotaTypes.IP_ADDRESS),
-            Mockito.any(Date.class), Mockito.any(Date.class));
+
+        Mockito.verify(quotaUsageDaoJoinMock, Mockito.times(1)).findQuotaUsage(Mockito.eq(accountId), Mockito.eq(domainId), Mockito.eq(QuotaTypes.IP_ADDRESS), Mockito.any(),
+                Mockito.any(), Mockito.any(), Mockito.any(Date.class), Mockito.any(Date.class));
     }
 
     @Test
