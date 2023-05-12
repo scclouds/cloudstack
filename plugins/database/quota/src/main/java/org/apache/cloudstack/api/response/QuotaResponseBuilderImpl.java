@@ -16,6 +16,7 @@
 //under the License.
 package org.apache.cloudstack.api.response;
 
+import java.lang.reflect.Type;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.ZoneId;
@@ -24,6 +25,7 @@ import java.util.Calendar;
 import java.util.Comparator;
 import java.util.Date;
 import java.util.HashMap;
+import java.util.LinkedList;
 import java.util.List;
 import java.util.Objects;
 import java.util.Set;
@@ -36,6 +38,9 @@ import javax.ws.rs.InternalServerErrorException;
 
 import com.cloud.domain.Domain;
 import com.cloud.domain.DomainVO;
+import com.cloud.exception.PermissionDeniedException;
+import com.cloud.serializer.GsonHelper;
+import com.cloud.utils.exception.CloudRuntimeException;
 import com.cloud.network.dao.IPAddressDao;
 import com.cloud.network.dao.IPAddressVO;
 
@@ -49,10 +54,10 @@ import com.cloud.storage.VolumeVO;
 import com.cloud.storage.dao.SnapshotDao;
 import com.cloud.storage.dao.VMTemplateDao;
 import com.cloud.storage.dao.VolumeDao;
-import com.cloud.utils.exception.CloudRuntimeException;
 import com.cloud.vm.VMInstanceVO;
 import com.cloud.vm.dao.VMInstanceDao;
 import com.google.common.collect.Sets;
+import com.google.common.reflect.TypeToken;
 import org.apache.cloudstack.api.ApiErrorCode;
 import org.apache.cloudstack.api.ServerApiException;
 import org.apache.cloudstack.api.command.QuotaBalanceCmd;
@@ -60,6 +65,7 @@ import org.apache.cloudstack.api.command.QuotaConfigureEmailCmd;
 import org.apache.cloudstack.api.command.QuotaCreditsListCmd;
 import org.apache.cloudstack.api.command.QuotaEmailTemplateListCmd;
 import org.apache.cloudstack.api.command.QuotaEmailTemplateUpdateCmd;
+import org.apache.cloudstack.api.command.QuotaResourceQuotingCmd;
 import org.apache.cloudstack.api.command.QuotaStatementCmd;
 import org.apache.cloudstack.api.command.QuotaStatementDetailsCmd;
 import org.apache.cloudstack.api.command.QuotaSummaryCmd;
@@ -73,6 +79,8 @@ import org.apache.cloudstack.discovery.ApiDiscoveryService;
 import org.apache.cloudstack.quota.QuotaManager;
 import org.apache.cloudstack.quota.QuotaService;
 import org.apache.cloudstack.quota.QuotaStatement;
+import org.apache.cloudstack.quota.activationrule.presetvariables.GenericPresetVariable;
+import org.apache.cloudstack.quota.activationrule.presetvariables.PresetVariables;
 import org.apache.cloudstack.quota.constant.QuotaConfig;
 import org.apache.cloudstack.quota.constant.QuotaTypes;
 import org.apache.cloudstack.quota.dao.QuotaAccountDao;
@@ -92,6 +100,8 @@ import org.apache.cloudstack.quota.vo.QuotaEmailConfigurationVO;
 import org.apache.cloudstack.quota.vo.QuotaEmailTemplatesVO;
 import org.apache.cloudstack.quota.vo.QuotaSummaryVO;
 import org.apache.cloudstack.quota.vo.QuotaTariffVO;
+import org.apache.cloudstack.quota.vo.ResourcesToQuoteVO;
+import org.apache.cloudstack.utils.jsinterpreter.JsInterpreter;
 import org.apache.cloudstack.quota.vo.QuotaUsageDetailVO;
 import org.apache.cloudstack.quota.vo.QuotaUsageJoinVO;
 import org.apache.cloudstack.usage.UsageTypes;
@@ -189,6 +199,9 @@ public class QuotaResponseBuilderImpl implements QuotaResponseBuilder {
     private IPAddressDao ipAddressDao;
 
     private Set<Account.Type> accountTypesThatCanListAllQuotaSummaries = Sets.newHashSet(Account.Type.ADMIN, Account.Type.DOMAIN_ADMIN);
+
+    private final Type linkedListOfResourcesToQuoteType = new TypeToken<LinkedList<ResourcesToQuoteVO>>() {
+    }.getType();
 
     @Override
     public QuotaTariffResponse createQuotaTariffResponse(QuotaTariffVO tariff, boolean returnActivationRule) {
@@ -966,6 +979,214 @@ public class QuotaResponseBuilderImpl implements QuotaResponseBuilder {
     }
 
     @Override
+    public List<ResourcesQuotingResultResponse> quoteResources(String resourcesToQuoteAsJson) {
+        s_logger.trace(String.format("Parsing JSON [%s] to a list of [%s].", resourcesToQuoteAsJson, ResourcesToQuoteVO.class.getName()));
+        LinkedList<ResourcesToQuoteVO> resourcesToQuote;
+        try {
+            resourcesToQuote = GsonHelper.getGson().fromJson(resourcesToQuoteAsJson, linkedListOfResourcesToQuoteType);
+        } catch (Exception e) {
+            s_logger.error(String.format("Could not parse the JSON passed as parameter [%s] due to [%s].", resourcesToQuoteAsJson, e.getMessage()), e);
+            throw new InvalidParameterValueException("Could not parse the JSON passed as parameter.");
+        }
+
+        if (CollectionUtils.isEmpty(resourcesToQuote)) {
+            throw new InvalidParameterValueException("No resources were informed for quoting.");
+        }
+
+        s_logger.info("Validating quotings fields.");
+        Set<Integer> usageTypes = validateResourcesToQuoteFieldsAndReturnUsageTypes(resourcesToQuote);
+        validateCallerAccessToAccountsAndDomainsPassedAsParameterInQuotingMetadata(resourcesToQuote);
+
+        return quoteResources(resourcesToQuote, usageTypes);
+    }
+
+    /**
+     * Validates if all the usage types informed are valid and return them. Also adds an ID (its index in the list) to the quotings, if not informed.
+     */
+    protected Set<Integer> validateResourcesToQuoteFieldsAndReturnUsageTypes(List<ResourcesToQuoteVO> resourcesToQuote) throws InvalidParameterValueException {
+        Map<Integer, String> usageTypes = new HashMap<>();
+        s_logger.debug("Validating usage types set in the quotings.");
+
+        for (int index = 0; index < resourcesToQuote.size(); index++) {
+            ResourcesToQuoteVO resourceToQuote = resourcesToQuote.get(index);
+
+            int usageType = validateResourceToQuoteUsageTypeAndReturnsItsId(index, resourceToQuote.getUsageType());
+
+            s_logger.debug(String.format("Adding [%s] to the set of usage types that are being quoted.", usageType));
+            usageTypes.put(usageType, resourceToQuote.getUsageType());
+
+            addIdToResourceToQuoteIfNotSet(index, resourceToQuote);
+        }
+
+        s_logger.debug(String.format("The following usage types were identified for quoting and will be used to retrieve the quota tariffs: %s.", usageTypes.values()));
+        return usageTypes.keySet();
+    }
+
+    /**
+     *  If the ID is not informed, the index will be set as ID.
+     */
+    protected void addIdToResourceToQuoteIfNotSet(int index, ResourcesToQuoteVO resourceToQuote) {
+        if (StringUtils.isNotBlank(resourceToQuote.getId())) {
+            return;
+        }
+
+        s_logger.debug(String.format("Quoting at index [%s] does not have an ID. We set [%s] as the ID for this quote.", index, index));
+        resourceToQuote.setId(String.valueOf(index));
+    }
+
+    /**
+     * Validates if the usage type passed as parameter is valid and returns its ID.
+     */
+    protected int validateResourceToQuoteUsageTypeAndReturnsItsId(int index, String usageType) throws InvalidParameterValueException {
+        s_logger.debug(String.format("Validating quoting field \"usageType\" at index [%s].", index));
+
+        if (StringUtils.isNotBlank(usageType)) {
+            return QuotaTypes.getQuotaTypeByName(usageType).getQuotaType();
+        }
+
+        String msg = String.format("Quoting field \"usageType\"'s value [%s], at index [%s], is not a valid value. See [%s] for more information.", usageType, index,
+                QuotaResourceQuotingCmd.LINK_TO_QUOTA_SPEC);
+        s_logger.error(msg);
+        throw new InvalidParameterValueException(msg);
+    }
+
+    protected void validateCallerAccessToAccountsAndDomainsPassedAsParameterInQuotingMetadata(List<ResourcesToQuoteVO> resourcesToQuote) throws PermissionDeniedException {
+        Account caller = CallContext.current().getCallingAccount();
+
+        s_logger.debug(String.format("Validating caller [%s] access to the accounts and domains passed as parameter in the quotings.", caller));
+
+        for (int index = 0; index < resourcesToQuote.size(); index++) {
+            PresetVariables metadata = resourcesToQuote.get(index).getMetadata();
+
+            if (metadata == null) {
+                s_logger.trace(String.format("Quoting at index [%s] does not have metadata. Skipping account and domain access check.", index));
+                continue;
+            }
+
+            validateCallerAccessToAccountSetInQuotingMetadata(caller, metadata, index);
+            validateCallerAccessToDomainSetInQuotingMetadata(caller, metadata, index);
+        }
+
+        s_logger.debug(String.format("Caller [%s] has access to the accounts and domains passed as parameter in the quoting metadata.", caller));
+    }
+
+    protected void validateCallerAccessToAccountSetInQuotingMetadata(Account caller, PresetVariables metadata, int index) throws PermissionDeniedException {
+        String accountId = getPresetVariableIdIfItIsNotNull(metadata.getAccount());
+        if (accountId == null) {
+            s_logger.debug(String.format("Quoting metadata at index [%s] does not have an account. Skipping account access check.", index));
+            return;
+        }
+
+        s_logger.trace(String.format("Searching account with UUID [%s], informed in quoting metadata at index [%s].", accountId, index));
+        Account account = _accountDao.findByUuidIncludingRemoved(accountId);
+
+        if (account == null) {
+            s_logger.debug(String.format("Account with UUID [%s], informed in quoting metadata at index [%s], does not exist. Skipping account access check.", accountId, index));
+            return;
+        }
+
+        s_logger.trace(String.format("Checking caller [%s] access to account [%s], informed in quoting metadata at index [%s].", caller, account, index));
+        _accountMgr.checkAccess(caller, null, false, account);
+        s_logger.trace(String.format("Caller [%s] has access to account [%s], informed in quoting metadata at index [%s].", caller, account, index));
+    }
+
+    protected void validateCallerAccessToDomainSetInQuotingMetadata(Account caller, PresetVariables metadata, int index) throws PermissionDeniedException {
+        String domainId = getPresetVariableIdIfItIsNotNull(metadata.getDomain());
+        if (domainId == null) {
+            s_logger.debug(String.format("Quoting metadata at index [%s] does not have a domain. Skipping domain access check.", index));
+            return;
+        }
+
+        s_logger.trace(String.format("Searching domain with UUID [%s], informed in quoting metadata at index [%s].", domainId, index));
+        DomainVO domain = domainDao.findByUuidIncludingRemoved(domainId);
+
+        if (domain == null) {
+            s_logger.debug(String.format("Domain with UUID [%s], informed in quoting metadata at index [%s], does not exist. Skipping domain access check.", domainId, index));
+            return;
+        }
+
+        s_logger.trace(String.format("Checking caller [%s] access to domain [%s], informed in quoting metadata at index [%s].", caller, domain, index));
+        _accountMgr.checkAccess(caller, domain);
+        s_logger.trace(String.format("Caller [%s] has access to domain [%s], informed in quoting metadata at index [%s].", caller, domain, index));
+    }
+
+    protected String getPresetVariableIdIfItIsNotNull(GenericPresetVariable genericPresetVariable) {
+        if (genericPresetVariable != null) {
+            return genericPresetVariable.getId();
+        }
+        return null;
+    }
+
+    /**
+     * Quotes the resources passed as parameter according to the current Quota tariffs and volume to quote.
+     */
+    protected List<ResourcesQuotingResultResponse> quoteResources(List<ResourcesToQuoteVO> resourcesToQuote, Set<Integer> usageTypes) {
+        List<ResourcesQuotingResultResponse> quotingResults = new ArrayList<>();
+
+        s_logger.info("Starting resources quoting.");
+        Map<Integer, Pair<List<QuotaTariffVO>, Boolean>> allTariffsOfTheInformedTypes = _quotaManager.createMapQuotaTariffsPerUsageType(usageTypes);
+        Map<Integer, List<QuotaTariffVO>> validTariffsForQuoting = _quotaManager.getValidTariffsForQuoting(allTariffsOfTheInformedTypes);
+
+        if (s_logger.isTraceEnabled()) {
+            s_logger.trace(String.format("Starting resources [%s] quoting with the tariffs [%s].", resourcesToQuote, validTariffsForQuoting));
+        } else {
+            s_logger.debug("Starting resources quoting with the filtered tariffs.");
+        }
+
+        ResourcesToQuoteVO resourceToQuote = null;
+        try (JsInterpreter jsInterpreter = new JsInterpreter(QuotaConfig.QuotaActivationRuleTimeout.value())) {
+            for (int index = 0; index < resourcesToQuote.size(); index++) {
+                resourceToQuote = resourcesToQuote.get(index);
+
+                quotingResults.add(quoteResource(validTariffsForQuoting, resourceToQuote, jsInterpreter));
+            }
+        } catch (Exception e) {
+            s_logger.error(String.format("An exception was thrown while quoting [%s]. Exception: %s.", resourceToQuote, e.getMessage()));
+            throw new CloudRuntimeException("An error occurred while quoting the resources.", e);
+        }
+
+        BigDecimal finalQuotingValue = quotingResults.stream().map(ResourcesQuotingResultResponse::getQuote).reduce(BigDecimal.ZERO, BigDecimal::add);
+
+        if (s_logger.isDebugEnabled()) {
+            s_logger.debug(String.format("The quotings [%s] resulted in the total value [%s].", resourcesToQuote, finalQuotingValue));
+        } else {
+            s_logger.info(String.format("The quotings resulted in the total value [%s].", finalQuotingValue));
+        }
+        return quotingResults;
+    }
+
+    /**
+     * Quotes the resource passed as parameter according to the current Quota tariffs and volume to quote.
+     */
+    protected ResourcesQuotingResultResponse quoteResource(Map<Integer, List<QuotaTariffVO>> validTariffsForQuoting, ResourcesToQuoteVO resourceToQuote,
+                                                           JsInterpreter jsInterpreter) throws IllegalAccessException {
+        s_logger.debug(String.format("Starting quoting of resource [%s].", resourceToQuote));
+
+        String usageType = resourceToQuote.getUsageType();
+        String quoteId = resourceToQuote.getId();
+
+        ResourcesQuotingResultResponse resourceQuotingResult = new ResourcesQuotingResultResponse();
+        resourceQuotingResult.setId(quoteId);
+        resourceQuotingResult.setUsageType(usageType);
+
+        QuotaTypes quotaTypeObject = QuotaTypes.getQuotaTypeByName(usageType);
+
+        List<QuotaTariffVO> tariffs = validTariffsForQuoting.get(quotaTypeObject.getQuotaType());
+        int volumeToQuote = resourceToQuote.getVolumeToQuote();
+        if (tariffs == null || volumeToQuote == 0) {
+            s_logger.debug(String.format("Either there are no tariffs [%s] for usage type [%s] or the volume to quote [%s] is 0. Setting quoting [%s] result as 0.",
+                    tariffs, quotaTypeObject, volumeToQuote, quoteId));
+
+            resourceQuotingResult.setQuote(BigDecimal.ZERO);
+            return resourceQuotingResult;
+        }
+
+        resourceQuotingResult.setQuote(_quotaManager.getResourceRating(jsInterpreter, resourceToQuote, tariffs, quotaTypeObject));
+
+        s_logger.debug(String.format("The quoting [%s] resulted in the value [%s].", quoteId, resourceQuotingResult.getQuote()));
+        return resourceQuotingResult;
+    }
+
     public QuotaUsageDetailsResponse listUsageDetails(QuotaStatementDetailsCmd cmd) {
         String resourceUuid = cmd.getId();
         Integer usageType = cmd.getUsageType();

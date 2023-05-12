@@ -17,7 +17,17 @@
 package org.apache.cloudstack.quota;
 
 import com.cloud.user.AccountVO;
+import com.cloud.utils.Pair;
 import com.cloud.utils.component.Manager;
+import org.apache.cloudstack.quota.constant.QuotaTypes;
+import org.apache.cloudstack.quota.vo.QuotaTariffVO;
+import org.apache.cloudstack.quota.vo.ResourcesToQuoteVO;
+import org.apache.cloudstack.utils.jsinterpreter.JsInterpreter;
+
+import java.math.BigDecimal;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
 
 public interface QuotaManager extends Manager {
 
@@ -25,4 +35,10 @@ public interface QuotaManager extends Manager {
 
     boolean isLockable(AccountVO account);
 
+    Map<Integer, Pair<List<QuotaTariffVO>, Boolean>> createMapQuotaTariffsPerUsageType(Set<Integer> usageTypes);
+
+    Map<Integer, List<QuotaTariffVO>> getValidTariffsForQuoting(Map<Integer, Pair<List<QuotaTariffVO>, Boolean>> allTariffsOfTheInformedTypes);
+
+    BigDecimal getResourceRating(JsInterpreter jsInterpreter, ResourcesToQuoteVO resourceToQuote, List<QuotaTariffVO> tariffs, QuotaTypes quotaTypeObject)
+            throws IllegalAccessException;
 }

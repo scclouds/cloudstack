@@ -20,8 +20,11 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 
+import com.cloud.utils.exception.CloudRuntimeException;
 import org.apache.cloudstack.usage.UsageTypes;
 import org.apache.cloudstack.usage.UsageUnitTypes;
+import org.apache.cloudstack.utils.reflectiontostringbuilderutils.ReflectionToStringBuilderUtils;
+import org.apache.commons.lang3.StringUtils;
 
 public class QuotaTypes extends UsageTypes {
     private final Integer quotaType;
@@ -105,4 +108,22 @@ public class QuotaTypes extends UsageTypes {
         return quotaTypeMap.get(quotaType);
     }
 
+    static public QuotaTypes getQuotaTypeByName(String name) {
+        if (StringUtils.isBlank(name)) {
+            throw new CloudRuntimeException("Could not retrieve Quota type by name because the value passed as parameter is null, empty, or blank.");
+        }
+
+        for (QuotaTypes type : quotaTypeMap.values()) {
+            if (type.getQuotaName().equals(name)) {
+                return type;
+            }
+        }
+
+        throw new CloudRuntimeException(String.format("Could not find Quota type with name [%s].", name));
+    }
+
+    @Override
+    public String toString() {
+        return ReflectionToStringBuilderUtils.reflectOnlySelectedFields(this, "quotaType", "quotaName");
+    }
 }
