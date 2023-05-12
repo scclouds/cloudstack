@@ -190,7 +190,7 @@ public class AccountVO implements Account {
 
     @Override
     public String toString() {
-        return String.format("Account [%s]", ReflectionToStringBuilderUtils.reflectOnlySelectedFields(this, "uuid","accountName", "id"));
+        return String.format("Account %s", ReflectionToStringBuilderUtils.reflectOnlySelectedFields(this, "id", "uuid", "accountName", "domainId"));
     }
 
     @Override
@@ -226,7 +226,4 @@ public class AccountVO implements Account {
         return accountName;
     }
 
-    public String reflectionToString() {
-        return ReflectionToStringBuilderUtils.reflectOnlySelectedFields(this, "id", "uuid", "accountName", "domainId");
-    }
 }

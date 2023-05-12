@@ -18,6 +18,7 @@ package org.apache.cloudstack.quota.dao;
 
 import java.util.Date;
 import java.util.List;
+import java.util.Set;
 
 import org.apache.cloudstack.quota.vo.QuotaTariffVO;
 import org.apache.commons.collections.CollectionUtils;
@@ -73,8 +74,20 @@ public class QuotaTariffDaoImpl extends GenericDaoBase<QuotaTariffVO, Long> impl
 
     @Override
     public Pair<List<QuotaTariffVO>, Integer> listQuotaTariffs(Date startDate, Date endDate, Integer usageType, String name, String uuid, boolean listAll, boolean listOnlyRemoved,
-                                                               Long startIndex, Long pageSize) {
-        SearchCriteria<QuotaTariffVO> searchCriteria = createListQuotaTariffsSearchCriteria(startDate, endDate, usageType, name, uuid, listOnlyRemoved);
+        Long startIndex, Long pageSize) {
+
+        Set<Integer> types = null;
+        if (usageType != null) {
+            types = Set.of(usageType);
+        }
+
+        return listQuotaTariffs(startDate, endDate, types, name, uuid, listAll, listOnlyRemoved, startIndex, pageSize);
+    }
+
+    @Override
+    public Pair<List<QuotaTariffVO>, Integer> listQuotaTariffs(Date startDate, Date endDate, Set<Integer> usageTypes, String name, String uuid, boolean listAll,
+                                                               boolean listOnlyRemoved, Long startIndex, Long pageSize) {
+        SearchCriteria<QuotaTariffVO> searchCriteria = createListQuotaTariffsSearchCriteria(startDate, endDate, usageTypes, name, uuid, listOnlyRemoved);
         Filter sorter = new Filter(QuotaTariffVO.class, "usageType", false, startIndex, pageSize);
         sorter.addOrderBy(QuotaTariffVO.class, "effectiveOn", false);
         sorter.addOrderBy(QuotaTariffVO.class, "updatedOn", false);
@@ -82,28 +95,37 @@ public class QuotaTariffDaoImpl extends GenericDaoBase<QuotaTariffVO, Long> impl
         return Transaction.execute(TransactionLegacy.USAGE_DB, (TransactionCallback<Pair<List<QuotaTariffVO>, Integer>>) status -> searchAndCount(searchCriteria, sorter, listAll));
     }
 
-    protected SearchCriteria<QuotaTariffVO> createListQuotaTariffsSearchCriteria(Date startDate, Date endDate, Integer usageType, String name, String uuid, boolean listOnlyRemoved) {
-        SearchCriteria<QuotaTariffVO> searchCriteria = createListQuotaTariffsSearchBuilder(listOnlyRemoved).create();
+
+    protected SearchCriteria<QuotaTariffVO> createListQuotaTariffsSearchCriteria(Date startDate, Date endDate, Set<Integer> usageTypes, String name, String uuid,
+        boolean listOnlyRemoved) {
+        SearchCriteria<QuotaTariffVO> searchCriteria = createListQuotaTariffsSearchBuilder(listOnlyRemoved, usageTypes).create();
 
         searchCriteria.setParametersIfNotNull("startDate", startDate);
         searchCriteria.setParametersIfNotNull("endDate", endDate);
-        searchCriteria.setParametersIfNotNull("usageType", usageType);
+
+        if (usageTypes != null) {
+            searchCriteria.setParameters("usageType", usageTypes.toArray());
+        }
+
         searchCriteria.setParametersIfNotNull("name", name);
         searchCriteria.setParametersIfNotNull("uuid", uuid);
 
         return searchCriteria;
     }
 
-    protected SearchBuilder<QuotaTariffVO> createListQuotaTariffsSearchBuilder(boolean listOnlyRemoved) {
+    protected SearchBuilder<QuotaTariffVO> createListQuotaTariffsSearchBuilder(boolean listOnlyRemoved, Set<Integer> usageTypes) {
         SearchBuilder<QuotaTariffVO> searchBuilder = createSearchBuilder();
         searchBuilder.and("startDate", searchBuilder.entity().getEffectiveOn(), SearchCriteria.Op.GTEQ);
         searchBuilder.and("endDate", searchBuilder.entity().getEndDate(), SearchCriteria.Op.LTEQ);
-        searchBuilder.and("usageType", searchBuilder.entity().getUsageType(), SearchCriteria.Op.EQ);
         searchBuilder.and("name", searchBuilder.entity().getName(), SearchCriteria.Op.EQ);
         searchBuilder.and("uuid", searchBuilder.entity().getUuid(), SearchCriteria.Op.EQ);
 
         if (listOnlyRemoved) {
             searchBuilder.and("removed", searchBuilder.entity().getRemoved(), SearchCriteria.Op.NNULL);
+        }
+
+        if (usageTypes != null) {
+            searchBuilder.and("usageType", searchBuilder.entity().getUsageType(), SearchCriteria.Op.IN);
         }
 
         return searchBuilder;

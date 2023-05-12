@@ -16,10 +16,12 @@
 // under the License.
 package org.apache.cloudstack.quota.constant;
 
+import com.cloud.utils.exception.CloudRuntimeException;
 import junit.framework.TestCase;
 
 import org.apache.cloudstack.api.response.UsageTypeResponse;
 import org.apache.cloudstack.usage.UsageTypes;
+import org.junit.Assert;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.mockito.runners.MockitoJUnitRunner;
@@ -44,5 +46,33 @@ public class QuotaTypesTest extends TestCase {
     public void testQuotaTypeDescription() {
         assertNull(QuotaTypes.getDescription(-1));
         assertNotNull(QuotaTypes.getDescription(QuotaTypes.VOLUME));
+    }
+
+    @Test (expected = CloudRuntimeException.class)
+    public void getQuotaTypeByNameTestThrowCloudRuntimeExceptionWhenNameIsNull() {
+        QuotaTypes.getQuotaTypeByName(null);
+    }
+
+    @Test (expected = CloudRuntimeException.class)
+    public void getQuotaTypeByNameTestThrowCloudRuntimeExceptionWhenNameIsEmpty() {
+        QuotaTypes.getQuotaTypeByName("");
+    }
+
+    @Test (expected = CloudRuntimeException.class)
+    public void getQuotaTypeByNameTestThrowCloudRuntimeExceptionWhenNameIsBlank() {
+        QuotaTypes.getQuotaTypeByName("   ");
+    }
+
+    @Test
+    public void getQuotaTypeByNameTestReturnTypeWhenItIsFound() {
+        QuotaTypes.listQuotaTypes().values().forEach(expected -> {
+            QuotaTypes result = QuotaTypes.getQuotaTypeByName(expected.getQuotaName());
+            Assert.assertEquals(expected, result);
+        });
+    }
+
+    @Test (expected = CloudRuntimeException.class)
+    public void getQuotaTypeByNameTestThrowCloudRuntimeExceptionWhenNameIsNotAValidQuotaType() {
+        QuotaTypes.getQuotaTypeByName("test");
     }
 }

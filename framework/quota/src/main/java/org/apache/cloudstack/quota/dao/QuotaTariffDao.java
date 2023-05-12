@@ -23,6 +23,7 @@ import org.apache.cloudstack.quota.vo.QuotaTariffVO;
 
 import java.util.Date;
 import java.util.List;
+import java.util.Set;
 
 public interface QuotaTariffDao extends GenericDao<QuotaTariffVO, Long> {
 
@@ -31,9 +32,13 @@ public interface QuotaTariffDao extends GenericDao<QuotaTariffVO, Long> {
     Pair<List<QuotaTariffVO>, Integer> listQuotaTariffs(Date startDate, Date endDate, Integer usageType, String name, String uuid, boolean listAll, boolean listOnlyRemoved,
                                                         Long startIndex, Long pageSize);
 
+    Pair<List<QuotaTariffVO>, Integer> listQuotaTariffs(Date startDate, Date endDate, Set<Integer> usageTypes, String name, String uuid, boolean listAll, boolean listOnlyRemoved,
+                                                        Long startIndex, Long pageSize);
+
     QuotaTariffVO findByName(String name);
 
     Boolean updateQuotaTariff(QuotaTariffVO plan);
 
     QuotaTariffVO addQuotaTariff(QuotaTariffVO plan);
+
 }

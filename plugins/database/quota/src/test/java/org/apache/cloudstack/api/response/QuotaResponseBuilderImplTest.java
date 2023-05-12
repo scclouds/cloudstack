@@ -16,6 +16,7 @@
 // under the License.
 package org.apache.cloudstack.api.response;
 
+import java.lang.reflect.Type;
 import java.math.BigDecimal;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
@@ -23,20 +24,28 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Date;
 import java.util.HashMap;
+import java.util.LinkedList;
 import java.util.List;
 import java.util.Set;
 import java.util.Map;
 import java.util.function.Consumer;
+import java.util.stream.Collectors;
 
 import com.cloud.domain.Domain;
 import com.cloud.domain.DomainVO;
 import com.cloud.domain.dao.DomainDao;
+import com.cloud.exception.PermissionDeniedException;
+import com.cloud.serializer.GsonHelper;
 import com.cloud.user.AccountManager;
 import com.cloud.user.User;
 import com.cloud.utils.Pair;
+import com.cloud.utils.exception.CloudRuntimeException;
 import com.google.common.collect.Sets;
+import com.google.gson.Gson;
+import com.google.gson.JsonSyntaxException;
 import org.apache.cloudstack.api.ServerApiException;
 import org.apache.cloudstack.api.command.QuotaBalanceCmd;
 import org.apache.cloudstack.api.command.QuotaConfigureEmailCmd;
@@ -46,7 +55,10 @@ import org.apache.cloudstack.api.command.QuotaEmailTemplateUpdateCmd;
 import org.apache.cloudstack.api.command.QuotaSummaryCmd;
 import org.apache.cloudstack.context.CallContext;
 import org.apache.cloudstack.discovery.ApiDiscoveryService;
+import org.apache.cloudstack.quota.QuotaManager;
 import org.apache.cloudstack.quota.QuotaService;
+import org.apache.cloudstack.quota.activationrule.presetvariables.GenericPresetVariable;
+import org.apache.cloudstack.quota.activationrule.presetvariables.PresetVariables;
 import org.apache.cloudstack.quota.constant.QuotaConfig;
 import org.apache.cloudstack.quota.constant.QuotaTypes;
 import org.apache.cloudstack.quota.dao.QuotaAccountDao;
@@ -59,6 +71,7 @@ import org.apache.cloudstack.quota.vo.QuotaBalanceVO;
 import org.apache.cloudstack.quota.vo.QuotaCreditsVO;
 import org.apache.cloudstack.quota.vo.QuotaEmailTemplatesVO;
 import org.apache.cloudstack.quota.vo.QuotaTariffVO;
+import org.apache.cloudstack.quota.vo.ResourcesToQuoteVO;
 import org.apache.cloudstack.quota.vo.QuotaUsageJoinVO;
 import org.apache.commons.lang3.time.DateUtils;
 import org.junit.Assert;
@@ -67,6 +80,8 @@ import org.junit.runner.RunWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.Mockito;
+import org.mockito.stubbing.Stubber;
+import org.mockito.verification.VerificationMode;
 import org.powermock.api.mockito.PowerMockito;
 import org.powermock.core.classloader.annotations.PrepareForTest;
 import org.powermock.modules.junit4.PowerMockRunner;
@@ -82,7 +97,7 @@ import junit.framework.TestCase;
 import javax.ws.rs.InternalServerErrorException;
 
 @RunWith(PowerMockRunner.class)
-@PrepareForTest({QuotaResponseBuilderImpl.class, CallContext.class})
+@PrepareForTest({QuotaResponseBuilderImpl.class, CallContext.class, GsonHelper.class, Gson.class})
 public class QuotaResponseBuilderImplTest extends TestCase {
 
     @Mock
@@ -151,6 +166,9 @@ public class QuotaResponseBuilderImplTest extends TestCase {
     AccountManager accountManagerMock;
 
     @Mock
+    QuotaManager quotaManagerMock;
+
+    @Mock
     Pair<List<QuotaSummaryResponse>, Integer> quotaSummaryResponseMock1, quotaSummaryResponseMock2;
 
     @Mock
@@ -158,6 +176,16 @@ public class QuotaResponseBuilderImplTest extends TestCase {
 
     @Mock
     User userMock;
+
+    List<QuotaTariffVO> listQuotaTariffs = List.of(new QuotaTariffVO(), new QuotaTariffVO());
+
+    @Mock
+    LinkedList<ResourcesToQuoteVO> linkedListResourcesToQuoteVoMock;
+
+    LinkedList<ResourcesToQuoteVO> linkedListResourcesToQuoteVo = new LinkedList<>(Arrays.asList(new ResourcesToQuoteVO(), new ResourcesToQuoteVO(), new ResourcesToQuoteVO()));
+
+    AccountVO accountVo = new AccountVO();
+    DomainVO domainVo = new DomainVO();
 
     private QuotaTariffVO makeTariffTestData() {
         QuotaTariffVO tariffVO = new QuotaTariffVO();
@@ -840,6 +868,404 @@ public class QuotaResponseBuilderImplTest extends TestCase {
     }
 
     @Test
+    public void quoteResourceTestReturnZeroWhenTariffsIsNull() {
+        ResourcesToQuoteVO resourcesToQuoteVo = new ResourcesToQuoteVO();
+        resourcesToQuoteVo.setVolumeToQuote(1);
+
+        QuotaTypes.listQuotaTypes().values().forEach(type -> {
+            resourcesToQuoteVo.setUsageType(type.getQuotaName());
+            ResourcesQuotingResultResponse result = null;
+            try {
+                result = quotaResponseBuilderSpy.quoteResource(new HashMap<>(), resourcesToQuoteVo, null);
+            } catch (IllegalAccessException e) {
+                throw new RuntimeException(e);
+            }
+            Assert.assertEquals(0, result.getQuote().doubleValue(), 0);
+        });
+    }
+
+    @Test
+    public void quoteResourceTestReturnZeroWhenVolumeToQuoteIsZero() {
+        ResourcesToQuoteVO resourcesToQuoteVo = new ResourcesToQuoteVO();
+        resourcesToQuoteVo.setVolumeToQuote(0);
+
+        Map<Integer, List<QuotaTariffVO>> mapTariffs = new HashMap<>();
+
+        QuotaTypes.listQuotaTypes().values().forEach(type -> {
+            resourcesToQuoteVo.setUsageType(type.getQuotaName());
+            ResourcesQuotingResultResponse result = null;
+            mapTariffs.put(type.getQuotaType(), listQuotaTariffs);
+
+            try {
+                result = quotaResponseBuilderSpy.quoteResource(mapTariffs, resourcesToQuoteVo, null);
+            } catch (IllegalAccessException e) {
+                throw new RuntimeException(e);
+            }
+
+            Assert.assertEquals(0, result.getQuote().doubleValue(), 0);
+        });
+    }
+
+    @Test
+    public void quoteResourceTestReturnValueWhenVolumeToQuoteIsNotZeroAndTariffsIsNotNull() throws IllegalAccessException {
+        double expected = 42;
+        ResourcesToQuoteVO resourcesToQuoteVo = new ResourcesToQuoteVO();
+        resourcesToQuoteVo.setVolumeToQuote(1);
+
+        Map<Integer, List<QuotaTariffVO>> mapTariffs = new HashMap<>();
+
+        Mockito.doReturn(new BigDecimal(expected)).when(quotaManagerMock).getResourceRating(Mockito.any(), Mockito.any(), Mockito.any(), Mockito.any());
+
+        QuotaTypes.listQuotaTypes().values().forEach(type -> {
+            resourcesToQuoteVo.setUsageType(type.getQuotaName());
+            ResourcesQuotingResultResponse result = null;
+            mapTariffs.put(type.getQuotaType(), listQuotaTariffs);
+
+            try {
+                result = quotaResponseBuilderSpy.quoteResource(mapTariffs, resourcesToQuoteVo, null);
+            } catch (IllegalAccessException e) {
+                throw new RuntimeException(e);
+            }
+
+            Assert.assertEquals(expected, result.getQuote().doubleValue(), 0);
+        });
+    }
+
+    @Test(expected = InvalidParameterValueException.class)
+    public void quoteResourcesTestThrowJsonSyntaxExceptionWhenPassingAnInvalidJsonAsParameter() {
+        Gson gsonMock = PowerMockito.mock(Gson.class);
+
+        PowerMockito.mockStatic(GsonHelper.class);
+        PowerMockito.when(GsonHelper.getGson()).thenReturn(gsonMock);
+
+        Mockito.doThrow(JsonSyntaxException.class).when(gsonMock).fromJson(Mockito.anyString(), Mockito.any(Type.class));
+
+        quotaResponseBuilderSpy.quoteResources("");
+    }
+
+    @Test(expected = InvalidParameterValueException.class)
+    public void quoteResourcesTestThrowInvalidParameterValueExceptionWhenResourcesToQuoteIsNull() {
+        Gson gsonMock = PowerMockito.mock(Gson.class);
+
+        PowerMockito.mockStatic(GsonHelper.class);
+        PowerMockito.when(GsonHelper.getGson()).thenReturn(gsonMock);
+
+        Mockito.doReturn(null).when(gsonMock).fromJson(Mockito.anyString(), Mockito.any(Type.class));
+
+        quotaResponseBuilderSpy.quoteResources("");
+    }
+
+    @Test(expected = InvalidParameterValueException.class)
+    public void quoteResourcesTestThrowInvalidParameterValueExceptionWhenResourcesToQuoteIsEmpty() {
+        Gson gsonMock = PowerMockito.mock(Gson.class);
+
+        PowerMockito.mockStatic(GsonHelper.class);
+        PowerMockito.when(GsonHelper.getGson()).thenReturn(gsonMock);
+
+        Mockito.doReturn(null).when(gsonMock).fromJson(Mockito.anyString(), Mockito.any(Type.class));
+
+        quotaResponseBuilderSpy.quoteResources("");
+    }
+
+    @Test(expected = InvalidParameterValueException.class)
+    public void quoteResourcesTestThrowInvalidParameterValueExceptionWhenPassingAnInvalidArgumentInTheJson() {
+        Gson gsonMock = PowerMockito.mock(Gson.class);
+
+        PowerMockito.mockStatic(GsonHelper.class);
+        PowerMockito.when(GsonHelper.getGson()).thenReturn(gsonMock);
+
+        Mockito.doReturn(linkedListResourcesToQuoteVo).when(gsonMock).fromJson(Mockito.anyString(), Mockito.any(Type.class));
+        Mockito.doThrow(InvalidParameterValueException.class).when(quotaResponseBuilderSpy).validateResourcesToQuoteFieldsAndReturnUsageTypes(Mockito.any());
+
+        quotaResponseBuilderSpy.quoteResources("");
+    }
+
+    @Test(expected = PermissionDeniedException.class)
+    public void quoteResourcesTestThrowPermissionDeniedExceptionWhenCallerDoesNotHaveAccessToAccountsOrDomainsPassedAsParameter() {
+        Gson gsonMock = PowerMockito.mock(Gson.class);
+
+        PowerMockito.mockStatic(GsonHelper.class);
+        PowerMockito.when(GsonHelper.getGson()).thenReturn(gsonMock);
+
+        Set<Integer> setIntegerMock = Mockito.mock(Set.class);
+
+        Mockito.doReturn(linkedListResourcesToQuoteVo).when(gsonMock).fromJson(Mockito.anyString(), Mockito.any(Type.class));
+        Mockito.doReturn(setIntegerMock).when(quotaResponseBuilderSpy).validateResourcesToQuoteFieldsAndReturnUsageTypes(Mockito.any());
+        Mockito.doThrow(PermissionDeniedException.class).when(quotaResponseBuilderSpy).validateCallerAccessToAccountsAndDomainsPassedAsParameterInQuotingMetadata(Mockito.any());
+
+        quotaResponseBuilderSpy.quoteResources("");
+    }
+
+    @Test
+    public void quoteResourcesTestReturnListOfResourcesQuotingResultResponse() {
+        Gson gsonMock = PowerMockito.mock(Gson.class);
+
+        PowerMockito.mockStatic(GsonHelper.class);
+        PowerMockito.when(GsonHelper.getGson()).thenReturn(gsonMock);
+
+        Set<Integer> setIntegerMock = Mockito.mock(Set.class);
+        List<ResourcesQuotingResultResponse> expected = new ArrayList<>();
+
+        Mockito.doReturn(linkedListResourcesToQuoteVoMock).when(gsonMock).fromJson(Mockito.anyString(), Mockito.any(Type.class));
+        Mockito.doReturn(setIntegerMock).when(quotaResponseBuilderSpy).validateResourcesToQuoteFieldsAndReturnUsageTypes(Mockito.any());
+        Mockito.doNothing().when(quotaResponseBuilderSpy).validateCallerAccessToAccountsAndDomainsPassedAsParameterInQuotingMetadata(Mockito.any());
+        Mockito.doReturn(expected).when(quotaResponseBuilderSpy).quoteResources(Mockito.any(), Mockito.any());
+
+        List<ResourcesQuotingResultResponse> result = quotaResponseBuilderSpy.quoteResources("");
+
+        Assert.assertEquals(expected, result);
+    }
+
+    @Test(expected = InvalidParameterValueException.class)
+    public void validateResourcesToQuoteFieldsAndReturnUsageTypesTestThrowInvalidParameterValueExceptionWhenUsageTypeIsInvalid() {
+        Mockito.doThrow(InvalidParameterValueException.class).when(quotaResponseBuilderSpy).validateResourceToQuoteUsageTypeAndReturnsItsId(Mockito.anyInt(), Mockito.any());
+        quotaResponseBuilderSpy.validateResourcesToQuoteFieldsAndReturnUsageTypes(List.of(new ResourcesToQuoteVO()));
+    }
+
+    @Test
+    public void validateResourcesToQuoteFieldsAndReturnUsageTypesTestReturnSetOfInteger() {
+        List<ResourcesToQuoteVO> resourcesToQuoteVos = new ArrayList<>();
+        QuotaTypes.listQuotaTypes().values().forEach(type -> {
+            ResourcesToQuoteVO resourcesToQuoteVo = new ResourcesToQuoteVO();
+            resourcesToQuoteVo.setUsageType(type.getQuotaName());
+            resourcesToQuoteVos.add(resourcesToQuoteVo);
+        });
+
+        Set<Integer> expected = QuotaTypes.listQuotaTypes().values().stream().map(QuotaTypes::getQuotaType).collect(Collectors.toSet());
+        Stubber stubber = null;
+
+        for (Integer type : expected) {
+            if (stubber == null) {
+                stubber = Mockito.doReturn(type);
+                continue;
+            }
+
+            stubber = stubber.doReturn(type);
+        }
+
+        stubber.when(quotaResponseBuilderSpy).validateResourceToQuoteUsageTypeAndReturnsItsId(Mockito.anyInt(), Mockito.any());
+        Mockito.doNothing().when(quotaResponseBuilderSpy).addIdToResourceToQuoteIfNotSet(Mockito.anyInt(), Mockito.any());
+
+        Set<Integer> result = quotaResponseBuilderSpy.validateResourcesToQuoteFieldsAndReturnUsageTypes(resourcesToQuoteVos);
+        Assert.assertArrayEquals(expected.toArray(), result.toArray());
+    }
+
+    @Test
+    public void addIdToResourceToQuoteIfNotSetTestIdIsSomethingThenDoNothing() {
+        ResourcesToQuoteVO resourcesToQuoteVo = new ResourcesToQuoteVO();
+        String expected = "test";
+        resourcesToQuoteVo.setId(expected);
+
+        quotaResponseBuilderSpy.addIdToResourceToQuoteIfNotSet(1, resourcesToQuoteVo);
+
+        Assert.assertEquals(expected, resourcesToQuoteVo.getId());
+    }
+
+    @Test
+    public void addIdToResourceToQuoteIfNotSetTestIdIsEmptyThenSetAsIndex() {
+        ResourcesToQuoteVO resourcesToQuoteVo = new ResourcesToQuoteVO();
+        String expected = "2";
+        resourcesToQuoteVo.setId("");
+
+        quotaResponseBuilderSpy.addIdToResourceToQuoteIfNotSet(Integer.parseInt(expected), resourcesToQuoteVo);
+
+        Assert.assertEquals(expected, resourcesToQuoteVo.getId());
+    }
+
+    @Test
+    public void addIdToResourceToQuoteIfNotSetTestIdIsWhitespaceThenSetAsIndex() {
+        ResourcesToQuoteVO resourcesToQuoteVo = new ResourcesToQuoteVO();
+        String expected = "3";
+        resourcesToQuoteVo.setId("       ");
+
+        quotaResponseBuilderSpy.addIdToResourceToQuoteIfNotSet(Integer.parseInt(expected), resourcesToQuoteVo);
+
+        Assert.assertEquals(expected, resourcesToQuoteVo.getId());
+    }
+
+    @Test
+    public void addIdToResourceToQuoteIfNotSetTestIdIsNullThenSetAsIndex() {
+        ResourcesToQuoteVO resourcesToQuoteVo = new ResourcesToQuoteVO();
+        String expected = "4";
+        resourcesToQuoteVo.setId(null);
+
+        quotaResponseBuilderSpy.addIdToResourceToQuoteIfNotSet(Integer.parseInt(expected), resourcesToQuoteVo);
+
+        Assert.assertEquals(expected, resourcesToQuoteVo.getId());
+    }
+
+    @Test
+    public void getPresetVariableIdIfItIsNotNullTestReturnTheIdWhenThePresetVariableIsNotNull() {
+        String expected = "test";
+        GenericPresetVariable gpv = new GenericPresetVariable();
+        gpv.setId(expected);
+
+        String result = quotaResponseBuilderSpy.getPresetVariableIdIfItIsNotNull(gpv);
+
+        Assert.assertEquals(expected, result);
+    }
+
+    @Test
+    public void getPresetVariableIdIfItIsNotNullTestReturnTheNullWhenThePresetVariableIsnull() {
+        String result = quotaResponseBuilderSpy.getPresetVariableIdIfItIsNotNull(null);
+        Assert.assertNull(result);
+    }
+
+    @Test(expected = InvalidParameterValueException.class)
+    public void validateResourceToQuoteUsageTypeAndReturnsItsIdTestThrowInvalidParameterValueExceptionWhenUsageTypeIsNull() {
+        quotaResponseBuilderSpy.validateResourceToQuoteUsageTypeAndReturnsItsId(0, null);
+    }
+
+    @Test(expected = InvalidParameterValueException.class)
+    public void validateResourceToQuoteUsageTypeAndReturnsItsIdTestThrowInvalidParameterValueExceptionWhenUsageTypeIsEmpty() {
+        quotaResponseBuilderSpy.validateResourceToQuoteUsageTypeAndReturnsItsId(0, "");
+    }
+
+    @Test(expected = InvalidParameterValueException.class)
+    public void validateResourceToQuoteUsageTypeAndReturnsItsIdTestThrowInvalidParameterValueExceptionWhenUsageTypeIsWhitespace() {
+        quotaResponseBuilderSpy.validateResourceToQuoteUsageTypeAndReturnsItsId(0, "   ");
+    }
+
+    @Test(expected = CloudRuntimeException.class)
+    public void validateResourceToQuoteUsageTypeAndReturnsItsIdTestThrowCloudRuntimeExceptionWhenUsageTypeIsInvalid() {
+        quotaResponseBuilderSpy.validateResourceToQuoteUsageTypeAndReturnsItsId(0, "anything");
+    }
+
+    @Test
+    public void validateResourceToQuoteUsageTypeAndReturnsItsIdTestAllTypesReturnItsId() {
+        QuotaTypes.listQuotaTypes().forEach((key, value) -> {
+            int expected = key;
+            int result = quotaResponseBuilderSpy.validateResourceToQuoteUsageTypeAndReturnsItsId(0, value.getQuotaName());
+            Assert.assertEquals(expected, result);
+        });
+    }
+
+    @Test
+    @PrepareForTest(CallContext.class)
+    public void validateCallerAccessToAccountsAndDomainsPassedAsParameterInQuotingMetadataTestDoNothingWhenMetadataIsNull() {
+        PowerMockito.mockStatic(CallContext.class);
+        PowerMockito.when(CallContext.current()).thenReturn(callContextMock);
+
+        Mockito.doReturn(accountMock).when(callContextMock).getCallingAccount();
+        quotaResponseBuilderSpy.validateCallerAccessToAccountsAndDomainsPassedAsParameterInQuotingMetadata(linkedListResourcesToQuoteVo);
+
+        Mockito.verify(quotaResponseBuilderSpy, Mockito.never()).validateCallerAccessToAccountSetInQuotingMetadata(Mockito.any(), Mockito.any(), Mockito.anyInt());
+        Mockito.verify(quotaResponseBuilderSpy, Mockito.never()).validateCallerAccessToDomainSetInQuotingMetadata(Mockito.any(), Mockito.any(), Mockito.anyInt());
+    }
+
+    @Test(expected = PermissionDeniedException.class)
+    @PrepareForTest(CallContext.class)
+    public void validateCallerAccessToAccountsAndDomainsPassedAsParameterInQuotingMetadataTestThrowPermissionDeniedExceptionOnAccountAccessValidation() {
+        linkedListResourcesToQuoteVo.get(0).setMetadata(new PresetVariables());
+
+        PowerMockito.mockStatic(CallContext.class);
+        PowerMockito.when(CallContext.current()).thenReturn(callContextMock);
+
+        Mockito.doReturn(accountMock).when(callContextMock).getCallingAccount();
+        Mockito.doThrow(PermissionDeniedException.class).when(quotaResponseBuilderSpy).validateCallerAccessToAccountSetInQuotingMetadata(Mockito.any(), Mockito.any(),
+                Mockito.anyInt());
+        quotaResponseBuilderSpy.validateCallerAccessToAccountsAndDomainsPassedAsParameterInQuotingMetadata(linkedListResourcesToQuoteVo);
+    }
+
+    @Test(expected = PermissionDeniedException.class)
+    @PrepareForTest(CallContext.class)
+    public void validateCallerAccessToAccountsAndDomainsPassedAsParameterInQuotingMetadataTestThrowPermissionDeniedExceptionOnDomainAccessValidation() {
+        linkedListResourcesToQuoteVo.get(0).setMetadata(new PresetVariables());
+
+        PowerMockito.mockStatic(CallContext.class);
+        PowerMockito.when(CallContext.current()).thenReturn(callContextMock);
+
+        Mockito.doReturn(accountMock).when(callContextMock).getCallingAccount();
+        Mockito.doNothing().when(quotaResponseBuilderSpy).validateCallerAccessToAccountSetInQuotingMetadata(Mockito.any(), Mockito.any(), Mockito.anyInt());
+        Mockito.doThrow(PermissionDeniedException.class).when(quotaResponseBuilderSpy).validateCallerAccessToDomainSetInQuotingMetadata(Mockito.any(), Mockito.any(),
+                Mockito.anyInt());
+        quotaResponseBuilderSpy.validateCallerAccessToAccountsAndDomainsPassedAsParameterInQuotingMetadata(linkedListResourcesToQuoteVo);
+    }
+
+    @Test
+    @PrepareForTest(CallContext.class)
+    public void validateCallerAccessToAccountsAndDomainsPassedAsParameterInQuotingMetadataTestDoNothingWhenCallerHasAccessToAccountAndDomain() {
+        linkedListResourcesToQuoteVo.get(0).setMetadata(new PresetVariables());
+        linkedListResourcesToQuoteVo.get(2).setMetadata(new PresetVariables());
+
+        PowerMockito.mockStatic(CallContext.class);
+        PowerMockito.when(CallContext.current()).thenReturn(callContextMock);
+
+        Mockito.doReturn(accountMock).when(callContextMock).getCallingAccount();
+        Mockito.doNothing().when(quotaResponseBuilderSpy).validateCallerAccessToAccountSetInQuotingMetadata(Mockito.any(), Mockito.any(), Mockito.anyInt());
+        Mockito.doNothing().when(quotaResponseBuilderSpy).validateCallerAccessToDomainSetInQuotingMetadata(Mockito.any(), Mockito.any(), Mockito.anyInt());
+
+        quotaResponseBuilderSpy.validateCallerAccessToAccountsAndDomainsPassedAsParameterInQuotingMetadata(linkedListResourcesToQuoteVo);
+
+        VerificationMode times = Mockito.times((int) linkedListResourcesToQuoteVo.stream().filter(item -> item.getMetadata() != null).count());
+        Mockito.verify(quotaResponseBuilderSpy, times).validateCallerAccessToAccountSetInQuotingMetadata(Mockito.any(), Mockito.any(), Mockito.anyInt());
+        Mockito.verify(quotaResponseBuilderSpy, times).validateCallerAccessToDomainSetInQuotingMetadata(Mockito.any(), Mockito.any(), Mockito.anyInt());
+    }
+
+    @Test
+    public void validateCallerAccessToAccountSetInQuotingMetadataTestDoNothingWhenAccountIdIsNull() {
+        Mockito.doReturn(null).when(quotaResponseBuilderSpy).getPresetVariableIdIfItIsNotNull(Mockito.any());
+        quotaResponseBuilderSpy.validateCallerAccessToAccountSetInQuotingMetadata(accountMock, new PresetVariables(), 0);
+    }
+
+    @Test
+    public void validateCallerAccessToAccountSetInQuotingMetadataTestDoNothingWhenAccountDoesNotExist() {
+        Mockito.doReturn("something").when(quotaResponseBuilderSpy).getPresetVariableIdIfItIsNotNull(Mockito.any());
+        Mockito.doReturn(null).when(accountDaoMock).findByUuidIncludingRemoved(Mockito.anyString());
+
+        quotaResponseBuilderSpy.validateCallerAccessToAccountSetInQuotingMetadata(accountMock, new PresetVariables(), 0);
+    }
+
+    @Test(expected = PermissionDeniedException.class)
+    public void validateCallerAccessToAccountSetInQuotingMetadataTestThrowPermissionDeniedExceptionOnCheckAccess() {
+        Mockito.doReturn("something").when(quotaResponseBuilderSpy).getPresetVariableIdIfItIsNotNull(Mockito.any());
+        Mockito.doReturn(accountVo).when(accountDaoMock).findByUuidIncludingRemoved(Mockito.anyString());
+        Mockito.doThrow(PermissionDeniedException.class).when(accountManagerMock).checkAccess(Mockito.any(), Mockito.any(), Mockito.anyBoolean(), Mockito.any());
+
+        quotaResponseBuilderSpy.validateCallerAccessToAccountSetInQuotingMetadata(accountMock, new PresetVariables(), 0);
+    }
+
+    @Test
+    public void validateCallerAccessToAccountSetInQuotingMetadataTestDoNothingWhenCallerHasAccessToAccount() {
+        Mockito.doReturn("something").when(quotaResponseBuilderSpy).getPresetVariableIdIfItIsNotNull(Mockito.any());
+        Mockito.doReturn(accountVo).when(accountDaoMock).findByUuidIncludingRemoved(Mockito.anyString());
+        Mockito.doNothing().when(accountManagerMock).checkAccess(Mockito.any(), Mockito.any(), Mockito.anyBoolean(), Mockito.any());
+
+        quotaResponseBuilderSpy.validateCallerAccessToAccountSetInQuotingMetadata(accountMock, new PresetVariables(), 0);
+    }
+
+    @Test
+    public void validateCallerAccessToDomainSetInQuotingMetadataTestDoNothingWhenDomainIdIsNull() {
+        Mockito.doReturn(null).when(quotaResponseBuilderSpy).getPresetVariableIdIfItIsNotNull(Mockito.any());
+        quotaResponseBuilderSpy.validateCallerAccessToDomainSetInQuotingMetadata(accountMock, new PresetVariables(), 0);
+    }
+
+    @Test
+    public void validateCallerAccessToDomainSetInQuotingMetadataTestDoNothingWhenDomainDoesNotExist() {
+        Mockito.doReturn("something").when(quotaResponseBuilderSpy).getPresetVariableIdIfItIsNotNull(Mockito.any());
+        Mockito.doReturn(null).when(domainDaoMock).findByUuidIncludingRemoved(Mockito.anyString());
+
+        quotaResponseBuilderSpy.validateCallerAccessToDomainSetInQuotingMetadata(accountMock, new PresetVariables(), 0);
+    }
+
+    @Test(expected = PermissionDeniedException.class)
+    public void validateCallerAccessToDomainSetInQuotingMetadataThrowPermissionDeniedExceptionOnCheckAccess() {
+        Mockito.doReturn("something").when(quotaResponseBuilderSpy).getPresetVariableIdIfItIsNotNull(Mockito.any());
+        Mockito.doReturn(domainVo).when(domainDaoMock).findByUuidIncludingRemoved(Mockito.anyString());
+        Mockito.doThrow(PermissionDeniedException.class).when(accountManagerMock).checkAccess(Mockito.any(Account.class), Mockito.any(Domain.class));
+
+        quotaResponseBuilderSpy.validateCallerAccessToDomainSetInQuotingMetadata(accountMock, new PresetVariables(), 0);
+    }
+
+    @Test
+    public void validateCallerAccessToDomainSetInQuotingMetadataDoNothingWhenCallerHasAccessToDomain() {
+        Mockito.doReturn("something").when(quotaResponseBuilderSpy).getPresetVariableIdIfItIsNotNull(Mockito.any());
+        Mockito.doReturn(domainVo).when(domainDaoMock).findByUuidIncludingRemoved(Mockito.anyString());
+        Mockito.doNothing().when(accountManagerMock).checkAccess(Mockito.any(Account.class), Mockito.any(Domain.class));
+
+        quotaResponseBuilderSpy.validateCallerAccessToDomainSetInQuotingMetadata(accountMock, new PresetVariables(), 0);
+    }
+
     public void createDummyRecordForEachQuotaTypeIfUsageTypeIsNotInformedTestUsageTypeDifferentFromNullDoNothing() {
         List<QuotaUsageJoinVO> listUsage = new ArrayList<>();
 

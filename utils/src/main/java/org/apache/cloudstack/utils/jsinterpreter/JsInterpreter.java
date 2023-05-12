@@ -101,11 +101,20 @@ public class JsInterpreter implements Closeable {
     public Object executeScript(String script) {
         script = addVariablesToScript(script);
 
-        logger.debug(String.format("Executing script [%s].", script));
+        if (logger.isTraceEnabled()) {
+            logger.trace(String.format("Executing user's JS script [%s].", script));
+        } else {
+            logger.debug("Executing user's JS script.");
+        }
 
         Object result = executeScriptInThread(script);
 
-        logger.debug(String.format("The script [%s] had the following result: [%s].", script, result));
+        if (logger.isTraceEnabled()) {
+            logger.debug(String.format("The script [%s] had the following result: [%s].", script, result));
+        } else {
+            logger.debug(String.format("The script had the following result: [%s].", result));
+        }
+
         return result;
     }
 
@@ -117,7 +126,7 @@ public class JsInterpreter implements Closeable {
         try {
             return future.get(this.timeout, defaultTimeUnit);
         } catch (TimeoutException | InterruptedException | ExecutionException e) {
-            String message = String.format("Unable to execute script [%s] due to [%s]", script, e.getMessage());
+            String message = String.format("Failed to execute script [%s] due to [%s]", script, e.getMessage());
 
             if (e instanceof TimeoutException) {
                 message = String.format("Execution of script [%s] took too long and timed out. %s", script, timeoutDefaultMessage);
@@ -140,6 +149,8 @@ public class JsInterpreter implements Closeable {
         for (Map.Entry<String, String> variable : variables.entrySet()) {
             variablesToString = String.format("%s %s = %s;", variablesToString, variable.getKey(), variable.getValue());
         }
+
+        logger.trace(String.format("Adding variables [%s] to script [%s].", variablesToString, script));
 
         return String.format("%s %s", variablesToString, script);
     }
