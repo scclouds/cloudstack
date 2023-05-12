@@ -118,10 +118,6 @@ public class QuotaStatementCmd extends QuotaBaseCmd {
         return showResources;
     }
 
-    public void setShowResources(boolean showResources) {
-        this.showResources = showResources;
-    }
-
     @Override
     public long getEntityOwnerId() {
         Account activeAccountByName = _accountService.getActiveAccountByName(accountName, domainId);

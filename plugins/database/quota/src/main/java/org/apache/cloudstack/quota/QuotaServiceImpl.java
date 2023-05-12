@@ -19,7 +19,6 @@ package org.apache.cloudstack.quota;
 import java.math.BigDecimal;
 import java.security.InvalidParameterException;
 import java.util.ArrayList;
-import java.util.Calendar;
 import java.util.Date;
 import java.util.List;
 import java.util.Map;
@@ -228,49 +227,14 @@ public class QuotaServiceImpl extends ManagerBase implements QuotaService, Confi
     @Override
     public List<QuotaUsageJoinVO> getQuotaUsage(Long accountId, String accountName, Long domainId, Integer usageType, Date startDate, Date endDate) {
         accountId = getAccountToWhomQuotaBalancesWillBeListed(accountId, accountName, domainId);
-
         if (startDate.after(endDate)) {
             throw new InvalidParameterValueException("Incorrect Date Range. Start date: " + startDate + " is after end date:" + endDate);
         }
-        if (endDate.after(_respBldr.startOfNextDay())) {
-            throw new InvalidParameterValueException("Incorrect Date Range. End date:" + endDate + " should not be in future. ");
-        }
-        Date adjustedEndDate = computeAdjustedTime(endDate);
-        Date adjustedStartDate = computeAdjustedTime(startDate);
-        if (s_logger.isDebugEnabled()) {
-            s_logger.debug("Getting quota records for account: " + accountId + ", domainId: " + domainId + ", between " + adjustedStartDate + " and " + adjustedEndDate);
-        }
+
+        s_logger.debug(String.format("Getting quota records of type [%s] for account [%s] in domain [%s], between [%s] and [%s].", usageType, accountId, domainId, startDate,
+            endDate));
 
         return quotaUsageJoinDao.findQuotaUsage(accountId, domainId, usageType, null, null, null, startDate, endDate);
-    }
-
-    @Override
-    public Date computeAdjustedTime(final Date date) {
-        if (date == null) {
-            return null;
-        }
-
-        Calendar cal = Calendar.getInstance();
-        cal.setTime(date);
-        TimeZone localTZ = cal.getTimeZone();
-        int timezoneOffset = cal.get(Calendar.ZONE_OFFSET);
-        if (localTZ.inDaylightTime(date)) {
-            timezoneOffset += (60 * 60 * 1000);
-        }
-        cal.add(Calendar.MILLISECOND, timezoneOffset);
-
-        Date newTime = cal.getTime();
-
-        Calendar calTS = Calendar.getInstance(_usageTimezone);
-        calTS.setTime(newTime);
-        timezoneOffset = calTS.get(Calendar.ZONE_OFFSET);
-        if (_usageTimezone.inDaylightTime(date)) {
-            timezoneOffset += (60 * 60 * 1000);
-        }
-
-        calTS.add(Calendar.MILLISECOND, -1 * timezoneOffset);
-
-        return calTS.getTime();
     }
 
     @Override

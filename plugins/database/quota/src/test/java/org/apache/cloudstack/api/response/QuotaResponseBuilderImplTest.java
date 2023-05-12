@@ -82,6 +82,7 @@ import junit.framework.TestCase;
 import javax.ws.rs.InternalServerErrorException;
 
 @RunWith(PowerMockRunner.class)
+@PrepareForTest({QuotaResponseBuilderImpl.class, CallContext.class})
 public class QuotaResponseBuilderImplTest extends TestCase {
 
     @Mock
@@ -205,7 +206,6 @@ public class QuotaResponseBuilderImplTest extends TestCase {
 
         Mockito.when(quotaCreditsDaoMock.saveCredits(Mockito.any(QuotaCreditsVO.class))).thenReturn(credit);
         Mockito.when(quotaBalanceDaoMock.getLastQuotaBalance(Mockito.anyLong(), Mockito.anyLong())).thenReturn(new BigDecimal(111));
-        Mockito.when(quotaServiceMock.computeAdjustedTime(Mockito.any(Date.class))).thenReturn(new Date());
 
         AccountVO account = new AccountVO();
         account.setState(Account.State.LOCKED);
@@ -326,16 +326,15 @@ public class QuotaResponseBuilderImplTest extends TestCase {
         Date startDate = DateUtils.addDays(date, -100);
         Date endDate = DateUtils.addDays(new Date(), -1);
 
-        Mockito.doReturn(date).when(quotaServiceMock).computeAdjustedTime(Mockito.any(Date.class));
         quotaResponseBuilderSpy.validateEndDateOnCreatingNewQuotaTariff(quotaTariffVoMock, startDate, endDate);
     }
 
     @Test
-    public void validateEndDateOnCreatingNewQuotaTariffTestSetValidEndDate() {
+    public void validateEndDateOnCreatingNewQuotaTariffTestSetValidEndDate() throws Exception {
         Date startDate = DateUtils.addDays(date, -100);
-        Date endDate = date;
+        Date endDate = DateUtils.addMilliseconds(date, 1);
 
-        Mockito.doReturn(DateUtils.addDays(date, -10)).when(quotaServiceMock).computeAdjustedTime(Mockito.any(Date.class));
+        PowerMockito.whenNew(Date.class).withNoArguments().thenReturn(date);
         quotaResponseBuilderSpy.validateEndDateOnCreatingNewQuotaTariff(quotaTariffVoMock, startDate, endDate);
         Mockito.verify(quotaTariffVoMock).setEndDate(Mockito.any(Date.class));
     }
@@ -387,7 +386,6 @@ public class QuotaResponseBuilderImplTest extends TestCase {
     public void deleteQuotaTariffTestUpdateRemoved() {
         Mockito.doReturn(quotaTariffVoMock).when(quotaTariffDaoMock).findByUuid(Mockito.anyString());
         Mockito.doReturn(true).when(quotaTariffDaoMock).updateQuotaTariff(Mockito.any(QuotaTariffVO.class));
-        Mockito.doReturn(new Date()).when(quotaServiceMock).computeAdjustedTime(Mockito.any(Date.class));
 
         Assert.assertTrue(quotaResponseBuilderSpy.deleteQuotaTariff(""));
 
@@ -435,7 +433,6 @@ public class QuotaResponseBuilderImplTest extends TestCase {
     }
 
     @Test
-    @PrepareForTest(CallContext.class)
     public void createQuotaSummaryResponseTestNotListAllAndAllAccountTypesReturnsSingleRecord() {
         QuotaSummaryCmd cmd = new QuotaSummaryCmd();
         cmd.setListAll(false);
@@ -459,7 +456,6 @@ public class QuotaResponseBuilderImplTest extends TestCase {
     }
 
     @Test
-    @PrepareForTest(CallContext.class)
     public void createQuotaSummaryResponseTestListAllAndAccountTypesAdminReturnsAllAndTheRestReturnsSingleRecord() {
         QuotaSummaryCmd cmd = new QuotaSummaryCmd();
         cmd.setListAll(true);
