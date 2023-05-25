@@ -20,8 +20,20 @@
 --;
 -- create_public_parameter_on_roles. #6960
 
-ALTER TABLE `cloud`.`roles` ADD COLUMN IF NOT EXISTS `public_role` tinyint(1) NOT NULL DEFAULT '1'
-COMMENT 'Indicates whether the role will be visible to all users (public) or only to root admins (private). If this parameter is not specified during the creation of the role its value will be defaulted to true (public).';
+SET @query = IF(
+        NOT EXISTS(
+            SELECT *
+            FROM INFORMATION_SCHEMA.COLUMNS
+            WHERE table_name = 'roles'
+              AND table_schema = 'cloud'
+              AND column_name = 'public_role'
+        ),
+        'ALTER TABLE `cloud`.`roles` ADD COLUMN `public_role` tinyint(1) NOT NULL DEFAULT ''1''
+    COMMENT ''Indicates whether the role will be visible to all users (public) or only to root admins (private). If this parameter is not specified during the creation of the role its value will be defaulted to true (public).''',
+            'do true'
+    );
+PREPARE stmt FROM @query;
+EXECUTE stmt;
 
 -- IP quarantine #7378
 CREATE TABLE IF NOT EXISTS `cloud`.`quarantined_ips` (
@@ -39,10 +51,34 @@ CREATE TABLE IF NOT EXISTS `cloud`.`quarantined_ips` (
 );
 
 -- re add removed column from !171
-ALTER TABLE `cloud`.`vm_instance` ADD COLUMN IF NOT EXISTS `backup_volumes` text DEFAULT NULL COMMENT 'details of backedup volumes';
+SET @query = IF(
+        NOT EXISTS(
+            SELECT *
+            FROM INFORMATION_SCHEMA.COLUMNS
+            WHERE table_name = 'vm_instance'
+              AND table_schema = 'cloud'
+              AND column_name = 'backup_volumes'
+        ),
+        'ALTER TABLE `cloud`.`vm_instance` ADD COLUMN `backup_volumes` text DEFAULT NULL COMMENT ''details of backedup volumes''',
+        'do true'
+    );
+PREPARE stmt FROM @query;
+EXECUTE stmt;
 
 -- [Veeam] disable jobs but keep backups #6589
-ALTER TABLE `cloud`.`backups` ADD IF NOT EXISTS backup_volumes TEXT NULL COMMENT 'details of backedup volumes';
+SET @query = IF(
+        NOT EXISTS(
+            SELECT *
+            FROM INFORMATION_SCHEMA.COLUMNS
+            WHERE table_name = 'backups'
+              AND table_schema = 'cloud'
+              AND column_name = 'backup_volumes'
+        ),
+        'ALTER TABLE `cloud`.`backups` ADD backup_volumes TEXT NULL COMMENT ''details of backedup volumes''',
+        'do true'
+    );
+PREPARE stmt FROM @query;
+EXECUTE stmt;
 
 -- Populate column backup_volumes in table backups with a GSON
 -- formed by concatenating the UUID, type, size, path and deviceId
@@ -53,7 +89,19 @@ ALTER TABLE `cloud`.`backups` ADD IF NOT EXISTS backup_volumes TEXT NULL COMMENT
 -- When VM has more tha one disk: [{"uuid":"<uuid>","type":"<type>","size":<size>,"path":"<path>","deviceId":<deviceId>}, {"uuid":"<uuid>","type":"<type>","size":<size>,"path":"<path>","deviceId":<deviceId>}, <>]
 UPDATE `cloud`.`backups` b INNER JOIN `cloud`.`vm_instance` vm ON b.vm_id = vm.id SET b.backup_volumes = (SELECT CONCAT("[", GROUP_CONCAT( CONCAT("{\"uuid\":\"", v.uuid, "\",\"type\":\"", v.volume_type, "\",\"size\":", v.`size`, ",\"path\":\"", v.path, "\",\"deviceId\":", v.device_id, "}") SEPARATOR ","), "]") FROM `cloud`.`volumes` v WHERE v.instance_id = vm.id);
 
-ALTER TABLE `cloud`.`vm_instance` ADD IF NOT EXISTS backup_name varchar(255) NULL COMMENT 'backup job name when using Veeam provider';
+SET @query = IF(
+        NOT EXISTS(
+            SELECT *
+            FROM INFORMATION_SCHEMA.COLUMNS
+            WHERE table_name = 'vm_instance'
+              AND table_schema = 'cloud'
+              AND column_name = 'backup_name'
+        ),
+        'ALTER TABLE `cloud`.`vm_instance` ADD backup_name varchar(255) NULL COMMENT ''backup job name when using Veeam provider''',
+        'do true'
+    );
+PREPARE stmt FROM @query;
+EXECUTE stmt;
 
 UPDATE `cloud`.`vm_instance` vm INNER JOIN `cloud`.`backup_offering` bo ON vm.backup_offering_id = bo.id SET vm.backup_name = CONCAT(vm.instance_name, "-CSBKP-", vm.uuid);
 
@@ -70,7 +118,19 @@ CREATE TABLE IF NOT EXISTS `cloud_usage`.`usage_vpc` (
                                                          PRIMARY KEY (`id`)
 ) ENGINE=InnoDB CHARSET=utf8;
 
-ALTER TABLE `cloud_usage`.`cloud_usage` ADD IF NOT EXISTS state VARCHAR(100) DEFAULT NULL;
+SET @query = IF(
+        NOT EXISTS(
+            SELECT *
+            FROM INFORMATION_SCHEMA.COLUMNS
+            WHERE table_name = 'cloud_usage'
+              AND table_schema = 'cloud_usage'
+              AND column_name = 'state'
+        ),
+        'ALTER TABLE `cloud_usage`.`cloud_usage` ADD state VARCHAR(100) DEFAULT NULL',
+        'do true'
+    );
+PREPARE stmt FROM @query;
+EXECUTE stmt;
 
 -- [Usage] Create network billing #7236
 CREATE TABLE IF NOT EXISTS `cloud_usage`.`usage_networks` (
@@ -85,8 +145,6 @@ CREATE TABLE IF NOT EXISTS `cloud_usage`.`usage_networks` (
                                                               `created` datetime NOT NULL,
                                                               PRIMARY KEY (`id`)
 ) ENGINE=InnoDB CHARSET=utf8;
-
-ALTER TABLE `cloud_usage`.`cloud_usage` ADD COLUMN IF NOT EXISTS state VARCHAR(100) DEFAULT NULL;
 
 -- Fix backup dates #6473
 -- Drop all backup records and change date column type to DATETIME. The data will be resynchronized automatically later;
@@ -104,7 +162,19 @@ ALTER TABLE `cloud`.`backups`
     MODIFY COLUMN `date` DATETIME;
 
 -- Flexible tags
-ALTER TABLE `cloud`.`storage_pool_tags` ADD COLUMN IF NOT EXISTS is_tag_a_rule int(1) UNSIGNED DEFAULT 0;
+SET @query = IF(
+        NOT EXISTS(
+            SELECT *
+            FROM INFORMATION_SCHEMA.COLUMNS
+            WHERE table_name = 'storage_pool_tags'
+              AND table_schema = 'cloud'
+              AND column_name = 'is_tag_a_rule'
+        ),
+        'ALTER TABLE `cloud`.`storage_pool_tags` ADD COLUMN is_tag_a_rule int(1) UNSIGNED DEFAULT 0',
+        'do true'
+    );
+PREPARE stmt FROM @query;
+EXECUTE stmt;
 
 ALTER TABLE `cloud`.`storage_pool_tags` MODIFY tag text NOT NULL;
 
@@ -158,7 +228,19 @@ FROM
         AND (`async_job`.`job_status` = 0))));
 
 
-ALTER TABLE `cloud`.`host_tags` ADD COLUMN IF NOT EXISTS is_tag_a_rule int(1) UNSIGNED DEFAULT 0;
+SET @query = IF(
+        NOT EXISTS(
+            SELECT *
+            FROM INFORMATION_SCHEMA.COLUMNS
+            WHERE table_name = 'host_tags'
+              AND table_schema = 'cloud'
+              AND column_name = 'is_tag_a_rule'
+        ),
+        'ALTER TABLE `cloud`.`host_tags` ADD COLUMN is_tag_a_rule int(1) UNSIGNED DEFAULT 0',
+        'do true'
+    );
+PREPARE stmt FROM @query;
+EXECUTE stmt;
 
 ALTER TABLE `cloud`.`host_tags` MODIFY tag text NOT NULL;
 
