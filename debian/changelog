@@ -1,3 +1,9 @@
+cloudstack (4.18.0.1-scclouds) unstable; urgency=low
+
+  * Update the version to 4.18.0.1-scclouds
+
+ -- SC Clouds <contato@scclouds.com.br>  Fri, 2 Jun 2023 18:00:00 -0300
+
 cloudstack (4.18.0.0) unstable; urgency=low
 
   * Update the version to 4.18.0.0
