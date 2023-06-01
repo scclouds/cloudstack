@@ -521,7 +521,7 @@ public class QuotaManagerImpl extends ManagerBase implements QuotaManager {
         injectPresetVariableToStringIfItIsNotNull(jsInterpreter, "account", presetVariables.getAccount());
         injectPresetVariableToStringIfItIsNotNull(jsInterpreter, "domain", presetVariables.getDomain());
         injectPresetVariableToStringIfItIsNotNull(jsInterpreter, "project", presetVariables.getProject());
-        jsInterpreter.injectVariable("resourceType", presetVariables.getResourceType());
+        jsInterpreter.injectStringVariable("resourceType", presetVariables.getResourceType());
         injectPresetVariableToStringIfItIsNotNull(jsInterpreter, "value", presetVariables.getValue());
         injectPresetVariableToStringIfItIsNotNull(jsInterpreter, "zone", presetVariables.getZone());
     }

@@ -301,4 +301,31 @@ public class DateUtil {
         return (dateCalendar1.getTimeInMillis() - dateCalendar2.getTimeInMillis() )/1000;
 
     }
+
+    public static Date getDateInTimeZone(Date date, TimeZone timeZone) {
+        if (date == null) {
+            return null;
+        }
+
+        Calendar cal = Calendar.getInstance();
+        cal.setTime(date);
+        TimeZone localTz = cal.getTimeZone();
+        int timeZoneOffset = cal.get(Calendar.ZONE_OFFSET);
+        if (localTz.inDaylightTime(date)) {
+            timeZoneOffset += (60 * 60 * 1000);
+        }
+        cal.add(Calendar.MILLISECOND, -1 * timeZoneOffset);
+
+        Calendar newCal = Calendar.getInstance(timeZone);
+        newCal.setTime(cal.getTime());
+        timeZoneOffset = newCal.get(Calendar.ZONE_OFFSET);
+        if (timeZone.inDaylightTime(date)) {
+            timeZoneOffset += (60 * 60 * 1000);
+        }
+
+        newCal.add(Calendar.MILLISECOND, timeZoneOffset);
+
+        return newCal.getTime();
+    }
+
 }
