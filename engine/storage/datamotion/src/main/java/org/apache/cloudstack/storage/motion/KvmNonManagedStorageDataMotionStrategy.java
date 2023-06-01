@@ -55,6 +55,7 @@ import com.cloud.storage.VMTemplateStoragePoolVO;
 import com.cloud.storage.VMTemplateStorageResourceAssoc;
 import com.cloud.storage.Volume;
 import com.cloud.storage.VolumeVO;
+import com.cloud.storage.dao.VMTemplateDao;
 import com.cloud.storage.dao.VMTemplatePoolDao;
 import com.cloud.utils.exception.CloudRuntimeException;
 import com.cloud.vm.VirtualMachineManager;
@@ -67,6 +68,8 @@ public class KvmNonManagedStorageDataMotionStrategy extends StorageSystemDataMot
 
     @Inject
     private TemplateDataFactory templateDataFactory;
+    @Inject
+    private VMTemplateDao vmTemplateDao;
     @Inject
     private VMTemplatePoolDao vmTemplatePoolDao;
     @Inject
@@ -191,37 +194,66 @@ public class KvmNonManagedStorageDataMotionStrategy extends StorageSystemDataMot
         return supportStoragePoolType(sourceStoragePool.getPoolType());
     }
 
+    protected boolean isTemplateCopyable (VolumeInfo srcVolumeInfo, StoragePool srcStoragePool, StoragePool destStoragePool, VMTemplateStoragePoolVO sourceVolumeTemplateStoragePoolVO, DataStore sourceTemplateDataStore) {
+        String logMessage = String.format("Skipping copy template from source storage pool [%s] to target storage pool [%s] before migration as", srcStoragePool, destStoragePool);
+
+        if (srcVolumeInfo.getTemplateId() == null) {
+            LOGGER.debug(String.format("%s volume [%s] does not have a template.", logMessage, srcVolumeInfo.getId()));
+            return false;
+        }
+
+        if (srcVolumeInfo.getVolumeType() != Volume.Type.ROOT) {
+            LOGGER.debug(String.format("%s volume [%s] is not Root.", logMessage, srcVolumeInfo.getId()));
+            return false;
+        }
+
+        if (vmTemplateDao.findById(srcVolumeInfo.getTemplateId()) == null) {
+            LOGGER.debug(String.format("%s template [%s] was removed.", logMessage, srcVolumeInfo.getTemplateId()));
+            return false;
+        }
+
+        if (!isStoragePoolTypeInList(destStoragePool.getPoolType(), StoragePoolType.Filesystem, StoragePoolType.SharedMountPoint)) {
+            LOGGER.debug(String.format("%s storage pool type [%s] is not supported.", logMessage, destStoragePool.getPoolType()));
+            return false;
+        }
+
+        if (sourceVolumeTemplateStoragePoolVO != null) {
+            LOGGER.debug(String.format("%s template [%s] already exists on target storage pool.", logMessage, destStoragePool.getPoolType()));
+            return false;
+        }
+
+        if (sourceTemplateDataStore == null) {
+            LOGGER.debug(String.format("%s template [%s] data store not found.", logMessage, srcVolumeInfo.getTemplateId()));
+            return false;
+        }
+        return true;
+    }
+
     /**
-     * If the template is not on the target primary storage then it copies the template.
+     * If the template exists and is not on the target primary storage then it copies the template.
      */
     @Override
     protected void copyTemplateToTargetFilesystemStorageIfNeeded(VolumeInfo srcVolumeInfo, StoragePool srcStoragePool, DataStore destDataStore, StoragePool destStoragePool,
             Host destHost) {
-        if (srcVolumeInfo.getVolumeType() != Volume.Type.ROOT || srcVolumeInfo.getTemplateId() == null) {
+        VMTemplateStoragePoolVO sourceVolumeTemplateStoragePoolVO = vmTemplatePoolDao.findByPoolTemplate(destStoragePool.getId(), srcVolumeInfo.getTemplateId(), null);
+        DataStore sourceTemplateDataStore = dataStoreManagerImpl.getRandomImageStore(srcVolumeInfo.getDataCenterId());
+
+        if (!isTemplateCopyable(srcVolumeInfo, srcStoragePool, destStoragePool, sourceVolumeTemplateStoragePoolVO, sourceTemplateDataStore)) {
             return;
         }
 
-        VMTemplateStoragePoolVO sourceVolumeTemplateStoragePoolVO = vmTemplatePoolDao.findByPoolTemplate(destStoragePool.getId(), srcVolumeInfo.getTemplateId(), null);
-        if (sourceVolumeTemplateStoragePoolVO == null && (isStoragePoolTypeInList(destStoragePool.getPoolType(), StoragePoolType.Filesystem, StoragePoolType.SharedMountPoint))) {
-            DataStore sourceTemplateDataStore = dataStoreManagerImpl.getRandomImageStore(srcVolumeInfo.getDataCenterId());
-            if (sourceTemplateDataStore != null) {
-                TemplateInfo sourceTemplateInfo = templateDataFactory.getTemplate(srcVolumeInfo.getTemplateId(), sourceTemplateDataStore);
-                TemplateObjectTO sourceTemplate = new TemplateObjectTO(sourceTemplateInfo);
+        TemplateInfo sourceTemplateInfo = templateDataFactory.getTemplate(srcVolumeInfo.getTemplateId(), sourceTemplateDataStore);
+        TemplateObjectTO sourceTemplate = new TemplateObjectTO(sourceTemplateInfo);
 
-                LOGGER.debug(String.format("Could not find template [id=%s, name=%s] on the storage pool [id=%s]; copying the template to the target storage pool.",
-                        srcVolumeInfo.getTemplateId(), sourceTemplateInfo.getName(), destDataStore.getId()));
+        LOGGER.debug(String.format("Copying template [%s] of volume [%s] from source storage pool [%s] to target storage pool [%s].", srcVolumeInfo.getTemplateId(), srcVolumeInfo.getId(), srcStoragePool.getId(), destStoragePool.getId()));
 
-                TemplateInfo destTemplateInfo = templateDataFactory.getTemplate(srcVolumeInfo.getTemplateId(), destDataStore);
-                final TemplateObjectTO destTemplate = new TemplateObjectTO(destTemplateInfo);
-                Answer copyCommandAnswer = sendCopyCommand(destHost, sourceTemplate, destTemplate, destDataStore);
+        TemplateInfo destTemplateInfo = templateDataFactory.getTemplate(srcVolumeInfo.getTemplateId(), destDataStore);
+        final TemplateObjectTO destTemplate = new TemplateObjectTO(destTemplateInfo);
+        Answer copyCommandAnswer = sendCopyCommand(destHost, sourceTemplate, destTemplate, destDataStore);
 
-                if (copyCommandAnswer != null && copyCommandAnswer.getResult()) {
-                    updateTemplateReferenceIfSuccessfulCopy(srcVolumeInfo.getTemplateId(), destTemplateInfo.getUuid(), destDataStore.getId(), destTemplate.getSize());
-                }
-                return;
-            }
+        if (copyCommandAnswer != null && copyCommandAnswer.getResult()) {
+            updateTemplateReferenceIfSuccessfulCopy(srcVolumeInfo.getTemplateId(), destTemplateInfo.getUuid(), destDataStore.getId(), destTemplate.getSize());
         }
-        LOGGER.debug(String.format("Skipping 'copy template to target filesystem storage before migration' due to the template [%s] already exist on the storage pool [%s].", srcVolumeInfo.getTemplateId(), destStoragePool.getId()));
     }
 
     /**
