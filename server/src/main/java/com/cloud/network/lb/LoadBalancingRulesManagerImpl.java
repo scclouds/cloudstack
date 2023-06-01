@@ -2342,7 +2342,7 @@ public class LoadBalancingRulesManagerImpl<Type> extends ManagerBase implements 
         List<String> serviceStates = new ArrayList<>();
         List<LoadBalancerVMMapVO> vmLoadBalancerMappings = _lb2VmMapDao.listByLoadBalancerId(loadBalancerId);
 
-        if (vmLoadBalancerMappings == null) {
+        if (CollectionUtils.isEmpty(vmLoadBalancerMappings)) {
             String msg = String.format("Unable to find map of VMs related to load balancer [%s].", loadBalancerAsString);
             s_logger.error(msg);
             throw new CloudRuntimeException(msg);

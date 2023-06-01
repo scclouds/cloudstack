@@ -52,7 +52,8 @@ INSERT IGNORE INTO `cloud`.`guest_os_hypervisor` (uuid,hypervisor_type, hypervis
 -- Enable CPU cap for default system offerings;
 UPDATE `cloud`.`service_offering` so
 SET so.limit_cpu_use = 1
-WHERE so.default_use = 1 AND so.vm_type IN ('domainrouter', 'secondarystoragevm', 'consoleproxy', 'internalloadbalancervm', 'elasticloadbalancervm');
+WHERE so.default_use = 1 AND so.vm_type IN ('domainrouter', 'secondarystoragevm', 'consoleproxy', 'internalloadbalancervm', 'elasticloadbalancervm')
+AND NOT EXISTS (select 1 from cloud.version where version = '4.16.0.16');
 
 ALTER TABLE `cloud`.`networks` ADD COLUMN `public_mtu` bigint unsigned comment "MTU for VR public interface" ;
 ALTER TABLE `cloud`.`networks` ADD COLUMN `private_mtu` bigint unsigned comment "MTU for VR private interfaces" ;
@@ -1523,7 +1524,7 @@ INSERT INTO `cloud`.`role_permissions` (`uuid`, `role_id`, `rule`, `permission`)
 
 -- Increases the precision of the column `quota_used` from 15 to 20, keeping the scale of 8.
 
-ALTER TABLE `cloud_usage`.`quota_usage` MODIFY COLUMN quota_used decimal(20,8) unsigned NOT NULL;
+ALTER TABLE `cloud_usage`.`quota_usage` MODIFY COLUMN quota_used decimal(20,8) NOT NULL;
 
 ALTER TABLE `cloud`.`user` ADD COLUMN `is_user_2fa_enabled` tinyint NOT NULL DEFAULT 0;
 ALTER TABLE `cloud`.`user` ADD COLUMN `key_for_2fa` varchar(255) default NULL;

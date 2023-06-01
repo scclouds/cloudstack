@@ -270,6 +270,7 @@ public class UsageManagerImpl extends ManagerBase implements UsageManager, Runna
             int hourOfDay = Integer.parseInt(execTimeSegments[0]);
             int minutes = Integer.parseInt(execTimeSegments[1]);
 
+            Date currentDateTz = DateUtil.getDateInTimeZone(new Date(), usageTimeZone);
             Date currentDate = new Date();
 
             _jobExecTime.setTime(currentDate);
@@ -280,7 +281,7 @@ public class UsageManagerImpl extends ManagerBase implements UsageManager, Runna
             _jobExecTime.setTimeZone(usageTimeZone);
 
             // if the hour to execute the job has already passed, roll the day forward to the next day
-            if (_jobExecTime.getTime().before(currentDate)) {
+            if (_jobExecTime.getTime().before(currentDateTz)) {
                 _jobExecTime.roll(Calendar.DAY_OF_YEAR, true);
             }
 

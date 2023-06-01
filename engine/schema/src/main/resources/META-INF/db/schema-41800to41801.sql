@@ -15,9 +15,8 @@
 -- specific language governing permissions and limitations
 -- under the License.
 
---;
 -- Schema upgrade from 4.18.0.0 to 4.18.0.1
---;
+
 -- create_public_parameter_on_roles. #6960
 
 SET @query = IF(
@@ -442,6 +441,6 @@ CREATE TABLE IF NOT EXISTS `cloud_usage`.`usage_backup_object` (
 );
 
 -- update 'vm.allocation.algorithm' description
-UPDATE  configuration
+UPDATE  cloud.configuration
 SET     description = "Order in which hosts within a cluster will be considered for VM/volume allocation. The value can be 'random', 'firstfit', 'userdispersing', 'userconcentratedpod_random', 'userconcentratedpod_firstfit', or 'firstfitleastconsumed'."
 WHERE   name = 'vm.allocation.algorithm';

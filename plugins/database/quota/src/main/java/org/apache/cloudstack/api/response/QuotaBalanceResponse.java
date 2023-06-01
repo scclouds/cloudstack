@@ -40,14 +40,16 @@ public class QuotaBalanceResponse extends BaseResponse {
     @Param(description = "Balance's value.")
     private BigDecimal balance;
 
-    @SerializedName("balance")
+    @SerializedName("balances")
     @Param(description = "Balances in the period.")
     private List<QuotaBalanceResponse> balances;
 
     public QuotaBalanceResponse() {
+        this.setObjectName("balance");
     }
 
     public QuotaBalanceResponse(Date date, BigDecimal balance) {
+        this.setObjectName("balance");
         this.date = date;
         this.balance = balance;
     }
