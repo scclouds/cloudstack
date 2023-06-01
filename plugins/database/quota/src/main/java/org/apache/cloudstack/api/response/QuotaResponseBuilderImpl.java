@@ -562,11 +562,12 @@ public class QuotaResponseBuilderImpl implements QuotaResponseBuilder {
         Long pageSize = cmd.getPageSizeVal();
         String uuid = cmd.getId();
         boolean listOnlyRemoved = cmd.isListOnlyRemoved();
+        String keyword = cmd.getKeyword();
 
         s_logger.debug(String.format("Listing quota tariffs for parameters [%s].", ReflectionToStringBuilderUtils.reflectOnlySelectedFields(cmd, "effectiveDate",
-                "endDate", "listAll", "name", "page", "pageSize", "usageType", "uuid", "listOnlyRemoved")));
+                "endDate", "listAll", "name", "page", "pageSize", "usageType", "uuid", "listOnlyRemoved", "keyword")));
 
-        return _quotaTariffDao.listQuotaTariffs(startDate, endDate, usageType, name, uuid, listAll, listOnlyRemoved, startIndex, pageSize);
+        return _quotaTariffDao.listQuotaTariffs(startDate, endDate, usageType, name, uuid, listAll, listOnlyRemoved, startIndex, pageSize, keyword);
     }
 
     @Override
@@ -1133,12 +1134,14 @@ public class QuotaResponseBuilderImpl implements QuotaResponseBuilder {
             s_logger.debug("Starting resources quoting with the filtered tariffs.");
         }
 
+        Date now = new Date();
+
         ResourcesToQuoteVO resourceToQuote = null;
         try (JsInterpreter jsInterpreter = new JsInterpreter(QuotaConfig.QuotaActivationRuleTimeout.value())) {
             for (int index = 0; index < resourcesToQuote.size(); index++) {
                 resourceToQuote = resourcesToQuote.get(index);
 
-                quotingResults.add(quoteResource(validTariffsForQuoting, resourceToQuote, jsInterpreter));
+                quotingResults.add(quoteResource(validTariffsForQuoting, resourceToQuote, jsInterpreter, now));
             }
         } catch (Exception e) {
             s_logger.error(String.format("An exception was thrown while quoting [%s]. Exception: %s.", resourceToQuote, e.getMessage()));
@@ -1159,7 +1162,7 @@ public class QuotaResponseBuilderImpl implements QuotaResponseBuilder {
      * Quotes the resource passed as parameter according to the current Quota tariffs and volume to quote.
      */
     protected ResourcesQuotingResultResponse quoteResource(Map<Integer, List<QuotaTariffVO>> validTariffsForQuoting, ResourcesToQuoteVO resourceToQuote,
-                                                           JsInterpreter jsInterpreter) throws IllegalAccessException {
+                                                           JsInterpreter jsInterpreter, Date now) throws IllegalAccessException {
         s_logger.debug(String.format("Starting quoting of resource [%s].", resourceToQuote));
 
         String usageType = resourceToQuote.getUsageType();
@@ -1181,7 +1184,7 @@ public class QuotaResponseBuilderImpl implements QuotaResponseBuilder {
             return resourceQuotingResult;
         }
 
-        resourceQuotingResult.setQuote(_quotaManager.getResourceRating(jsInterpreter, resourceToQuote, tariffs, quotaTypeObject));
+        resourceQuotingResult.setQuote(_quotaManager.getResourceRating(jsInterpreter, resourceToQuote, tariffs, quotaTypeObject, now));
 
         s_logger.debug(String.format("The quoting [%s] resulted in the value [%s].", quoteId, resourceQuotingResult.getQuote()));
         return resourceQuotingResult;

@@ -18,7 +18,6 @@ package org.apache.cloudstack.quota;
 
 import java.lang.reflect.Field;
 import java.math.BigDecimal;
-import java.math.RoundingMode;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
@@ -158,10 +157,11 @@ public class QuotaManagerImplTest {
 
     @Test
     public void getUsageValueAccordingToUsageUnitTypeTestAllTypes() {
-        Mockito.doReturn(10.0).when(usageVoMock).getRawUsage();
-        Mockito.doReturn(ByteScaleUtils.GiB).when(usageVoMock).getSize();
+        Mockito.doReturn(BigDecimal.valueOf(200)).when(quotaManagerImplSpy).getCostPerHour(Mockito.any(), Mockito.any());
+        Mockito.doReturn(24.0).when(usageVoMock).getRawUsage();
+        Mockito.doReturn(ByteScaleUtils.GiB * 4).when(usageVoMock).getSize();
+
         BigDecimal aggregatedQuotaTariffsValue = new BigDecimal(400);
-        quotaManagerImplSpy.hoursInCurrentMonth = new BigDecimal(720);
 
         Arrays.asList(UsageUnitTypes.values()).forEach(type -> {
            BigDecimal result = quotaManagerImplSpy.getUsageValueAccordingToUsageUnitType(usageVoMock, aggregatedQuotaTariffsValue, type.toString());
@@ -171,24 +171,24 @@ public class QuotaManagerImplTest {
                case COMPUTE_MONTH:
                case IP_MONTH:
                case POLICY_MONTH:
-                   //The value 5.5555556 is referent to the calculation (( tariffs values / hours in month ) * raw usage ).
-                   expected = 5.5555556;
+                   // cost per hour * raw usage
+                   expected = 4800.0;
                    break;
 
                case GB:
-                   //The value 0.000004 is referent to the calculation (( raw usage / gib) * tariffs values ).
-                   expected = 0.000004;
+                   // ( raw usage / gib) * tariffs values
+                   expected = 0.000008;
                    break;
 
                case GB_MONTH:
-                   //The value 5.5555556 is referent to the calculation (( usage size / gib ) * raw usage * ( tariffs values / hours in month )).
-                   expected = 5.5555556;
+                   // ( size / gib ) * raw usage * cost per month
+                   expected = 19200.0;
                    break;
 
                case BYTES:
                case IOPS:
                    //The value 4000.0 is referent to the calculation ( raw usage * tariffs values ).
-                   expected = 4000.0;
+                   expected = 9600.0;
                    break;
 
                default:
@@ -315,7 +315,7 @@ public class QuotaManagerImplTest {
     @Test
     public void createMapQuotaTariffsPerUsageTypeTestNoTariffs() {
         Mockito.doReturn(new Pair<>(new ArrayList<>(), 0)).when(quotaTariffDaoMock).listQuotaTariffs(Mockito.any(), Mockito.any(), Mockito.<Set<Integer>>any(), Mockito.any(),
-                Mockito.any(), Mockito.anyBoolean(), Mockito.anyBoolean(), Mockito.any(), Mockito.any());
+            Mockito.any(), Mockito.anyBoolean(), Mockito.anyBoolean(), Mockito.any(), Mockito.any(), Mockito.any());
 
         Map<Integer, Pair<List<QuotaTariffVO>, Boolean>> result = quotaManagerImplSpy.createMapQuotaTariffsPerUsageType();
 
@@ -334,7 +334,7 @@ public class QuotaManagerImplTest {
         tariffs.add(tariff);
 
         Mockito.doReturn(new Pair<>(tariffs, tariffs.size())).when(quotaTariffDaoMock).listQuotaTariffs(Mockito.any(), Mockito.any(), Mockito.<Set<Integer>>any(), Mockito.any(),
-                Mockito.any(), Mockito.anyBoolean(), Mockito.anyBoolean(), Mockito.any(), Mockito.any());
+            Mockito.any(), Mockito.anyBoolean(), Mockito.anyBoolean(), Mockito.any(), Mockito.any(), Mockito.any());
 
         Map<Integer, Pair<List<QuotaTariffVO>, Boolean>> result = quotaManagerImplSpy.createMapQuotaTariffsPerUsageType();
 
@@ -357,7 +357,7 @@ public class QuotaManagerImplTest {
         tariffs.add(tariff);
 
         Mockito.doReturn(new Pair<>(tariffs, tariffs.size())).when(quotaTariffDaoMock).listQuotaTariffs(Mockito.any(), Mockito.any(), Mockito.<Set<Integer>>any(), Mockito.any(),
-                Mockito.any(), Mockito.anyBoolean(), Mockito.anyBoolean(), Mockito.any(), Mockito.any());
+            Mockito.any(), Mockito.anyBoolean(), Mockito.anyBoolean(), Mockito.any(), Mockito.any(), Mockito.any());
 
         Map<Integer, Pair<List<QuotaTariffVO>, Boolean>> result = quotaManagerImplSpy.createMapQuotaTariffsPerUsageType();
 
@@ -731,12 +731,12 @@ public class QuotaManagerImplTest {
         BigDecimal expectedForNotGb = new BigDecimal(3);
 
         Mockito.doReturn(new BigDecimal(5)).when(quotaManagerImplSpy).getQuotaTariffValueToBeApplied(Mockito.any(), Mockito.any(), Mockito.any());
-        Mockito.doReturn(new BigDecimal("1.5")).when(quotaManagerImplSpy).getCostPerHour(Mockito.any());
+        Mockito.doReturn(new BigDecimal("1.5")).when(quotaManagerImplSpy).getCostPerHour(Mockito.any(), Mockito.any());
 
         int timesNotGb = 0;
 
         for (QuotaTypes type : QuotaTypes.listQuotaTypes().values()) {
-            BigDecimal result = quotaManagerImplSpy.getResourceRating(null, resourceToQuote, listQuotaTariffs, type);
+            BigDecimal result = quotaManagerImplSpy.getResourceRating(null, resourceToQuote, listQuotaTariffs, type, new Date());
 
             if (UsageUnitTypes.getByDescription(type.getQuotaUnit()) == UsageUnitTypes.GB) {
                 Assert.assertEquals(expectedForGb.doubleValue(), result.doubleValue(), 0);
@@ -747,7 +747,7 @@ public class QuotaManagerImplTest {
         }
 
         Mockito.verify(quotaManagerImplSpy, Mockito.never()).handleFieldsPresenceInPresetVariableClasses(Mockito.any(), Mockito.any(), Mockito.any());
-        Mockito.verify(quotaManagerImplSpy, Mockito.times(timesNotGb)).getCostPerHour(Mockito.any());
+        Mockito.verify(quotaManagerImplSpy, Mockito.times(timesNotGb)).getCostPerHour(Mockito.any(), Mockito.any());
     }
 
     @Test
@@ -760,11 +760,11 @@ public class QuotaManagerImplTest {
         BigDecimal expectedForNotGb = new BigDecimal("7.5");
 
         Mockito.doReturn(new BigDecimal(5)).when(quotaManagerImplSpy).getQuotaTariffValueToBeApplied(Mockito.any(), Mockito.any(), Mockito.any());
-        Mockito.doReturn(new BigDecimal("2.5")).when(quotaManagerImplSpy).getCostPerHour(Mockito.any());
+        Mockito.doReturn(new BigDecimal("2.5")).when(quotaManagerImplSpy).getCostPerHour(Mockito.any(), Mockito.any());
         int timesNotGb = 0;
 
         for (QuotaTypes type : QuotaTypes.listQuotaTypes().values()) {
-            BigDecimal result = quotaManagerImplSpy.getResourceRating(null, resourceToQuote, listQuotaTariffs, type);
+            BigDecimal result = quotaManagerImplSpy.getResourceRating(null, resourceToQuote, listQuotaTariffs, type, new Date());
 
             if (UsageUnitTypes.getByDescription(type.getQuotaUnit()) == UsageUnitTypes.GB) {
                 Assert.assertEquals(expectedForGb.doubleValue(), result.doubleValue(), 0);
@@ -776,17 +776,7 @@ public class QuotaManagerImplTest {
 
         Mockito.verify(quotaManagerImplSpy, Mockito.times(QuotaTypes.listQuotaTypes().size())).handleFieldsPresenceInPresetVariableClasses(Mockito.any(), Mockito.any(),
                 Mockito.any());
-        Mockito.verify(quotaManagerImplSpy, Mockito.times(timesNotGb)).getCostPerHour(Mockito.any());
-    }
-
-    @Test
-    public void getCostPerHourTestReturnValue() {
-        quotaManagerImplSpy.setHoursInCurrentMonth();
-        BigDecimal value = new BigDecimal(42420);
-        BigDecimal expected = value.divide(new BigDecimal(String.valueOf(QuotaManagerImpl.hoursInCurrentMonth)), 8, RoundingMode.HALF_EVEN);
-        BigDecimal result = quotaManagerImplSpy.getCostPerHour(value);
-
-        Assert.assertEquals(expected.doubleValue(), result.doubleValue(), 0);
+        Mockito.verify(quotaManagerImplSpy, Mockito.times(timesNotGb)).getCostPerHour(Mockito.any(), Mockito.any());
     }
 
     @Test

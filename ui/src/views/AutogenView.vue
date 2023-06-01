@@ -58,7 +58,8 @@
                         ? 'all' : ['publicip'].includes($route.name)
                         ? 'allocated' : ['guestnetwork', 'guestvlans'].includes($route.name)
                         ? 'all' : ['volume'].includes($route.name)
-                        ? 'user' : 'self')"
+                        ? 'user' : ['quotatariff'].includes($route.name)
+                        ? 'active' : ['quotasummary'].includes($route.name) ? 'activeaccounts' : 'self')"
                     style="min-width: 120px; margin-left: 10px"
                     @change="changeFilter"
                     showSearch
@@ -387,7 +388,7 @@
     </div>
 
     <div v-if="dataView" style="margin-top: -10px">
-      <slot name="resource" v-if="$route.path.startsWith('/quotasummary') || $route.path.startsWith('/publicip')"></slot>
+      <slot name="resource" v-if="$route.path.startsWith('/publicip')"></slot>
       <resource-view
         v-else
         :resource="resource"
@@ -405,8 +406,7 @@
         ref="listview"
         @update-selected-columns="updateSelectedColumns"
         @selection-change="onRowSelectionChange"
-        @refresh="this.fetchData"
-        @edit-tariff-action="(showAction, record) => $emit('edit-tariff-action', showAction, record)"/>
+        @refresh="this.fetchData"/>
       <a-pagination
         class="row-element"
         style="margin-top: 10px"
@@ -806,7 +806,7 @@ export default {
       const customRender = {}
       for (var columnKey of this.columnKeys) {
         let key = columnKey
-        let title = columnKey === 'cidr' && this.columnKeys.includes('ip6cidr') ? 'ipv4.cidr' : columnKey
+        let title = columnKey === 'cidr' && this.columnKeys.includes('ip6cidr') ? 'ipv4.cidr' : key
         if (typeof columnKey === 'object') {
           if ('customTitle' in columnKey && 'field' in columnKey) {
             key = columnKey.field
@@ -814,7 +814,7 @@ export default {
             customRender[key] = columnKey[key]
           } else {
             key = Object.keys(columnKey)[0]
-            title = Object.keys(columnKey)[0]
+            title = (typeof title === 'object') ? key : title
             customRender[key] = columnKey[key]
           }
         }
@@ -847,6 +847,11 @@ export default {
 
       if (['listTemplates', 'listIsos'].includes(this.apiName) && this.dataView) {
         delete params.showunique
+      }
+
+      if (this.apiName === 'quotaTariffList' && !('quotaTariffCreate' in store.getters.apis || 'quotaTariffUpdate' in store.getters.apis)) {
+        const index = this.columns.findIndex(col => col.dataIndex === 'hasActivationRule')
+        this.columns.splice(index, 1)
       }
 
       this.loading = true
@@ -892,6 +897,11 @@ export default {
 
       if (this.$showIcon()) {
         params.showIcon = true
+      }
+
+      var customParamHandler = this.$route.meta.customParamHandler
+      if (customParamHandler && typeof customParamHandler === 'function') {
+        params = customParamHandler(params, this.$route.query)
       }
 
       if (['listAnnotations', 'listRoles', 'listZonesMetrics', 'listPods',

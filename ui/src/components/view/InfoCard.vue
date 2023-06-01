@@ -14,7 +14,7 @@
 // KIND, either express or implied.  See the License for the
 // specific language governing permissions and limitations
 // under the License.
-// $message.success(`${$t('label.copied.clipboard')} : ${name}`)
+
 <template>
   <a-spin :spinning="loading">
     <a-card class="spin-content" :bordered="bordered" :title="title">
@@ -358,8 +358,17 @@
               <resource-icon :image="getImage(images.project)" size="1x" style="margin-right: 5px"/>
             </span>
             <project-outlined v-else />
-            <router-link v-if="!isStatic && resource.projectid" :to="{ path: '/project/' + resource.projectid }">{{ resource.project || resource.projectname || resource.projectid }}</router-link>
-            <router-link v-else :to="{ path: '/project', query: { name: resource.projectname }}">{{ resource.projectname }}</router-link>
+            <router-link
+              v-if="(!$route.path.includes('quotasummary') || ($route.path.includes('quotasummary') && !resource.projectremoved)) && !isStatic && resource.projectid"
+              :to="{ path: '/project/' + resource.projectid }">
+                {{ resource.project || resource.projectname || resource.projectid }}
+            </router-link>
+            <router-link
+              v-else-if="!$route.path.includes('quotasummary') || ($route.path.includes('quotasummary') && !resource.projectremoved)"
+              :to="{ path: '/project', query: { name: resource.projectname }}">
+              {{ resource.projectname || resource.projectid }}
+            </router-link>
+            <span v-else>{{ resource.projectname || resource.projectid }}</span>
           </div>
         </div>
 
@@ -601,7 +610,11 @@
               <resource-icon :image="getImage(images.account)" size="1x" style="margin-right: 5px"/>
             </span>
             <user-outlined v-else />
-            <router-link v-if="!isStatic && $store.getters.userInfo.roletype !== 'User'" :to="{ path: '/account', query: { name: resource.account, domainid: resource.domainid } }">{{ resource.account }}</router-link>
+            <router-link
+              v-if="(!$route.path.includes('quotasummary') || ($route.path.includes('quotasummary') && !resource.accountremoved)) && !isStatic && $store.getters.userInfo.roletype !== 'User'"
+              :to="{ path: '/account', query: { name: resource.account, domainid: resource.domainid } }">
+                {{ resource.account }}
+            </router-link>
             <span v-else>{{ resource.account }}</span>
           </div>
         </div>
@@ -618,8 +631,24 @@
           <div class="resource-detail-item__details">
             <resource-icon v-if="images.domain" :image="getImage(images.domain)" size="1x" style="margin-right: 5px"/>
             <block-outlined v-else />
-            <router-link v-if="!isStatic && $store.getters.userInfo.roletype !== 'User'" :to="{ path: '/domain/' + resource.domainid, query: { tab: 'details'}  }">{{ resource.domain || resource.domainid }}</router-link>
+            <router-link
+              v-if="(!$route.path.includes('quotasummary') || ($route.path.includes('quotasummary') && !resource.domainremoved)) && !isStatic && $store.getters.userInfo.roletype !== 'User'"
+              :to="{ path: '/domain/' + resource.domainid + '?tab=details' }">
+                {{ resource.domain || resource.domainid }}
+            </router-link>
             <span v-else>{{ resource.domain || resource.domainid }}</span>
+          </div>
+        </div>
+        <div class="resource-detail-item" v-if="resource.currency && $route.path.includes('quotasummary')">
+          <div class="resource-detail-item__label">{{ $t('label.currency') }}</div>
+          <div class="resource-detail-item__details">
+            <span>{{ resource.currency }}</span>
+          </div>
+        </div>
+        <div class="resource-detail-item" v-if="resource.balance && $route.path.includes('quotasummary')">
+          <div class="resource-detail-item__label">{{ $t('label.quota.current.balance') }}</div>
+          <div class="resource-detail-item__details">
+            <span>{{ resource.balance }}</span>
           </div>
         </div>
         <div class="resource-detail-item" v-if="resource.managementserverid">

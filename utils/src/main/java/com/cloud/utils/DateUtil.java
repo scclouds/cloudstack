@@ -22,6 +22,7 @@ package com.cloud.utils;
 import java.text.DateFormat;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
+import java.time.YearMonth;
 import java.util.Calendar;
 import java.util.Date;
 import java.util.TimeZone;
@@ -33,8 +34,6 @@ import java.time.OffsetDateTime;
 import com.cloud.utils.exception.CloudRuntimeException;
 
 public class DateUtil {
-    public static final int HOURS_IN_A_MONTH = 30 * 24;
-
     public static final TimeZone GMT_TIMEZONE = TimeZone.getTimeZone("GMT");
     public static final String YYYYMMDD_FORMAT = "yyyyMMddHHmmss";
     private static final String ZONED_DATETIME_FORMAT = "yyyy-MM-dd'T'HH:mm:ssZ";
@@ -302,6 +301,10 @@ public class DateUtil {
 
     }
 
+    public static int getHoursInCurrentMonth(Date date) {
+        return YearMonth.of(date.getYear(), date.getMonth() + 1).lengthOfMonth() * 24;
+    }
+
     public static Date getDateInTimeZone(Date date, TimeZone timeZone) {
         if (date == null) {
             return null;
@@ -327,5 +330,4 @@ public class DateUtil {
 
         return newCal.getTime();
     }
-
 }

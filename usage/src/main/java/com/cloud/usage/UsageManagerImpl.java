@@ -273,7 +273,7 @@ public class UsageManagerImpl extends ManagerBase implements UsageManager, Runna
             Date currentDateTz = DateUtil.getDateInTimeZone(new Date(), usageTimeZone);
             Date currentDate = new Date();
 
-            _jobExecTime.setTime(currentDate);
+            _jobExecTime.setTime(currentDateTz);
             _jobExecTime.set(Calendar.HOUR_OF_DAY, hourOfDay);
             _jobExecTime.set(Calendar.MINUTE, minutes);
             _jobExecTime.set(Calendar.SECOND, 0);

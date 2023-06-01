@@ -276,20 +276,38 @@
           </span>
         </template>
       </template>
-      <template v-if="text && !text.startsWith('PrjAcct-')">
-        <router-link
-          v-if="'quota' in record && $router.resolve(`${$route.path}/${record.account}`).matched[0].redirect !== '/exception/404'"
-          :to="{ path: `${$route.path}/${record.account}`, query: { account: record.account, domainid: record.domainid, quota: true } }">{{ text }}</router-link>
-        <router-link :to="{ path: '/account/' + record.accountid }" v-else-if="record.accountid">{{ text }}</router-link>
-        <router-link :to="{ path: '/account', query: { name: record.account, domainid: record.domainid, dataView: true } }" v-else-if="$store.getters.userInfo.roletype !== 'User'">{{ text }}</router-link>
-        <span v-else>{{ text }}</span>
+      <template v-if="text">
+        <template v-if="!text.startsWith('PrjAcct-')">
+          <router-link
+            v-if="$route.path.startsWith('/quotasummary') && $router.resolve(`${$route.path}/${record.account}`) !== '404'"
+            :to="{ path: `${$route.path}/${record.account}`, query: { account: record.account, domainid: record.domainid, accountid: record.accountid, filter: $route.query.filter } }">{{ text }}</router-link>
+          <router-link :to="{ path: '/account/' + record.accountid }" v-else-if="record.accountid">{{ text }}</router-link>
+          <router-link :to="{ path: '/account', query: { name: record.account, domainid: record.domainid, dataView: true } }" v-else-if="$store.getters.userInfo.roletype !== 'User'">{{ text }}</router-link>
+        </template>
+        <span v-else>
+          <router-link
+            v-if="$route.path.startsWith('/quotasummary') && $router.resolve(`${$route.path}/${record.account}`) !== '404'"
+            :to="{ path: `${$route.path}/${record.account}`, query:
+              {
+                account: record.account,
+                domainid: record.domainid,
+                accountid: record.accountid,
+                filter: $route.query.filter
+              } }">{{ (record.projectname || record.account).concat(' (').concat($t('label.project')).concat(')') }}</router-link>
+          <span v-else>{{ text }}</span>
+        </span>
       </template>
     </template>
     <template #resource="{ record }">
       <resource-label :resourceType="record.resourcetype" :resourceId="record.resourceid" :resourceName="record.resourcename" />
     </template>
     <template #domain="{ text, record }">
-      <router-link v-if="record.domainid && !record.domainid.toString().includes(',') && $store.getters.userInfo.roletype !== 'User'" :to="{ path: '/domain/' + record.domainid, query: { tab: 'details' } }">{{ text }}</router-link>
+       <router-link
+        v-if="(!$route.path.includes('quotasummary') || ($route.path.includes('quotasummary') && !record.domainremoved))
+          && record.domainid && !record.domainid.toString().includes(',') && $store.getters.userInfo.roletype !== 'User'"
+        :to="{ path: '/domain/' + record.domainid }">
+          {{ text }}
+        </router-link>
       <span v-else>{{ text }}</span>
     </template>
     <template #domainpath="{ text, record }">
@@ -336,6 +354,15 @@
     </template>
     <template #sent="{ text }">
       {{ $toLocaleDate(text) }}
+    </template>
+    <template #removed="{ text }">
+      {{ text ? $toLocaleDate(text) : '' }}
+    </template>
+    <template #endDate="{ text }">
+      {{ text ? $toLocaleDate(text) : '' }}
+    </template>
+    <template #effectiveDate="{ text }">
+      {{ text ? $toLocaleDate(text) : '' }}
     </template>
     <template #order="{ text, record }">
       <div class="shift-btns">
@@ -412,15 +439,6 @@
         v-if="editableValueKey !== record.key"
         icon="reload-outlined"
         :disabled="!('updateConfiguration' in $store.getters.apis)" />
-    </template>
-    <template #tariffActions="{ record }">
-      <tooltip-button
-        :tooltip="$t('label.edit')"
-        v-if="editableValueKey !== record.key"
-        :disabled="!('quotaTariffUpdate' in $store.getters.apis)"
-        icon="edit-outlined"
-        @onClick="editTariffValue(record)" />
-      <slot></slot>
     </template>
   </a-table>
 </template>
@@ -541,7 +559,7 @@ export default {
         '/project', '/account',
         '/zone', '/pod', '/cluster', '/host', '/storagepool', '/imagestore', '/systemvm', '/router', '/ilbvm', '/annotation',
         '/computeoffering', '/systemoffering', '/diskoffering', '/backupoffering', '/networkoffering', '/vpcoffering',
-        '/tungstenfabric'].join('|'))
+        '/tungstenfabric', '/quotatariff'].join('|'))
         .test(this.$route.path)
     },
     enableGroupAction () {
@@ -712,9 +730,6 @@ export default {
       data.push(data.splice(index, 1)[0])
       this.updateOrder(data)
     },
-    editTariffValue (record) {
-      this.$emit('edit-tariff-action', true, record)
-    },
     ipV6Address (text, record) {
       if (!record || !record.nic || record.nic.length === 0) {
         return ''
@@ -820,7 +835,7 @@ export default {
       return name
     },
     updateSelectedColumns (name) {
-      this.$emit('update-selected-columns', name)
+      this.$emit('update-selected-columns', this.getColumnKey(name))
     }
   }
 }

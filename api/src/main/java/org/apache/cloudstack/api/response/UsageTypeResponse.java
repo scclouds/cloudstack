@@ -25,32 +25,25 @@ import com.cloud.serializer.Param;
 
 public class UsageTypeResponse extends BaseResponse {
 
-    @SerializedName("usagetypeid")
-    @Param(description = "usage type")
+    @SerializedName("id")
+    @Param(description = "Usage type ID")
     private Integer usageType;
+
+    @SerializedName(ApiConstants.NAME)
+    @Param(description = "Usage type name")
+    private String name;
 
     @SerializedName(ApiConstants.DESCRIPTION)
     @Param(description = "description of usage type")
     private String description;
 
-    public String getDescription() {
-        return description;
-    }
-
-    public void setDescription(String description) {
-        this.description = description;
-    }
-
     public Integer getUsageType() {
         return usageType;
     }
 
-    public void setUsageType(Integer usageType) {
+    public UsageTypeResponse(Integer usageType, String name, String description) {
         this.usageType = usageType;
-    }
-
-    public UsageTypeResponse(Integer usageType, String description) {
-        this.usageType = usageType;
+        this.name = name;
         this.description = description;
         setObjectName("usagetype");
     }

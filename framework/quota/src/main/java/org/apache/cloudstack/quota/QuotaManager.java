@@ -25,6 +25,7 @@ import org.apache.cloudstack.quota.vo.ResourcesToQuoteVO;
 import org.apache.cloudstack.utils.jsinterpreter.JsInterpreter;
 
 import java.math.BigDecimal;
+import java.util.Date;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -39,6 +40,6 @@ public interface QuotaManager extends Manager {
 
     Map<Integer, List<QuotaTariffVO>> getValidTariffsForQuoting(Map<Integer, Pair<List<QuotaTariffVO>, Boolean>> allTariffsOfTheInformedTypes);
 
-    BigDecimal getResourceRating(JsInterpreter jsInterpreter, ResourcesToQuoteVO resourceToQuote, List<QuotaTariffVO> tariffs, QuotaTypes quotaTypeObject)
+    BigDecimal getResourceRating(JsInterpreter jsInterpreter, ResourcesToQuoteVO resourceToQuote, List<QuotaTariffVO> tariffs, QuotaTypes quotaTypeObject, Date date)
             throws IllegalAccessException;
 }

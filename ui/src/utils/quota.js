@@ -3,164 +3,127 @@ export const QUOTA_TYPES = [
   {
     id: 1,
     type: 'RUNNING_VM',
-    chartColor: '#1890ff',
-    isImplemented: true,
-    componentUrl: 'vm'
+    chartColor: '#1890ff'
   },
   {
     id: 2,
     type: 'ALLOCATED_VM',
-    chartColor: '#fadb14',
-    isImplemented: true,
-    componentUrl: 'vm'
+    chartColor: '#fadb14'
   },
   {
     id: 3,
     type: 'IP_ADDRESS',
-    chartColor: '#ffd6e7',
-    isImplemented: true,
-    componentUrl: 'publicip'
+    chartColor: '#ffd6e7'
   },
   {
     id: 4,
     type: 'NETWORK_BYTES_SENT',
-    chartColor: '#adc6ff',
-    isImplemented: true
+    chartColor: '#adc6ff'
   },
   {
     id: 5,
     type: 'NETWORK_BYTES_RECEIVED',
-    chartColor: '#10239e',
-    isImplemented: true
+    chartColor: '#10239e'
   },
   {
     id: 6,
     type: 'VOLUME',
-    chartColor: '#722ed1',
-    isImplemented: true,
-    componentUrl: 'volume'
+    chartColor: '#722ed1'
   },
   {
     id: 7,
     type: 'TEMPLATE',
-    chartColor: '#08979c',
-    isImplemented: true,
-    componentUrl: 'template'
+    chartColor: '#08979c'
   },
   {
     id: 8,
     type: 'ISO',
-    chartColor: '#87e8de',
-    isImplemented: true,
-    componentUrl: 'iso'
+    chartColor: '#87e8de'
   },
   {
     id: 9,
     type: 'SNAPSHOT',
-    chartColor: '#f5222d',
-    isImplemented: true,
-    componentUrl: 'snapshot'
+    chartColor: '#f5222d'
   },
   {
     id: 10,
     type: 'SECURITY_GROUP',
-    chartColor: '#d46b08',
-    isImplemented: true
+    chartColor: '#d46b08'
   },
   {
     id: 11,
     type: 'LOAD_BALANCER_POLICY',
-    chartColor: '#ffd666',
-    isImplemented: true
+    chartColor: '#ffd666'
   },
   {
     id: 12,
     type: 'PORT_FORWARDING_RULE',
-    chartColor: '#7cb305',
-    isImplemented: true
+    chartColor: '#7cb305'
   },
   {
     id: 13,
     type: 'NETWORK_OFFERING',
-    chartColor: '#ffbb96',
-    isImplemented: true,
-    componentUrl: 'networkoffering'
+    chartColor: '#ffbb96'
   },
   {
     id: 14,
     type: 'VPN_USERS',
-    chartColor: '#95de64',
-    isImplemented: true
+    chartColor: '#95de64'
   },
   {
     id: 21,
     type: 'VM_DISK_IO_READ',
-    chartColor: '#ffe7ba',
-    isImplemented: false
+    chartColor: '#ffe7ba'
   },
   {
     id: 22,
     type: 'VM_DISK_IO_WRITE',
-    chartColor: '#5b8c00',
-    isImplemented: false
+    chartColor: '#5b8c00'
   },
   {
     id: 23,
     type: 'VM_DISK_BYTES_READ',
-    chartColor: '#0050b3',
-    isImplemented: false
+    chartColor: '#0050b3'
   },
   {
     id: 24,
     type: 'VM_DISK_BYTES_WRITE',
-    chartColor: '#520339',
-    isImplemented: false
+    chartColor: '#520339'
   },
   {
     id: 25,
     type: 'VM_SNAPSHOT',
-    chartColor: '#9e1068',
-    isImplemented: true,
-    componentUrl: 'vmsnapshot'
+    chartColor: '#9e1068'
   },
   {
     id: 26,
     type: 'VOLUME_SECONDARY',
-    chartColor: '#061178',
-    isImplemented: true
+    chartColor: '#061178'
   },
   {
     id: 27,
     type: 'VM_SNAPSHOT_ON_PRIMARY',
-    chartColor: '#ad2102',
-    isImplemented: true
+    chartColor: '#ad2102'
   },
   {
     id: 28,
     type: 'BACKUP',
-    chartColor: '#00474f',
-    isImplemented: true
+    chartColor: '#00474f'
   },
   {
     id: 29,
     type: 'VPC',
-    chartColor: '#018391',
-    isImplemented: true,
-    componentUrl: 'vpc'
+    chartColor: '#018391'
   },
   {
     id: 30,
     type: 'NETWORK',
-    chartColor: '#c75314',
-    isImplemented: true,
-    componentUrl: 'guestnetwork'
+    chartColor: '#c75314'
   },
   {
     id: 31,
     type: 'BACKUP_OBJECT',
-    chartColor: '#9b782a',
-    isImplemented: true,
-    componentUrl: 'backupobject'
+    chartColor: '#9b782a'
   }
 ]
 
