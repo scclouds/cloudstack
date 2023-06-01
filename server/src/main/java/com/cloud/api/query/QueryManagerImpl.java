@@ -66,6 +66,7 @@ import org.apache.cloudstack.api.command.admin.router.GetRouterHealthCheckResult
 import org.apache.cloudstack.api.command.admin.router.ListRoutersCmd;
 import org.apache.cloudstack.api.command.admin.storage.ListImageStoresCmd;
 import org.apache.cloudstack.api.command.admin.storage.ListSecondaryStagingStoresCmd;
+import org.apache.cloudstack.api.command.admin.storage.heuristics.ListSecondaryStorageSelectorsCmd;
 import org.apache.cloudstack.api.command.admin.storage.ListStoragePoolsCmd;
 import org.apache.cloudstack.api.command.admin.storage.ListStorageTagsCmd;
 import org.apache.cloudstack.api.command.admin.template.ListTemplatesCmdByAdmin;
@@ -112,6 +113,7 @@ import org.apache.cloudstack.api.response.ResourceDetailResponse;
 import org.apache.cloudstack.api.response.ResourceIconResponse;
 import org.apache.cloudstack.api.response.ResourceTagResponse;
 import org.apache.cloudstack.api.response.RouterHealthCheckResultResponse;
+import org.apache.cloudstack.api.response.SecondaryStorageHeuristicsResponse;
 import org.apache.cloudstack.api.response.SecurityGroupResponse;
 import org.apache.cloudstack.api.response.ServiceOfferingResponse;
 import org.apache.cloudstack.api.response.StoragePoolResponse;
@@ -132,6 +134,9 @@ import org.apache.cloudstack.framework.config.Configurable;
 import org.apache.cloudstack.framework.jobs.impl.AsyncJobVO;
 import org.apache.cloudstack.query.QueryService;
 import org.apache.cloudstack.resourcedetail.dao.DiskOfferingDetailsDao;
+import org.apache.cloudstack.secstorage.HeuristicVO;
+import org.apache.cloudstack.secstorage.dao.SecondaryStorageHeuristicDao;
+import org.apache.cloudstack.secstorage.heuristics.Heuristic;
 import org.apache.cloudstack.storage.datastore.db.PrimaryDataStoreDao;
 import org.apache.cloudstack.storage.datastore.db.StoragePoolDetailVO;
 import org.apache.cloudstack.storage.datastore.db.StoragePoolDetailsDao;
@@ -465,6 +470,9 @@ public class QueryManagerImpl extends MutualExclusiveIdsManagerBase implements Q
 
     @Inject
     private PublicIpQuarantineDao publicIpQuarantineDao;
+
+    @Inject
+    private SecondaryStorageHeuristicDao secondaryStorageHeuristicDao;
 
     private SearchCriteria<ServiceOfferingJoinVO> getMinimumCpuServiceOfferingJoinSearchCriteria(int cpu) {
         SearchCriteria<ServiceOfferingJoinVO> sc = _srvOfferingJoinDao.createSearchCriteria();
@@ -4599,6 +4607,36 @@ public class QueryManagerImpl extends MutualExclusiveIdsManagerBase implements Q
         searchCriteria.setParametersIfNotNull("endDate", new Date());
 
         return publicIpQuarantineDao.searchAndCount(searchCriteria, null, showRemoved);
+    }
+
+    @Override
+    public ListResponse<SecondaryStorageHeuristicsResponse> listSecondaryStorageSelectors(ListSecondaryStorageSelectorsCmd cmd) {
+        ListResponse<SecondaryStorageHeuristicsResponse> response = new ListResponse<>();
+        Pair<List<HeuristicVO>, Integer> result = listSecondaryStorageSelectorsInternal(cmd.getZoneId(), cmd.getPurpose(), cmd.isShowRemoved());
+        List<SecondaryStorageHeuristicsResponse> listOfSecondaryStorageHeuristicsResponses = new ArrayList<>();
+
+        for (Heuristic heuristic : result.first()) {
+            SecondaryStorageHeuristicsResponse secondaryStorageHeuristicsResponse = responseGenerator.createSecondaryStorageSelectorResponse(heuristic);
+            listOfSecondaryStorageHeuristicsResponses.add(secondaryStorageHeuristicsResponse);
+        }
+
+        response.setResponses(listOfSecondaryStorageHeuristicsResponses);
+        return response;
+    }
+
+    private Pair<List<HeuristicVO>, Integer> listSecondaryStorageSelectorsInternal(Long zoneId, String purpose, boolean showRemoved) {
+        SearchBuilder<HeuristicVO> searchBuilder = secondaryStorageHeuristicDao.createSearchBuilder();
+
+        searchBuilder.and("zoneId", searchBuilder.entity().getZoneId(), SearchCriteria.Op.EQ);
+        searchBuilder.and("purpose", searchBuilder.entity().getPurpose(), SearchCriteria.Op.EQ);
+
+        searchBuilder.done();
+
+        SearchCriteria<HeuristicVO> searchCriteria = searchBuilder.create();
+        searchCriteria.setParameters("zoneId", zoneId);
+        searchCriteria.setParametersIfNotNull("purpose", purpose);
+
+        return secondaryStorageHeuristicDao.searchAndCount(searchCriteria, null, showRemoved);
     }
 
     @Override

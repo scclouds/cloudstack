@@ -78,6 +78,11 @@ public class DataStoreManagerImpl implements DataStoreManager {
     }
 
     @Override
+    public List<DataStore> getImageStoresByZoneIds(Long... zoneIds) {
+        return imageDataStoreMgr.listImageStoresFilteringByZoneIds(zoneIds);
+    }
+
+    @Override
     public DataStore getRandomImageStore(long zoneId) {
         List<DataStore> stores = getImageStoresByScope(new ZoneScope(zoneId));
         if (stores == null || stores.size() == 0) {
@@ -127,6 +132,11 @@ public class DataStoreManagerImpl implements DataStoreManager {
             return true;
         else
             return false;
+    }
+
+    @Override
+    public DataStore getImageStoreByUuid(String uuid) {
+        return imageDataStoreMgr.getImageStore(uuid);
     }
 
     @Override

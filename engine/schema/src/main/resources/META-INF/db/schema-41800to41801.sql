@@ -363,6 +363,21 @@ CREATE TABLE IF NOT EXISTS `cloud_usage`.`quota_email_configuration`(
     CONSTRAINT `FK_quota_email_configuration_account_id` FOREIGN KEY (`account_id`) REFERENCES `cloud_usage`.`quota_account`(`account_id`),
     CONSTRAINT `FK_quota_email_configuration_email_te1mplate_id` FOREIGN KEY (`email_template_id`) REFERENCES `cloud_usage`.`quota_email_templates`(`id`));
 
+-- Create heuristic table for dynamic allocating resources to the secondary storage
+CREATE TABLE IF NOT EXISTS `cloud`.`heuristics` (
+    `id` bigint(20) unsigned NOT NULL auto_increment,
+    `uuid` varchar(255) UNIQUE NOT NULL,
+    `name` text NOT NULL,
+    `description` text DEFAULT NULL,
+    `zone_id` bigint(20) unsigned NOT NULL COMMENT 'ID of the zone to apply the heuristic, foreign key to `data_center` table',
+    `purpose` varchar(255) NOT NULL,
+    `heuristic_rule` text NOT NULL COMMENT 'JS script that defines to which secondary storage the resource will be allocated.',
+    `created` datetime NOT NULL,
+    `removed` datetime DEFAULT NULL,
+    PRIMARY KEY (`id`),
+    CONSTRAINT `fk_heuristics__zone_id` FOREIGN KEY(`zone_id`) REFERENCES `cloud`.`data_center`(`id`)
+);
+
 -- Create view for quota summary
 DROP VIEW IF EXISTS `cloud_usage`.`quota_summary_view`;
 CREATE VIEW `cloud_usage`.`quota_summary_view` AS
