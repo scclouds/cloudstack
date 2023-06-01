@@ -340,7 +340,7 @@ GROUP BY
 
 INSERT INTO `cloud`.`configuration` (category, `instance`, component, name, value, description, default_value, `scope`, is_dynamic)
 SELECT 'Usage', 'DEFAULT', 'UsageServiceImpl', 'usage.timezone', 'GMT', 'The timezone that will be used in the Usage plugin for executing the usage job and aggregating the stats. The dates in logs in the processes will be presented according to this configuration.', 'GMT', 'Global', 0
-FROM cloud.configuration
+FROM DUAL
 WHERE NOT EXISTS (SELECT 1 FROM cloud.configuration WHERE name = 'usage.timezone');
 
 UPDATE `cloud`.`configuration` a
@@ -423,7 +423,13 @@ INSERT INTO cloud.role_permissions (uuid, role_id, rule, permission, sort_order)
 SELECT uuid(), role_id, 'quotaStatementDetails', permission, sort_order
 FROM cloud.role_permissions rp
 WHERE rule = 'quotaStatement'
-  AND NOT EXISTS(SELECT 1 FROM cloud.role_permissions rp_ WHERE rp.role_id = rp_.role_id AND rp_.rule = 'quotaStatementDetails');
+AND NOT EXISTS(SELECT 1 FROM cloud.role_permissions rp_ WHERE rp.role_id = rp_.role_id AND rp_.rule = 'quotaStatementDetails');
+
+INSERT INTO cloud.role_permissions (uuid, role_id, rule, permission, sort_order)
+SELECT uuid(), role_id, 'quotaCreditsList', permission, sort_order
+FROM cloud.role_permissions rp
+WHERE rule = 'quotaStatement'
+AND NOT EXISTS(SELECT 1 FROM cloud.role_permissions rp_ WHERE rp.role_id = rp_.role_id AND rp_.rule = 'quotaCreditsList');
 
 CREATE TABLE IF NOT EXISTS `cloud_usage`.`usage_backup_object` (
   `id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,

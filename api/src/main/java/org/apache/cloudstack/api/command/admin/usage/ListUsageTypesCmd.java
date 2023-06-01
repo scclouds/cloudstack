@@ -18,6 +18,7 @@ package org.apache.cloudstack.api.command.admin.usage;
 
 import java.util.List;
 
+import org.apache.cloudstack.usage.UsageTypes;
 import org.apache.log4j.Logger;
 
 import org.apache.cloudstack.api.APICommand;
@@ -39,8 +40,8 @@ public class ListUsageTypesCmd extends BaseCmd {
 
     @Override
     public void execute() {
-        List<UsageTypeResponse> result = _usageService.listUsageTypes();
-        ListResponse<UsageTypeResponse> response = new ListResponse<UsageTypeResponse>();
+        List<UsageTypeResponse> result = UsageTypes.listUsageTypes();
+        ListResponse<UsageTypeResponse> response = new ListResponse<>();
         response.setResponses(result);
         response.setResponseName(getCommandName());
         this.setResponseObject(response);

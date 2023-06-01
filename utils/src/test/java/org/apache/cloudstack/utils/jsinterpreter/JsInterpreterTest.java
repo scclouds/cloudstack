@@ -201,5 +201,4 @@ public class JsInterpreterTest {
 
         Assert.assertEquals(jsInterpreterSpy.variables.get("a"), "\"b\"");
     }
-
 }

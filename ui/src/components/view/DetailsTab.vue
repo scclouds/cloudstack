@@ -33,8 +33,8 @@
     :dataSource="fetchDetails()">
     <template #renderItem="{item}">
       <a-list-item v-if="item in dataResource && !customDisplayItems.includes(item)">
-        <div>
-          <strong>{{ item === 'service' ? $t('label.supportedservices') : $t('label.' + String(item).toLowerCase()) }}</strong>
+        <div style="width: 100%">
+          <strong>{{ item === 'service' ? $t('label.supportedservices') : $t(getDetailTitle(item)) }}</strong>
           <br/>
           <div v-if="Array.isArray(dataResource[item]) && item === 'service'">
             <div v-for="(service, idx) in dataResource[item]" :key="idx">
@@ -55,7 +55,7 @@
             <span v-if="['USER.LOGIN', 'USER.LOGOUT', 'ROUTER.HEALTH.CHECKS', 'FIREWALL.CLOSE', 'ALERT.SERVICE.DOMAINROUTER'].includes(dataResource[item])">{{ $t(dataResource[item].toLowerCase()) }}</span>
             <span v-else>{{ dataResource[item] }}</span>
           </div>
-          <div v-else-if="['created', 'sent', 'lastannotated', 'collectiontime', 'lastboottime', 'lastserverstart', 'lastserverstop'].includes(item)">
+          <div v-else-if="['created', 'sent', 'lastannotated', 'collectiontime', 'lastboottime', 'lastserverstart', 'lastserverstop', 'endDate', 'removed', 'effectiveDate'].includes(item)">
             {{ $toLocaleDate(dataResource[item]) }}
           </div>
           <div v-else-if="$route.meta.name === 'userdata' && item === 'userdata'">
@@ -71,6 +71,10 @@
               </span>
             </div>
           </div>
+          <code-highlight v-else-if="['activationRule'].includes(item)" language="javascript">
+            {{ dataResource[item] }}
+          </code-highlight>
+          <div style="white-space: pre;" v-else-if="$route.meta.name === 'quotatariff' && item === 'description'">{{ dataResource[item] }} </div>
           <div v-else>{{ dataResource[item] }}</div>
         </div>
       </a-list-item>
@@ -99,13 +103,16 @@
 import DedicateData from './DedicateData'
 import HostInfo from '@/views/infra/HostInfo'
 import VmwareData from './VmwareData'
+import CodeHighlight from 'vue-code-highlight/src/CodeHighlight.vue'
+import 'vue-code-highlight/themes/prism-okaidia.css'
 
 export default {
   name: 'DetailsTab',
   components: {
     DedicateData,
     HostInfo,
-    VmwareData
+    VmwareData,
+    CodeHighlight
   },
   props: {
     resource: {
@@ -134,7 +141,8 @@ export default {
       dedicatedRoutes: ['zone', 'pod', 'cluster', 'host'],
       dedicatedSectionActive: false,
       projectname: '',
-      dataResource: {}
+      dataResource: {},
+      detailsTitles: []
     }
   },
   mounted () {
@@ -199,12 +207,33 @@ export default {
       this.dataResource.account = projectAdmins.join()
     },
     fetchDetails () {
-      var details = this.$route.meta.details
+      let details = this.$route.meta.details
+
+      if (!details) {
+        return
+      }
+
       if (typeof details === 'function') {
         details = details()
       }
-      details = this.projectname ? [...details.filter(x => x !== 'account'), 'projectname'] : details
-      return details
+
+      let detailsKeys = []
+      for (var detail of details) {
+        if (typeof detail === 'object') {
+          const field = detail.field
+          detailsKeys.push(field)
+          this.detailsTitles[field] = detail.customTitle
+        } else {
+          detailsKeys.push(detail)
+          this.detailsTitles[detail] = detail
+        }
+      }
+
+      detailsKeys = this.projectname ? [...detailsKeys.filter(x => x !== 'account'), 'projectname'] : detailsKeys
+      return detailsKeys
+    },
+    getDetailTitle (detail) {
+      return 'label.' + String(this.detailsTitles[detail]).toLowerCase()
     }
   }
 }

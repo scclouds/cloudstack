@@ -19,9 +19,6 @@ package org.apache.cloudstack.quota;
 import java.lang.reflect.Field;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
-import java.time.LocalDate;
-import java.time.Month;
-import java.time.YearMonth;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Date;
@@ -103,8 +100,6 @@ public class QuotaManagerImpl extends ManagerBase implements QuotaManager {
     protected TimeZone usageTimeZone = TimeZone.getTimeZone("GMT");
     static final BigDecimal GiB_DECIMAL = BigDecimal.valueOf(ByteScaleUtils.GiB);
     List<Account.Type> lockablesAccountTypes = Arrays.asList(Account.Type.NORMAL, Account.Type.DOMAIN_ADMIN);
-
-    static BigDecimal hoursInCurrentMonth;
 
     public QuotaManagerImpl() {
         super();
@@ -269,8 +264,6 @@ public class QuotaManagerImpl extends ManagerBase implements QuotaManager {
         String accountsToString = ReflectionToStringBuilderUtils.reflectOnlySelectedFields(accounts, "id", "uuid", "accountName", "domainId");
 
         s_logger.info(String.format("Starting quota usage calculation for accounts [%s].", accountsToString));
-
-        setHoursInCurrentMonth();
 
         Map<Integer, Pair<List<QuotaTariffVO>, Boolean>> mapQuotaTariffsPerUsageType = createMapQuotaTariffsPerUsageType();
 
@@ -569,7 +562,7 @@ public class QuotaManagerImpl extends ManagerBase implements QuotaManager {
             s_logger.trace(String.format("Retrieving active quota tariffs for the following usage types: %s.", usageTypes));
         }
 
-        List<QuotaTariffVO> quotaTariffs = _quotaTariffDao.listQuotaTariffs(null, null, usageTypes, null, null, false, false, null, null).first();
+        List<QuotaTariffVO> quotaTariffs = _quotaTariffDao.listQuotaTariffs(null, null, usageTypes, null, null, false, false, null, null, null).first();
 
         s_logger.trace(String.format("Retrieved [%s] quota tariffs [%s].", quotaTariffs.size(), quotaTariffs));
 
@@ -623,7 +616,7 @@ public class QuotaManagerImpl extends ManagerBase implements QuotaManager {
 
     protected BigDecimal getUsageValueAccordingToUsageUnitType(UsageVO usageRecord, BigDecimal aggregatedQuotaTariffsValue, String quotaUnit) {
         BigDecimal rawUsage = BigDecimal.valueOf(usageRecord.getRawUsage());
-        BigDecimal costPerHour = getCostPerHour(aggregatedQuotaTariffsValue);
+        BigDecimal costPerHour = getCostPerHour(aggregatedQuotaTariffsValue, usageRecord.getStartDate());
 
         switch (UsageUnitTypes.getByDescription(quotaUnit)) {
             case COMPUTE_MONTH:
@@ -648,17 +641,10 @@ public class QuotaManagerImpl extends ManagerBase implements QuotaManager {
         }
     }
 
-    protected BigDecimal getCostPerHour(BigDecimal costPerMonth) {
+    protected BigDecimal getCostPerHour(BigDecimal costPerMonth, Date date) {
+        BigDecimal hoursInCurrentMonth = BigDecimal.valueOf(DateUtil.getHoursInCurrentMonth(date));
         s_logger.trace(String.format("Dividing tariff cost per month [%s] by [%s] to get the tariffs cost per hour.", costPerMonth, hoursInCurrentMonth));
         return costPerMonth.divide(hoursInCurrentMonth, 8, RoundingMode.HALF_EVEN);
-    }
-
-    protected void setHoursInCurrentMonth() {
-        LocalDate currentDate = LocalDate.now();
-        Month currentMonth = currentDate.getMonth();
-        int hoursInMonth = YearMonth.of(currentDate.getYear(), currentMonth).lengthOfMonth() * 24;
-        hoursInCurrentMonth = new BigDecimal(hoursInMonth);
-        s_logger.debug(String.format("Considering [%s] as the total hours in the current month [%s] for the Quota calculation.", hoursInCurrentMonth, currentMonth));
     }
 
     @Override
@@ -670,7 +656,7 @@ public class QuotaManagerImpl extends ManagerBase implements QuotaManager {
      * Calculate the resource's value according to the current Quota tariffs and volume to quote.
      */
     @Override
-    public BigDecimal getResourceRating(JsInterpreter jsInterpreter, ResourcesToQuoteVO resourceToQuote, List<QuotaTariffVO> tariffs, QuotaTypes quotaTypeObject)
+    public BigDecimal getResourceRating(JsInterpreter jsInterpreter, ResourcesToQuoteVO resourceToQuote, List<QuotaTariffVO> tariffs, QuotaTypes quotaTypeObject, Date now)
             throws IllegalAccessException {
         PresetVariables metadata = resourceToQuote.getMetadata();
         String quoteId = resourceToQuote.getId();
@@ -700,7 +686,7 @@ public class QuotaManagerImpl extends ManagerBase implements QuotaManager {
             return tariffsCost.multiply(volumeToQuote);
         }
 
-        BigDecimal tariffsCostPerHour = getCostPerHour(tariffsCost);
+        BigDecimal tariffsCostPerHour = getCostPerHour(tariffsCost, now);
         s_logger.debug(String.format("Multiplying the final tariffs cost per hour [%s] by the volume to be quoted [%s] for quoting [%s].", tariffsCostPerHour, volumeToQuote,
                 quoteId));
 

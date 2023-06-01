@@ -874,9 +874,9 @@ public class QuotaResponseBuilderImplTest extends TestCase {
 
         QuotaTypes.listQuotaTypes().values().forEach(type -> {
             resourcesToQuoteVo.setUsageType(type.getQuotaName());
-            ResourcesQuotingResultResponse result = null;
+            ResourcesQuotingResultResponse result;
             try {
-                result = quotaResponseBuilderSpy.quoteResource(new HashMap<>(), resourcesToQuoteVo, null);
+                result = quotaResponseBuilderSpy.quoteResource(new HashMap<>(), resourcesToQuoteVo, null, new Date());
             } catch (IllegalAccessException e) {
                 throw new RuntimeException(e);
             }
@@ -893,11 +893,11 @@ public class QuotaResponseBuilderImplTest extends TestCase {
 
         QuotaTypes.listQuotaTypes().values().forEach(type -> {
             resourcesToQuoteVo.setUsageType(type.getQuotaName());
-            ResourcesQuotingResultResponse result = null;
+            ResourcesQuotingResultResponse result;
             mapTariffs.put(type.getQuotaType(), listQuotaTariffs);
 
             try {
-                result = quotaResponseBuilderSpy.quoteResource(mapTariffs, resourcesToQuoteVo, null);
+                result = quotaResponseBuilderSpy.quoteResource(mapTariffs, resourcesToQuoteVo, null, new Date());
             } catch (IllegalAccessException e) {
                 throw new RuntimeException(e);
             }
@@ -914,15 +914,15 @@ public class QuotaResponseBuilderImplTest extends TestCase {
 
         Map<Integer, List<QuotaTariffVO>> mapTariffs = new HashMap<>();
 
-        Mockito.doReturn(new BigDecimal(expected)).when(quotaManagerMock).getResourceRating(Mockito.any(), Mockito.any(), Mockito.any(), Mockito.any());
+        Mockito.doReturn(new BigDecimal(expected)).when(quotaManagerMock).getResourceRating(Mockito.any(), Mockito.any(), Mockito.any(), Mockito.any(), Mockito.any());
 
         QuotaTypes.listQuotaTypes().values().forEach(type -> {
             resourcesToQuoteVo.setUsageType(type.getQuotaName());
-            ResourcesQuotingResultResponse result = null;
+            ResourcesQuotingResultResponse result;
             mapTariffs.put(type.getQuotaType(), listQuotaTariffs);
 
             try {
-                result = quotaResponseBuilderSpy.quoteResource(mapTariffs, resourcesToQuoteVo, null);
+                result = quotaResponseBuilderSpy.quoteResource(mapTariffs, resourcesToQuoteVo, null, new Date());
             } catch (IllegalAccessException e) {
                 throw new RuntimeException(e);
             }

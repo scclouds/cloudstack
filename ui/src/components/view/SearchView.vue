@@ -155,6 +155,7 @@ import { ref, reactive, toRaw } from 'vue'
 import { api } from '@/api'
 import TooltipButton from '@/components/widgets/TooltipButton'
 import ResourceIcon from '@/components/view/ResourceIcon'
+import { i18n } from '@/locales'
 
 export default {
   name: 'SearchView',
@@ -275,7 +276,10 @@ export default {
         if (item === 'groupid' && !('listInstanceGroups' in this.$store.getters.apis)) {
           return true
         }
-        if (['zoneid', 'domainid', 'state', 'level', 'clusterid', 'podid', 'groupid', 'entitytype', 'type'].includes(item)) {
+        if (item === 'usagetype' && !('listUsageTypes' in this.$store.getters.apis)) {
+          return true
+        }
+        if (['zoneid', 'domainid', 'state', 'level', 'clusterid', 'podid', 'groupid', 'entitytype', 'type', 'usagetype'].includes(item)) {
           type = 'list'
         } else if (item === 'tags') {
           type = 'tag'
@@ -298,6 +302,7 @@ export default {
       let podIndex = -1
       let clusterIndex = -1
       let groupIndex = -1
+      let usageTypeIndex = -1
 
       if (arrayField.includes('type')) {
         if (this.$route.path === '/guestnetwork' || this.$route.path.includes('/guestnetwork/')) {
@@ -350,6 +355,12 @@ export default {
         groupIndex = this.fields.findIndex(item => item.name === 'groupid')
         this.fields[groupIndex].loading = true
         promises.push(await this.fetchInstanceGroups())
+      }
+
+      if (arrayField.includes('usagetype')) {
+        usageTypeIndex = this.fields.findIndex(item => item.name === 'usagetype')
+        this.fields[usageTypeIndex].loading = true
+        promises.push(await this.fetchUsageTypes())
       }
 
       if (arrayField.includes('entitytype')) {
@@ -406,6 +417,12 @@ export default {
             this.fields[groupIndex].opts = this.sortArray(groups[0].data)
           }
         }
+        if (usageTypeIndex > -1) {
+          const usageTypes = response.filter(item => item.type === 'usagetype')
+          if (usageTypes && usageTypes.length > 0) {
+            this.fields[usageTypeIndex].opts = this.sortArray(usageTypes[0].data)
+          }
+        }
       }).finally(() => {
         if (zoneIndex > -1) {
           this.fields[zoneIndex].loading = false
@@ -421,6 +438,9 @@ export default {
         }
         if (groupIndex > -1) {
           this.fields[groupIndex].loading = false
+        }
+        if (usageTypeIndex > -1) {
+          this.fields[usageTypeIndex].loading = false
         }
         this.fillFormFieldValues()
       })
@@ -506,6 +526,19 @@ export default {
           resolve({
             type: 'groupid',
             data: instancegroups
+          })
+        }).catch(error => {
+          reject(error.response.headers['x-description'])
+        })
+      })
+    },
+    fetchUsageTypes () {
+      return new Promise((resolve, reject) => {
+        api('listUsageTypes').then(json => {
+          const usagetypes = json.listusagetypesresponse.usagetype.map(entry => ({ id: entry.id, name: i18n.global.t(entry.name) }))
+          resolve({
+            type: 'usagetype',
+            data: usagetypes
           })
         }).catch(error => {
           reject(error.response.headers['x-description'])
@@ -630,7 +663,6 @@ export default {
       this.formRef.value.validate().then(() => {
         const values = toRaw(this.form)
         this.isFiltered = true
-        console.log(values)
         for (const key in values) {
           const input = values[key]
           if (input === '' || input === null || input === undefined) {

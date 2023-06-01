@@ -30,7 +30,6 @@ import com.cloud.domain.Domain;
 import org.apache.cloudstack.api.command.admin.usage.GenerateUsageRecordsCmd;
 import org.apache.cloudstack.api.command.admin.usage.ListUsageRecordsCmd;
 import org.apache.cloudstack.api.command.admin.usage.RemoveRawUsageRecordsCmd;
-import org.apache.cloudstack.api.response.UsageTypeResponse;
 import org.apache.cloudstack.context.CallContext;
 import org.apache.cloudstack.framework.config.ConfigKey;
 import org.apache.cloudstack.framework.config.Configurable;
@@ -477,11 +476,6 @@ public class UsageServiceImpl extends ManagerBase implements UsageService, Manag
             throw new InvalidParameterValueException("Invalid interval value. Interval to remove cloud_usage records should be greater than 0");
         }
         return true;
-    }
-
-    @Override
-    public List<UsageTypeResponse> listUsageTypes() {
-        return UsageTypes.listUsageTypes();
     }
 
     @Override

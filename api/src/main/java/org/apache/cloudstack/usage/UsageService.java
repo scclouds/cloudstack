@@ -20,7 +20,6 @@ import com.cloud.utils.Pair;
 import org.apache.cloudstack.api.command.admin.usage.GenerateUsageRecordsCmd;
 import org.apache.cloudstack.api.command.admin.usage.ListUsageRecordsCmd;
 import org.apache.cloudstack.api.command.admin.usage.RemoveRawUsageRecordsCmd;
-import org.apache.cloudstack.api.response.UsageTypeResponse;
 import org.apache.cloudstack.framework.config.ConfigKey;
 
 import java.util.List;
@@ -58,6 +57,4 @@ public interface UsageService {
     Pair<List<? extends Usage>, Integer> getUsageRecords(ListUsageRecordsCmd cmd);
 
     boolean removeRawUsageRecords(RemoveRawUsageRecordsCmd cmd);
-
-    List<UsageTypeResponse> listUsageTypes();
 }
