@@ -30,6 +30,7 @@ public class Volume extends GenericHeuristicPresetVariable {
 
     public void setSize(Long size) {
         this.size = size;
+        fieldNamesToIncludeInToString.add("size");
     }
 
     public Storage.ImageFormat getFormat() {
