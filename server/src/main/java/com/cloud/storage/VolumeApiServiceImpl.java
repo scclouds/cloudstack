@@ -637,6 +637,7 @@ public class VolumeApiServiceImpl extends ManagerBase implements VolumeApiServic
                 //url can be null incase of postupload
                 if (url != null) {
                     _resourceLimitMgr.incrementResourceCount(volume.getAccountId(), ResourceType.secondary_storage, UriUtils.getRemoteSize(url));
+                    volume.setSize(UriUtils.getRemoteSize(url));
                 }
 
                 return volume;
