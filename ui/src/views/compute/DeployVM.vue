@@ -32,7 +32,7 @@
               <a-step
                 v-if="!isNormalUserOrProject"
                 :title="this.$t('label.assign.instance.another')">
-                <template #description v-if="zoneSelected">
+                <template #description>
                   <div style="margin-top: 15px">
                     {{ $t('label.assigning.vms') }}
                     <ownership-selection
@@ -1303,7 +1303,7 @@ export default {
       return tabList
     },
     showSecurityGroupSection () {
-      return (this.networks.length > 0 && this.zone.securitygroupsenabled) || (this.zone && this.zone.networktype === 'Basic')
+      return (this.networks.length > 0 && this.zone?.securitygroupsenabled) || (this.zone?.networktype === 'Basic')
     },
     isUserAllowedToListSshKeys () {
       return Boolean('listSSHKeyPairs' in this.$store.getters.apis)
