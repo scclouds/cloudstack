@@ -38,6 +38,8 @@ import javax.ws.rs.InternalServerErrorException;
 
 import com.cloud.domain.Domain;
 import com.cloud.domain.DomainVO;
+import com.cloud.event.ActionEvent;
+import com.cloud.event.EventTypes;
 import com.cloud.exception.PermissionDeniedException;
 import com.cloud.serializer.GsonHelper;
 import com.cloud.utils.exception.CloudRuntimeException;
@@ -571,6 +573,7 @@ public class QuotaResponseBuilderImpl implements QuotaResponseBuilder {
     }
 
     @Override
+    @ActionEvent(eventType = EventTypes.EVENT_QUOTA_TARIFF_UPDATE, eventDescription = "updating Quota Tariff")
     public QuotaTariffVO updateQuotaTariffPlan(QuotaTariffUpdateCmd cmd) {
         String name = cmd.getName();
         Double value = cmd.getValue();
@@ -789,6 +792,7 @@ public class QuotaResponseBuilderImpl implements QuotaResponseBuilder {
     }
 
     @Override
+    @ActionEvent(eventType = EventTypes.EVENT_QUOTA_TARIFF_CREATE, eventDescription = "creating Quota Tariff")
     public QuotaTariffVO createQuotaTariff(QuotaTariffCreateCmd cmd) {
         String name = cmd.getName();
         int usageType = cmd.getUsageType();
@@ -813,6 +817,7 @@ public class QuotaResponseBuilderImpl implements QuotaResponseBuilder {
         return persistNewQuotaTariff(null, name, usageType, startDate, cmd.getEntityOwnerId(), endDate, value, description, activationRule);
     }
 
+    @ActionEvent(eventType = EventTypes.EVENT_QUOTA_TARIFF_DELETE, eventDescription = "removing Quota Tariff")
     public boolean deleteQuotaTariff(String quotaTariffUuid) {
         QuotaTariffVO quotaTariff = _quotaTariffDao.findByUuid(quotaTariffUuid);
 
