@@ -21,10 +21,10 @@ import com.cloud.utils.exception.CloudRuntimeException;
 import java.io.InputStream;
 import java.sql.Connection;
 
-public class Upgrade41800to41801 implements DbUpgrade, DbUpgradeSystemVmTemplate {
+public class Upgrade41800to41801 implements DbUpgrade {
     @Override
     public String[] getUpgradableVersionRange() {
-        return new String[] {"4.18.0.0", "4.18.0.1"};
+        return new String[]{"4.18.0.0", "4.18.0.1"};
     }
 
     @Override
@@ -45,7 +45,7 @@ public class Upgrade41800to41801 implements DbUpgrade, DbUpgradeSystemVmTemplate
             throw new CloudRuntimeException("Unable to find " + scriptFile);
         }
 
-        return new InputStream[] {script};
+        return new InputStream[]{script};
     }
 
     @Override
@@ -55,9 +55,5 @@ public class Upgrade41800to41801 implements DbUpgrade, DbUpgradeSystemVmTemplate
     @Override
     public InputStream[] getCleanupScripts() {
         return new InputStream[0];
-    }
-
-    @Override
-    public void updateSystemVmTemplates(Connection conn) {
     }
 }
