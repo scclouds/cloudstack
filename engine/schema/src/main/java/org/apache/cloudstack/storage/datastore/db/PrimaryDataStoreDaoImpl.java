@@ -81,7 +81,7 @@ public class PrimaryDataStoreDaoImpl extends GenericDaoBase<StoragePoolVO, Long>
     private static final String GET_STORAGE_POOLS_OF_VOLUMES_WITHOUT_OR_NOT_HAVING_TAGS = "SELECT s.* " +
             "FROM volumes vol " +
             "JOIN storage_pool s ON vol.pool_id = s.id " +
-            "WHERE vol.disk_offering_id = ? AND vol.state NOT IN (\"Destroy\", \"Error\", \"Expunging\", \"Expunged\") GROUP BY s.id";
+            "WHERE s.removed IS NULL AND vol.disk_offering_id = ? AND vol.state NOT IN (\"Destroy\", \"Error\", \"Expunging\", \"Expunged\") GROUP BY s.id";
 
     /**
      * Used in method findPoolsByDetailsOrTagsInternal
