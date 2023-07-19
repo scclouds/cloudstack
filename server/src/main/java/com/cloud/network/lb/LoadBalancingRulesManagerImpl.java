@@ -2342,7 +2342,7 @@ public class LoadBalancingRulesManagerImpl<Type> extends ManagerBase implements 
         List<String> serviceStates = new ArrayList<>();
         List<LoadBalancerVMMapVO> vmLoadBalancerMappings = _lb2VmMapDao.listByLoadBalancerId(loadBalancerId);
 
-        if (CollectionUtils.isEmpty(vmLoadBalancerMappings)) {
+        if (vmLoadBalancerMappings == null) {
             String msg = String.format("Unable to find map of VMs related to load balancer [%s].", loadBalancerAsString);
             s_logger.error(msg);
             throw new CloudRuntimeException(msg);
@@ -2350,6 +2350,10 @@ public class LoadBalancingRulesManagerImpl<Type> extends ManagerBase implements 
 
         Map<Long, String> vmServiceState = new HashMap<>(vmLoadBalancerMappings.size());
         List<Long> appliedInstanceIdList = new ArrayList<>();
+
+        if (CollectionUtils.isEmpty(vmLoadBalancerMappings)) {
+            return new Pair<>(loadBalancerInstances, serviceStates);
+        }
 
         for (LoadBalancerVMMapVO vmLoadBalancerMapping : vmLoadBalancerMappings) {
             appliedInstanceIdList.add(vmLoadBalancerMapping.getInstanceId());
