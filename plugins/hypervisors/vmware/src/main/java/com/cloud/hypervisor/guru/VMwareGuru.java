@@ -150,7 +150,7 @@ import com.vmware.vim25.VirtualDevice;
 import com.vmware.vim25.VirtualDeviceBackingInfo;
 import com.vmware.vim25.VirtualDisk;
 import com.vmware.vim25.VirtualDiskFlatVer2BackingInfo;
-import com.vmware.vim25.VirtualE1000;
+import com.vmware.vim25.VirtualEthernetCard;
 import com.vmware.vim25.VirtualEthernetCardNetworkBackingInfo;
 import com.vmware.vim25.VirtualMachineConfigSummary;
 import com.vmware.vim25.VirtualMachineRuntimeInfo;
@@ -970,7 +970,7 @@ public class VMwareGuru extends HypervisorGuruBase implements HypervisorGuru, Co
     /**
      * Get network MO from VM NIC
      */
-    private NetworkMO getNetworkMO(VirtualE1000 nic, VmwareContext context) {
+    private NetworkMO getNetworkMO(VirtualEthernetCard nic, VmwareContext context) {
         VirtualEthernetCardNetworkBackingInfo info = (VirtualEthernetCardNetworkBackingInfo)nic.getBacking();
         ManagedObjectReference networkMor = info.getNetwork();
         if (networkMor == null) {
@@ -980,7 +980,7 @@ public class VMwareGuru extends HypervisorGuruBase implements HypervisorGuru, Co
     }
 
     private Pair<String, String> getNicMacAddressAndNetworkName(VirtualDevice nicDevice, VmwareContext context) throws Exception {
-        VirtualE1000 nic = (VirtualE1000)nicDevice;
+        VirtualEthernetCard nic = (VirtualEthernetCard)nicDevice;
         String macAddress = nic.getMacAddress();
         NetworkMO networkMO = getNetworkMO(nic, context);
         String networkName = networkMO.getName();
