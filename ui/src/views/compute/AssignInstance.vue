@@ -28,6 +28,9 @@
           <label v-html="$t('message.assign.instance.another')"></label>
         </template>
       </a-alert>
+
+      <ownership-selection @fetch-owner="fetchOwnerOptions"/>
+
       <div class="form__item">
         <p class="form__label">{{ $t('label.network') }}</p>
         <a-select
