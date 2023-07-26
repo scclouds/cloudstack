@@ -23,7 +23,7 @@ export default {
   docHelp: 'adminguide/accounts.html#roles',
   permission: ['listRoles', 'listRolePermissions'],
   columns: ['name', 'type', 'description'],
-  details: ['name', 'id', 'type', 'description'],
+  details: ['name', 'id', 'type', 'description', 'ispublic'],
   tabs: [{
     name: 'details',
     component: shallowRef(defineAsyncComponent(() => import('@/components/view/DetailsTab.vue')))
