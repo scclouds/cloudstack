@@ -122,6 +122,8 @@ public class ConsoleProxyNoVncClient implements ConsoleProxyClient {
                             if (nextBytes > 0) {
                                 session.getRemote().sendBytes(ByteBuffer.wrap(bytesArr));
                                 updateFrontEndActivityTime();
+                            } else if (!session.isOpen()) {
+                                connectionAlive = false;
                             }
                         } else {
                             b = new byte[100];
@@ -131,7 +133,6 @@ public class ConsoleProxyNoVncClient implements ConsoleProxyClient {
                             }
                         }
                     }
-                    connectionAlive = false;
                 } catch (IOException e) {
                     s_logger.error("Error on VNC client", e);
                 }
