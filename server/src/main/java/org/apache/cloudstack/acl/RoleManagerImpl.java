@@ -151,9 +151,13 @@ public class RoleManagerImpl extends ManagerBase implements RoleService, Configu
         return Transaction.execute(new TransactionCallback<RoleVO>() {
             @Override
             public RoleVO doInTransaction(TransactionStatus status) {
-                RoleVO role = roleDao.persist(new RoleVO(name, roleType, description));
-                CallContext.current().putContextParameter(Role.class, role.getUuid());
+                RoleVO role = new RoleVO(name, roleType, description);
                 role.setPublicRole(publicRole);
+                CallContext.current().putContextParameter(Role.class, role.getUuid());
+                if (roleDao.persist(role) == null) {
+                    throw new CloudRuntimeException(String.format("Unable to create the role: %s, failed to persist in DB.", name));
+                }
+
                 return role;
             }
         });
@@ -170,7 +174,7 @@ public class RoleManagerImpl extends ManagerBase implements RoleService, Configu
                 newRole.setPublicRole(publicRole);
                 RoleVO newRoleVO = roleDao.persist(newRole);
                 if (newRoleVO == null) {
-                    throw new CloudRuntimeException("Unable to create the role: " + name + ", failed to persist in DB");
+                    throw new CloudRuntimeException(String.format("Unable to create the role: %s, failed to persist in DB.", name));
                 }
 
                 List<RolePermissionVO> rolePermissions = rolePermissionsDao.findAllByRoleIdSorted(role.getId());
