@@ -952,9 +952,9 @@ export default {
         groups: false
       },
       owner: {
-        projectid: store.getters.projectid,
-        domainid: store.getters.userInfo.domainid,
-        account: store.getters.userInfo.account
+        projectid: store.getters.project?.id,
+        domainid: store.getters.project?.id ? null : store.getters.userInfo.domainid,
+        account: store.getters.project?.id ? null : store.getters.userInfo.account
       },
       instanceConfig: {},
       template: {},
