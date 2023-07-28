@@ -38,11 +38,11 @@ import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
+import org.mockito.runners.MockitoJUnitRunner;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.Mockito;
 import org.mockito.Spy;
-import org.mockito.runners.MockitoJUnitRunner;
 
 import com.cloud.exception.ResourceUnavailableException;
 import com.cloud.network.Network.Service;
@@ -88,6 +88,9 @@ public class IpAddressManagerTest {
 
     @Mock
     IpAddress ipAddressMock;
+
+    @Mock
+    IPAddressVO ipAddressVoMock;
 
     @Mock
     AccountVO newOwnerMock;
@@ -139,6 +142,63 @@ public class IpAddressManagerTest {
 
         IPAddressVO returnedVO = ips.get(0);
         Assert.assertEquals(vo, returnedVO);
+    }
+
+    private void prepareForCheckIfIpResourceCountShouldBeUpdatedTests() {
+        Mockito.when(ipAddressVoMock.getAssociatedWithNetworkId()).thenReturn(1L);
+        Mockito.when(ipAddressVoMock.getVpcId()).thenReturn(1L);
+        doReturn(false).when(ipAddressManager).isIpDedicated(Mockito.any());
+        Mockito.when(ipAddressVoMock.getState()).thenReturn(IpAddress.State.Allocating);
+    }
+
+    @Test
+    public void checkIfIpResourceCountShouldBeUpdatedTestIpIsDirectReturnFalse() {
+        prepareForCheckIfIpResourceCountShouldBeUpdatedTests();
+        Mockito.when(ipAddressVoMock.getAssociatedWithNetworkId()).thenReturn(null);
+        Mockito.when(ipAddressVoMock.getVpcId()).thenReturn(null);
+
+        boolean result = ipAddressManager.checkIfIpResourceCountShouldBeUpdated(ipAddressVoMock);
+
+        Assert.assertFalse(result);
+    }
+
+    @Test
+    public void checkIfIpResourceCountShouldBeUpdatedTestIpIsDedicatedReturnFalse() {
+        prepareForCheckIfIpResourceCountShouldBeUpdatedTests();
+        doReturn(true).when(ipAddressManager).isIpDedicated(Mockito.any());
+
+        boolean result = ipAddressManager.checkIfIpResourceCountShouldBeUpdated(ipAddressVoMock);
+
+        Assert.assertFalse(result);
+    }
+
+    @Test
+    public void checkIfIpResourceCountShouldBeUpdatedTestIpIsReservedReturnFalse() {
+        prepareForCheckIfIpResourceCountShouldBeUpdatedTests();
+        Mockito.when(ipAddressVoMock.getState()).thenReturn(IpAddress.State.Reserved);
+
+        boolean result = ipAddressManager.checkIfIpResourceCountShouldBeUpdated(ipAddressVoMock);
+
+        Assert.assertFalse(result);
+    }
+
+    @Test
+    public void checkIfIpResourceCountShouldBeUpdatedTestIpIsAssociatedToNetworkAndNotDedicatedAndNotReservedReturnTrue() {
+        prepareForCheckIfIpResourceCountShouldBeUpdatedTests();
+
+        boolean result = ipAddressManager.checkIfIpResourceCountShouldBeUpdated(ipAddressVoMock);
+
+        Assert.assertTrue(result);
+    }
+
+    @Test
+    public void checkIfIpResourceCountShouldBeUpdatedTestIpIsAssociatedToVpcAndNotDedicatedAndNotReservedReturnTrue() {
+        prepareForCheckIfIpResourceCountShouldBeUpdatedTests();
+        Mockito.when(ipAddressVoMock.getAssociatedWithNetworkId()).thenReturn(null);
+
+        boolean result = ipAddressManager.checkIfIpResourceCountShouldBeUpdated(ipAddressVoMock);
+
+        Assert.assertTrue(result);
     }
 
     @Test
