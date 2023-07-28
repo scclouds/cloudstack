@@ -4322,7 +4322,7 @@ public class NetworkOrchestrator extends ManagerBase implements NetworkOrchestra
         if (nic == null || vmProfile.getType() == VirtualMachine.Type.User) {
             final int deviceId = _nicDao.getFreeDeviceId(vm.getId());
 
-            nic = allocateNic(requested, network, false, deviceId, vmProfile).first();
+            nic = allocateNic(requested, network, requested.isDefaultNic(), deviceId, vmProfile).first();
 
             if (nic == null) {
                 throw new CloudRuntimeException("Failed to allocate nic for vm " + vm + " in network " + network);

@@ -1425,6 +1425,11 @@ public class UserVmManagerImpl extends ManagerBase implements UserVmManager, Vir
             }
         }
 
+        if (_networkModel.getDefaultNic(vmId) == null) {
+            s_logger.debug(String.format("Setting NIC %s as default as VM %s has no default NIC", profile.getName(), vmInstance.getName()));
+            profile.setDefaultNic(true);
+        }
+
         NicProfile guestNic = null;
         boolean cleanUp = true;
 
