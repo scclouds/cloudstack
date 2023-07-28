@@ -1017,7 +1017,8 @@ public class IpAddressManagerImpl extends ManagerBase implements IpAddressManage
                     Account owner = _accountMgr.getAccount(addr.getAllocatedToAccountId());
                     if (_ipAddressDao.lockRow(addr.getId(), true) != null) {
                         final IPAddressVO userIp = _ipAddressDao.findById(addr.getId());
-                        if (userIp.getState() == IpAddress.State.Allocating || addr.getState() == IpAddress.State.Free) {
+                        if (userIp.getState() == IpAddress.State.Allocating || addr.getState() == IpAddress.State.Free || addr.getState() == IpAddress.State.Reserved) {
+                            boolean shouldUpdateIpResourceCount = checkIfIpResourceCountShouldBeUpdated(addr);
                             addr.setState(IpAddress.State.Allocated);
                             if (_ipAddressDao.update(addr.getId(), addr)) {
                                 // Save usage event
@@ -1030,7 +1031,7 @@ public class IpAddressManagerImpl extends ManagerBase implements IpAddressManage
                                                 addr.getAddress().toString(), addr.isSourceNat(), guestType, addr.getSystem(), usageHidden,
                                                 addr.getClass().getName(), addr.getUuid());
                                     }
-                                    if (updateIpResourceCount(addr)) {
+                                    if (shouldUpdateIpResourceCount) {
                                         _resourceLimitMgr.incrementResourceCount(owner.getId(), ResourceType.public_ip);
                                     }
                                 }
@@ -1046,7 +1047,7 @@ public class IpAddressManagerImpl extends ManagerBase implements IpAddressManage
         }
     }
 
-    private boolean isIpDedicated(IPAddressVO addr) {
+    protected boolean isIpDedicated(IPAddressVO addr) {
         List<AccountVlanMapVO> maps = _accountVlanMapDao.listAccountVlanMapsByVlan(addr.getVlanId());
         if (maps != null && !maps.isEmpty())
             return true;
@@ -1166,7 +1167,7 @@ public class IpAddressManagerImpl extends ManagerBase implements IpAddressManage
         long ipAddressId = ipAddressVO.getId();
         String ipAddress = ipAddressVO.getAddress().toString();
 
-        if (ipAddressVO.getState() == IpAddress.State.Allocating) {
+        if (ipAddressVO.getState() == IpAddress.State.Allocating || ipAddressVO.getState() == IpAddress.State.Reserved) {
             s_logger.info(String.format("IP address [%s] will be associated with network [%s] and will be marked as allocated.", ipAddress, network));
             ipAddressVO.setAssociatedWithNetworkId(network.getId());
             markPublicIpAsAllocated(ipAddressVO);
@@ -1578,7 +1579,6 @@ public class IpAddressManagerImpl extends ManagerBase implements IpAddressManage
 
         IPAddressVO ip = _ipAddressDao.findById(ipId);
         //update ip address with networkId
-        ip.setState(State.Allocated);
         ip.setAssociatedWithNetworkId(networkId);
         ip.setSourceNat(isSourceNat);
         _ipAddressDao.update(ipId, ip);
@@ -1591,7 +1591,7 @@ public class IpAddressManagerImpl extends ManagerBase implements IpAddressManage
             } else {
                 s_logger.warn("Failed to associate ip address " + ip.getAddress().addr() + " to network " + network);
             }
-            return ip;
+            return _ipAddressDao.findById(ipId);
         } finally {
             if (!success && releaseOnFailure) {
                 if (ip != null) {
@@ -1987,7 +1987,7 @@ public class IpAddressManagerImpl extends ManagerBase implements IpAddressManage
             return Transaction.execute(new TransactionCallback<IPAddressVO>() {
                 @Override
                 public IPAddressVO doInTransaction(TransactionStatus status) {
-                    if (updateIpResourceCount(ip)) {
+                    if (checkIfIpResourceCountShouldBeUpdated(ip)) {
                         _resourceLimitMgr.decrementResourceCount(_ipAddressDao.findById(addrId).getAllocatedToAccountId(), ResourceType.public_ip);
                     }
 
@@ -2012,9 +2012,26 @@ public class IpAddressManagerImpl extends ManagerBase implements IpAddressManage
         return ip;
     }
 
-    protected boolean updateIpResourceCount(IPAddressVO ip) {
-        // don't increment resource count for direct and dedicated ip addresses
-        return (ip.getAssociatedWithNetworkId() != null || ip.getVpcId() != null) && !isIpDedicated(ip);
+    protected boolean checkIfIpResourceCountShouldBeUpdated(IPAddressVO ip) {
+        boolean isDirectIp = ip.getAssociatedWithNetworkId() == null && ip.getVpcId() == null;
+        if (isDirectIp) {
+            s_logger.debug(String.format("IP address [%s] is direct; therefore, the resource count should not be updated.", ip));
+            return false;
+        }
+
+        if (isIpDedicated(ip)) {
+            s_logger.debug(String.format("IP address [%s] is dedicated; therefore, the resource count should not be updated.", ip));
+            return false;
+        }
+
+        boolean isReservedIp = ip.getState() == IpAddress.State.Reserved;
+        if (isReservedIp) {
+            s_logger.debug(String.format("IP address [%s] is reserved; therefore, the resource count should not be updated.", ip));
+            return false;
+        }
+
+        s_logger.debug(String.format("IP address [%s] is not direct, dedicated or reserved; therefore, the resource count should be updated.", ip));
+        return true;
     }
 
     @Override
