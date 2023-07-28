@@ -33,6 +33,7 @@ import java.util.stream.Collectors;
 
 import javax.inject.Inject;
 
+import com.cloud.network.dao.NetworkVO;
 import com.cloud.network.dao.PublicIpQuarantineDao;
 import com.cloud.network.vo.PublicIpQuarantineVO;
 import org.apache.cloudstack.acl.ControlledEntity.ACLType;
@@ -720,7 +721,7 @@ public class IpAddressManagerImpl extends ManagerBase implements IpAddressManage
         boolean success = true;
         IPAddressVO ipToBeDisassociated = _ipAddressDao.findById(addrId);
 
-        PublicIpQuarantine publicIpQuarantine = addPublicIpAddressToQuarantine(ipToBeDisassociated);
+        PublicIpQuarantine publicIpQuarantine = null;
         // Cleanup all ip address resources - PF/LB/Static nat rules
         if (!cleanupIpResources(addrId, userId, caller)) {
             success = false;
@@ -748,6 +749,7 @@ public class IpAddressManagerImpl extends ManagerBase implements IpAddressManage
             }
         } else {
             if (ip.getState() == IpAddress.State.Releasing) {
+                publicIpQuarantine = addPublicIpAddressToQuarantine(ipToBeDisassociated);
                 _ipAddressDao.unassignIpAddress(ip.getId());
             }
         }
@@ -1128,31 +1130,72 @@ public class IpAddressManagerImpl extends ManagerBase implements IpAddressManage
         }
     }
 
+    /**
+     * CloudStack will take a lazy approach to associate an acquired public IP to a network service provider as
+     * it will not know what service an acquired IP will be used for. An IP is actually associated with a provider when first
+     * rule is applied. Similarly, when last rule on the acquired IP is revoked, IP is not associated with any provider
+     * but still be associated with the account. At this point just mark IP as allocated or released.
+     */
+    @DB
     @Override
     public boolean applyIpAssociations(Network network, boolean continueOnError) throws ResourceUnavailableException {
-        List<IPAddressVO> userIps = _ipAddressDao.listByAssociatedNetwork(network.getId(), null);
+        long networkId = network.getId();
         boolean success = true;
-        // CloudStack will take a lazy approach to associate an acquired public IP to a network service provider as
-        // it will not know what service an acquired IP will be used for. An IP is actually associated with a provider when first
-        // rule is applied. Similarly when last rule on the acquired IP is revoked, IP is not associated with any provider
-        // but still be associated with the account. At this point just mark IP as allocated or released.
-        for (IPAddressVO addr : userIps) {
-            if (addr.getState() == IpAddress.State.Allocating) {
-                addr.setAssociatedWithNetworkId(network.getId());
-                markPublicIpAsAllocated(addr);
-            } else if (addr.getState() == IpAddress.State.Releasing) {
-                // Cleanup all the resources for ip address if there are any, and only then un-assign ip in the system
-                if (cleanupIpResources(addr.getId(), Account.ACCOUNT_ID_SYSTEM, _accountMgr.getSystemAccount())) {
-                    addPublicIpAddressToQuarantine(addr);
-                    _ipAddressDao.unassignIpAddress(addr.getId());
-                    messageBus.publish(_name, MESSAGE_RELEASE_IPADDR_EVENT, PublishScope.LOCAL, addr);
-                } else {
-                    success = false;
-                    s_logger.warn("Failed to release resources for ip address id=" + addr.getId());
-                }
+
+        try {
+            s_logger.trace(String.format("Acquiring lock for network [%s] to apply IP associations.", network));
+            NetworkVO acquired = _networksDao.acquireInLockTable(networkId);
+
+            if (acquired == null) {
+                throw new ConcurrentOperationException(String.format("Unable to acquire lock for network [%s] to apply IP associations.", network));
             }
+
+            List<IPAddressVO> userIps = _ipAddressDao.listByAssociatedNetwork(networkId, null);
+
+            for (IPAddressVO addr : userIps) {
+                success = applyIpAssociations(addr, network, success);
+            }
+        } finally {
+            s_logger.trace(String.format("Releasing lock from network [%s].", network));
+            _networksDao.releaseFromLockTable(networkId);
         }
         return success;
+    }
+
+    protected boolean applyIpAssociations(IPAddressVO ipAddressVO, Network network, boolean success) {
+        long ipAddressId = ipAddressVO.getId();
+        String ipAddress = ipAddressVO.getAddress().toString();
+
+        if (ipAddressVO.getState() == IpAddress.State.Allocating) {
+            s_logger.info(String.format("IP address [%s] will be associated with network [%s] and will be marked as allocated.", ipAddress, network));
+            ipAddressVO.setAssociatedWithNetworkId(network.getId());
+            markPublicIpAsAllocated(ipAddressVO);
+            return success;
+        }
+
+        if (ipAddressVO.getState() == IpAddress.State.Releasing) {
+            success = cleanUpReleasingIpResources(ipAddress, ipAddressId, ipAddressVO);
+        }
+
+        return success;
+    }
+
+    /**
+     * Cleanup all the resources for ip address if there are any, and only then un-assign ip in the system.
+     *
+     * @return true if the cleanup was successful, false otherwise.
+     */
+    protected boolean cleanUpReleasingIpResources(String ipAddress, long ipAddressId, IPAddressVO ipAddressVO) {
+        s_logger.info(String.format("Cleaning up resources related to IP address [%s].", ipAddress));
+        if (cleanupIpResources(ipAddressId, Account.ACCOUNT_ID_SYSTEM, _accountMgr.getSystemAccount())) {
+            s_logger.info(String.format("Resources related to IP address [%s] were released, therefore, the IP address will be unassigned.", ipAddress));
+            addPublicIpAddressToQuarantine(ipAddressVO);
+            _ipAddressDao.unassignIpAddress(ipAddressId);
+            messageBus.publish(_name, MESSAGE_RELEASE_IPADDR_EVENT, PublishScope.LOCAL, ipAddressVO);
+            return true;
+        }
+        s_logger.warn(String.format("Failed to release resources for IP address [%s].", ipAddress));
+        return false;
     }
 
     // CloudStack will take a lazy approach to associate an acquired public IP to a network service provider as

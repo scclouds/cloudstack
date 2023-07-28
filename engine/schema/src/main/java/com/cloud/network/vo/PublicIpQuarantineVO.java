@@ -18,6 +18,7 @@ package com.cloud.network.vo;
 
 import com.cloud.network.PublicIpQuarantine;
 import com.cloud.utils.db.GenericDao;
+import org.apache.cloudstack.utils.reflectiontostringbuilderutils.ReflectionToStringBuilderUtils;
 
 import javax.persistence.Column;
 import javax.persistence.Entity;
@@ -139,5 +140,10 @@ public class PublicIpQuarantineVO implements PublicIpQuarantine {
 
     public void setCreated(Date created) {
         this.created = created;
+    }
+
+    @Override
+    public String toString(){
+        return ReflectionToStringBuilderUtils.reflectOnlySelectedFields(this, "uuid", "publicIpAddressId");
     }
 }
