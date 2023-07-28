@@ -87,6 +87,9 @@ public class QuotaAlertManagerImplTest extends TestCase {
     @Mock
     private Date balanceDateMock;
 
+    @Mock
+    private AccountVO accountMock;
+
     @Spy
     @InjectMocks
     private QuotaAlertManagerImpl quotaAlertManager = new QuotaAlertManagerImpl();
@@ -256,8 +259,20 @@ public class QuotaAlertManagerImplTest extends TestCase {
         quotaAlertManager.sendQuotaAlert(email);
         assertTrue(email.getSendDate() != null);
 
-        Mockito.verify(quotaAlertManager, Mockito.times(1)).sendQuotaAlert(Mockito.anyString(), Mockito.anyListOf(String.class), Mockito.anyString(), Mockito.anyString());
+        Mockito.verify(quotaAlertManager, Mockito.times(1)).sendQuotaAlert(Mockito.any(), Mockito.anyListOf(String.class), Mockito.anyString(), Mockito.anyString());
         Mockito.verify(quotaAlertManager.mailSender, Mockito.times(1)).sendMail(Mockito.any(SMTPMailProperties.class));
+    }
+
+    @Test
+    public void addHeaderAndFooterTestIfHeaderAndFootersAreAdded() {
+        String body = quotaAlertManager.addHeaderAndFooter("body", "Header", "Footer");
+        assertEquals("HeaderbodyFooter", body);
+    }
+
+    @Test
+    public void addHeaderAndFooterTestIfHeaderAndFootersAreNotAddedIfEmpty() {
+        String body = quotaAlertManager.addHeaderAndFooter("body", "", "");
+        assertEquals("body", body);
     }
 
     @Test
