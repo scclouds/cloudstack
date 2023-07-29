@@ -24,3 +24,8 @@ ALTER TABLE `cloud`.`quarantined_ips` MODIFY `previous_owner_id` bigint(20) unsi
 ALTER TABLE `cloud`.`quarantined_ips`
     ADD COLUMN `remover_account_id` bigint(20) unsigned DEFAULT NULL COMMENT 'ID of the account that removed the IP from quarantine, foreign key to `account` table',
     ADD CONSTRAINT `fk_quarantined_ips__remover_account_id` FOREIGN KEY(`remover_account_id`) REFERENCES `cloud`.`account`(`id`);
+
+-- Invalidate existing console_session records
+UPDATE `cloud`.`console_session` SET removed=now();
+-- Modify acquired column in console_session to datetime type
+ALTER TABLE `cloud`.`console_session` DROP `acquired`, ADD `acquired` datetime COMMENT 'When the session was acquired' AFTER `host_id`;
