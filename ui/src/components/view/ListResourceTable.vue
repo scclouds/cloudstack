@@ -50,8 +50,8 @@
         <status :text="text ? text : ''" />{{ text }}
       </template>
 
-      <template v-slot:created="{ item }">
-        {{ $toLocaleDate(item) }}
+      <template #created="{text}">
+        {{ $toLocaleDate(text) }}
       </template>
 
     </a-table>
