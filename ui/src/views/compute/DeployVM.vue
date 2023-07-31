@@ -1051,10 +1051,17 @@ export default {
       return ['User'].includes(this.$store.getters.userInfo.roletype) || store.getters.project?.id
     },
     diskSize () {
-      const rootDiskSize = _.get(this.instanceConfig, 'rootdisksize', 0)
-      const customDiskSize = _.get(this.instanceConfig, 'size', 0)
+      let dataDiskSize
+      let rootDiskSize = _.get(this.instanceConfig, 'rootdisksize', 0)
       const diskOfferingDiskSize = _.get(this.diskOffering, 'disksize', 0)
-      const dataDiskSize = diskOfferingDiskSize > 0 ? diskOfferingDiskSize : customDiskSize
+      const customDiskSize = _.get(this.instanceConfig, 'size', 0)
+
+      if (this.vm.isoid != null) {
+        rootDiskSize = diskOfferingDiskSize > 0 ? diskOfferingDiskSize : customDiskSize
+      } else {
+        dataDiskSize = diskOfferingDiskSize > 0 ? diskOfferingDiskSize : customDiskSize
+      }
+
       const size = []
       if (rootDiskSize > 0) {
         size.push(`${rootDiskSize} GB (Root)`)
@@ -2604,6 +2611,7 @@ export default {
       }
     },
     resetFromTemplateConfiguration () {
+      this.deleteFrom(this.instanceConfig, ['disksize', 'rootdisksize'])
       this.deleteFrom(this.params.serviceOfferings.options, ['cpuspeed', 'cpunumber', 'memory'])
       this.deleteFrom(this.dataPreFill, ['cpuspeed', 'cpunumber', 'memory'])
       this.handleSearchFilter('serviceOfferings', {
