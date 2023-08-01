@@ -50,6 +50,14 @@
           :placeholder="$t('placeholder.quota.tariff.activationrule')"
           :max-length="65535" />
       </a-form-item>
+     <a-form-item ref="position" name="position">
+       <template #label>
+         <tooltip-label :title="$t('label.quota.tariff.position')" :tooltip="apiParams.position.description"/>
+       </template>
+       <a-input-number
+         v-model:value="form.position"
+         :placeholder="$t('placeholder.quota.tariff.position')" />
+     </a-form-item>
       <a-form-item ref="endDate" name="endDate">
         <template #label>
           <tooltip-label :title="$t('label.end.date')" :tooltip="apiParams.enddate.description"/>
@@ -104,6 +112,7 @@ export default {
         description: this.resource.description,
         value: this.resource.tariffValue,
         activationRule: this.resource.activationRule,
+        position: this.resource.position,
         endDate: getMomentNormalizedToDatePicker(this.resource.endDate)
       })
       this.rules = reactive({})
@@ -133,6 +142,10 @@ export default {
 
         if (this.resource.activationRule !== values.activationRule) {
           params.activationRule = values.activationRule
+        }
+
+        if (this.resource.position !== values.position) {
+          params.position = values.position
         }
 
         if (this.resource.endDate !== values.endDate) {
