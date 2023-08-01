@@ -725,11 +725,19 @@ public class VmwareResource extends ServerResourceBase implements StoragePoolRes
         HostMO hostMO = new HostMO(context, host.getMor());
 
         try {
-            prepareNetworkFromNicInfo(hostMO, cmd.getNic(), false, null);
             hostname =  host.getHyperHostName();
         } catch (Exception e) {
             return new SetupPersistentNetworkAnswer(cmd, false, "failed to setup port-group due to: "+ e.getLocalizedMessage());
         }
+
+        String finalHostname = hostname;
+        new Thread(() -> {
+            try {
+                prepareNetworkFromNicInfo(hostMO, cmd.getNic(), false, null);
+            } catch (Exception e) {
+                s_logger.error(String.format("Failed to setup port-group on host [%s] during ACS bootstrap due to [%s].", finalHostname, e.getMessage()), e);
+            }
+        }).start();
         return new SetupPersistentNetworkAnswer(cmd, true, hostname);
     }
 
