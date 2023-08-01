@@ -21,6 +21,7 @@ import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Comparator;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
@@ -38,6 +39,7 @@ import org.apache.cloudstack.framework.config.dao.ConfigurationDao;
 import org.apache.cloudstack.quota.activationrule.presetvariables.GenericPresetVariable;
 import org.apache.cloudstack.quota.activationrule.presetvariables.PresetVariableHelper;
 import org.apache.cloudstack.quota.activationrule.presetvariables.PresetVariables;
+import org.apache.cloudstack.quota.activationrule.presetvariables.Tariff;
 import org.apache.cloudstack.quota.constant.QuotaConfig;
 import org.apache.cloudstack.quota.constant.QuotaTypes;
 import org.apache.cloudstack.quota.dao.QuotaAccountDao;
@@ -393,10 +395,19 @@ public class QuotaManagerImpl extends ManagerBase implements QuotaManager {
         PresetVariables presetVariables = getPresetVariables(hasAnyQuotaTariffWithActivationRule, usageRecord);
         Map<QuotaTariffVO, BigDecimal> aggregatedQuotaTariffsAndValues = new HashMap<>();
 
+        quotaTariffs.sort(Comparator.comparing(QuotaTariffVO::getPosition));
+
+        List<Tariff> lastTariffs = new ArrayList<>();
         for (QuotaTariffVO quotaTariff : quotaTariffs) {
             if (isQuotaTariffInPeriodToBeApplied(usageRecord, quotaTariff, accountToString)) {
-                BigDecimal quotaTariffValue = getQuotaTariffValueToBeApplied(quotaTariff, jsInterpreter, presetVariables);
-                aggregatedQuotaTariffsAndValues.put(quotaTariff, quotaTariffValue);
+                BigDecimal tariffValue = getQuotaTariffValueToBeApplied(quotaTariff, jsInterpreter, presetVariables, lastTariffs);
+
+                aggregatedQuotaTariffsAndValues.put(quotaTariff, tariffValue);
+
+                Tariff tariffPresetVariable = new Tariff();
+                tariffPresetVariable.setId(quotaTariff.getUuid());
+                tariffPresetVariable.setValue(tariffValue);
+                lastTariffs.add(tariffPresetVariable);
             }
         }
 
@@ -450,7 +461,7 @@ public class QuotaManagerImpl extends ManagerBase implements QuotaManager {
      *   <li>If the activation rule result in something else, returns {@link BigDecimal#ZERO}.</li>
      * </ul>
      */
-    protected BigDecimal getQuotaTariffValueToBeApplied(QuotaTariffVO quotaTariff, JsInterpreter jsInterpreter, PresetVariables presetVariables) {
+    protected BigDecimal getQuotaTariffValueToBeApplied(QuotaTariffVO quotaTariff, JsInterpreter jsInterpreter, PresetVariables presetVariables, List<Tariff> lastAppliedTariffsList) {
         String activationRule = quotaTariff.getActivationRule();
         BigDecimal quotaTariffValue = quotaTariff.getCurrencyValue();
         String quotaTariffToString = quotaTariff.toString(usageTimeZone);
@@ -462,6 +473,7 @@ public class QuotaManagerImpl extends ManagerBase implements QuotaManager {
         }
 
         injectPresetVariablesIntoJsInterpreter(jsInterpreter, presetVariables);
+        jsInterpreter.injectVariable("lastTariffs", lastAppliedTariffsList.toString());
 
         String scriptResult = jsInterpreter.executeScript(activationRule).toString();
 
@@ -668,15 +680,22 @@ public class QuotaManagerImpl extends ManagerBase implements QuotaManager {
             handleFieldsPresenceInPresetVariableClasses(metadata, quoteId, "metadata");
         }
 
+        tariffs.sort(Comparator.comparing(QuotaTariffVO::getPosition));
         BigDecimal tariffsCost = BigDecimal.ZERO;
+        List<Tariff> lastTariffs = new ArrayList<>();
         for (QuotaTariffVO tariff : tariffs) {
             s_logger.trace(String.format("Processing tariff [%s] for quoting [%s].", tariff, quoteId));
-            BigDecimal tariffValue = getQuotaTariffValueToBeApplied(tariff, jsInterpreter, metadata);
+            BigDecimal tariffValue = getQuotaTariffValueToBeApplied(tariff, jsInterpreter, metadata, lastTariffs);
 
             s_logger.trace(String.format("Tariff [%s] for quoting [%s] resulted in the cost per month [%s]. Adding it to the tariffs cost aggregator.", tariff, quoteId,
                     tariffValue));
-
             tariffsCost = tariffsCost.add(tariffValue);
+
+            s_logger.trace(String.format("Adding tariff [%s] and its cost [%s] to the preset variable of last applied tariffs [%s].", tariff, tariffValue, lastTariffs));
+            Tariff tariffPresetVariable = new Tariff();
+            tariffPresetVariable.setId(tariff.getUuid());
+            tariffPresetVariable.setValue(tariffValue);
+            lastTariffs.add(tariffPresetVariable);
         }
 
         BigDecimal volumeToQuote = new BigDecimal(resourceToQuote.getVolumeToQuote());

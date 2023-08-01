@@ -224,6 +224,7 @@ public class QuotaResponseBuilderImpl implements QuotaResponseBuilder {
         response.setDescription(tariff.getDescription());
         response.setId(tariff.getUuid());
         response.setRemoved(tariff.getRemoved());
+        response.setPosition(tariff.getPosition());
         return response;
     }
 
@@ -581,6 +582,7 @@ public class QuotaResponseBuilderImpl implements QuotaResponseBuilder {
         String description = cmd.getDescription();
         String activationRule = cmd.getActivationRule();
         Date now = new Date();
+        Integer position = cmd.getPosition();
 
         warnQuotaTariffUpdateDeprecatedFields(cmd);
 
@@ -595,7 +597,7 @@ public class QuotaResponseBuilderImpl implements QuotaResponseBuilder {
         currentQuotaTariff.setRemoved(now);
 
         QuotaTariffVO newQuotaTariff = persistNewQuotaTariff(currentQuotaTariff, name, 0, currentQuotaTariffStartDate, cmd.getEntityOwnerId(), endDate, value, description,
-                activationRule);
+                activationRule, position);
         _quotaTariffDao.updateQuotaTariff(currentQuotaTariff);
         return newQuotaTariff;
     }
@@ -613,7 +615,7 @@ public class QuotaResponseBuilderImpl implements QuotaResponseBuilder {
     }
 
     protected QuotaTariffVO persistNewQuotaTariff(QuotaTariffVO currentQuotaTariff, String name, int usageType, Date startDate, Long entityOwnerId, Date endDate, Double value,
-            String description, String activationRule) {
+            String description, String activationRule, Integer position) {
 
         QuotaTariffVO newQuotaTariff = getNewQuotaTariffObject(currentQuotaTariff, name, usageType);
 
@@ -625,6 +627,7 @@ public class QuotaResponseBuilderImpl implements QuotaResponseBuilder {
         validateValueOnCreatingNewQuotaTariff(newQuotaTariff, value);
         validateStringsOnCreatingNewQuotaTariff(newQuotaTariff::setDescription, description);
         validateStringsOnCreatingNewQuotaTariff(newQuotaTariff::setActivationRule, activationRule);
+        validatePositionOnCreatingNewQuotaTariff(newQuotaTariff, position);
 
         _quotaTariffDao.addQuotaTariff(newQuotaTariff);
         return newQuotaTariff;
@@ -672,6 +675,12 @@ public class QuotaResponseBuilderImpl implements QuotaResponseBuilder {
         }
 
         newQuotaTariff.setEndDate(endDate);
+    }
+
+    protected void validatePositionOnCreatingNewQuotaTariff(QuotaTariffVO newQuotaTariff, Integer position) {
+        if (position != null) {
+            newQuotaTariff.setPosition(position);
+        }
     }
 
     @Override
@@ -803,6 +812,7 @@ public class QuotaResponseBuilderImpl implements QuotaResponseBuilder {
         Double value = cmd.getValue();
         String description = cmd.getDescription();
         String activationRule = cmd.getActivationRule();
+        Integer position = ObjectUtils.defaultIfNull(cmd.getPosition(), 1);
 
         QuotaTariffVO currentQuotaTariff = _quotaTariffDao.findByName(name);
 
@@ -814,7 +824,7 @@ public class QuotaResponseBuilderImpl implements QuotaResponseBuilder {
             throw new InvalidParameterValueException(String.format("The quota tariff's start date [%s] cannot be less than now [%s]", startDate, now));
         }
 
-        return persistNewQuotaTariff(null, name, usageType, startDate, cmd.getEntityOwnerId(), endDate, value, description, activationRule);
+        return persistNewQuotaTariff(null, name, usageType, startDate, cmd.getEntityOwnerId(), endDate, value, description, activationRule, position);
     }
 
     @ActionEvent(eventType = EventTypes.EVENT_QUOTA_TARIFF_DELETE, eventDescription = "removing Quota Tariff")

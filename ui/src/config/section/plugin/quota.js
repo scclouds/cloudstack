@@ -130,6 +130,11 @@ export default {
           hasActivationRule: (record) => record.activationRule ? i18n.global.t('label.yes') : i18n.global.t('label.no')
         },
         {
+          field: 'executionPosition',
+          customTitle: 'quota.tariff.position',
+          executionPosition: (record) => record.position
+        },
+        {
           field: 'effectiveDate',
           customTitle: 'start.date'
         },

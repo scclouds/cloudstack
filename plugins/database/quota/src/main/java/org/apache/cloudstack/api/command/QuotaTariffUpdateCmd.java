@@ -67,6 +67,9 @@ public class QuotaTariffUpdateCmd extends QuotaBaseCmd {
         " Inform empty to remove the activation rule.", length = 65535, since = "4.18.0.0")
     private String activationRule;
 
+    @Parameter(name = ApiConstants.POSITION, type = CommandType.INTEGER, description = "Position in the execution sequence for tariffs of the same type", since = "4.18.0.2")
+    private Integer position;
+
     public Integer getUsageType() {
         return usageType;
     }
@@ -124,4 +127,11 @@ public class QuotaTariffUpdateCmd extends QuotaBaseCmd {
         return Account.ACCOUNT_ID_SYSTEM;
     }
 
+    public Integer getPosition() {
+        return position;
+    }
+
+    public void setPosition(Integer position) {
+        this.position = position;
+    }
 }

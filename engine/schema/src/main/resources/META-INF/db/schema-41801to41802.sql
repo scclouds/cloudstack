@@ -29,3 +29,6 @@ ALTER TABLE `cloud`.`quarantined_ips`
 UPDATE `cloud`.`console_session` SET removed=now();
 -- Modify acquired column in console_session to datetime type
 ALTER TABLE `cloud`.`console_session` DROP `acquired`, ADD `acquired` datetime COMMENT 'When the session was acquired' AFTER `host_id`;
+
+-- Quota inject tariff result into subsequent ones
+ALTER TABLE `cloud_usage`.`quota_tariff` ADD COLUMN `position` bigint(20) NOT NULL DEFAULT 1 COMMENT 'Position in the execution sequence for tariffs of the same type' ;
