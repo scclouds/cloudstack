@@ -140,33 +140,51 @@ generate-deb-packages:
   tags:
     - cloudstack
   script:
-    - echo "Generating .deb packages..."
+    - echo "Generating .deb Ubuntu Focal Fossa packages..."
     - docker run -v $CI_PROJECT_DIR:/mnt/build/cloudstack -v ~/.m2:/root/.m2 -e "USER_ID=$(id -u)" -e "USER_GID=$(id -g)" -e "ACS_BUILD_OPTS=-Dnoredist" scclouds/cloudstack-deb-builder:ubuntu2004-jdk11-python3
     - echo "Done generating .deb packages."
   artifacts:
     expire_in: 12h
-    name: "test-deb-$CI_COMMIT_SHORT_SHA"
+    name: "deb-ubuntu-focal-$CI_COMMIT_SHORT_SHA"
     paths:
-      - dist/debbuild/DEBS/*-agent*
-      - dist/debbuild/DEBS/*-common*
-      - dist/debbuild/DEBS/*-management*
-      - dist/debbuild/DEBS/*-ui*
-      - dist/debbuild/DEBS/*-usage*
+      - dist/debbuild/DEBS/cloudstack-agent-*.deb
+      - dist/debbuild/DEBS/cloudstack-common-*.deb
+      - dist/debbuild/DEBS/cloudstack-management-*.deb
+      - dist/debbuild/DEBS/cloudstack-ui-*.deb
+      - dist/debbuild/DEBS/cloudstack-usage-*.deb
 
 generate-rpm-packages:
   stage: packaging
   tags:
     - cloudstack
   script:
-    - echo "Generating .rpm packages..."
+    - echo "Generating .rpm CentOS 7 packages..."
     - docker run -v $CI_PROJECT_DIR:/mnt/build/cloudstack -v ~/.m2:/root/.m2 -e "USER_ID=$(id -u)" -e "USER_GID=$(id -g)" scclouds/cloudstack-rpm-builder:centos7-jdk11-gcc9.3 --distribution centos7 --pack noredist
     - echo "Done generating .rpm packages."
   artifacts:
     expire_in: 2h
-    name: "test-rpm-$CI_COMMIT_SHORT_SHA"
+    name: "rpm-centos7-$CI_COMMIT_SHORT_SHA"
     paths:
-      - dist/rpmbuild/RPMS/x86_64/*-agent*
-      - dist/rpmbuild/RPMS/x86_64/*-common*
-      - dist/rpmbuild/RPMS/x86_64/*-management*
-      - dist/rpmbuild/RPMS/x86_64/*-ui*
-      - dist/rpmbuild/RPMS/x86_64/*-usage*
+      - dist/rpmbuild/RPMS/x86_64/cloudstack-agent-*.rpm
+      - dist/rpmbuild/RPMS/x86_64/cloudstack-common-*.rpm
+      - dist/rpmbuild/RPMS/x86_64/cloudstack-management-*.rpm
+      - dist/rpmbuild/RPMS/x86_64/cloudstack-ui-*.rpm
+      - dist/rpmbuild/RPMS/x86_64/cloudstack-usage-*.rpm
+  
+generate-rpm-el9-packages:
+  stage: packaging
+  tags:
+    - cloudstack
+  script:
+    - echo "Generating .rpm EL9 packages..."
+    - docker run -v $CI_PROJECT_DIR:/mnt/build/cloudstack -v ~/.m2:/root/.m2 -e "USER_ID=$(id -u)" -e "USER_GID=$(id -g)" scclouds/cloudstack-rpm-builder:oracle-linux9-jdk11 --distribution el9 --pack noredist
+    - echo "Done generating .rpm packages."
+  artifacts:
+    expire_in: 2h
+    name: "rpm-el9-$CI_COMMIT_SHORT_SHA"
+    paths:
+      - dist/rpmbuild/RPMS/x86_64/cloudstack-agent-*.rpm
+      - dist/rpmbuild/RPMS/x86_64/cloudstack-common-*.rpm
+      - dist/rpmbuild/RPMS/x86_64/cloudstack-management-*.rpm
+      - dist/rpmbuild/RPMS/x86_64/cloudstack-ui-*.rpm
+      - dist/rpmbuild/RPMS/x86_64/cloudstack-usage-*.rpm
