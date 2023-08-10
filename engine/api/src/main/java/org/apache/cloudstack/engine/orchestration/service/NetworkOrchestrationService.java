@@ -103,6 +103,12 @@ public interface NetworkOrchestrationService {
     static final ConfigKey<Boolean> TUNGSTEN_ENABLED = new ConfigKey<>(Boolean.class, "tungsten.plugin.enable", "Advanced", "false",
             "Indicates whether to enable the Tungsten plugin", false, ConfigKey.Scope.Zone, null);
 
+    ConfigKey<Boolean> UseSameMacAddressForPublicNicOfVirtualRoutersOnSameNetwork =
+        new ConfigKey<>("Advanced", Boolean.class, "use.same.mac.address.for.public.nic.of.virtual.routers.on.same.network", "true",
+                        "Indicates whether to use the same MAC address for the public NIC of VRs on the same network. If \"true\", when creating redundant routers or recreating" +
+                        " a VR, CloudStack will use the same MAC address for the public NIC of all VRs. Otherwise, if \"false\", new public NICs will always have " +
+                        " a new MAC address. ", true);
+
     List<? extends Network> setupNetwork(Account owner, NetworkOffering offering, DeploymentPlan plan, String name, String displayText, boolean isDefault)
         throws ConcurrentOperationException;
 
@@ -341,4 +347,8 @@ public interface NetworkOrchestrationService {
     Pair<NicProfile, Integer> importNic(final String macAddress, int deviceId, final Network network, final Boolean isDefaultNic, final VirtualMachine vm, final Network.IpAddresses ipAddresses, boolean forced) throws InsufficientVirtualNetworkCapacityException, InsufficientAddressCapacityException;
 
     void unmanageNics(VirtualMachineProfile vm);
+
+    static Boolean getUseSameMacAddressForPublicNicOfVirtualRoutersOnSameNetworkValue() {
+        return UseSameMacAddressForPublicNicOfVirtualRoutersOnSameNetwork.value();
+    }
 }
