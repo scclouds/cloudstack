@@ -699,21 +699,45 @@ public class NetworkHelperImpl implements NetworkHelper {
 
             final NetworkOffering publicOffering = _networkModel.getSystemAccountNetworkOfferings(NetworkOffering.SystemPublicNetwork).get(0);
             final List<? extends Network> publicNetworks = _networkMgr.setupNetwork(s_systemAccount, publicOffering, routerDeploymentDefinition.getPlan(), null, null, false);
-            final String publicIp = defaultNic.getIPv4Address();
-            // We want to use the identical MAC address for RvR on public
-            // interface if possible
-            final NicVO peerNic = _nicDao.findByIp4AddressAndNetworkId(publicIp, publicNetworks.get(0).getId());
-            if (peerNic != null) {
-                s_logger.info("Use same MAC as previous RvR, the MAC is " + peerNic.getMacAddress());
-                defaultNic.setMacAddress(peerNic.getMacAddress());
-            }
+
+            setPublicNicMacAddressSameAsPeerNic(defaultNic, publicNetworks.get(0));
+
             if (routerDeploymentDefinition.getGuestNetwork() != null) {
                 ipv6Service.updateNicIpv6(defaultNic, routerDeploymentDefinition.getDest().getDataCenter(), routerDeploymentDefinition.getGuestNetwork());
             }
-            publicConfig.put(publicNetworks.get(0), new ArrayList<NicProfile>(Arrays.asList(defaultNic)));
+            publicConfig.put(publicNetworks.get(0), List.of(defaultNic));
         }
 
         return publicConfig;
+    }
+
+    /**
+     * Sets the MAC address of the new VR's public NIC the same as the previous VR's public NIC MAC address if
+     * {@link NetworkOrchestrationService#UseSameMacAddressForPublicNicOfVirtualRoutersOnSameNetwork} is configured as {@code true} and a peer NIC is found; otherwise,
+     * does nothing.
+     */
+    protected void setPublicNicMacAddressSameAsPeerNic(NicProfile defaultNic, Network publicNetwork) {
+        String publicIp = defaultNic.getIPv4Address();
+
+        s_logger.info(String.format("Verifying if we will use same MAC address for public NIC of new VR (with source NAT [%s]).", publicIp));
+
+        if (!NetworkOrchestrationService.getUseSameMacAddressForPublicNicOfVirtualRoutersOnSameNetworkValue()) {
+            s_logger.info(String.format("Not using same MAC address for public NIC of new VR (with source NAT [%s]) as [%s] is configured as [false].", publicIp,
+                NetworkOrchestrationService.UseSameMacAddressForPublicNicOfVirtualRoutersOnSameNetwork.key()));
+            return;
+        }
+
+        s_logger.debug(String.format("Searching for peer NIC for public IP [%s] and network [%s].", publicIp, publicNetwork.getUuid()));
+        NicVO peerNic = _nicDao.findByIp4AddressAndNetworkId(publicIp, publicNetwork.getId());
+
+        if (peerNic != null) {
+            s_logger.info(String.format("Found peer NIC [%s] for public IP [%s] and network [%s]. Setting MAC address [%s] on the public NIC of the VR.",
+                peerNic.getUuid(), publicIp, publicNetwork.getUuid(), peerNic.getMacAddress()));
+            defaultNic.setMacAddress(peerNic.getMacAddress());
+        } else {
+            s_logger.info(String.format("We will not use the same MAC address for public NIC of new VR as we have not found a peer NIC for public IP [%s] and network [%s].",
+                publicIp, publicNetwork.getUuid()));
+        }
     }
 
     @Override
