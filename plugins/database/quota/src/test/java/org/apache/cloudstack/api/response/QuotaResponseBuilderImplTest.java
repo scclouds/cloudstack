@@ -59,6 +59,7 @@ import org.apache.cloudstack.quota.QuotaManager;
 import org.apache.cloudstack.quota.QuotaService;
 import org.apache.cloudstack.quota.activationrule.presetvariables.GenericPresetVariable;
 import org.apache.cloudstack.quota.activationrule.presetvariables.PresetVariables;
+import org.apache.cloudstack.quota.constant.ProcessingPeriod;
 import org.apache.cloudstack.quota.constant.QuotaConfig;
 import org.apache.cloudstack.quota.constant.QuotaTypes;
 import org.apache.cloudstack.quota.dao.QuotaAccountDao;
@@ -195,6 +196,7 @@ public class QuotaResponseBuilderImplTest extends TestCase {
         tariffVO.setCurrencyValue(BigDecimal.valueOf(100.19));
         tariffVO.setEffectiveOn(new Date());
         tariffVO.setUsageDiscriminator("");
+        tariffVO.setProcessingPeriod(ProcessingPeriod.BY_ENTRY);
         return tariffVO;
     }
 
@@ -385,20 +387,34 @@ public class QuotaResponseBuilderImplTest extends TestCase {
     public void getNewQuotaTariffObjectTestCreateFromCurrentQuotaTariff() throws Exception {
         PowerMockito.whenNew(QuotaTariffVO.class).withArguments(Mockito.any(QuotaTariffVO.class)).thenReturn(quotaTariffVoMock);
 
-        quotaResponseBuilderSpy.getNewQuotaTariffObject(quotaTariffVoMock, "", 0);
+        quotaResponseBuilderSpy.getNewQuotaTariffObject(quotaTariffVoMock, "", 0, quotaTariffVoMock.getProcessingPeriod(), quotaTariffVoMock.getExecuteOn());
         PowerMockito.verifyNew(QuotaTariffVO.class).withArguments(Mockito.any(QuotaTariffVO.class));
     }
 
     @Test (expected = InvalidParameterValueException.class)
     public void getNewQuotaTariffObjectTestSetInvalidUsageTypeThrowsInvalidParameterValueException() throws InvalidParameterValueException {
-        quotaResponseBuilderSpy.getNewQuotaTariffObject(null, "test", 0);
+        quotaResponseBuilderSpy.getNewQuotaTariffObject(null, "test", 0, ProcessingPeriod.BY_ENTRY, null);
     }
 
+    @Test (expected = InvalidParameterValueException.class)
+    public void getNewQuotaTariffObjectTestSetInvalidExecuteOnThrowsInvalidParameterValueException() throws InvalidParameterValueException {
+        quotaResponseBuilderSpy.getNewQuotaTariffObject(null, "test", 0, ProcessingPeriod.MONTHLY, 0);
+    }
     @Test
     public void getNewQuotaTariffObjectTestReturnValidObject() throws InvalidParameterValueException {
         String name = "test";
         int usageType = 1;
-        QuotaTariffVO result = quotaResponseBuilderSpy.getNewQuotaTariffObject(null, name, usageType);
+        QuotaTariffVO result = quotaResponseBuilderSpy.getNewQuotaTariffObject(null, name, usageType, ProcessingPeriod.BY_ENTRY, null);
+
+        Assert.assertEquals(name, result.getName());
+        Assert.assertEquals(usageType, result.getUsageType());
+    }
+
+    @Test
+    public void getNewQuotaTariffObjectTestReturnValidObjectWithMonthlyPeriod() throws InvalidParameterValueException {
+        String name = "test";
+        int usageType = 1;
+        QuotaTariffVO result = quotaResponseBuilderSpy.getNewQuotaTariffObject(null, name, usageType, ProcessingPeriod.MONTHLY, 10);
 
         Assert.assertEquals(name, result.getName());
         Assert.assertEquals(usageType, result.getUsageType());
@@ -406,14 +422,14 @@ public class QuotaResponseBuilderImplTest extends TestCase {
 
     @Test
     public void persistNewQuotaTariffTestPersistNewQuotaTariff() {
-        Mockito.doReturn(quotaTariffVoMock).when(quotaResponseBuilderSpy).getNewQuotaTariffObject(Mockito.any(QuotaTariffVO.class), Mockito.anyString(), Mockito.anyInt());
+        Mockito.doReturn(quotaTariffVoMock).when(quotaResponseBuilderSpy).getNewQuotaTariffObject(Mockito.any(QuotaTariffVO.class), Mockito.anyString(), Mockito.anyInt(), Mockito.any(ProcessingPeriod.class), Mockito.nullable(Integer.class));
         Mockito.doNothing().when(quotaResponseBuilderSpy).validateEndDateOnCreatingNewQuotaTariff(Mockito.any(QuotaTariffVO.class), Mockito.any(Date.class), Mockito.any(Date.class));
         Mockito.doNothing().when(quotaResponseBuilderSpy).validateValueOnCreatingNewQuotaTariff(Mockito.any(QuotaTariffVO.class), Mockito.anyDouble());
         Mockito.doNothing().when(quotaResponseBuilderSpy).validateStringsOnCreatingNewQuotaTariff(Mockito.any(Consumer.class), Mockito.anyString());
         Mockito.doNothing().when(quotaResponseBuilderSpy).validatePositionOnCreatingNewQuotaTariff(Mockito.any(QuotaTariffVO.class), Mockito.anyInt());
         Mockito.doReturn(quotaTariffVoMock).when(quotaTariffDaoMock).addQuotaTariff(Mockito.any(QuotaTariffVO.class));
 
-        quotaResponseBuilderSpy.persistNewQuotaTariff(quotaTariffVoMock, "", 1, date, 1l, date, 1.0, "", "", 2);
+        quotaResponseBuilderSpy.persistNewQuotaTariff(quotaTariffVoMock, "", 1, date, 1l, date, 1.0, "", "", 2, ProcessingPeriod.BY_ENTRY, null);
 
         Mockito.verify(quotaTariffDaoMock).addQuotaTariff(Mockito.any(QuotaTariffVO.class));
     }

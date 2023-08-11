@@ -21,10 +21,13 @@ import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Calendar;
+import java.util.Collections;
 import java.util.Comparator;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
+import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -39,7 +42,9 @@ import org.apache.cloudstack.framework.config.dao.ConfigurationDao;
 import org.apache.cloudstack.quota.activationrule.presetvariables.GenericPresetVariable;
 import org.apache.cloudstack.quota.activationrule.presetvariables.PresetVariableHelper;
 import org.apache.cloudstack.quota.activationrule.presetvariables.PresetVariables;
+import org.apache.cloudstack.quota.activationrule.presetvariables.ProcessedData;
 import org.apache.cloudstack.quota.activationrule.presetvariables.Tariff;
+import org.apache.cloudstack.quota.constant.ProcessingPeriod;
 import org.apache.cloudstack.quota.constant.QuotaConfig;
 import org.apache.cloudstack.quota.constant.QuotaTypes;
 import org.apache.cloudstack.quota.dao.QuotaAccountDao;
@@ -54,6 +59,7 @@ import org.apache.cloudstack.quota.vo.QuotaUsageDetailVO;
 import org.apache.cloudstack.quota.vo.QuotaUsageVO;
 import org.apache.cloudstack.quota.vo.ResourcesToQuoteVO;
 import org.apache.cloudstack.usage.UsageService;
+import org.apache.cloudstack.usage.UsageTypes;
 import org.apache.cloudstack.usage.UsageUnitTypes;
 import org.apache.cloudstack.utils.bytescale.ByteScaleUtils;
 import org.apache.cloudstack.utils.jsinterpreter.JsInterpreter;
@@ -267,23 +273,271 @@ public class QuotaManagerImpl extends ManagerBase implements QuotaManager {
 
         s_logger.info(String.format("Starting quota usage calculation for accounts [%s].", accountsToString));
 
-        Map<Integer, Pair<List<QuotaTariffVO>, Boolean>> mapQuotaTariffsPerUsageType = createMapQuotaTariffsPerUsageType();
+        Calendar today = Calendar.getInstance();
+        today.setTimeZone(usageTimeZone);
+        today.set(Calendar.HOUR_OF_DAY, 0);
+        today.set(Calendar.MINUTE, 0);
+        today.set(Calendar.SECOND, 0);
+        today.set(Calendar.MILLISECOND, 0);
+
+        Map<Integer, Pair<List<QuotaTariffVO>, Boolean>> mapQuotaTariffsPerUsageType = createMapQuotaTariffsPerUsageType(null);
+
+        s_logger.debug(String.format("Retrieving active monthly quota tariffs with executeOn up to [%s].", today.get(Calendar.DAY_OF_MONTH)));
+        List<QuotaTariffVO> monthlyTariffs = _quotaTariffDao.listQuotaTariffsWithExecuteOnUpToTargetDate(today.get(Calendar.DAY_OF_MONTH));
+        s_logger.debug(String.format("Retrieved [%s] monthly quota tariffs [%s].", monthlyTariffs.size(), monthlyTariffs));
 
         for (AccountVO account : accounts) {
-            List<UsageVO> usageRecords = getPendingUsageRecordsForQuotaAggregation(account);
-
-            if (usageRecords == null) {
-                s_logger.debug(String.format("Account [%s] does not have pending usage records. Skipping to next account.", account.toString()));
-                continue;
-            }
-
-            List<QuotaUsageVO> quotaUsages = createQuotaUsagesAccordingToQuotaTariffs(account, usageRecords, mapQuotaTariffsPerUsageType);
+            List<QuotaUsageVO> quotaUsages = calculateByEntryTariffs(account, mapQuotaTariffsPerUsageType);
+            quotaUsages.addAll(calculateMonthlyTariffs(account, monthlyTariffs, today));
             processQuotaBalanceForAccount(account, quotaUsages);
         }
 
         s_logger.info(String.format("Finished quota usage calculation for accounts [%s].", accountsToString));
 
         return true;
+    }
+
+    protected List<QuotaUsageVO> calculateByEntryTariffs(AccountVO account, Map<Integer, Pair<List<QuotaTariffVO>, Boolean>> mapQuotaTariffsPerUsageType) {
+        s_logger.debug(String.format("Calculating BY_ENTRY tariffs for account [%s].", account.getId()));
+        List<UsageVO> usageRecords = getPendingUsageRecordsForQuotaAggregation(account);
+
+        if (usageRecords == null) {
+            s_logger.debug(String.format("%s does not have pending usage records for processing 'BY_ENTRY' tariffs.", account));
+            return new ArrayList<>();
+        }
+
+        return createQuotaUsagesAccordingToQuotaTariffs(account, usageRecords, mapQuotaTariffsPerUsageType);
+    }
+
+    protected List<QuotaUsageVO> calculateMonthlyTariffs(AccountVO account, List<QuotaTariffVO> monthlyTariffs, Calendar today) {
+        if (!shouldCalculateUsageRecord(account, null)) {
+            s_logger.debug(String.format("Skipping %s tariffs for %s since Quota is disabled for it.", ProcessingPeriod.MONTHLY, account));
+            return Collections.emptyList();
+        }
+
+        s_logger.debug(String.format("Calculating %s tariffs for %s.", ProcessingPeriod.MONTHLY, account));
+
+        Map<Long, Map<Integer, Pair<QuotaUsageVO, List<QuotaUsageDetailVO>>>> newQuotaUsages;
+
+        try (JsInterpreter jsInterpreter = new JsInterpreter(QuotaConfig.QuotaActivationRuleTimeout.value())) {
+            newQuotaUsages = createQuotaUsagesAccordingToMonthlyQuotaTariffsByResource(monthlyTariffs, today, account, jsInterpreter);
+        } catch (Exception e) {
+            s_logger.error(String.format("Failed to apply %s tariffs for %s due to [%s].", ProcessingPeriod.MONTHLY, account, e.getMessage()), e);
+            return new ArrayList<>();
+        }
+
+        return persistMonthlyQuotaUsages(newQuotaUsages);
+    }
+
+    /**
+     * Returns a map with keys ResourceID and ExecuteDate to the corresponding QuotaUsage and its Details, so we end up with one entry in table QuotaUsage per resource and
+     * per execution date, with overlapping tariffs being distinguished in the Detail table, just like BY_ENTRY.
+     */
+    protected Map<Long, Map<Integer, Pair<QuotaUsageVO, List<QuotaUsageDetailVO>>>> createQuotaUsagesAccordingToMonthlyQuotaTariffsByResource(List<QuotaTariffVO> monthlyTariffs,
+          Calendar today, AccountVO account, JsInterpreter jsInterpreter) {
+        Map<Long, Map<Integer, Pair<QuotaUsageVO, List<QuotaUsageDetailVO>>>> newQuotaUsages = new HashMap<>();
+        Map<Long, Map<Integer, List<Tariff>>> lastTariffs = new HashMap<>();
+
+        monthlyTariffs.sort(Comparator.comparing(QuotaTariffVO::getPosition));
+
+        for (QuotaTariffVO tariff : monthlyTariffs) {
+            if (!isQuotaTariffOnPeriodToBeApplied(today, tariff)) {
+                continue;
+            }
+
+            s_logger.debug(String.format("Applying monthly tariff [%s] to %s as its execute on is [%s].", tariff, account, tariff.getExecuteOn()));
+
+            Pair<Date, Date> startEndDate = getProcessingPeriodStartAndEnd(today, tariff.getExecuteOn());
+            Calendar cal = (Calendar) today.clone();
+            cal.set(Calendar.DAY_OF_MONTH, tariff.getExecuteOn());
+            Date computeDate = cal.getTime();
+
+            s_logger.debug(String.format("Searching for usage records of type [%s] for account [%s] in period [%s] - [%s].", account.getId(), tariff.getUsageType(),
+                    DateUtil.displayDateInTimezone(usageTimeZone, startEndDate.first()), DateUtil.displayDateInTimezone(usageTimeZone, startEndDate.second())));
+
+            List<UsageVO> usageRecords = _usageDao.listAccountUsageRecordsInThePeriod(account, tariff.getUsageType(), startEndDate.first(), startEndDate.second()).first();
+            if (s_logger.isTraceEnabled()) {
+                s_logger.trace(String.format("Found [%s] usage records [%s].", usageRecords.size(), usageRecords));
+            } else {
+                s_logger.debug(String.format("Found [%s] usage records.", usageRecords.size()));
+            }
+
+            Map<Long, List<UsageVO>> mapResourceIdUsageRecords = createMapUsageRecordsPerResourceId(usageRecords);
+            s_logger.debug(String.format("Resources with usage data on period are %s.", mapResourceIdUsageRecords.keySet()));
+            for (Map.Entry<Long, List<UsageVO>> resourceIdToUsageRecords : mapResourceIdUsageRecords.entrySet()) {
+                Long resourceId = resourceIdToUsageRecords.getKey();
+
+                if (hasMonthlyTariffAlreadyBeenProcessedForAccountAndResourceOnCurrentMonth(account, tariff, computeDate, resourceId)) {
+                    s_logger.debug(String.format("Monthly tariff [%s] has already been processed for %s and resource [%s] this month. Skipping it.", account, tariff, resourceId));
+                    continue;
+                }
+
+                lastTariffs.computeIfAbsent(resourceId, k -> new HashMap<>());
+                lastTariffs.get(resourceId).computeIfAbsent(tariff.getExecuteOn(), k -> new ArrayList<>());
+
+                PresetVariables presetVariables = null;
+
+                if (StringUtils.isNotEmpty(tariff.getActivationRule())) {
+                    s_logger.trace(String.format("Loading preset variables for monthly tariff [%s].", tariff));
+                    presetVariables = getMonthlyPresetVariables(resourceIdToUsageRecords.getValue());
+                } else {
+                    s_logger.trace(String.format("Not loading preset variables for monthly tariff [%s] as it does not have an activation rule.", tariff));
+                }
+
+                BigDecimal tariffValue = getQuotaTariffValueToBeApplied(tariff, jsInterpreter, presetVariables, lastTariffs.get(resourceId).get(tariff.getExecuteOn()));
+                s_logger.debug(String.format("Monthly tariff [%s] for resource [%s] had value [%s].", tariff, resourceId, tariffValue));
+
+                Tariff lastTariff = new Tariff();
+                lastTariff.setId(tariff.getUuid());
+                lastTariff.setValue(tariffValue);
+                lastTariffs.get(resourceId).get(tariff.getExecuteOn()).add(lastTariff);
+
+                newQuotaUsages.computeIfAbsent(resourceId, k -> new HashMap<>());
+                Pair<QuotaUsageVO, List<QuotaUsageDetailVO>> oldQuotaUsageEntry = newQuotaUsages.get(resourceId).get(tariff.getExecuteOn());
+                if (oldQuotaUsageEntry == null) {
+                    QuotaUsageVO quotaUsageVo = new QuotaUsageVO();
+                    quotaUsageVo.setResourceId(resourceId);
+                    quotaUsageVo.setAccountId(account.getId());
+                    quotaUsageVo.setDomainId(account.getDomainId());
+                    quotaUsageVo.setUsageType(tariff.getUsageType());
+                    quotaUsageVo.setStartDate(computeDate);
+                    quotaUsageVo.setEndDate(computeDate);
+                    quotaUsageVo.setQuotaUsed(BigDecimal.ZERO);
+                    Pair<QuotaUsageVO, List<QuotaUsageDetailVO>> pair = new Pair<>(quotaUsageVo, new ArrayList<>());
+                    newQuotaUsages.get(resourceId).put(tariff.getExecuteOn(), pair);
+                    oldQuotaUsageEntry = newQuotaUsages.get(resourceId).get(tariff.getExecuteOn());
+                }
+                QuotaUsageDetailVO quotaUsageDetailVO = new QuotaUsageDetailVO();
+                quotaUsageDetailVO.setQuotaUsed(tariffValue);
+                quotaUsageDetailVO.setTariffId(tariff.getId());
+
+                oldQuotaUsageEntry.first().setQuotaUsed(oldQuotaUsageEntry.first().getQuotaUsed().add(tariffValue));
+                oldQuotaUsageEntry.second().add(quotaUsageDetailVO);
+            }
+
+        }
+        return newQuotaUsages;
+    }
+
+    protected boolean isQuotaTariffOnPeriodToBeApplied(Calendar today, QuotaTariffVO tariff) {
+        Calendar executeDay = (Calendar) today.clone();
+        executeDay.set(Calendar.DAY_OF_MONTH, tariff.getExecuteOn());
+        if (tariff.getEndDate() != null && tariff.getEndDate().before(executeDay.getTime())) {
+            s_logger.debug(String.format("Monthly tariff's %s execute day is [%s], however, it ended on [%s]; not applying the tariff.", tariff.getName(),
+                    DateUtil.displayDateInTimezone(usageTimeZone, executeDay.getTime()), DateUtil.displayDateInTimezone(usageTimeZone, tariff.getEndDate())));
+            return false;
+        }
+
+        executeDay.set(Calendar.HOUR_OF_DAY, 23);
+        executeDay.set(Calendar.MINUTE, 59);
+        executeDay.set(Calendar.SECOND, 59);
+        if (tariff.getEffectiveOn().after(executeDay.getTime())) {
+            s_logger.debug(String.format("Monthly tariff's %s execute day is [%s], however, it starts on [%s]; not applying the tariff.", tariff.getName(),
+                    DateUtil.displayDateInTimezone(usageTimeZone, executeDay.getTime()), DateUtil.displayDateInTimezone(usageTimeZone, tariff.getEffectiveOn())));
+            return false;
+        }
+
+        return true;
+    }
+
+    protected Pair<Date, Date> getProcessingPeriodStartAndEnd(Calendar today, Integer executeOn) {
+        Calendar cal = (Calendar) today.clone();
+        cal.set(Calendar.DAY_OF_MONTH, executeOn);
+        cal.add(Calendar.MONTH, -1);
+        Date startDate = cal.getTime();
+        cal.add(Calendar.MONTH, 1);
+        cal.add(Calendar.SECOND, -1);
+        Date endDate = cal.getTime();
+        return new Pair<>(startDate, endDate);
+    }
+
+    protected PresetVariables getMonthlyPresetVariables(List <UsageVO> usages) {
+        List<ProcessedData> processedDataList = new ArrayList<>();
+        for (UsageVO record : usages) {
+            BigDecimal aggregatedTariffsValue = BigDecimal.ZERO;
+            ProcessedData processedData = new ProcessedData();
+            processedData.setUsageValue(record.getRawUsage());
+            processedData.setStartDate(record.getStartDate());
+            processedData.setEndDate(record.getEndDate());
+
+            QuotaUsageVO quotaUsage = _quotaUsageDao.findByUsageItemId(record.getId());
+            List<Tariff> processedDataTariffs = new ArrayList<>();
+            if (quotaUsage != null) {
+                List<QuotaUsageDetailVO> details = quotaUsageDetailDao.listQuotaUsageDetails(quotaUsage.getId());
+                for (QuotaUsageDetailVO detail : details) {
+                    Tariff detailTariff = new Tariff();
+                    detailTariff.setId(detail.getTariffId().toString());
+                    QuotaTariffVO foundTariff = _quotaTariffDao.findById(detail.getTariffId());
+                    if (foundTariff == null) {
+                        s_logger.error(String.format("Tariff [%s] of QuotaUsageDetail [%s] not found.", detail.getTariffId(), detail.getId()));
+                    } else {
+                        detailTariff.setName(_quotaTariffDao.findById(detail.getTariffId()).getName());
+                    }
+                    detailTariff.setValue(detail.getQuotaUsed());
+                    aggregatedTariffsValue = aggregatedTariffsValue.add(detail.getQuotaUsed());
+                    processedDataTariffs.add(detailTariff);
+                }
+            }
+            processedData.setTariffs(processedDataTariffs);
+            processedData.setAggregatedTariffsValue(aggregatedTariffsValue);
+            processedDataList.add(processedData);
+        }
+
+        PresetVariables presetVariables = getPresetVariables(true, usages.get(usages.size()-1));
+        presetVariables.setProcessedData(processedDataList);
+        return presetVariables;
+    }
+
+    protected List<QuotaUsageVO> persistMonthlyQuotaUsages(Map<Long, Map<Integer, Pair<QuotaUsageVO, List<QuotaUsageDetailVO>>>> mapQuotaUsages) {
+        List<QuotaUsageVO> quotaUsages = new ArrayList<>();
+
+        for (Map.Entry<Long, Map<Integer, Pair<QuotaUsageVO, List<QuotaUsageDetailVO>>>> resourceToMap : mapQuotaUsages.entrySet()) {
+            for (Map.Entry<Integer, Pair<QuotaUsageVO, List<QuotaUsageDetailVO>>> dayToList : resourceToMap.getValue().entrySet()) {
+                QuotaUsageVO quotaUsageVO = dayToList.getValue().first();
+                _quotaUsageDao.persistQuotaUsage(quotaUsageVO);
+                quotaUsages.add(quotaUsageVO);
+                persistQuotaUsageDetails(dayToList.getValue().second(), quotaUsageVO.getId());
+            }
+        }
+
+        return quotaUsages;
+    }
+
+    protected boolean hasMonthlyTariffAlreadyBeenProcessedForAccountAndResourceOnCurrentMonth(AccountVO account, QuotaTariffVO tariff, Date monthlyEntryDate, Long resourceId) {
+        List<QuotaUsageVO> quotaUsages = _quotaUsageDao.findPeriodQuotaUsage(account.getId(), account.getDomainId(), tariff.getUsageType(), monthlyEntryDate,
+            monthlyEntryDate, resourceId);
+        for (QuotaUsageVO quotaUsage : quotaUsages) {
+            List<QuotaUsageDetailVO> details = quotaUsageDetailDao.listQuotaUsageDetails(quotaUsage.getId());
+            for (QuotaUsageDetailVO detail : details) {
+                if (detail.getTariffId() == tariff.getId()) {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
+    protected Long getResourceIdAccordingToUsageType(UsageVO usageVo) {
+        switch (usageVo.getUsageType()) {
+            case UsageTypes.NETWORK_OFFERING:
+            case UsageTypes.BACKUP:
+                return usageVo.getOfferingId();
+            case UsageTypes.NETWORK_BYTES_RECEIVED:
+            case UsageTypes.NETWORK_BYTES_SENT:
+                return usageVo.getNetworkId();
+            default:
+                return usageVo.getUsageId();
+        }
+    }
+
+    protected Map<Long, List<UsageVO>> createMapUsageRecordsPerResourceId(List<UsageVO> usageRecords) {
+        Map<Long, List<UsageVO>> mapUsageRecordsPerResourceId = new HashMap<>();
+        for (UsageVO record : usageRecords) {
+            Long resourceId = getResourceIdAccordingToUsageType(record);
+            mapUsageRecordsPerResourceId.computeIfAbsent(resourceId, k -> new LinkedList<>());
+            mapUsageRecordsPerResourceId.get(resourceId).add(record);
+        }
+        return mapUsageRecordsPerResourceId;
     }
 
     protected List<UsageVO> getPendingUsageRecordsForQuotaAggregation(AccountVO account) {
@@ -297,7 +551,7 @@ public class QuotaManagerImpl extends ManagerBase implements QuotaManager {
             return null;
         }
 
-        s_logger.debug(String.format("Retrieved [%s] pending usage records for account [%s].", usageRecords.second(), account.toString()));
+        s_logger.debug(String.format("Retrieved [%s] pending usage records for %s.", usageRecords.second(), account));
 
         return records;
     }
@@ -351,8 +605,8 @@ public class QuotaManagerImpl extends ManagerBase implements QuotaManager {
 
     protected boolean shouldCalculateUsageRecord(AccountVO accountVO, UsageVO usageRecord) {
         if (Boolean.FALSE.equals(QuotaConfig.QuotaAccountEnabled.valueIn(accountVO.getAccountId()))) {
-            s_logger.debug(String.format("Considering usage record [%s] as calculated and skipping it because account [%s] has the quota plugin disabled.",
-                    usageRecord.toString(usageTimeZone), accountVO.toString()));
+            s_logger.debug(String.format("Considering usage record [%s] as calculated and skipping it because %s has the quota plugin disabled.",
+                    usageRecord.toString(usageTimeZone), accountVO));
             return false;
         }
         return true;
@@ -529,6 +783,9 @@ public class QuotaManagerImpl extends ManagerBase implements QuotaManager {
         jsInterpreter.injectStringVariable("resourceType", presetVariables.getResourceType());
         injectPresetVariableToStringIfItIsNotNull(jsInterpreter, "value", presetVariables.getValue());
         injectPresetVariableToStringIfItIsNotNull(jsInterpreter, "zone", presetVariables.getZone());
+        if (presetVariables.getProcessedData() != null) {
+            jsInterpreter.injectVariable("processedData", presetVariables.getProcessedData().toString());
+        }
     }
 
     protected void injectPresetVariableToStringIfItIsNotNull(JsInterpreter jsInterpreter, String variableName, GenericPresetVariable presetVariable) {
@@ -562,19 +819,17 @@ public class QuotaManagerImpl extends ManagerBase implements QuotaManager {
         return true;
     }
 
-    protected Map<Integer, Pair<List<QuotaTariffVO>, Boolean>> createMapQuotaTariffsPerUsageType() {
-        return createMapQuotaTariffsPerUsageType(null);
-    }
-
+    /**
+     * Creates a map of Quota Tariffs per their respective usage types and whether there is any tariff in each list with an activation rule.
+     * @param usageTypes
+     * @return Map of UsageType to Pair of TariffList and hasAnyQuotaTariffWithActivationRule
+     */
     @Override
-    public Map<Integer, Pair<List<QuotaTariffVO>, Boolean>> createMapQuotaTariffsPerUsageType(Set<Integer> usageTypes) {
-        if (usageTypes == null) {
-            s_logger.trace("Retrieving all active quota tariffs.");
-        } else {
-            s_logger.trace(String.format("Retrieving active quota tariffs for the following usage types: %s.", usageTypes));
-        }
+    public Map<Integer, Pair<List<QuotaTariffVO>, Boolean>> createMapQuotaTariffsPerUsageType (Set<Integer> usageTypes) {
+        s_logger.trace(String.format("Retrieving active BY_ENTRY quota tariffs for [%s] usage types.", usageTypes == null ? "all" : usageTypes));
 
-        List<QuotaTariffVO> quotaTariffs = _quotaTariffDao.listQuotaTariffs(null, null, usageTypes, null, null, false, false, null, null, null).first();
+        List<QuotaTariffVO> quotaTariffs = _quotaTariffDao.listQuotaTariffs(null, null, usageTypes, null, null, false, false, null, null, null,
+                ProcessingPeriod.BY_ENTRY, null).first();
 
         s_logger.trace(String.format("Retrieved [%s] quota tariffs [%s].", quotaTariffs.size(), quotaTariffs));
 
@@ -622,7 +877,6 @@ public class QuotaManagerImpl extends ManagerBase implements QuotaManager {
         quotaUsageVo.setQuotaUsed(usageValue);
         quotaUsageVo.setStartDate(usageRecord.getStartDate());
         quotaUsageVo.setEndDate(usageRecord.getEndDate());
-
         return quotaUsageVo;
     }
 

@@ -20,6 +20,8 @@ import java.util.Date;
 import java.util.List;
 import java.util.Set;
 
+import com.cloud.utils.db.QueryBuilder;
+import org.apache.cloudstack.quota.constant.ProcessingPeriod;
 import org.apache.cloudstack.quota.vo.QuotaTariffVO;
 import org.apache.commons.collections.CollectionUtils;
 import org.apache.log4j.Logger;
@@ -68,26 +70,26 @@ public class QuotaTariffDaoImpl extends GenericDaoBase<QuotaTariffVO, Long> impl
 
     @Override
     public Pair<List<QuotaTariffVO>, Integer> listQuotaTariffs(Date startDate, Date endDate, Integer usageType, String name, String uuid, boolean listAll, Long startIndex,
-                                                               Long pageSize) {
-        return listQuotaTariffs(startDate, endDate, usageType, name, uuid, listAll, false, startIndex, pageSize, null);
+                                                               Long pageSize, ProcessingPeriod processingPeriod, Integer executeOn) {
+        return listQuotaTariffs(startDate, endDate, usageType, name, uuid, listAll, false, startIndex, pageSize, null, processingPeriod, executeOn);
     }
 
     @Override
     public Pair<List<QuotaTariffVO>, Integer> listQuotaTariffs(Date startDate, Date endDate, Integer usageType, String name, String uuid, boolean listAll, boolean listOnlyRemoved,
-        Long startIndex, Long pageSize, String keyword) {
+           Long startIndex, Long pageSize, String keyword, ProcessingPeriod processingPeriod, Integer executeOn) {
 
         Set<Integer> types = null;
         if (usageType != null) {
             types = Set.of(usageType);
         }
 
-        return listQuotaTariffs(startDate, endDate, types, name, uuid, listAll, listOnlyRemoved, startIndex, pageSize, keyword);
+        return listQuotaTariffs(startDate, endDate, types, name, uuid, listAll, listOnlyRemoved, startIndex, pageSize, keyword, processingPeriod, executeOn);
     }
 
     @Override
     public Pair<List<QuotaTariffVO>, Integer> listQuotaTariffs(Date startDate, Date endDate, Set<Integer> usageTypes, String name, String uuid, boolean listAll,
-                                                               boolean listOnlyRemoved, Long startIndex, Long pageSize, String keyword) {
-        SearchCriteria<QuotaTariffVO> searchCriteria = createListQuotaTariffsSearchCriteria(startDate, endDate, usageTypes, name, uuid, listOnlyRemoved, keyword);
+           boolean listOnlyRemoved, Long startIndex, Long pageSize, String keyword, ProcessingPeriod processingPeriod, Integer executeOn) {
+        SearchCriteria<QuotaTariffVO> searchCriteria = createListQuotaTariffsSearchCriteria(startDate, endDate, usageTypes, name, uuid, listOnlyRemoved, keyword, processingPeriod, executeOn);
         Filter sorter = new Filter(QuotaTariffVO.class, "usageType", false, startIndex, pageSize);
         sorter.addOrderBy(QuotaTariffVO.class, "effectiveOn", false);
         sorter.addOrderBy(QuotaTariffVO.class, "updatedOn", false);
@@ -95,13 +97,28 @@ public class QuotaTariffDaoImpl extends GenericDaoBase<QuotaTariffVO, Long> impl
         return Transaction.execute(TransactionLegacy.USAGE_DB, (TransactionCallback<Pair<List<QuotaTariffVO>, Integer>>) status -> searchAndCount(searchCriteria, sorter, listAll));
     }
 
+    /**
+     * Lists quota tariffs with executeOn <= targetDate.
+     */
+    @Override
+    public List<QuotaTariffVO> listQuotaTariffsWithExecuteOnUpToTargetDate(Integer targetDate) {
+        return Transaction.execute(TransactionLegacy.USAGE_DB, (TransactionCallback<List<QuotaTariffVO>>) status -> {
+            QueryBuilder<QuotaTariffVO> qb = QueryBuilder.create(QuotaTariffVO.class);
+
+            qb.and(qb.entity().getProcessingPeriod(), SearchCriteria.Op.NEQ, ProcessingPeriod.BY_ENTRY);
+            qb.and(qb.entity().getExecuteOn(), SearchCriteria.Op.LTEQ, targetDate);
+            return search(qb.create(), null);
+        });
+    }
 
     protected SearchCriteria<QuotaTariffVO> createListQuotaTariffsSearchCriteria(Date startDate, Date endDate, Set<Integer> usageTypes, String name, String uuid,
-        boolean listOnlyRemoved, String keyword) {
+        boolean listOnlyRemoved, String keyword, ProcessingPeriod processingPeriod, Integer executeOn) {
         SearchCriteria<QuotaTariffVO> searchCriteria = createListQuotaTariffsSearchBuilder(listOnlyRemoved, usageTypes).create();
 
         searchCriteria.setParametersIfNotNull("startDate", startDate);
         searchCriteria.setParametersIfNotNull("endDate", endDate);
+        searchCriteria.setParametersIfNotNull("processingPeriod", processingPeriod);
+        searchCriteria.setParametersIfNotNull("executeOn", executeOn);
 
         if (usageTypes != null) {
             searchCriteria.setParameters("usageType", usageTypes.toArray());
@@ -124,6 +141,8 @@ public class QuotaTariffDaoImpl extends GenericDaoBase<QuotaTariffVO, Long> impl
         searchBuilder.and("name", searchBuilder.entity().getName(), SearchCriteria.Op.EQ);
         searchBuilder.and("nameLike", searchBuilder.entity().getName(), SearchCriteria.Op.LIKE);
         searchBuilder.and("uuid", searchBuilder.entity().getUuid(), SearchCriteria.Op.EQ);
+        searchBuilder.and("processingPeriod", searchBuilder.entity().getProcessingPeriod(), SearchCriteria.Op.EQ);
+        searchBuilder.and("executeOn", searchBuilder.entity().getExecuteOn(), SearchCriteria.Op.EQ);
 
         if (listOnlyRemoved) {
             searchBuilder.and("removed", searchBuilder.entity().getRemoved(), SearchCriteria.Op.NNULL);
@@ -138,7 +157,7 @@ public class QuotaTariffDaoImpl extends GenericDaoBase<QuotaTariffVO, Long> impl
 
     @Override
     public QuotaTariffVO findByName(String name) {
-        Pair<List<QuotaTariffVO>, Integer> pairQuotaTariffs = listQuotaTariffs(null, null, null, name, null, false, null, null);
+        Pair<List<QuotaTariffVO>, Integer> pairQuotaTariffs = listQuotaTariffs(null, null, null, name, null, false, null, null, null, null);
         List<QuotaTariffVO> quotaTariffs = pairQuotaTariffs.first();
 
         if (CollectionUtils.isEmpty(quotaTariffs)) {
@@ -150,8 +169,13 @@ public class QuotaTariffDaoImpl extends GenericDaoBase<QuotaTariffVO, Long> impl
     }
 
     @Override
+    public QuotaTariffVO findById(Long id) {
+        return Transaction.execute(TransactionLegacy.USAGE_DB, (TransactionCallback<QuotaTariffVO>) status -> super.findById(id));
+    }
+
+    @Override
     public QuotaTariffVO findByUuid(String uuid) {
-        Pair<List<QuotaTariffVO>, Integer> pairQuotaTariffs = listQuotaTariffs(null, null, null, null, uuid, false, null, null);
+        Pair<List<QuotaTariffVO>, Integer> pairQuotaTariffs = listQuotaTariffs(null, null, null, null, uuid, false, null, null, null, null);
         List<QuotaTariffVO> quotaTariffs = pairQuotaTariffs.first();
 
         if (CollectionUtils.isEmpty(quotaTariffs)) {

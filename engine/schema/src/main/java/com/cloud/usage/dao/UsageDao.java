@@ -61,5 +61,7 @@ public interface UsageDao extends GenericDao<UsageVO, Long> {
 
     Pair<List<UsageVO>, Integer> listUsageRecordsPendingForQuotaAggregation(long accountId, long domainId);
 
+    Pair<List<UsageVO>, Integer> listAccountUsageRecordsInThePeriod(AccountVO account, int usageType, Date startDate, Date endDate);
+
     List<Pair<String, String>> listAccountResourcesInThePeriod(long accountId, int usageType, Date startDate, Date endDate);
 }

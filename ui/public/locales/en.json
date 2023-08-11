@@ -1541,6 +1541,8 @@
 "label.quota.summary": "Summary",
 "label.quota.tariff": "Tariff",
 "label.quota.tariff.activationrule": "Activation rule",
+"label.quota.tariff.processingperiod": "Processing period",
+"label.quota.tariff.executeon": "Execute on",
 "label.quota.tariff.effectivedate": "Effective date",
 "label.quota.tariff.hasactivationrule": "Has activation rule?",
 "label.quota.tariff.position": "Position",
@@ -3104,6 +3106,7 @@
 "placeholder.quota.credit.add.min_balance": "Credit's min balance",
 "placeholder.quota.credit.add.value": "Credit's value",
 "placeholder.quota.tariff.activationrule": "Quota tariff's activation rule",
+"placeholder.quota.tariff.executeon": "Quota tariff's execute on",
 "placeholder.quota.tariff.description": "Quota tariff's description",
 "placeholder.quota.tariff.enddate": "Quota tariff's end date",
 "placeholder.quota.tariff.name": "Quota tariff's name",
@@ -3159,5 +3162,7 @@
 "Compute*Month": "Compute * Month",
 "GB*Month": "GB * Month",
 "IP*Month": "IP * Month",
-"Policy*Month": "Policy * Month"
+"Policy*Month": "Policy * Month",
+"BY_ENTRY": "By entry",
+"MONTHLY": "Monthly"
 }

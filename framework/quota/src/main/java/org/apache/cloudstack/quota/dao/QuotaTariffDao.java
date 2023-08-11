@@ -19,6 +19,7 @@ package org.apache.cloudstack.quota.dao;
 import com.cloud.utils.Pair;
 import com.cloud.utils.db.GenericDao;
 
+import org.apache.cloudstack.quota.constant.ProcessingPeriod;
 import org.apache.cloudstack.quota.vo.QuotaTariffVO;
 
 import java.util.Date;
@@ -27,15 +28,20 @@ import java.util.Set;
 
 public interface QuotaTariffDao extends GenericDao<QuotaTariffVO, Long> {
 
-    Pair<List<QuotaTariffVO>, Integer> listQuotaTariffs(Date startDate, Date endDate, Integer usageType, String name, String uuid, boolean listAll, Long startIndex, Long pageSize);
+    Pair<List<QuotaTariffVO>, Integer> listQuotaTariffs(Date startDate, Date endDate, Integer usageType, String name, String uuid, boolean listAll, Long startIndex, Long pageSize,
+                                                        ProcessingPeriod processingPeriod, Integer executeOn);
 
     Pair<List<QuotaTariffVO>, Integer> listQuotaTariffs(Date startDate, Date endDate, Integer usageType, String name, String uuid, boolean listAll, boolean listOnlyRemoved,
-                                                        Long startIndex, Long pageSize, String keyword);
+                                                        Long startIndex, Long pageSize, String keyword, ProcessingPeriod processingPeriod, Integer executeOn);
 
     Pair<List<QuotaTariffVO>, Integer> listQuotaTariffs(Date startDate, Date endDate, Set<Integer> usageTypes, String name, String uuid, boolean listAll, boolean listOnlyRemoved,
-                                                        Long startIndex, Long pageSize, String keyword);
+                                                        Long startIndex, Long pageSize, String keyword, ProcessingPeriod processingPeriod, Integer executeOn);
+
+    List<QuotaTariffVO> listQuotaTariffsWithExecuteOnUpToTargetDate(Integer targetDate);
 
     QuotaTariffVO findByName(String name);
+
+    QuotaTariffVO findById(Long id);
 
     Boolean updateQuotaTariff(QuotaTariffVO plan);
 

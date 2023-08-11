@@ -65,6 +65,25 @@
           v-model:value="form.value"
           :placeholder="$t('placeholder.quota.tariff.value')" />
       </a-form-item>
+      <a-form-item ref="processingPeriod" name="processingPeriod">
+        <template #label>
+          <tooltip-label :title="$t('label.quota.tariff.processingperiod')" :tooltip="apiParams.processingperiod.description"/>
+        </template>
+        <a-select
+          v-model:value="form.processingPeriod">
+          <a-select-option v-for="processingPeriod of getQuotaProcessingPeriods()" :value="`${processingPeriod}`" :key="processingPeriod">
+            {{ $t(processingPeriod) }}
+          </a-select-option>
+        </a-select>
+      </a-form-item>
+      <a-form-item ref="executeOn" name="executeOn" v-if="form.processingPeriod !== 'BY_ENTRY'">
+        <template #label>
+          <tooltip-label :title="$t('label.quota.tariff.executeon')" :tooltip="apiParams.executeon.description"/>
+        </template>
+        <a-input-number
+          v-model:value="form.executeOn"
+          :placeholder="$t('placeholder.quota.tariff.executeon')" />
+      </a-form-item>
       <a-form-item ref="activationRule" name="activationRule">
         <template #label>
           <tooltip-label :title="$t('label.quota.tariff.activationrule')" :tooltip="apiParams.activationrule.description"/>
@@ -140,12 +159,16 @@ export default {
   methods: {
     initForm () {
       this.formRef = ref()
-      this.form = reactive({ value: 0 })
+      this.form = reactive({
+        value: 0,
+        processingPeriod: 'BY_ENTRY'
+      })
       this.rules = reactive({
         name: [{ required: true, message: this.$t('message.action.quota.tariff.create.error.namerequired') }],
         usageType: [{ required: true, message: this.$t('message.action.quota.tariff.create.error.usagetyperequired') }],
         value: [{ required: true, message: this.$t('message.action.quota.tariff.create.error.valuerequired') }]
       })
+      this.processingPeriod = 'BY_ENTRY'
     },
     handleSubmit (e) {
       e.preventDefault()
@@ -184,6 +207,9 @@ export default {
     },
     getQuotaTypes () {
       return getQuotaTypes()
+    },
+    getQuotaProcessingPeriods () {
+      return ['BY_ENTRY', 'MONTHLY']
     },
     disabledStartDate (current) {
       return current < moment().startOf('day')

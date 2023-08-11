@@ -16,6 +16,7 @@ package org.apache.cloudstack.quota.vo;
 
 import java.util.Map;
 
+import org.apache.cloudstack.quota.constant.ProcessingPeriod;
 import org.apache.cloudstack.quota.constant.QuotaTypes;
 import org.junit.Assert;
 import org.junit.Test;
@@ -48,4 +49,65 @@ public class QuotaTariffVOTest {
 
         Assert.assertFalse(result);
     }
+
+    @Test
+    public void setExecuteOnTestByEntryPeriodAndNotNullExecuteOnReturnFalse() {
+        QuotaTariffVO quotaTariffVoTest = new QuotaTariffVO();
+
+        quotaTariffVoTest.setProcessingPeriod(ProcessingPeriod.BY_ENTRY);
+        boolean result = quotaTariffVoTest.setExecuteOn(0);
+
+        Assert.assertTrue(result);
+    }
+
+    @Test
+    public void setExecuteOnTestByEntryPeriodAndNullExecuteOnReturnTrue() {
+        QuotaTariffVO quotaTariffVoTest = new QuotaTariffVO();
+
+        quotaTariffVoTest.setProcessingPeriod(ProcessingPeriod.BY_ENTRY);
+        boolean result = quotaTariffVoTest.setExecuteOn(null);
+
+        Assert.assertTrue(result);
+    }
+
+    @Test
+    public void setExecuteOnTestMonthlyPeriodAndNullExecuteOnReturnFalse() {
+        QuotaTariffVO quotaTariffVoTest = new QuotaTariffVO();
+
+        quotaTariffVoTest.setProcessingPeriod(ProcessingPeriod.MONTHLY);
+        boolean result = quotaTariffVoTest.setExecuteOn(null);
+
+        Assert.assertFalse(result);
+    }
+
+    @Test
+    public void setExecuteOnTestMonthlyPeriodAndExecuteOnLessThan1ReturnFalse() {
+        QuotaTariffVO quotaTariffVoTest = new QuotaTariffVO();
+
+        quotaTariffVoTest.setProcessingPeriod(ProcessingPeriod.MONTHLY);
+        boolean result = quotaTariffVoTest.setExecuteOn(0);
+
+        Assert.assertFalse(result);
+    }
+
+    @Test
+    public void setExecuteOnTestMonthlyPeriodAndExecuteOnMoreThan28ReturnFalse() {
+        QuotaTariffVO quotaTariffVoTest = new QuotaTariffVO();
+
+        quotaTariffVoTest.setProcessingPeriod(ProcessingPeriod.MONTHLY);
+        boolean result = quotaTariffVoTest.setExecuteOn(29);
+
+        Assert.assertFalse(result);
+    }
+
+    @Test
+    public void setExecuteOnTestMonthlyPeriodAndExecuteOnReturnTrue() {
+        QuotaTariffVO quotaTariffVoTest = new QuotaTariffVO();
+
+        quotaTariffVoTest.setProcessingPeriod(ProcessingPeriod.MONTHLY);
+        boolean result = quotaTariffVoTest.setExecuteOn(10);
+
+        Assert.assertTrue(result);
+    }
+
 }

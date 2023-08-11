@@ -27,6 +27,7 @@ import org.apache.cloudstack.api.ServerApiException;
 import org.apache.cloudstack.api.response.QuotaResponseBuilder;
 import org.apache.cloudstack.api.response.QuotaTariffResponse;
 import org.apache.cloudstack.context.CallContext;
+import org.apache.cloudstack.quota.constant.ProcessingPeriod;
 import org.apache.cloudstack.quota.vo.QuotaTariffVO;
 import org.apache.log4j.Logger;
 
@@ -67,6 +68,14 @@ public class QuotaTariffCreateCmd extends QuotaBaseCmd {
 
     @Parameter(name = ApiConstants.POSITION, type = CommandType.INTEGER, description = "Position in the execution sequence for tariffs of the same type", since = "4.18.0.2")
     private Integer position;
+
+    @Parameter(name = "processingperiod", type = CommandType.STRING, description = "Indicates the period in which the tariff will be processed. " +
+            ApiConstants.PARAMETER_DESCRIPTION_QUOTA_PROCESSING_PERIOD_POSSIBLE_FORMATS)
+    private String  processingPeriod;
+
+    @Parameter(name = "executeon", type = CommandType.INTEGER, description = "A value indicating when to execute the tariff according to the processing period. " +
+            ApiConstants.PARAMETER_DESCRIPTION_QUOTA_EXECUTE_ON_POSSIBLE_VALUES)
+    private Integer executeOn;
 
     @Override
     public void execute() {
@@ -139,7 +148,16 @@ public class QuotaTariffCreateCmd extends QuotaBaseCmd {
         return position;
     }
 
-    public void setPosition(Integer position) {
-        this.position = position;
+    public ProcessingPeriod getProcessingPeriod() {
+        if (processingPeriod == null) {
+            return ProcessingPeriod.BY_ENTRY;
+        }
+
+        return ProcessingPeriod.getProcessingPeriodByString(processingPeriod);
     }
+
+    public Integer getExecuteOn() {
+        return executeOn;
+    }
+
 }

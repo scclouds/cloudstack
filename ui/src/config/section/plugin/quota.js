@@ -125,6 +125,11 @@ export default {
           customTitle: 'quota.tariff.value'
         },
         {
+          field: 'processingPeriod',
+          customTitle: 'quota.tariff.processingperiod',
+          processingPeriod: (record) => i18n.global.t(record.processingPeriod)
+        },
+        {
           field: 'hasActivationRule',
           customTitle: 'quota.tariff.hasactivationrule',
           hasActivationRule: (record) => record.activationRule ? i18n.global.t('label.yes') : i18n.global.t('label.no')
@@ -156,6 +161,14 @@ export default {
         {
           field: 'tariffValue',
           customTitle: 'quota.tariff.value'
+        },
+        {
+          field: 'processingPeriod',
+          customTitle: 'quota.tariff.processingperiod'
+        },
+        {
+          field: 'executeOn',
+          customTitle: 'quota.tariff.executeon'
         },
         {
           field: 'effectiveDate',

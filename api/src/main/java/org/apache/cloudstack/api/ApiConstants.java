@@ -1050,6 +1050,11 @@ public class ApiConstants {
             "numeric value will be applied; if the result is neither a boolean nor a numeric value, the tariff will not be applied. If the rule is not informed, the tariff " +
             "value will be applied.";
 
+    public static final String PARAMETER_DESCRIPTION_QUOTA_PROCESSING_PERIOD_POSSIBLE_FORMATS = "Value can be 'BY_ENTRY' or 'MONTHLY'.";
+
+    public static final String PARAMETER_DESCRIPTION_QUOTA_EXECUTE_ON_POSSIBLE_VALUES = "For processing period 'BY_ENTRY', it will be ignored; for 'MONTHLY', the value must " +
+        "be a number between 1 and 28 (included), indicating the day of the month the tariff will be processed.";
+
     public static final String HEURISTIC_RULE = "heuristicrule";
 
     public static final String HEURISTIC_PURPOSE_VALID_OPTIONS = "Valid options are: ISO, SNAPSHOT, TEMPLATE and VOLUME.";
