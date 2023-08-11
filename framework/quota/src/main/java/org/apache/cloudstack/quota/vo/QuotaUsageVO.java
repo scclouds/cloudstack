@@ -53,6 +53,9 @@ public class QuotaUsageVO implements InternalIdentity {
     @Column(name = "usage_type")
     private int usageType;
 
+    @Column(name = "resource_id")
+    private Long resourceId;
+
     @Column(name = "quota_used")
     private BigDecimal quotaUsed;
 
@@ -130,6 +133,14 @@ public class QuotaUsageVO implements InternalIdentity {
 
     public void setUsageItemId(Long usageItemId) {
         this.usageItemId = usageItemId;
+    }
+
+    public Long getResourceId() {
+        return resourceId;
+    }
+
+    public void setResourceId(Long resourceId) {
+        this.resourceId = resourceId;
     }
 
     public int getUsageType() {

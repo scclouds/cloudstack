@@ -16,6 +16,7 @@
 //under the License.
 package org.apache.cloudstack.api.command;
 
+import com.cloud.exception.InvalidParameterValueException;
 import com.cloud.user.Account;
 import com.cloud.user.User;
 import com.cloud.utils.Pair;
@@ -28,6 +29,7 @@ import org.apache.cloudstack.api.response.ListResponse;
 import org.apache.cloudstack.api.response.QuotaResponseBuilder;
 import org.apache.cloudstack.api.response.QuotaTariffResponse;
 import org.apache.cloudstack.context.CallContext;
+import org.apache.cloudstack.quota.constant.ProcessingPeriod;
 import org.apache.cloudstack.quota.vo.QuotaTariffVO;
 import org.apache.cloudstack.utils.reflectiontostringbuilderutils.ReflectionToStringBuilderUtils;
 import org.apache.log4j.Logger;
@@ -69,6 +71,14 @@ public class QuotaTariffListCmd extends QuotaBaseListCmd {
 
     @Parameter(name = ApiConstants.ID, type = CommandType.STRING, description = "The quota tariff's id.", validations = {ApiArgValidator.UuidString})
     private String id;
+
+    @Parameter(name = "processingperiod", type = CommandType.STRING, description = "Filter by the period in which the tariff is processed. " +
+            ApiConstants.PARAMETER_DESCRIPTION_QUOTA_PROCESSING_PERIOD_POSSIBLE_FORMATS)
+    private String processingPeriod;
+
+    @Parameter(name = "executeon", type = CommandType.INTEGER, description = "Filter by when the tariff is processed according to the processing period. " +
+            ApiConstants.PARAMETER_DESCRIPTION_QUOTA_EXECUTE_ON_POSSIBLE_VALUES)
+    private Integer executeOn;
 
     @Override
     public void execute() {
@@ -131,4 +141,28 @@ public class QuotaTariffListCmd extends QuotaBaseListCmd {
         return listOnlyRemoved;
     }
 
+    public ProcessingPeriod getProcessingPeriod() {
+        if (processingPeriod == null) {
+            return null;
+        }
+
+        return ProcessingPeriod.getProcessingPeriodByString(processingPeriod);
+    }
+
+    public Integer getExecuteOn() {
+        if (executeOn == null || getProcessingPeriod() == null) {
+            return executeOn;
+        }
+
+        if (getProcessingPeriod() == ProcessingPeriod.BY_ENTRY) {
+            throw new InvalidParameterValueException(String.format("executeOn [%s] should not be informed for processing period 'BY_ENTRY'.", executeOn));
+        }
+
+        if (executeOn < 1 || executeOn > 28) {
+            throw new InvalidParameterValueException(String.format("Invalid executeOn [%s] for processing period 'MONTHLY'. It must be a value between 1 and 28 (included).",
+                executeOn));
+        }
+
+        return executeOn;
+    }
 }

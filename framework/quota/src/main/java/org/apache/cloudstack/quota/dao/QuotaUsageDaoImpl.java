@@ -114,4 +114,44 @@ public class QuotaUsageDaoImpl extends GenericDaoBase<QuotaUsageVO, Long> implem
         });
     }
 
+    /**
+     * Searches for Quota Usage of non-BY_ENTRY tariffs that match startDate, endDate and resourceId.
+     */
+    @Override
+    public List<QuotaUsageVO> findPeriodQuotaUsage (final Long accountId, final Long domainId, final Integer usageType, final Date startDate, final Date endDate, final Long resourceId) {
+        return Transaction.execute(TransactionLegacy.USAGE_DB, (TransactionCallback<List<QuotaUsageVO>>) status -> {
+            QueryBuilder<QuotaUsageVO> qb = QueryBuilder.create(QuotaUsageVO.class);
+            if (accountId != null) {
+                qb.and(qb.entity().getAccountId(), SearchCriteria.Op.EQ, accountId);
+            }
+            if (domainId != null) {
+                qb.and(qb.entity().getDomainId(), SearchCriteria.Op.EQ, domainId);
+            }
+            if (usageType != null) {
+                qb.and(qb.entity().getUsageType(), SearchCriteria.Op.EQ, usageType);
+            }
+            qb.and(qb.entity().getUsageItemId(), SearchCriteria.Op.EQ, null);
+            qb.and(qb.entity().getStartDate(), SearchCriteria.Op.EQ, startDate);
+            qb.and(qb.entity().getEndDate(), SearchCriteria.Op.EQ, endDate);
+            qb.and(qb.entity().getResourceId(), SearchCriteria.Op.EQ, resourceId);
+            return search(qb.create(), null);
+        });
+    }
+
+    /**
+     * Find Quota Usage record corresponding to Usage record.
+     */
+    @Override
+    public QuotaUsageVO findByUsageItemId (final Long usageItemId) {
+        return Transaction.execute(TransactionLegacy.USAGE_DB, (TransactionCallback<QuotaUsageVO>) status -> {
+            QueryBuilder<QuotaUsageVO> qb = QueryBuilder.create(QuotaUsageVO.class);
+            qb.and(qb.entity().getUsageItemId(), SearchCriteria.Op.EQ, usageItemId);
+            List<QuotaUsageVO> answer = search(qb.create(), null);
+            if (answer.size() > 1) {
+                s_logger.warn(String.format("Found more than one Quota Usage record corresponding to Usage record [%s].", usageItemId));
+            }
+            return answer.isEmpty() ? null : answer.get(0);
+        });
+    }
+
 }

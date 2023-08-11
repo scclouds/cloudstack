@@ -83,6 +83,7 @@ import org.apache.cloudstack.quota.QuotaService;
 import org.apache.cloudstack.quota.QuotaStatement;
 import org.apache.cloudstack.quota.activationrule.presetvariables.GenericPresetVariable;
 import org.apache.cloudstack.quota.activationrule.presetvariables.PresetVariables;
+import org.apache.cloudstack.quota.constant.ProcessingPeriod;
 import org.apache.cloudstack.quota.constant.QuotaConfig;
 import org.apache.cloudstack.quota.constant.QuotaTypes;
 import org.apache.cloudstack.quota.dao.QuotaAccountDao;
@@ -223,6 +224,8 @@ public class QuotaResponseBuilderImpl implements QuotaResponseBuilder {
         response.setEndDate(tariff.getEndDate());
         response.setDescription(tariff.getDescription());
         response.setId(tariff.getUuid());
+        response.setProcessingPeriod(tariff.getProcessingPeriod().toString());
+        response.setExecuteOn(tariff.getExecuteOn());
         response.setRemoved(tariff.getRemoved());
         response.setPosition(tariff.getPosition());
         return response;
@@ -566,11 +569,13 @@ public class QuotaResponseBuilderImpl implements QuotaResponseBuilder {
         String uuid = cmd.getId();
         boolean listOnlyRemoved = cmd.isListOnlyRemoved();
         String keyword = cmd.getKeyword();
+        ProcessingPeriod processingPeriod = cmd.getProcessingPeriod();
+        Integer executeOn = cmd.getExecuteOn();
 
         s_logger.debug(String.format("Listing quota tariffs for parameters [%s].", ReflectionToStringBuilderUtils.reflectOnlySelectedFields(cmd, "effectiveDate",
-                "endDate", "listAll", "name", "page", "pageSize", "usageType", "uuid", "listOnlyRemoved", "keyword")));
+                "endDate", "listAll", "name", "page", "pageSize", "usageType", "uuid", "listOnlyRemoved", "keyword", "processingPeriod", "executeOn")));
 
-        return _quotaTariffDao.listQuotaTariffs(startDate, endDate, usageType, name, uuid, listAll, listOnlyRemoved, startIndex, pageSize, keyword);
+        return _quotaTariffDao.listQuotaTariffs(startDate, endDate, usageType, name, uuid, listAll, listOnlyRemoved, startIndex, pageSize, keyword, processingPeriod, executeOn);
     }
 
     @Override
@@ -593,11 +598,13 @@ public class QuotaResponseBuilderImpl implements QuotaResponseBuilder {
         }
 
         Date currentQuotaTariffStartDate = currentQuotaTariff.getEffectiveOn();
+        ProcessingPeriod currentPeriod = currentQuotaTariff.getProcessingPeriod();
+        Integer currentExecuteOn = currentQuotaTariff.getExecuteOn();
 
         currentQuotaTariff.setRemoved(now);
 
         QuotaTariffVO newQuotaTariff = persistNewQuotaTariff(currentQuotaTariff, name, 0, currentQuotaTariffStartDate, cmd.getEntityOwnerId(), endDate, value, description,
-                activationRule, position);
+                activationRule, position, currentPeriod, currentExecuteOn);
         _quotaTariffDao.updateQuotaTariff(currentQuotaTariff);
         return newQuotaTariff;
     }
@@ -615,9 +622,9 @@ public class QuotaResponseBuilderImpl implements QuotaResponseBuilder {
     }
 
     protected QuotaTariffVO persistNewQuotaTariff(QuotaTariffVO currentQuotaTariff, String name, int usageType, Date startDate, Long entityOwnerId, Date endDate, Double value,
-            String description, String activationRule, Integer position) {
+            String description, String activationRule, Integer position, ProcessingPeriod processingPeriod, Integer executeOn) {
 
-        QuotaTariffVO newQuotaTariff = getNewQuotaTariffObject(currentQuotaTariff, name, usageType);
+        QuotaTariffVO newQuotaTariff = getNewQuotaTariffObject(currentQuotaTariff, name, usageType, processingPeriod, executeOn);
 
         newQuotaTariff.setEffectiveOn(startDate);
         newQuotaTariff.setUpdatedOn(startDate);
@@ -633,7 +640,7 @@ public class QuotaResponseBuilderImpl implements QuotaResponseBuilder {
         return newQuotaTariff;
     }
 
-    protected QuotaTariffVO getNewQuotaTariffObject(QuotaTariffVO currentQuotaTariff, String name, int usageType) {
+    protected QuotaTariffVO getNewQuotaTariffObject(QuotaTariffVO currentQuotaTariff, String name, int usageType, ProcessingPeriod processingPeriod, Integer executeOn) {
         if (currentQuotaTariff != null) {
             return new QuotaTariffVO(currentQuotaTariff);
         }
@@ -642,6 +649,11 @@ public class QuotaResponseBuilderImpl implements QuotaResponseBuilder {
 
         if (!newQuotaTariff.setUsageTypeData(usageType)) {
             throw new InvalidParameterValueException(String.format("There is no usage type with value [%s].", usageType));
+        }
+
+        newQuotaTariff.setProcessingPeriod(processingPeriod);
+        if (!newQuotaTariff.setExecuteOn(executeOn)) {
+            throw new InvalidParameterValueException(String.format("Invalid value of executeOn [%s] for processing period [%s].", executeOn, processingPeriod));
         }
 
         newQuotaTariff.setName(name);
@@ -813,6 +825,8 @@ public class QuotaResponseBuilderImpl implements QuotaResponseBuilder {
         String description = cmd.getDescription();
         String activationRule = cmd.getActivationRule();
         Integer position = ObjectUtils.defaultIfNull(cmd.getPosition(), 1);
+        ProcessingPeriod processingPeriod = cmd.getProcessingPeriod();
+        Integer executeOn = cmd.getExecuteOn();
 
         QuotaTariffVO currentQuotaTariff = _quotaTariffDao.findByName(name);
 
@@ -824,7 +838,7 @@ public class QuotaResponseBuilderImpl implements QuotaResponseBuilder {
             throw new InvalidParameterValueException(String.format("The quota tariff's start date [%s] cannot be less than now [%s]", startDate, now));
         }
 
-        return persistNewQuotaTariff(null, name, usageType, startDate, cmd.getEntityOwnerId(), endDate, value, description, activationRule, position);
+        return persistNewQuotaTariff(null, name, usageType, startDate, cmd.getEntityOwnerId(), endDate, value, description, activationRule, position, processingPeriod, executeOn);
     }
 
     @ActionEvent(eventType = EventTypes.EVENT_QUOTA_TARIFF_DELETE, eventDescription = "removing Quota Tariff")
@@ -1248,7 +1262,7 @@ public class QuotaResponseBuilderImpl implements QuotaResponseBuilder {
 
         List<QuotaUsageDetailsItemResponse> quotaUsageDetailsItemResponseList = new ArrayList<>();
         BigDecimal totalQuotaUsed = new BigDecimal(0);
-        List<QuotaTariffVO> quotaTariffs = _quotaTariffDao.listQuotaTariffs(null, null, usageType, null, null, true, null, null).first();
+        List<QuotaTariffVO> quotaTariffs = _quotaTariffDao.listQuotaTariffs(null, null, usageType, null, null, true, null, null, null, null).first();
 
         for (QuotaUsageJoinVO quotaUsageJoin : quotaUsageJoinList) {
             List<QuotaUsageDetailVO> quotaUsageDetailsList = quotaUsageDetailDao.listQuotaUsageDetails(quotaUsageJoin.getId());

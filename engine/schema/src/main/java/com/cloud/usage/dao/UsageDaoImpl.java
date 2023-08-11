@@ -518,6 +518,32 @@ public class UsageDaoImpl extends GenericDaoBase<UsageVO, Long> implements Usage
         });
     }
 
+    /**
+     * Lists already quotaCalculated account usage records in period [startDate, endDate] of type usagetype.
+     */
+    @Override
+    public Pair<List<UsageVO>, Integer> listAccountUsageRecordsInThePeriod (AccountVO account, int usageType, Date startDate, Date endDate) {
+        return Transaction.execute(TransactionLegacy.USAGE_DB, (TransactionCallback<Pair<List<UsageVO>, Integer>>) status -> {
+            QueryBuilder<UsageVO> qb = QueryBuilder.create(UsageVO.class);
+
+            if (account.getId() != -1) {
+                qb.and(qb.entity().getAccountId(), SearchCriteria.Op.EQ, account.getId());
+            }
+
+            if (account.getDomainId() != -1) {
+                qb.and(qb.entity().getDomainId(), SearchCriteria.Op.EQ, account.getDomainId());
+            }
+
+            qb.and(qb.entity().getStartDate(), SearchCriteria.Op.GTEQ, startDate);
+            qb.and(qb.entity().getEndDate(), SearchCriteria.Op.LTEQ, endDate);
+            qb.and(qb.entity().getQuotaCalculated(), SearchCriteria.Op.EQ, 1);
+            qb.and(qb.entity().getUsageType(), SearchCriteria.Op.EQ, usageType);
+            qb.and(qb.entity().getRawUsage(), SearchCriteria.Op.GT, 0);
+
+            return searchAndCountAllRecords(qb.create(), null);
+        });
+    }
+
     @Override
     public List<Pair<String, String>> listAccountResourcesInThePeriod(long accountId, int usageType, Date startDate, Date endDate) {
         String startDateString = DateUtil.getOutputString(startDate);

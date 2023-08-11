@@ -17,6 +17,8 @@
 
 package org.apache.cloudstack.quota.activationrule.presetvariables;
 
+import java.util.List;
+
 public class PresetVariables {
 
     private Account account;
@@ -25,6 +27,7 @@ public class PresetVariables {
     private String resourceType;
     private Value value;
     private GenericPresetVariable zone;
+    private List<ProcessedData> processedData;
 
     public Account getAccount() {
         return account;
@@ -72,5 +75,13 @@ public class PresetVariables {
 
     public void setZone(GenericPresetVariable zone) {
         this.zone = zone;
+    }
+
+    public List<ProcessedData> getProcessedData() {
+        return processedData;
+    }
+
+    public void setProcessedData(List<ProcessedData> processedData) {
+        this.processedData = processedData;
     }
 }

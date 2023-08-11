@@ -1296,6 +1296,8 @@
 "label.summary": "Sum\u00e1rio",
 "label.quota.tariff": "Tarifa",
 "label.quota.tariff.activationrule": "Regra de ativa\u00e7\u00e3o",
+"label.quota.tariff.processingperiod": "Per\u00edodo de processamento",
+"label.quota.tariff.executeon": "Executar em",
 "label.quota.tariff.effectivedate": "Data efetiva",
 "label.quota.tariff.hasactivationrule": "Possui regra de ativa\u00e7\u00e3o?",
 "label.quota.tariff.position": "Posi\u00e7\u00e3o",
@@ -2530,6 +2532,7 @@
 "placeholder.quota.credit.add.min_balance": "Balan\u00e7o m\u00ednimo",
 "placeholder.quota.credit.add.value": "Valor do cr\u00e9dito",
 "placeholder.quota.tariff.activationrule": "Regra de ativa\u00e7\u00e3o",
+"placeholder.quota.tariff.executeon": "Quando executar (de acordo com o período de processamento)",
 "placeholder.quota.tariff.description": "Descri\u00e7\u00e3o",
 "placeholder.quota.tariff.enddate": "Data de t\u00e9rmino",
 "placeholder.quota.tariff.name": "Nome",
@@ -2585,5 +2588,7 @@
 "Compute*Month": "Recurso * M\u00eas",
 "GB*Month": "GB * M\u00eas",
 "IP*Month": "IP * M\u00eas",
-"Policy*Month": "Pol\u00edticas de Rede * M\u00eas"
+"Policy*Month": "Pol\u00edticas de Rede * M\u00eas",
+"BY_ENTRY": "Por entrada",
+"MONTHLY": "Mensalmente"
 }

@@ -87,6 +87,14 @@ public class QuotaTariffResponse extends BaseResponse {
     @Param(description = "position in the execution sequence for tariffs of the same type")
     private Integer position;
 
+    @SerializedName("processingPeriod")
+    @Param(description = "indicates the period in which the tariff is processed")
+    private String processingPeriod;
+
+    @SerializedName("executeOn")
+    @Param(description = "indicates when to execute the tariff according to the processing period.")
+    private Integer executeOn;
+
     public QuotaTariffResponse() {
         super();
         this.setObjectName("quotatariff");
@@ -183,4 +191,21 @@ public class QuotaTariffResponse extends BaseResponse {
     public void setPosition(Integer position) {
         this.position = position;
     }
+
+    public String getProcessingPeriod() {
+        return processingPeriod;
+    }
+
+    public void setProcessingPeriod(String processingPeriod) {
+        this.processingPeriod = processingPeriod;
+    }
+
+    public Integer getExecuteOn() {
+        return executeOn;
+    }
+
+    public void setExecuteOn(Integer executeOn) {
+        this.executeOn = executeOn;
+    }
+
 }

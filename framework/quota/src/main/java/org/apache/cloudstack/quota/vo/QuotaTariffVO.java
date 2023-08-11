@@ -18,14 +18,18 @@ package org.apache.cloudstack.quota.vo;
 
 import com.cloud.utils.DateUtil;
 import org.apache.cloudstack.api.InternalIdentity;
+import org.apache.cloudstack.quota.constant.ProcessingPeriod;
 import org.apache.cloudstack.quota.constant.QuotaTypes;
 import org.apache.cloudstack.utils.reflectiontostringbuilderutils.ReflectionToStringBuilderUtils;
 
 import com.cloud.utils.db.GenericDao;
 import org.apache.commons.lang3.StringUtils;
+import org.apache.log4j.Logger;
 
 import javax.persistence.Column;
 import javax.persistence.Entity;
+import javax.persistence.EnumType;
+import javax.persistence.Enumerated;
 import javax.persistence.GeneratedValue;
 import javax.persistence.GenerationType;
 import javax.persistence.Id;
@@ -42,6 +46,7 @@ import java.util.UUID;
 @Table(name = "quota_tariff")
 public class QuotaTariffVO implements InternalIdentity {
     private static final long serialVersionUID = -7117933766387653203L;
+    private static final Logger s_logger = Logger.getLogger(QuotaTariffVO.class.getName());
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -96,6 +101,13 @@ public class QuotaTariffVO implements InternalIdentity {
     @Column(name = "position")
     protected Integer position;
 
+    @Column(name = "processing_period")
+    @Enumerated(value = EnumType.STRING)
+    private ProcessingPeriod processingPeriod;
+
+    @Column(name = "execute_on")
+    private Integer executeOn;
+
     public QuotaTariffVO() {
     }
 
@@ -124,6 +136,8 @@ public class QuotaTariffVO implements InternalIdentity {
         this.setActivationRule(that.getActivationRule());
         this.setEndDate(that.getEndDate());
         this.setPosition(that.getPosition());
+        this.setProcessingPeriod(that.getProcessingPeriod());
+        this.setExecuteOn(that.getExecuteOn());
     }
 
     public void setId(Long id) {
@@ -249,6 +263,38 @@ public class QuotaTariffVO implements InternalIdentity {
 
     public String getUuid() {
         return uuid;
+    }
+
+    public ProcessingPeriod getProcessingPeriod() {
+        return processingPeriod;
+    }
+
+    public void setProcessingPeriod(ProcessingPeriod processingPeriod) {
+        this.processingPeriod = processingPeriod;
+    }
+
+    public Integer getExecuteOn() {
+        return executeOn;
+    }
+
+    public boolean setExecuteOn(Integer executeOn) {
+        if (getProcessingPeriod() == ProcessingPeriod.BY_ENTRY) {
+            s_logger.debug("Setting tariff's 'executeon' as 'null' since 'processingPeriod' is 'BY_ENTRY'.");
+            this.executeOn = null;
+            return true;
+        }
+
+        if (executeOn == null) {
+            s_logger.debug("Tariff's 'executeOn' cannot be 'null' if 'processingPeriod' is 'MONTHLY'.");
+            return false;
+        }
+        if (executeOn < 1 || executeOn > 28) {
+            s_logger.debug("Tariff's 'executeOn' for 'processingPeriod' as 'MONTHLY' must be between 1 and 28 (included).");
+            return false;
+        }
+        s_logger.debug(String.format("Tariff's 'executeOn' set as [%s].", executeOn));
+        this.executeOn = executeOn;
+        return true;
     }
 
     public boolean setUsageTypeData(int usageType) {
