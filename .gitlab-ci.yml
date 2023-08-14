@@ -147,11 +147,11 @@ generate-deb-packages:
     expire_in: 12h
     name: "deb-ubuntu-focal-$CI_COMMIT_SHORT_SHA"
     paths:
-      - dist/debbuild/DEBS/cloudstack-agent-*.deb
-      - dist/debbuild/DEBS/cloudstack-common-*.deb
-      - dist/debbuild/DEBS/cloudstack-management-*.deb
-      - dist/debbuild/DEBS/cloudstack-ui-*.deb
-      - dist/debbuild/DEBS/cloudstack-usage-*.deb
+      - dist/debbuild/DEBS/cloudstack-agent_*.deb
+      - dist/debbuild/DEBS/cloudstack-common_*.deb
+      - dist/debbuild/DEBS/cloudstack-management_*.deb
+      - dist/debbuild/DEBS/cloudstack-ui_*.deb
+      - dist/debbuild/DEBS/cloudstack-usage_*.deb
 
 generate-rpm-packages:
   stage: packaging
