@@ -28,6 +28,8 @@ import java.util.StringJoiner;
 
 import javax.annotation.Nonnull;
 
+import com.cloud.agent.properties.AgentProperties;
+import com.cloud.agent.properties.AgentPropertiesFileHandler;
 import org.apache.cloudstack.utils.qemu.QemuImg;
 import org.apache.cloudstack.utils.qemu.QemuImgException;
 import org.apache.cloudstack.utils.qemu.QemuImgFile;
@@ -71,7 +73,8 @@ public class LinstorStorageAdaptor implements StorageAdaptor {
 
     private String getHostname() {
         // either there is already some function for that in the agent or a better way.
-        ProcessBuilder pb = new ProcessBuilder("/usr/bin/hostname");
+        String hostnamePath = AgentPropertiesFileHandler.getPropertyValue(AgentProperties.HOSTNAME_PATH);
+        ProcessBuilder pb = new ProcessBuilder(hostnamePath);
         try
         {
             String result;
@@ -87,7 +90,7 @@ public class LinstorStorageAdaptor implements StorageAdaptor {
             return result.trim();
         } catch (IOException | InterruptedException exc) {
             Thread.currentThread().interrupt();
-            throw new CloudRuntimeException("Unable to run '/usr/bin/hostname' command.");
+            throw new CloudRuntimeException(String.format("Unable to run command [%s].", hostnamePath));
         }
     }
 

@@ -753,6 +753,13 @@ public class AgentProperties{
      */
     public static final Property<Long> KVM_HEARTBEAT_CHECKER_TIMEOUT = new Property<>("kvm.heartbeat.checker.timeout", 360000l);
 
+    /**
+     * Path to the binary for the command 'hostname'.<br>
+     * Data type: String.<br>
+     * Default value: <code>/usr/bin/hostname</code>
+     */
+    public static final Property<String> HOSTNAME_PATH = new Property<>("hostname.path", "/usr/bin/hostname");
+
     public static class Property <T>{
         private String name;
         private T defaultValue;
