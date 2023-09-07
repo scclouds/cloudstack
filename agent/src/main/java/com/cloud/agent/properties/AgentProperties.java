@@ -788,6 +788,13 @@ public class AgentProperties{
      */
     public static final Property<String> KEYSTORE_PASSPHRASE = new Property<>(KeyStoreUtils.KS_PASSPHRASE_PROPERTY, null, String.class);
 
+    /**
+     * Path to the binary for the command 'hostname'.<br>
+     * Data type: String.<br>
+     * Default value: <code>/usr/bin/hostname</code>
+     */
+    public static final Property<String> HOSTNAME_PATH = new Property<>("hostname.path", "/usr/bin/hostname");
+
     public static class Property <T>{
         private String name;
         private T defaultValue;
