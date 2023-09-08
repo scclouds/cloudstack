@@ -41,6 +41,7 @@ import com.cloud.domain.DomainVO;
 import com.cloud.event.ActionEvent;
 import com.cloud.event.EventTypes;
 import com.cloud.exception.PermissionDeniedException;
+import com.cloud.projects.dao.ProjectDao;
 import com.cloud.serializer.GsonHelper;
 import com.cloud.utils.exception.CloudRuntimeException;
 import com.cloud.network.dao.IPAddressDao;
@@ -50,6 +51,7 @@ import com.cloud.network.dao.NetworkDao;
 import com.cloud.network.dao.NetworkVO;
 import com.cloud.offerings.NetworkOfferingVO;
 import com.cloud.offerings.dao.NetworkOfferingDao;
+import com.cloud.projects.Project;
 import com.cloud.storage.SnapshotVO;
 import com.cloud.storage.VMTemplateVO;
 import com.cloud.storage.VolumeVO;
@@ -60,6 +62,7 @@ import com.cloud.vm.VMInstanceVO;
 import com.cloud.vm.dao.VMInstanceDao;
 import com.google.common.collect.Sets;
 import com.google.common.reflect.TypeToken;
+import org.apache.cloudstack.api.ApiConstants;
 import org.apache.cloudstack.api.ApiErrorCode;
 import org.apache.cloudstack.api.ServerApiException;
 import org.apache.cloudstack.api.command.QuotaBalanceCmd;
@@ -73,6 +76,7 @@ import org.apache.cloudstack.api.command.QuotaStatementDetailsCmd;
 import org.apache.cloudstack.api.command.QuotaSummaryCmd;
 import org.apache.cloudstack.api.command.QuotaTariffCreateCmd;
 import org.apache.cloudstack.api.command.QuotaTariffListCmd;
+import org.apache.cloudstack.api.command.QuotaTariffStatementCmd;
 import org.apache.cloudstack.api.command.QuotaTariffUpdateCmd;
 import org.apache.cloudstack.backup.BackupOfferingVO;
 import org.apache.cloudstack.backup.dao.BackupOfferingDao;
@@ -200,6 +204,9 @@ public class QuotaResponseBuilderImpl implements QuotaResponseBuilder {
 
     @Inject
     private IPAddressDao ipAddressDao;
+
+    @Inject
+    private ProjectDao projectDao;
 
     private Set<Account.Type> accountTypesThatCanListAllQuotaSummaries = Sets.newHashSet(Account.Type.ADMIN, Account.Type.DOMAIN_ADMIN);
 
@@ -456,8 +463,6 @@ public class QuotaResponseBuilderImpl implements QuotaResponseBuilder {
             return;
         }
 
-        List<QuotaStatementItemResourceResponse> itemDetails = new ArrayList<>();
-
         Map<Long, BigDecimal> quotaUsagesValuesAggregatedById = quotaUsageRecords
                 .stream()
                 .filter(quotaUsageJoinVo -> getResourceIdByUsageType(quotaUsageJoinVo, usageType) != null)
@@ -466,23 +471,7 @@ public class QuotaResponseBuilderImpl implements QuotaResponseBuilder {
                         Collectors.reducing(new BigDecimal(0), QuotaUsageJoinVO::getQuotaUsed, BigDecimal::add)
                 ));
 
-        for (Map.Entry<Long, BigDecimal> entry : quotaUsagesValuesAggregatedById.entrySet()) {
-            QuotaStatementItemResourceResponse detail = new QuotaStatementItemResourceResponse();
-
-            detail.setQuotaUsed(entry.getValue());
-
-            QuotaUsageResourceVO resource = getResourceFromIdAndType(entry.getKey(), usageType);
-            if (resource != null) {
-                detail.setResourceId(resource.getUuid());
-                detail.setDisplayName(resource.getName());
-                detail.setRemoved(resource.isRemoved());
-            } else {
-                detail.setDisplayName("<untraceable>");
-            }
-
-            itemDetails.add(detail);
-        }
-
+        List<QuotaStatementItemResourceResponse> itemDetails = createQuotaStatementItemResourceResponsesFromUsageValuesAggregatedByResourceId(quotaUsagesValuesAggregatedById, usageType);
         statementItem.setResources(itemDetails);
     }
 
@@ -1229,6 +1218,7 @@ public class QuotaResponseBuilderImpl implements QuotaResponseBuilder {
             throw new InvalidParameterValueException(String.format("The start date [%s] must be before the end date [%s].", startDate, endDate));
         }
 
+
         Pair<Long, String> resourceIdAndName = retrieveResourceIdAndNamePair(resourceUuid, usageType);
         if (resourceIdAndName == null) {
             throw new CloudRuntimeException(String.format("Unable to find resource with ID [%s] and usage type [%s].", resourceUuid, usageType));
@@ -1255,7 +1245,7 @@ public class QuotaResponseBuilderImpl implements QuotaResponseBuilder {
         s_logger.debug(String.format("Attempting to find quota usages with parameters usage type [%s], usage id [%s], network id [%s], offering id [%s], and between [%s] and [%s].",
                 usageType, resourceId, networkId, offeringId, startDate, endDate));
 
-        List<QuotaUsageJoinVO> quotaUsageJoinList = quotaUsageJoinDao.findQuotaUsage(null, null, usageType, resourceId, networkId, offeringId, startDate, endDate);
+        List<QuotaUsageJoinVO> quotaUsageJoinList = quotaUsageJoinDao.findQuotaUsage(null, null, usageType, resourceId, networkId, offeringId, startDate, endDate, null);
 
         s_logger.debug(String.format("Found [%s] quota usages using as parameter usage type [%s], usage id [%s], network id [%s], offering id [%s], and between [%s] and [%s].",
                 quotaUsageJoinList.size(), usageType, resourceId, networkId, offeringId, startDate, endDate));
@@ -1278,6 +1268,77 @@ public class QuotaResponseBuilderImpl implements QuotaResponseBuilder {
                 totalQuotaUsed));
 
         return createQuotaUsageDetailsResponse(resourceName, resourceUuid, usageType, quotaUsageDetailsItemResponseList, totalQuotaUsed);
+    }
+
+    /**
+     * Finds quota usage records and their corresponding details and adds them to the lists provided as parameters.
+     * @param accountId id of the account that used the quota.
+     * @param domainId id of the domain which the provided account belongs to.
+     * @param tariffName name of the corresponding tariff.
+     * @param usageType usage type of the corresponding tariff.
+     * @param startDate start of the search period.
+     * @param endDate end of the search period.
+     * @param tariffUsageRecords list which will receive the usage records.
+     * @param tariffUsageDetails list which will receive the usage details corresponding to the found usage records.
+     */
+    protected void findQuotaUsagesAndDetailsByTariffAndAccount(Long accountId, Long domainId, String tariffName, Integer usageType, Date startDate, Date endDate, List<QuotaUsageJoinVO> tariffUsageRecords, List<QuotaUsageDetailVO> tariffUsageDetails) {
+        List<Long> idsOfTariffsThatHaveTheSameName = _quotaTariffDao.listQuotaTariffsOrderedByNotRemovedFirst(usageType, tariffName).stream().map(QuotaTariffVO::getId).collect(Collectors.toList());
+        s_logger.debug(String.format("Found [%s] tariffs named [%s].", idsOfTariffsThatHaveTheSameName.size(), tariffName));
+        for (Long id : idsOfTariffsThatHaveTheSameName) {
+            tariffUsageDetails.addAll(quotaUsageDetailDao.findQuotaUsageDetails(accountId, domainId, usageType, id, startDate, endDate));
+            tariffUsageRecords.addAll(quotaUsageJoinDao.findQuotaUsage(accountId, domainId, usageType, null, null, null, startDate, endDate, id));
+        }
+    }
+
+    protected List<QuotaTariffStatementItemResponse> createQuotaTariffStatementItemList(QuotaTariffStatementCmd cmd) {
+        List<QuotaTariffStatementItemResponse> quotaTariffStatementItemResponseList = new ArrayList<>();
+
+        List<QuotaTariffVO> quotaTariffs = _quotaTariffDao.listQuotaTariffsOrderedByNotRemovedFirst(cmd.getUsageType(), cmd.getTariffName());
+        s_logger.debug(String.format("Found a total of [%s] quota tariffs.", quotaTariffs.size()));
+
+        List<String> processedTariffs = new ArrayList<>();
+        for (QuotaTariffVO quotaTariff : quotaTariffs) {
+            if (processedTariffs.contains(quotaTariff.getName())) {
+                s_logger.debug(String.format("Skipping tariff [%s] since a statement for a tariff with the same name was already generated.", quotaTariff));
+                continue;
+            }
+            processedTariffs.add(quotaTariff.getName());
+            s_logger.debug(String.format("Generating statement for tariff [%s].", quotaTariff));
+
+            List<QuotaUsageJoinVO> tariffUsageRecords = new ArrayList<>();
+            List<QuotaUsageDetailVO> tariffUsageDetails = new ArrayList<>();
+            findQuotaUsagesAndDetailsByTariffAndAccount(cmd.getEntityOwnerId(), cmd.getDomainId(), quotaTariff.getName(), cmd.getUsageType(), cmd.getStartDate(), cmd.getEndDate(), tariffUsageRecords, tariffUsageDetails);
+
+            QuotaTariffStatementItemResponse tariffStatementItemResponse = createQuotaTariffStatementItemResponse(quotaTariff, tariffUsageDetails, tariffUsageRecords, cmd.isShowResources());
+            if (tariffStatementItemResponse.getQuotaUsed().compareTo(BigDecimal.ZERO) > 0) {
+                s_logger.debug(String.format("Generated statement for tariff [%s] has a quota usage [%s] greater than zero; therefore, it will be added to the response.", quotaTariff, tariffStatementItemResponse.getQuotaUsed()));
+                quotaTariffStatementItemResponseList.add(tariffStatementItemResponse);
+            } else {
+                s_logger.debug(String.format("Generated statement for tariff [%s] has a quota usage equal to zero; therefore, it will not be added to the response.", quotaTariff));
+            }
+        }
+
+        return quotaTariffStatementItemResponseList;
+    }
+
+    @Override
+    public QuotaTariffStatementResponse listQuotaTariffUsage(QuotaTariffStatementCmd cmd) {
+        Long accountId = cmd.getEntityOwnerId();
+        Long domainId = cmd.getDomainId();
+        Date startDate = cmd.getStartDate();
+        Date endDate = cmd.getEndDate();
+        String tariffName = cmd.getTariffName();
+        Integer usageType = cmd.getUsageType();
+
+        if (startDate.after(endDate)) {
+            throw new InvalidParameterValueException(String.format("The start date [%s] must be before the end date [%s].", startDate, endDate));
+        }
+
+        List<QuotaTariffStatementItemResponse> quotaTariffStatementItemResponseList = createQuotaTariffStatementItemList(cmd);
+        BigDecimal totalQuotaUsed = quotaTariffStatementItemResponseList.stream().map(QuotaTariffStatementItemResponse::getQuotaUsed).reduce(BigDecimal.ZERO, BigDecimal::add);
+        s_logger.debug(String.format("The total quota usage for account [%s] in domain [%s] of tariff [%s] and usage type [%s] between [%s] and [%s] was [%s].", accountId, domainId, tariffName, usageType, startDate, endDate, totalQuotaUsed));
+
+        return createQuotaTariffStatementResponse(cmd, quotaTariffStatementItemResponseList, totalQuotaUsed);
     }
 
     protected Pair<Long, String> retrieveResourceIdAndNamePair(String resourceUuid, Integer usageType) {
@@ -1398,5 +1459,107 @@ public class QuotaResponseBuilderImpl implements QuotaResponseBuilder {
         quotaUsageDetailsResponse.setTotalQuotaUsed(totalQuotaUsed);
 
         return quotaUsageDetailsResponse;
+    }
+
+    protected QuotaTariffStatementItemResponse createQuotaTariffStatementItemResponse(QuotaTariffVO tariff, List<QuotaUsageDetailVO> quotaUsageDetailList, List<QuotaUsageJoinVO> quotaUsageRecords, boolean showResources) {
+        QuotaTariffStatementItemResponse tariffStatementItemResponse = new QuotaTariffStatementItemResponse();
+
+        tariffStatementItemResponse.setTariffId(tariff.getUuid());
+        tariffStatementItemResponse.setTariffName(tariff.getName());
+        tariffStatementItemResponse.setUsageType(tariff.getUsageType());
+        tariffStatementItemResponse.setUsageName(tariff.getUsageName());
+        tariffStatementItemResponse.setUsageUnit(tariff.getUsageUnit());
+
+        BigDecimal quotaUsed = quotaUsageDetailList.stream().map(QuotaUsageDetailVO::getQuotaUsed).reduce(BigDecimal.ZERO, BigDecimal::add);
+        tariffStatementItemResponse.setQuotaUsed(quotaUsed);
+
+        if (showResources) {
+            setTariffStatementItemResources(tariffStatementItemResponse, tariff.getUsageType(), quotaUsageDetailList, quotaUsageRecords);
+        }
+
+        return tariffStatementItemResponse;
+    }
+
+    protected void setTariffStatementItemResources(QuotaTariffStatementItemResponse statementItem, int usageType, List<QuotaUsageDetailVO> quotaUsageDetailList, List<QuotaUsageJoinVO> quotaUsageRecords) {
+        String tariffAsString = ReflectionToStringBuilderUtils.reflectOnlySelectedFields(statementItem, "tariffId", "tariffName");
+        s_logger.info(String.format("Calculating how much quota each resource consumed with tariff [%s].", tariffAsString));
+
+        Map<Long, QuotaUsageJoinVO> quotaUsageRecordsMap = quotaUsageRecords.stream().collect(Collectors.toMap(QuotaUsageJoinVO::getId, usageJoinVo -> usageJoinVo));
+        Map<Long, BigDecimal> quotaUsageValuesAggregatedByResourceId = new HashMap<>();
+
+        for (QuotaUsageDetailVO quotaUsageDetail : quotaUsageDetailList) {
+            QuotaUsageJoinVO correspondingQuotaUsageRecord = quotaUsageRecordsMap.get(quotaUsageDetail.getQuotaUsageId());
+            if (correspondingQuotaUsageRecord == null) {
+                s_logger.debug(String.format("Could not find a quota usage entry corresponding to quota usage detail [%s]; therefore, this detail will not be considered in tariff [%s]'s resources.", quotaUsageDetail, tariffAsString));
+                continue;
+            }
+
+            Long resourceId = getResourceIdByUsageType(correspondingQuotaUsageRecord, usageType);
+            if (resourceId == null) {
+                s_logger.debug(String.format("Could not find a resource with id [%s] for quota usage detail [%s]; therefore, this detail will not be considered in tariff [%s]'s resources.", resourceId, quotaUsageDetail, tariffAsString));
+                continue;
+            }
+
+            BigDecimal quotaUsedByResource = quotaUsageValuesAggregatedByResourceId.get(resourceId) != null ? quotaUsageValuesAggregatedByResourceId.get(resourceId) : BigDecimal.ZERO;
+            quotaUsageValuesAggregatedByResourceId.put(resourceId, quotaUsedByResource.add(quotaUsageDetail.getQuotaUsed()));
+        }
+
+        s_logger.info(String.format("Adding the calculated quota usage of [%s] resources into tariff [%s]'s response item.", quotaUsageValuesAggregatedByResourceId.keySet().size(), tariffAsString));
+        List<QuotaStatementItemResourceResponse> itemDetails = createQuotaStatementItemResourceResponsesFromUsageValuesAggregatedByResourceId(quotaUsageValuesAggregatedByResourceId, usageType);
+        statementItem.setResources(itemDetails);
+    }
+
+    protected List<QuotaStatementItemResourceResponse> createQuotaStatementItemResourceResponsesFromUsageValuesAggregatedByResourceId(Map<Long, BigDecimal> quotaUsageValuesAggregatedByResourceId, int usageType) {
+        List<QuotaStatementItemResourceResponse> itemDetails = new ArrayList<>();
+
+        for (Map.Entry<Long, BigDecimal> entry : quotaUsageValuesAggregatedByResourceId.entrySet()) {
+            QuotaStatementItemResourceResponse detail = new QuotaStatementItemResourceResponse();
+
+            detail.setQuotaUsed(entry.getValue());
+
+            QuotaUsageResourceVO resource = getResourceFromIdAndType(entry.getKey(), usageType);
+            if (resource != null) {
+                detail.setResourceId(resource.getUuid());
+                detail.setDisplayName(resource.getName());
+                detail.setRemoved(resource.isRemoved());
+            } else {
+                detail.setDisplayName("<untraceable>");
+            }
+
+            itemDetails.add(detail);
+        }
+
+        return itemDetails;
+    }
+
+    protected QuotaTariffStatementResponse createQuotaTariffStatementResponse(QuotaTariffStatementCmd cmd, List<QuotaTariffStatementItemResponse> quotaTariffStatementItemResponseList, BigDecimal totalQuotaUsed) {
+        QuotaTariffStatementResponse tariffStatementResponse = new QuotaTariffStatementResponse();
+
+        Long accountId = cmd.getEntityOwnerId();
+        Account account = _accountMgr.getActiveAccountById(accountId);
+        if (account.getType() == Account.Type.PROJECT) {
+            Project project = projectDao.findByProjectAccountId(account.getId());
+            tariffStatementResponse.setProjectId(project.getUuid());
+            tariffStatementResponse.setProject(project.getName());
+        } else {
+            tariffStatementResponse.setAccountId(account.getUuid());
+            tariffStatementResponse.setAccountName(account.getAccountName());
+        }
+
+        Long domainId = cmd.getDomainId() != null ? cmd.getDomainId() : account.getDomainId();
+        DomainVO domain = domainDao.findByIdIncludingRemoved(domainId);
+        if (domain != null) {
+            tariffStatementResponse.setDomainId(domain.getUuid());
+            tariffStatementResponse.setDomain(domain.getName());
+        }
+
+        tariffStatementResponse.setCurrency(QuotaConfig.QuotaCurrencySymbol.value());
+        tariffStatementResponse.setTotalQuotaUsed(totalQuotaUsed);
+        tariffStatementResponse.setQuotaUsage(quotaTariffStatementItemResponseList);
+        tariffStatementResponse.setStartDate(cmd.getStartDate());
+        tariffStatementResponse.setEndDate(cmd.getEndDate());
+        tariffStatementResponse.setObjectName(ApiConstants.TARIFF_STATEMENT);
+
+        return tariffStatementResponse;
     }
 }

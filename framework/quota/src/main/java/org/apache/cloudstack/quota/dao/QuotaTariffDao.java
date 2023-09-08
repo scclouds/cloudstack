@@ -39,6 +39,8 @@ public interface QuotaTariffDao extends GenericDao<QuotaTariffVO, Long> {
 
     List<QuotaTariffVO> listQuotaTariffsWithExecuteOnUpToTargetDate(Integer targetDate);
 
+    List<QuotaTariffVO> listQuotaTariffsOrderedByNotRemovedFirst(Integer usageType, String name);
+
     QuotaTariffVO findByName(String name);
 
     QuotaTariffVO findById(Long id);

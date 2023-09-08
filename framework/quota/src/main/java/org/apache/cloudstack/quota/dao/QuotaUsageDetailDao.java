@@ -18,6 +18,8 @@ package org.apache.cloudstack.quota.dao;
 
 import com.cloud.utils.db.GenericDao;
 import org.apache.cloudstack.quota.vo.QuotaUsageDetailVO;
+
+import java.util.Date;
 import java.util.List;
 
 public interface QuotaUsageDetailDao extends GenericDao<QuotaUsageDetailVO, Long> {
@@ -25,5 +27,7 @@ public interface QuotaUsageDetailDao extends GenericDao<QuotaUsageDetailVO, Long
     void persistQuotaUsageDetail(QuotaUsageDetailVO quotaUsageDetail);
 
     List<QuotaUsageDetailVO> listQuotaUsageDetails(Long quotaUsageId);
+
+    List<QuotaUsageDetailVO> findQuotaUsageDetails(Long accountId, Long domainId, Integer usageType, Long tariffId, Date startDate, Date endDate);
 
 }

@@ -16,18 +16,22 @@
 //under the License.
 package org.apache.cloudstack.quota.dao;
 
+import com.cloud.utils.db.GenericDaoBase;
+import com.cloud.utils.db.JoinBuilder;
 import com.cloud.utils.db.SearchBuilder;
 import com.cloud.utils.db.SearchCriteria;
-import org.apache.cloudstack.quota.vo.QuotaUsageDetailVO;
-import org.apache.log4j.Logger;
-import org.springframework.stereotype.Component;
-
-import com.cloud.utils.db.GenericDaoBase;
 import com.cloud.utils.db.Transaction;
 import com.cloud.utils.db.TransactionCallback;
 import com.cloud.utils.db.TransactionLegacy;
+import org.apache.cloudstack.quota.vo.QuotaUsageDetailVO;
+import org.apache.cloudstack.quota.vo.QuotaUsageVO;
+import org.apache.commons.lang3.ObjectUtils;
+import org.apache.log4j.Logger;
+import org.springframework.stereotype.Component;
 
 import javax.annotation.PostConstruct;
+import javax.inject.Inject;
+import java.util.Date;
 import java.util.List;
 
 @Component
@@ -36,10 +40,22 @@ public class QuotaUsageDetailDaoImpl extends GenericDaoBase<QuotaUsageDetailVO, 
 
     private SearchBuilder<QuotaUsageDetailVO> searchQuotaUsageDetails;
 
+    @Inject
+    QuotaUsageDao quotaUsageDao;
+
     @PostConstruct
     public void init() {
+        SearchBuilder<QuotaUsageVO> searchQuotaUsages = quotaUsageDao.createSearchBuilder();
+        searchQuotaUsages.and("accountId", searchQuotaUsages.entity().getAccountId(), SearchCriteria.Op.EQ);
+        searchQuotaUsages.and("domainId", searchQuotaUsages.entity().getDomainId(), SearchCriteria.Op.EQ);
+        searchQuotaUsages.and("usageType", searchQuotaUsages.entity().getUsageType(), SearchCriteria.Op.EQ);
+        searchQuotaUsages.and("startDate", searchQuotaUsages.entity().getStartDate(), SearchCriteria.Op.BETWEEN);
+        searchQuotaUsages.and("endDate", searchQuotaUsages.entity().getEndDate(), SearchCriteria.Op.BETWEEN);
+
         searchQuotaUsageDetails = createSearchBuilder();
-        searchQuotaUsageDetails.and("quotaUsageId", searchQuotaUsageDetails.entity().getQuotaUsageId(), SearchCriteria.Op.EQ);
+        searchQuotaUsageDetails.and("tariffId", searchQuotaUsageDetails.entity().getTariffId(), SearchCriteria.Op.EQ);
+        searchQuotaUsageDetails.join("searchQuotaUsages", searchQuotaUsages, searchQuotaUsageDetails.entity().getQuotaUsageId(),
+                searchQuotaUsages.entity().getId(), JoinBuilder.JoinType.INNER);
         searchQuotaUsageDetails.done();
     }
 
@@ -53,6 +69,24 @@ public class QuotaUsageDetailDaoImpl extends GenericDaoBase<QuotaUsageDetailVO, 
     public List<QuotaUsageDetailVO> listQuotaUsageDetails(Long quotaUsageId) {
         SearchCriteria<QuotaUsageDetailVO> sc = searchQuotaUsageDetails.create();
         sc.setParameters("quotaUsageId", quotaUsageId);
+        return Transaction.execute(TransactionLegacy.USAGE_DB, (TransactionCallback<List<QuotaUsageDetailVO>>) status -> listBy(sc));
+    }
+
+    @Override
+    public List<QuotaUsageDetailVO> findQuotaUsageDetails(Long accountId, Long domainId, Integer usageType, Long tariffId, Date startDate, Date endDate) {
+        SearchCriteria<QuotaUsageDetailVO> sc = searchQuotaUsageDetails.create();
+
+        sc.setParametersIfNotNull("tariffId", tariffId);
+
+        sc.setJoinParametersIfNotNull("searchQuotaUsages", "accountId", accountId);
+        sc.setJoinParametersIfNotNull("searchQuotaUsages", "domainId", domainId);
+        sc.setJoinParametersIfNotNull("searchQuotaUsages", "usageType", usageType);
+
+        if (ObjectUtils.allNotNull(startDate, endDate)) {
+            sc.setJoinParameters("searchQuotaUsages", "startDate", startDate, endDate);
+            sc.setJoinParameters("searchQuotaUsages", "endDate", startDate, endDate);
+        }
+
         return Transaction.execute(TransactionLegacy.USAGE_DB, (TransactionCallback<List<QuotaUsageDetailVO>>) status -> listBy(sc));
     }
 

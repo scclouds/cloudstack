@@ -466,6 +466,7 @@ public class ApiConstants {
     public static final String VIRTUAL_MACHINE_COUNT = "virtualmachinecount";
     public static final String VIRTUAL_MACHINES = "virtualmachines";
     public static final String USAGE_ID = "usageid";
+    public static final String USAGE_NAME = "usagename";
     public static final String USAGE_TYPE = "usagetype";
     public static final String INCLUDE_TAGS = "includetags";
 
@@ -1054,6 +1055,12 @@ public class ApiConstants {
 
     public static final String PARAMETER_DESCRIPTION_QUOTA_EXECUTE_ON_POSSIBLE_VALUES = "For processing period 'BY_ENTRY', it will be ignored; for 'MONTHLY', the value must " +
         "be a number between 1 and 28 (included), indicating the day of the month the tariff will be processed.";
+
+    public static final String TARIFF_ID = "tariffid";
+    public static final String TARIFF_NAME = "tariffname";
+    public static final String TARIFF_STATEMENT = "tariffstatement";
+    public static final String UNIT = "unit";
+    public static final String QUOTA_USED = "quotaused";
 
     public static final String HEURISTIC_RULE = "heuristicrule";
 

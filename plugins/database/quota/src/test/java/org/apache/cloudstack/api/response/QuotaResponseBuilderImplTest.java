@@ -46,6 +46,7 @@ import com.cloud.utils.exception.CloudRuntimeException;
 import com.google.common.collect.Sets;
 import com.google.gson.Gson;
 import com.google.gson.JsonSyntaxException;
+import org.apache.cloudstack.api.ApiConstants;
 import org.apache.cloudstack.api.ServerApiException;
 import org.apache.cloudstack.api.command.QuotaBalanceCmd;
 import org.apache.cloudstack.api.command.QuotaConfigureEmailCmd;
@@ -53,6 +54,7 @@ import org.apache.cloudstack.api.command.QuotaCreditsListCmd;
 import org.apache.cloudstack.api.command.QuotaEmailTemplateListCmd;
 import org.apache.cloudstack.api.command.QuotaEmailTemplateUpdateCmd;
 import org.apache.cloudstack.api.command.QuotaSummaryCmd;
+import org.apache.cloudstack.api.command.QuotaTariffStatementCmd;
 import org.apache.cloudstack.context.CallContext;
 import org.apache.cloudstack.discovery.ApiDiscoveryService;
 import org.apache.cloudstack.quota.QuotaManager;
@@ -73,7 +75,9 @@ import org.apache.cloudstack.quota.vo.QuotaCreditsVO;
 import org.apache.cloudstack.quota.vo.QuotaEmailTemplatesVO;
 import org.apache.cloudstack.quota.vo.QuotaTariffVO;
 import org.apache.cloudstack.quota.vo.ResourcesToQuoteVO;
+import org.apache.cloudstack.quota.vo.QuotaUsageDetailVO;
 import org.apache.cloudstack.quota.vo.QuotaUsageJoinVO;
+import org.apache.cloudstack.quota.vo.QuotaUsageResourceVO;
 import org.apache.commons.lang3.time.DateUtils;
 import org.junit.Assert;
 import org.junit.Test;
@@ -1386,5 +1390,117 @@ public class QuotaResponseBuilderImplTest extends TestCase {
         quotaResponseBuilderSpy.setStatementItemResources(item, 0, getQuotaUsagesForTest(), false);
 
         Assert.assertNull(item.getResources());
+    }
+
+    @Test
+    public void createQuotaTariffStatementItemResponseTestReturnsObject() {
+        Mockito.doReturn("uuid").when(quotaTariffVoMock).getUuid();
+        Mockito.doReturn("name").when(quotaTariffVoMock).getName();
+        Mockito.doReturn(1).when(quotaTariffVoMock).getUsageType();
+        Mockito.doReturn("usagename").when(quotaTariffVoMock).getUuid();
+        Mockito.doReturn("usageunit").when(quotaTariffVoMock).getUuid();
+        List<QuotaUsageDetailVO> quotaUsageDetailList = new ArrayList<>();
+        BigDecimal totalQuotaUsed = BigDecimal.ZERO;
+        for (int i = 0; i < 10; i++) {
+            QuotaUsageDetailVO quotaUsageDetail = new QuotaUsageDetailVO();
+            BigDecimal quotaUsed = BigDecimal.valueOf(i);
+            quotaUsageDetail.setQuotaUsed(quotaUsed);
+            totalQuotaUsed = totalQuotaUsed.add(quotaUsed);
+            quotaUsageDetailList.add(quotaUsageDetail);
+        }
+
+        QuotaTariffStatementItemResponse response = quotaResponseBuilderSpy.createQuotaTariffStatementItemResponse(quotaTariffVoMock, quotaUsageDetailList, new ArrayList<>(), false);
+
+        Assert.assertEquals(quotaTariffVoMock.getUuid(), response.getTariffId());
+        Assert.assertEquals(quotaTariffVoMock.getName(), response.getTariffName());
+        Assert.assertEquals(quotaTariffVoMock.getUsageType(), response.getUsageType());
+        Assert.assertEquals(quotaTariffVoMock.getUsageName(), response.getUsageName());
+        Assert.assertEquals(quotaTariffVoMock.getUsageUnit(), response.getUsageUnit());
+        Assert.assertEquals(totalQuotaUsed, response.getQuotaUsed());
+    }
+
+    @Test
+    public void createQuotaTariffStatementItemResponseTestSetsResourcesWhenShowResourcesIsTrue() {
+        quotaResponseBuilderSpy.createQuotaTariffStatementItemResponse(quotaTariffVoMock, new ArrayList<>(), new ArrayList<>(), true);
+
+        Mockito.verify(quotaResponseBuilderSpy).setTariffStatementItemResources(Mockito.any(), Mockito.anyInt(), Mockito.any(), Mockito.any());
+    }
+
+    @Test
+    public void createQuotaTariffStatementItemResponseTestDoesNotSetResourcesWhenShowResourcesIsFalse() {
+        quotaResponseBuilderSpy.createQuotaTariffStatementItemResponse(quotaTariffVoMock, new ArrayList<>(), new ArrayList<>(), false);
+
+        Mockito.verify(quotaResponseBuilderSpy, Mockito.never()).setTariffStatementItemResources(Mockito.any(), Mockito.anyInt(), Mockito.any(), Mockito.any());
+    }
+
+    @Test
+    public void setTariffStatementItemResourcesTestSetsExpectedValues() {
+        QuotaTariffStatementItemResponse statementItem = new QuotaTariffStatementItemResponse();
+        List<QuotaStatementItemResourceResponse> expectedResources = List.of(new QuotaStatementItemResourceResponse(), new QuotaStatementItemResourceResponse());
+
+        Mockito.doReturn(expectedResources).when(quotaResponseBuilderSpy).createQuotaStatementItemResourceResponsesFromUsageValuesAggregatedByResourceId(Mockito.any(), Mockito.anyInt());
+
+        quotaResponseBuilderSpy.setTariffStatementItemResources(statementItem, 1, new ArrayList<>(), new ArrayList<>());
+
+        Assert.assertEquals(expectedResources, statementItem.getResources());
+    }
+
+    @Test
+    public void createQuotaStatementItemResourceResponsesFromUsageValuesAggregatedByResourceIdTestReturnsListWithExpectedValues() {
+        QuotaUsageResourceVO resource = new QuotaUsageResourceVO("uuid", "name", new Date());
+        Mockito.doReturn(resource).when(quotaResponseBuilderSpy).getResourceFromIdAndType(Mockito.anyLong(), Mockito.anyInt());
+        Map<Long, BigDecimal> resourceIdAndQuotaUsage = new HashMap<>();
+        BigDecimal resourceQuotaUsage = BigDecimal.ONE;
+        resourceIdAndQuotaUsage.put(1L, resourceQuotaUsage);
+
+        List<QuotaStatementItemResourceResponse> response = quotaResponseBuilderSpy.createQuotaStatementItemResourceResponsesFromUsageValuesAggregatedByResourceId(resourceIdAndQuotaUsage, 1);
+
+        Assert.assertEquals(response.size(), 1);
+        Assert.assertEquals(resource.getUuid(), response.get(0).getResourceId());
+        Assert.assertEquals(resource.getName(), response.get(0).getDisplayName());
+        Assert.assertTrue(response.get(0).isRemoved());
+    }
+
+    @Test
+    public void createQuotaTariffStatementResponseTestReturnsObject() {
+        QuotaTariffStatementResponse expected = new QuotaTariffStatementResponse();
+        expected.setAccountId("account_uuid");
+        expected.setAccountName("account_name");
+        expected.setDomainId("domain_uuid");
+        expected.setDomain("domain_path");
+        BigDecimal totalQuotaUsed = BigDecimal.valueOf(10);
+        expected.setTotalQuotaUsed(totalQuotaUsed);
+        List<QuotaTariffStatementItemResponse> quotaTariffStatementItemResponseList = List.of(new QuotaTariffStatementItemResponse(),new QuotaTariffStatementItemResponse());
+        expected.setQuotaUsage(quotaTariffStatementItemResponseList);
+        Date startDate = new Date();
+        expected.setStartDate(startDate);
+        Date endDate = new Date();
+        expected.setEndDate(endDate);
+        expected.setObjectName(ApiConstants.TARIFF_STATEMENT);
+
+        Mockito.doReturn(expected.getAccountId()).when(accountVoMock).getUuid();
+        Mockito.doReturn(expected.getAccountName()).when(accountVoMock).getAccountName();
+        QuotaTariffStatementCmd cmd = Mockito.mock(QuotaTariffStatementCmd.class);
+        Mockito.doReturn(accountVoMock.getAccountId()).when(cmd).getEntityOwnerId();
+        Mockito.doReturn(startDate).when(cmd).getStartDate();
+        Mockito.doReturn(endDate).when(cmd).getEndDate();
+        Mockito.doReturn(accountVoMock).when(accountManagerMock).getActiveAccountById(Mockito.anyLong());
+        Mockito.doReturn(Account.Type.NORMAL).when(accountVoMock).getType();
+        Mockito.doReturn(1L).when(accountVoMock).getDomainId();
+        Mockito.doReturn(expected.getDomainId()).when(domainVoMock).getUuid();
+        Mockito.doReturn(expected.getDomain()).when(domainVoMock).getName();
+        Mockito.doReturn(domainVoMock).when(domainDaoMock).findByIdIncludingRemoved(Mockito.anyLong());
+
+        QuotaTariffStatementResponse response = quotaResponseBuilderSpy.createQuotaTariffStatementResponse(cmd, quotaTariffStatementItemResponseList, totalQuotaUsed);
+
+        Assert.assertEquals(expected.getAccountId(), response.getAccountId());
+        Assert.assertEquals(expected.getAccountName(), response.getAccountName());
+        Assert.assertEquals(expected.getDomainId(), response.getDomainId());
+        Assert.assertEquals(expected.getDomain(), response.getDomain());
+        Assert.assertEquals(expected.getTotalQuotaUsed(), response.getTotalQuotaUsed());
+        Assert.assertEquals(expected.getQuotaUsage(), response.getQuotaUsage());
+        Assert.assertEquals(expected.getStartDate(), response.getStartDate());
+        Assert.assertEquals(expected.getEndDate(), response.getEndDate());
+        Assert.assertEquals(expected.getObjectName(), response.getObjectName());
     }
 }

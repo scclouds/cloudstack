@@ -43,16 +43,32 @@ public class QuotaStatementItemResourceResponse extends BaseResponse {
     @Param(description = "Indicates if the resource is removed or active.")
     private boolean removed;
 
+    public BigDecimal getQuotaUsed() {
+        return quotaUsed;
+    }
+
     public void setQuotaUsed(BigDecimal quotaUsed) {
         this.quotaUsed = quotaUsed;
+    }
+
+    public String getResourceId() {
+        return resourceId;
     }
 
     public void setResourceId(String resourceId) {
         this.resourceId = resourceId;
     }
 
+    public String getDisplayName() {
+        return displayName;
+    }
+
     public void setDisplayName(String displayName) {
         this.displayName = displayName;
+    }
+
+    public boolean isRemoved() {
+        return removed;
     }
 
     public void setRemoved(boolean removed) {
