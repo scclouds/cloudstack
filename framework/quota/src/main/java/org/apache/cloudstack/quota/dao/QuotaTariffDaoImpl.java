@@ -16,9 +16,11 @@
 //under the License.
 package org.apache.cloudstack.quota.dao;
 
+import java.util.Comparator;
 import java.util.Date;
 import java.util.List;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 import com.cloud.utils.db.QueryBuilder;
 import org.apache.cloudstack.quota.constant.ProcessingPeriod;
@@ -109,6 +111,21 @@ public class QuotaTariffDaoImpl extends GenericDaoBase<QuotaTariffVO, Long> impl
             qb.and(qb.entity().getExecuteOn(), SearchCriteria.Op.LTEQ, targetDate);
             return search(qb.create(), null);
         });
+    }
+
+    /***
+     * Lists quota tariffs with items that are not removed ordered first.
+     * @param usageType usage type of the tariffs.
+     * @param name name of the tariffs.
+     * @return list of tariffs matching the provided parameters.
+     */
+    @Override
+    public List<QuotaTariffVO> listQuotaTariffsOrderedByNotRemovedFirst(Integer usageType, String name) {
+        return listQuotaTariffs(null, null, usageType, name, null, true, null, null, null, null)
+                .first()
+                .stream()
+                .sorted(Comparator.comparing(QuotaTariffVO::getRemoved, Comparator.nullsFirst(Comparator.reverseOrder())))
+                .collect(Collectors.toList());
     }
 
     protected SearchCriteria<QuotaTariffVO> createListQuotaTariffsSearchCriteria(Date startDate, Date endDate, Set<Integer> usageTypes, String name, String uuid,

@@ -27,6 +27,7 @@ import org.apache.cloudstack.api.command.QuotaStatementDetailsCmd;
 import org.apache.cloudstack.api.command.QuotaSummaryCmd;
 import org.apache.cloudstack.api.command.QuotaTariffCreateCmd;
 import org.apache.cloudstack.api.command.QuotaTariffListCmd;
+import org.apache.cloudstack.api.command.QuotaTariffStatementCmd;
 import org.apache.cloudstack.api.command.QuotaTariffUpdateCmd;
 import org.apache.cloudstack.quota.vo.QuotaEmailConfigurationVO;
 import org.apache.cloudstack.quota.vo.QuotaTariffVO;
@@ -87,4 +88,6 @@ public interface QuotaResponseBuilder {
     List<ResourcesQuotingResultResponse> quoteResources(String resourcesToQuoteAsJson);
 
     QuotaUsageDetailsResponse listUsageDetails(QuotaStatementDetailsCmd cmd);
+
+    QuotaTariffStatementResponse listQuotaTariffUsage(QuotaTariffStatementCmd cmd);
 }
