@@ -21,7 +21,7 @@ import com.cloud.utils.exception.CloudRuntimeException;
 import java.io.InputStream;
 import java.sql.Connection;
 
-public class Upgrade41803to14804 implements DbUpgrade {
+public class Upgrade41803to41804 implements DbUpgrade {
     @Override
     public String[] getUpgradableVersionRange() {
         return new String[]{"4.18.0.3", "4.18.0.4"};

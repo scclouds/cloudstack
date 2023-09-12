@@ -16,3 +16,9 @@
 -- under the License.
 
 -- Schema upgrade from 4.18.0.3 to 4.18.0.4
+
+-- Add posting date to quota credits table.
+ALTER TABLE `cloud_usage`.`quota_credits`
+    ADD COLUMN `posting_date` datetime NOT NULL DEFAULT NOW() COMMENT 'Posting date of the payment';
+UPDATE `cloud_usage`.`quota_credits`
+SET `posting_date` = `updated_on`;

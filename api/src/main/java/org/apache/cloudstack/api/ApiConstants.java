@@ -343,6 +343,7 @@ public class ApiConstants {
     public static final String PORTABLE_IP_ADDRESS = "portableipaddress";
     public static final String PORT_FORWARDING_SERVICE_ID = "portforwardingserviceid";
     public static final String POSITION = "position";
+    public static final String POSTING_DATE = "postingdate";
     public static final String POST_URL = "postURL";
     public static final String POWER_STATE = "powerstate";
     public static final String PRECEDENCE = "precedence";

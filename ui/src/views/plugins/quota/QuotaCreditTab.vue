@@ -37,6 +37,9 @@
         <template #creditedOn="{ text }">
           {{ $toLocaleDate(text) }}
         </template>
+        <template #postingDate="{ text }">
+            {{ $toLocaleDate(text) }}
+        </template>
         <template #credit="{ text }">
           {{ parseFloat(text).toFixed(2) }}
         </template>
@@ -76,15 +79,23 @@ export default {
         {
           title: this.$t('label.date'),
           dataIndex: 'creditedon',
-          width: 'calc(100% / 2)',
+          width: 'calc(100% / 3)',
           sorter: (a, b) => a.creditedon.localeCompare(b.creditedon),
           defaultSortOrder: 'descend',
           slots: { customRender: 'creditedOn' }
         },
         {
+          title: this.$t('label.posting.date'),
+          dataIndex: 'postingdate',
+          width: 'calc(100% / 3)',
+          sorter: (a, b) => a.postingdate.localeCompare(b.postingdate),
+          defaultSortOrder: 'descend',
+          slots: { customRender: 'postingDate' }
+        },
+        {
           title: this.$t('label.credit'),
           dataIndex: 'credit',
-          width: 'calc(100% / 2)',
+          width: 'calc(100% / 3)',
           sorter: (a, b) => a.credit - b.credit,
           slots: { customRender: 'credit' }
         }
@@ -129,7 +140,7 @@ export default {
     exportDataToCsv () {
       exportUtils.exportDataToCsv({
         data: this.dataSource,
-        keys: ['creditorname', 'date', 'credit'],
+        keys: ['creditorname', 'date', 'postingdate', 'credit'],
         fileName: `credits-of-user-${this.$route.params.id}-between-${this.startDate}-and-${this.endDate}`
       })
     },
