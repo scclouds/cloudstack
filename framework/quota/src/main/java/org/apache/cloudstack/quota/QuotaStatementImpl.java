@@ -35,8 +35,6 @@ import org.apache.cloudstack.quota.dao.QuotaEmailConfigurationDao;
 import org.apache.cloudstack.quota.dao.QuotaEmailTemplatesDao;
 import org.apache.cloudstack.quota.dao.QuotaUsageDao;
 import org.apache.cloudstack.quota.vo.QuotaAccountVO;
-import org.apache.cloudstack.quota.vo.QuotaEmailConfigurationVO;
-import org.apache.cloudstack.quota.vo.QuotaEmailTemplatesVO;
 import org.apache.log4j.Logger;
 import org.springframework.stereotype.Component;
 
@@ -119,13 +117,19 @@ public class QuotaStatementImpl extends ManagerBase implements QuotaStatement {
     public void sendStatement() {
 
         List<DeferredQuotaEmail> deferredQuotaEmailList = new ArrayList<DeferredQuotaEmail>();
-        QuotaEmailTemplatesVO templateVO = quotaEmailTemplatesDao.listAllQuotaEmailTemplates(QuotaConfig.QuotaEmailTemplateTypes.QUOTA_STATEMENT.toString()).get(0);
         for (final QuotaAccountVO quotaAccount : _quotaAcc.listAllQuotaAccount()) {
             if (quotaAccount.getQuotaBalance() == null) {
                 continue; // no quota usage for this account ever, ignore
             }
-            QuotaEmailConfigurationVO quotaEmailConfigurationVO = quotaEmailConfigurationDao.findByAccountIdAndEmailTemplateId(quotaAccount.getAccountId(), templateVO.getId());
-            if (quotaEmailConfigurationVO != null && !quotaEmailConfigurationVO.isEnabled()) {
+
+            AccountVO account = _accountDao.findById(quotaAccount.getId());
+            if (account == null) {
+                s_logger.debug(String.format("Could not find an account corresponding to [%s]. Therefore, the statement email will not be sent.", quotaAccount));
+                continue;
+            }
+
+            boolean quotaStatementEmailEnabled = _quotaAlert.isQuotaEmailTypeEnabledForAccount(account, QuotaConfig.QuotaEmailTemplateTypes.QUOTA_STATEMENT);
+            if (!quotaStatementEmailEnabled) {
                 s_logger.debug(String.format("%s has [%s] email disabled. Therefore the email will not be sent.", quotaAccount, QuotaConfig.QuotaEmailTemplateTypes.QUOTA_STATEMENT));
                 continue;
             }
@@ -135,19 +139,13 @@ public class QuotaStatementImpl extends ManagerBase implements QuotaStatement {
 
             Date lastStatementDate = quotaAccount.getLastStatementDate();
             if (interval != null) {
-                AccountVO account = _accountDao.findById(quotaAccount.getId());
-                if (account != null) {
-                    if (lastStatementDate == null || getDifferenceDays(lastStatementDate, new Date()) >= s_LAST_STATEMENT_SENT_DAYS + 1) {
-                        BigDecimal quotaUsage = _quotaUsage.findTotalQuotaUsage(account.getAccountId(), account.getDomainId(), null, interval[0].getTime(), interval[1].getTime());
-                        s_logger.info("For account=" + quotaAccount.getId() + ", quota used = " + quotaUsage);
-                        // send statement
-                        deferredQuotaEmailList.add(new DeferredQuotaEmail(account, quotaAccount, quotaUsage, QuotaConfig.QuotaEmailTemplateTypes.QUOTA_STATEMENT));
-                    } else {
-                        if (s_logger.isDebugEnabled()) {
-                            s_logger.debug("For " + quotaAccount.getId() + " the statement has been sent recently");
-
-                        }
-                    }
+                if (lastStatementDate == null || getDifferenceDays(lastStatementDate, new Date()) >= s_LAST_STATEMENT_SENT_DAYS + 1) {
+                    BigDecimal quotaUsage = _quotaUsage.findTotalQuotaUsage(account.getAccountId(), account.getDomainId(), null, interval[0].getTime(), interval[1].getTime());
+                    s_logger.info(String.format("Quota statement for account [%s] has an usage of [%s].", quotaAccount, quotaUsage));
+                    // send statement
+                    deferredQuotaEmailList.add(new DeferredQuotaEmail(account, quotaAccount, quotaUsage, QuotaConfig.QuotaEmailTemplateTypes.QUOTA_STATEMENT));
+                } else {
+                    s_logger.debug(String.format("Quota statement has already been sent recently to account [%s].", quotaAccount));
                 }
             } else if (lastStatementDate != null) {
                 s_logger.info("For " + quotaAccount.getId() + " it is already more than " + getDifferenceDays(lastStatementDate, new Date())
