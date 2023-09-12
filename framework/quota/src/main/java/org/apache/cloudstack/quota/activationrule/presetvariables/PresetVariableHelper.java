@@ -191,27 +191,6 @@ public class PresetVariableHelper {
     private List<Integer> templateAndIsoUsageTypes = Arrays.asList(UsageTypes.TEMPLATE, UsageTypes.ISO);
     private String usageRecordToString = null;
 
-    protected boolean isLoadOnlyValuesToReturnInQuotaStatementResponse = false;
-
-    public GenericPresetVariable getResourceToAddToQuotaStatementResponse(UsageVO usageRecord) {
-        this.usageRecordToString = usageRecord.toString();
-        this.isLoadOnlyValuesToReturnInQuotaStatementResponse = true;
-
-        Value value = new Value();
-
-        loadPresetVariableValueForRunningAndAllocatedVm(usageRecord, value);
-        loadPresetVariableValueForVolume(usageRecord, value);
-        loadPresetVariableValueForTemplateAndIso(usageRecord, value);
-        loadPresetVariableValueForSnapshot(usageRecord, value);
-        loadPresetVariableValueForNetworkOffering(usageRecord, value);
-        loadPresetVariableValueForVmSnapshot(usageRecord, value);
-        loadPresetVariableValueForNetwork(usageRecord, value);
-        loadPresetVariableValueForVpc(usageRecord, value);
-        loadPresetVariableValueForBackupObject(usageRecord, value);
-
-        return value;
-    }
-
     public PresetVariables getPresetVariables(UsageVO usageRecord) {
         this.usageRecordToString = usageRecord.toString();
         PresetVariables presetVariables = new PresetVariables();

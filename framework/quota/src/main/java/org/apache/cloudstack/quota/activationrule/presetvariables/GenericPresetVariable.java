@@ -32,7 +32,9 @@ import org.apache.log4j.Logger;
 public class GenericPresetVariable {
     private transient Logger logger = Logger.getLogger(this.getClass().getName());
 
+    @PresetVariableDefinition(description = "ID of the resource.")
     private String id;
+    @PresetVariableDefinition(description = "Name of the resource.")
     private String name;
     protected transient Set<String> fieldNamesToIncludeInToString = new HashSet<>();
 

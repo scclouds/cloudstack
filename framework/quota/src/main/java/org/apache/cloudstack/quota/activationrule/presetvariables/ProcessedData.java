@@ -23,10 +23,15 @@ import java.util.List;
 
 public class ProcessedData extends GenericPresetVariable {
 
+    @PresetVariableDefinition(description = "The end date of the processed data.")
     private Date endDate;
+    @PresetVariableDefinition(description = "The aggregation of all Quota tariffs applied to the resource during the period.")
     private BigDecimal aggregatedTariffsValue;
+    @PresetVariableDefinition(description = "A list of objects containing the ID and value of the applied tariff.")
     private List<Tariff> tariffs;
+    @PresetVariableDefinition(description = "The start date of the processed data.")
     private Date startDate;
+    @PresetVariableDefinition(description = "The resource's usage during the period.")
     private Double usageValue;
 
     public Date getEndDate() {
@@ -36,10 +41,6 @@ public class ProcessedData extends GenericPresetVariable {
     public void setEndDate(Date endDate) {
         this.endDate = endDate;
         fieldNamesToIncludeInToString.add("endDate");
-    }
-
-    public BigDecimal getAggregatedTariffsValue() {
-        return aggregatedTariffsValue;
     }
 
     public void setAggregatedTariffsValue(BigDecimal aggregatedTariffsValue) {
@@ -63,10 +64,6 @@ public class ProcessedData extends GenericPresetVariable {
     public void setStartDate(Date startDate) {
         this.startDate = startDate;
         fieldNamesToIncludeInToString.add("startDate");
-    }
-
-    public Double getUsageValue() {
-        return usageValue;
     }
 
     public void setUsageValue(Double usageValue) {

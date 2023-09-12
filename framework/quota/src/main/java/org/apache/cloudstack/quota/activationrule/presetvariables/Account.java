@@ -17,7 +17,8 @@
 
 package org.apache.cloudstack.quota.activationrule.presetvariables;
 
-public class Account extends GenericPresetVariable{
+public class Account extends GenericPresetVariable {
+    @PresetVariableDefinition(description = "Role of the account. This field will not exist if the account is a project.")
     private Role role;
 
     public Role getRole() {
@@ -28,5 +29,4 @@ public class Account extends GenericPresetVariable{
         this.role = role;
         fieldNamesToIncludeInToString.add("role");
     }
-
 }

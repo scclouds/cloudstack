@@ -60,7 +60,9 @@ import org.apache.cloudstack.discovery.ApiDiscoveryService;
 import org.apache.cloudstack.quota.QuotaManager;
 import org.apache.cloudstack.quota.QuotaService;
 import org.apache.cloudstack.quota.activationrule.presetvariables.GenericPresetVariable;
+import org.apache.cloudstack.quota.activationrule.presetvariables.PresetVariableDefinition;
 import org.apache.cloudstack.quota.activationrule.presetvariables.PresetVariables;
+import org.apache.cloudstack.quota.activationrule.presetvariables.Value;
 import org.apache.cloudstack.quota.constant.ProcessingPeriod;
 import org.apache.cloudstack.quota.constant.QuotaConfig;
 import org.apache.cloudstack.quota.constant.QuotaTypes;
@@ -1393,6 +1395,52 @@ public class QuotaResponseBuilderImplTest extends TestCase {
     }
 
     @Test
+    public void filterSupportedTypesTestReturnWhenQuotaTypeDoesNotMatch() throws NoSuchFieldException {
+        List<Pair<String, String>> variables = new ArrayList<>();
+        Class<?> clazz = Value.class;
+        PresetVariableDefinition presetVariableDefinitionAnnotation = clazz.getDeclaredField("host").getAnnotation(PresetVariableDefinition.class);
+        QuotaTypes quotaType = QuotaTypes.getQuotaType(QuotaTypes.NETWORK_OFFERING);
+        int expectedVariablesSize = 0;
+
+        Mockito.doCallRealMethod().when(quotaResponseBuilderSpy).filterSupportedTypes(Mockito.anyList(), Mockito.any(QuotaTypes.class), Mockito.any(PresetVariableDefinition.class),
+                Mockito.any(), Mockito.anyString());
+        quotaResponseBuilderSpy.filterSupportedTypes(variables, quotaType, presetVariableDefinitionAnnotation, clazz, null);
+
+        assertEquals(expectedVariablesSize, variables.size());
+    }
+
+    @Test
+    public void filterSupportedTypesTestAddPresetVariableWhenClassIsNotInstanceOfGenericPresetVariableAndComputingResource() throws NoSuchFieldException {
+        List<Pair<String, String>> variables = new ArrayList<>();
+        Class<?> clazz = PresetVariables.class;
+        PresetVariableDefinition presetVariableDefinitionAnnotation = clazz.getDeclaredField("resourceType").getAnnotation(PresetVariableDefinition.class);
+        QuotaTypes quotaType = QuotaTypes.getQuotaType(QuotaTypes.NETWORK_OFFERING);
+        int expectedVariablesSize = 1;
+        String expectedVariableName = "variable.name";
+
+        Mockito.doCallRealMethod().when(quotaResponseBuilderSpy).filterSupportedTypes(Mockito.anyList(), Mockito.any(QuotaTypes.class), Mockito.any(PresetVariableDefinition.class),
+                Mockito.any(), Mockito.anyString());
+        quotaResponseBuilderSpy.filterSupportedTypes(variables, quotaType, presetVariableDefinitionAnnotation, clazz, expectedVariableName);
+
+        assertEquals(expectedVariablesSize, variables.size());
+        assertEquals(expectedVariableName, variables.get(0).first());
+    }
+
+    @Test
+    public void filterSupportedTypesTestCallRecursiveMethodWhenIsGenericPresetVariableClassOrComputingResourceClass() throws NoSuchFieldException {
+        List<Pair<String, String>> variables = new ArrayList<>();
+        Class<?> clazz = Value.class;
+        PresetVariableDefinition presetVariableDefinitionAnnotation = clazz.getDeclaredField("storage").getAnnotation(PresetVariableDefinition.class);
+        QuotaTypes quotaType = QuotaTypes.getQuotaType(QuotaTypes.VOLUME);
+
+        Mockito.doCallRealMethod().when(quotaResponseBuilderSpy).filterSupportedTypes(Mockito.anyList(), Mockito.any(QuotaTypes.class), Mockito.any(PresetVariableDefinition.class),
+                Mockito.any(), Mockito.anyString());
+        quotaResponseBuilderSpy.filterSupportedTypes(variables, quotaType, presetVariableDefinitionAnnotation, clazz, "variable.name");
+
+        Mockito.verify(quotaResponseBuilderSpy, Mockito.atLeastOnce()).addAllPresetVariables(Mockito.any(), Mockito.any(QuotaTypes.class), Mockito.anyList(),
+                Mockito.anyString());
+    }
+
     public void createQuotaTariffStatementItemResponseTestReturnsObject() {
         Mockito.doReturn("uuid").when(quotaTariffVoMock).getUuid();
         Mockito.doReturn("name").when(quotaTariffVoMock).getName();

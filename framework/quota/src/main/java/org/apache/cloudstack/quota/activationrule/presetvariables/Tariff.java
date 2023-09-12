@@ -20,6 +20,7 @@ package org.apache.cloudstack.quota.activationrule.presetvariables;
 import java.math.BigDecimal;
 
 public class Tariff extends GenericPresetVariable {
+    @PresetVariableDefinition(description = "Tariff's value.")
     private BigDecimal value;
 
     public BigDecimal getValue() {
