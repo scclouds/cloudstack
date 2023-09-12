@@ -30,6 +30,8 @@ import java.util.Collections;
 import java.util.Date;
 import java.util.List;
 
+import com.cloud.dc.DataCenter;
+import com.cloud.exception.InvalidParameterValueException;
 import com.cloud.network.dao.PublicIpQuarantineDao;
 import com.cloud.network.vo.PublicIpQuarantineVO;
 import com.cloud.user.Account;
@@ -79,6 +81,12 @@ public class IpAddressManagerTest {
     IPAddressVO ipAddressVO;
 
     AccountVO account;
+
+    @Mock
+    Network networkMock;
+
+    @Mock
+    DataCenter zoneMock;
 
     @Mock
     PublicIpQuarantineVO publicIpQuarantineVOMock;
@@ -450,5 +458,97 @@ public class IpAddressManagerTest {
         boolean result = ipAddressManager.checkIfPublicIpAddressIsNotInQuarantineAndCanBeAllocated(ipAddressMock, newOwnerMock);
 
         Assert.assertFalse(result);
+    }
+    @Test
+    public void validateNetworkAndIpOwnershipTestThrowException() {
+        Mockito.doReturn(1L).when(networkMock).getAccountId();
+        account.setId(2L);
+
+        Mockito.doReturn(3L).when(networkMock).getVpcId();
+        ipAddressVO.setVpcId(4L);
+
+        Mockito.doReturn(DataCenter.NetworkType.Advanced).when(zoneMock).getNetworkType();
+
+        for (Network.GuestType guestType : Network.GuestType.values()) {
+            if (guestType == Network.GuestType.Shared) {
+                continue;
+            }
+            Mockito.doReturn(guestType).when(networkMock).getGuestType();
+
+            Assert.assertThrows(InvalidParameterValueException.class, () -> {
+                ipAddressManager.validateNetworkAndIpOwnership(account, ipAddressVO, networkMock, zoneMock);
+            });
+        }
+    }
+
+    @Test
+    public void validateNetworkAndIpOwnershipTestAccountOwnsNetworkDoNothing() {
+        Mockito.doReturn(2L).when(networkMock).getAccountId();
+        account.setId(2L);
+
+        Mockito.lenient().doReturn(3L).when(networkMock).getVpcId();
+        ipAddressVO.setVpcId(4L);
+
+        Mockito.lenient().doReturn(DataCenter.NetworkType.Advanced).when(zoneMock).getNetworkType();
+
+        for (Network.GuestType guestType : Network.GuestType.values()) {
+            if (guestType == Network.GuestType.Shared) {
+                continue;
+            }
+            Mockito.lenient().doReturn(guestType).when(networkMock).getGuestType();
+            ipAddressManager.validateNetworkAndIpOwnership(account, ipAddressVO, networkMock, zoneMock);
+        }
+    }
+
+    @Test
+    public void validateNetworkAndIpOwnershipTestNetworkVpcEqualToIpVpcDoNothing() {
+        Mockito.doReturn(1L).when(networkMock).getAccountId();
+        account.setId(2L);
+
+        Mockito.doReturn(4L).when(networkMock).getVpcId();
+        ipAddressVO.setVpcId(4L);
+
+        Mockito.lenient().doReturn(DataCenter.NetworkType.Advanced).when(zoneMock).getNetworkType();
+
+        for (Network.GuestType guestType : Network.GuestType.values()) {
+            if (guestType == Network.GuestType.Shared) {
+                continue;
+            }
+            Mockito.lenient().doReturn(guestType).when(networkMock).getGuestType();
+            ipAddressManager.validateNetworkAndIpOwnership(account, ipAddressVO, networkMock, zoneMock);
+        }
+    }
+
+    @Test
+    public void validateNetworkAndIpOwnershipTestZoneIsNotAdvancedDoNothing() {
+        Mockito.doReturn(1L).when(networkMock).getAccountId();
+        account.setId(2L);
+
+        Mockito.doReturn(3L).when(networkMock).getVpcId();
+        ipAddressVO.setVpcId(4L);
+
+        Mockito.doReturn(DataCenter.NetworkType.Basic).when(zoneMock).getNetworkType();
+
+        for (Network.GuestType guestType : Network.GuestType.values()) {
+            if (guestType == Network.GuestType.Shared) {
+                continue;
+            }
+            Mockito.lenient().doReturn(guestType).when(networkMock).getGuestType();
+            ipAddressManager.validateNetworkAndIpOwnership(account, ipAddressVO, networkMock, zoneMock);
+        }
+    }
+
+    @Test
+    public void validateNetworkAndIpOwnershipTestNetworkIsSharedDoNothing() {
+        Mockito.doReturn(1L).when(networkMock).getAccountId();
+        account.setId(2L);
+
+        Mockito.doReturn(3L).when(networkMock).getVpcId();
+        ipAddressVO.setVpcId(4L);
+
+        Mockito.doReturn(DataCenter.NetworkType.Advanced).when(zoneMock).getNetworkType();
+
+        Mockito.doReturn(Network.GuestType.Shared).when(networkMock).getGuestType();
+        ipAddressManager.validateNetworkAndIpOwnership(account, ipAddressVO, networkMock, zoneMock);
     }
 }

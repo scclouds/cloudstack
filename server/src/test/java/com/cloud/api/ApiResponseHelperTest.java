@@ -23,20 +23,23 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Matchers.anyLong;
 import static org.mockito.Mockito.when;
 
-import java.lang.reflect.Field;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.UUID;
 
+import com.cloud.exception.PermissionDeniedException;
+import com.cloud.network.vpc.VpcVO;
 import org.apache.cloudstack.annotation.dao.AnnotationDao;
 import org.apache.cloudstack.api.response.AutoScaleVmGroupResponse;
 import org.apache.cloudstack.api.response.DirectDownloadCertificateResponse;
+import org.apache.cloudstack.api.response.NetworkResponse;
 import org.apache.cloudstack.api.response.NicSecondaryIpResponse;
 import org.apache.cloudstack.api.response.UsageRecordResponse;
 import org.apache.cloudstack.context.CallContext;
 import org.apache.cloudstack.usage.UsageService;
 import org.junit.After;
+import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -71,8 +74,6 @@ public class ApiResponseHelperTest {
     @Mock
     UsageService usageService;
 
-    ApiResponseHelper helper;
-
     @Mock
     AccountManager accountManagerMock;
 
@@ -85,21 +86,14 @@ public class ApiResponseHelperTest {
     @Mock
     AutoScaleVmGroupVmMapDao autoScaleVmGroupVmMapDaoMock;
 
+    @Mock
+    VpcVO vpcVOMock;
+
     @Spy
     @InjectMocks
     ApiResponseHelper apiResponseHelper = new ApiResponseHelper();
 
     SimpleDateFormat dateFormat = new SimpleDateFormat("yyyy-MM-dd hh:mm:ss ZZZ");
-
-    @Before
-    public void injectMocks() throws SecurityException, NoSuchFieldException,
-            IllegalArgumentException, IllegalAccessException {
-        Field usageSvcField = ApiResponseHelper.class
-                .getDeclaredField("_usageSvc");
-        usageSvcField.setAccessible(true);
-        helper = new ApiResponseHelper();
-        usageSvcField.set(helper, usageService);
-    }
 
     @Before
     public void setup() {
@@ -118,15 +112,15 @@ public class ApiResponseHelperTest {
 
     @Test
     public void getDateStringInternal() throws ParseException {
-        assertEquals("2014-06-29'T'23:45:00+00:00", helper
+        assertEquals("2014-06-29'T'23:45:00+00:00", apiResponseHelper
                 .getDateStringInternal(dateFormat.parse("2014-06-29 23:45:00 UTC")));
-        assertEquals("2014-06-29'T'23:45:01+00:00", helper
+        assertEquals("2014-06-29'T'23:45:01+00:00", apiResponseHelper
                 .getDateStringInternal(dateFormat.parse("2014-06-29 23:45:01 UTC")));
-        assertEquals("2014-06-29'T'23:45:11+00:00", helper
+        assertEquals("2014-06-29'T'23:45:11+00:00", apiResponseHelper
                 .getDateStringInternal(dateFormat.parse("2014-06-29 23:45:11 UTC")));
-        assertEquals("2014-06-29'T'23:05:11+00:00", helper
+        assertEquals("2014-06-29'T'23:05:11+00:00", apiResponseHelper
                 .getDateStringInternal(dateFormat.parse("2014-06-29 23:05:11 UTC")));
-        assertEquals("2014-05-29'T'08:45:11+00:00", helper
+        assertEquals("2014-05-29'T'08:45:11+00:00", apiResponseHelper
                 .getDateStringInternal(dateFormat.parse("2014-05-29 08:45:11 UTC")));
     }
 
@@ -160,7 +154,7 @@ public class ApiResponseHelperTest {
         when(ApiDBUtils.findAccountById(anyLong())).thenReturn(account);
         when(ApiDBUtils.findDomainById(anyLong())).thenReturn(domain);
 
-        UsageRecordResponse MockResponse = helper.createUsageResponse(usage);
+        UsageRecordResponse MockResponse = apiResponseHelper.createUsageResponse(usage);
         assertEquals("DomainName",MockResponse.getDomainName());
     }
 
@@ -229,7 +223,7 @@ public class ApiResponseHelperTest {
                 "241fAVUPgrYAESOMm2TVA9r1OzeoUNlKw+e3+vjTR6sfDDp/iRKcEVQX4u9+CxZp\n" +
                 "9g==\n-----END CERTIFICATE-----";
         DirectDownloadCertificateResponse response = new DirectDownloadCertificateResponse();
-        helper.handleCertificateResponse(certStr, response);
+        apiResponseHelper.handleCertificateResponse(certStr, response);
         assertEquals("3", response.getVersion());
         assertEquals("CN=*.apache.org", response.getSubject());
     }
@@ -294,4 +288,53 @@ public class ApiResponseHelperTest {
         assertEquals("8080", response.getPublicPort());
         assertEquals("8081", response.getPrivatePort());
     }
+
+    @Test
+    public void setVpcIdInResponseTestNoVpcIdPassed() {
+        NetworkResponse response = new NetworkResponse();
+        apiResponseHelper.setVpcIdInResponse(null, response::setVpcId, response::setVpcName);
+        Assert.assertNull(response.getVpcId());
+        Assert.assertNull(response.getVpcName());
+    }
+
+    @Test
+    @PrepareForTest(ApiDBUtils.class)
+    public void setVpcIdInResponseTestCanNotFindVpc() {
+        NetworkResponse response = new NetworkResponse();
+        PowerMockito.mockStatic(ApiDBUtils.class);
+        PowerMockito.when(ApiDBUtils.findVpcById(anyLong())).thenReturn(null);
+        apiResponseHelper.setVpcIdInResponse(1L, response::setVpcId, response::setVpcName);
+        Assert.assertNull(response.getVpcId());
+        Assert.assertNull(response.getVpcName());
+    }
+
+    @Test
+    @PrepareForTest(ApiDBUtils.class)
+    public void setVpcIdInResponseTestCanFindVpcAndHasAccess() {
+        NetworkResponse response = new NetworkResponse();
+        PowerMockito.mockStatic(ApiDBUtils.class);
+        PowerMockito.when(ApiDBUtils.findVpcById(anyLong())).thenReturn(vpcVOMock);
+        String vpcName = "any name";
+        String vpcUuid = "any UUID";
+        Mockito.doReturn(vpcUuid).when(vpcVOMock).getUuid();
+        Mockito.doReturn(vpcName).when(vpcVOMock).getName();
+        apiResponseHelper.setVpcIdInResponse(1L, response::setVpcId, response::setVpcName);
+        Assert.assertEquals(vpcUuid, response.getVpcId());
+        Assert.assertEquals(vpcName, response.getVpcName());
+    }
+
+    @Test
+    @PrepareForTest(ApiDBUtils.class)
+    public void setVpcIdInResponseTestCanFindVpcButDoesNotHaveAccess() {
+        NetworkResponse response = new NetworkResponse();
+        PowerMockito.mockStatic(ApiDBUtils.class);
+        String vpcName = "any name";
+        PowerMockito.when(ApiDBUtils.findVpcById(anyLong())).thenReturn(vpcVOMock);
+        Mockito.doThrow(PermissionDeniedException.class).when(accountManagerMock).checkAccess(Mockito.any(Account.class), Mockito.any(), Mockito.any(Boolean.class), Mockito.any());
+        Mockito.doReturn(vpcName).when(vpcVOMock).getName();
+        apiResponseHelper.setVpcIdInResponse(1L, response::setVpcId, response::setVpcName);
+        Assert.assertNull(response.getVpcId());
+        Assert.assertEquals(vpcName, response.getVpcName());
+    }
+
 }
