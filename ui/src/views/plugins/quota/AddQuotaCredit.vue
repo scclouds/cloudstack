@@ -76,6 +76,16 @@
         <a-switch
           v-model:checked="form.quota_enforce" />
       </a-form-item>
+      <a-form-item ref="postingDate" name="postingDate">
+        <template #label>
+          <tooltip-label :title="$t('label.posting.date')" :tooltip="apiParams.postingdate.description"/>
+        </template>
+        <a-date-picker
+          v-model:value="form.postingDate"
+          :disabled-date="disabledPostingDate"
+          :placeholder="$t('placeholder.quota.credit.posting.date')"
+          show-time />
+      </a-form-item>
       <div :span="24" class="action-button">
         <a-button @click="closeModal">{{ $t('label.cancel') }}</a-button>
         <a-button type="primary" ref="submit" @click="handleSubmit">{{ $t('label.ok') }}</a-button>
@@ -89,6 +99,7 @@ import { api } from '@/api'
 import TooltipLabel from '@/components/widgets/TooltipLabel'
 import { ref, reactive, toRaw } from 'vue'
 import { mixinForm } from '@/utils/mixin'
+import { moment, getMomentFormattedAndNormalized } from '@/utils/date'
 
 export default {
   name: 'AddQuotaCredit',
@@ -132,6 +143,10 @@ export default {
         const formRaw = toRaw(this.form)
         const values = this.handleRemoveFields(formRaw)
         values.domainid = this.domainId
+
+        if (values.postingDate) {
+          values.postingDate = getMomentFormattedAndNormalized({ value: values.postingDate })
+        }
 
         this.loading = true
         api('quotaCredits', values).then(response => {
@@ -186,6 +201,9 @@ export default {
       }).catch(error => {
         this.$notifyError(error)
       })
+    },
+    disabledPostingDate (current) {
+      return current > moment().endOf('day')
     }
   }
 }

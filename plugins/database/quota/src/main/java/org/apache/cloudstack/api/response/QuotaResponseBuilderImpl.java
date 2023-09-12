@@ -696,7 +696,7 @@ public class QuotaResponseBuilderImpl implements QuotaResponseBuilder {
     }
 
     @Override
-    public QuotaCreditsResponse addQuotaCredits(Long accountId, Long domainId, Double amount, Long updatedBy, Boolean enforce) {
+    public QuotaCreditsResponse addQuotaCredits(Long accountId, Long domainId, Double amount, Long updatedBy, Boolean enforce, Date postingDate) {
         Date despositedOn = new Date();
         QuotaBalanceVO qb = _quotaBalanceDao.findLaterBalanceEntry(accountId, domainId, despositedOn);
 
@@ -704,7 +704,12 @@ public class QuotaResponseBuilderImpl implements QuotaResponseBuilder {
             throw new InvalidParameterValueException("Incorrect deposit date: " + despositedOn + " there are balance entries after this date");
         }
 
-        QuotaCreditsVO credits = new QuotaCreditsVO(accountId, domainId, new BigDecimal(amount), updatedBy);
+        postingDate = ObjectUtils.defaultIfNull(postingDate, despositedOn);
+        if (postingDate.after(despositedOn)) {
+            throw new InvalidParameterValueException(String.format("Posting date [%s] must be before or equal to the processing date [%s].", postingDate, despositedOn));
+        }
+
+        QuotaCreditsVO credits = new QuotaCreditsVO(accountId, domainId, new BigDecimal(amount), updatedBy, postingDate);
         credits.setUpdatedOn(despositedOn);
         QuotaCreditsVO result = quotaCreditsDao.saveCredits(credits);
 
@@ -746,6 +751,7 @@ public class QuotaResponseBuilderImpl implements QuotaResponseBuilder {
             response.setAccountCreditorId(creditor);
         }
         response.setCurrency(QuotaConfig.QuotaCurrencySymbol.value());
+        response.setPostingDate(postingDate);
         return response;
     }
 
@@ -948,6 +954,7 @@ public class QuotaResponseBuilderImpl implements QuotaResponseBuilder {
         response.setCredit(credit.getCredit());
         response.setCreditedOn(credit.getUpdatedOn());
         response.setCurrency(QuotaConfig.QuotaCurrencySymbol.value());
+        response.setPostingDate(credit.getPostingDate());
         response.setObjectName("credit");
 
         return response;

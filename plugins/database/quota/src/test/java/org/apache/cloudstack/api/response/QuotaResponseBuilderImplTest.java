@@ -236,6 +236,7 @@ public class QuotaResponseBuilderImplTest extends TestCase {
         final long domainId = 1L;
         final double amount = 11.0;
         final long updatedBy = 2L;
+        final Date postingDate = new Date();
 
         QuotaCreditsVO credit = new QuotaCreditsVO();
         credit.setCredit(new BigDecimal(amount));
@@ -247,7 +248,7 @@ public class QuotaResponseBuilderImplTest extends TestCase {
         account.setState(Account.State.LOCKED);
         Mockito.when(accountDaoMock.findById(Mockito.anyLong())).thenReturn(account);
 
-        QuotaCreditsResponse resp = quotaResponseBuilderSpy.addQuotaCredits(accountId, domainId, amount, updatedBy, true);
+        QuotaCreditsResponse resp = quotaResponseBuilderSpy.addQuotaCredits(accountId, domainId, amount, updatedBy, true, postingDate);
         assertTrue(resp.getCredit().compareTo(credit.getCredit()) == 0);
     }
 
@@ -625,6 +626,7 @@ public class QuotaResponseBuilderImplTest extends TestCase {
         expected.setCredit(new BigDecimal("41.5"));
         expected.setCreditedOn(new Date());
         expected.setCurrency(QuotaConfig.QuotaCurrencySymbol.value());
+        expected.setPostingDate(new Date(1242421545757532L));
         expected.setObjectName("credit");
 
         Mockito.doReturn(accountVoMock).when(quotaResponseBuilderSpy).getAccountById(Mockito.any(), Mockito.any());
@@ -632,6 +634,7 @@ public class QuotaResponseBuilderImplTest extends TestCase {
         Mockito.doReturn(expected.getAccountCreditorName()).when(accountVoMock).getAccountName();
         Mockito.doReturn(expected.getCredit()).when(quotaCreditsVoMock).getCredit();
         Mockito.doReturn(expected.getCreditedOn()).when(quotaCreditsVoMock).getUpdatedOn();
+        Mockito.doReturn(expected.getPostingDate()).when(quotaCreditsVoMock).getPostingDate();
 
         QuotaCreditsResponse result = quotaResponseBuilderSpy.getQuotaCreditsResponse(mapAccountMock, quotaCreditsVoMock);
 
@@ -640,6 +643,7 @@ public class QuotaResponseBuilderImplTest extends TestCase {
         Assert.assertEquals(expected.getCredit(), result.getCredit());
         Assert.assertEquals(expected.getCreditedOn(), result.getCreditedOn());
         Assert.assertEquals(expected.getCurrency(), result.getCurrency());
+        Assert.assertEquals(expected.getPostingDate(), result.getPostingDate());
         Assert.assertEquals(expected.getObjectName(), result.getObjectName());
     }
 
