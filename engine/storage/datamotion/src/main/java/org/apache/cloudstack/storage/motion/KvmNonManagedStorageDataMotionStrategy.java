@@ -194,36 +194,33 @@ public class KvmNonManagedStorageDataMotionStrategy extends StorageSystemDataMot
         return supportStoragePoolType(sourceStoragePool.getPoolType());
     }
 
-    protected boolean isTemplateCopyable (VolumeInfo srcVolumeInfo, StoragePool srcStoragePool, StoragePool destStoragePool, VMTemplateStoragePoolVO sourceVolumeTemplateStoragePoolVO, DataStore sourceTemplateDataStore) {
-        String logMessage = String.format("Skipping copy template from source storage pool [%s] to target storage pool [%s] before migration as", srcStoragePool, destStoragePool);
-
+    protected boolean isTemplateCopyable(String skipLogMessage, VolumeInfo srcVolumeInfo, StoragePool destStoragePool) {
         if (srcVolumeInfo.getTemplateId() == null) {
-            LOGGER.debug(String.format("%s volume [%s] does not have a template.", logMessage, srcVolumeInfo.getId()));
+            LOGGER.debug(String.format("%s volume [%s] does not have a template.", skipLogMessage, srcVolumeInfo.getId()));
             return false;
         }
-
         if (srcVolumeInfo.getVolumeType() != Volume.Type.ROOT) {
-            LOGGER.debug(String.format("%s volume [%s] is not Root.", logMessage, srcVolumeInfo.getId()));
+            LOGGER.debug(String.format("%s volume [%s] is not Root.", skipLogMessage, srcVolumeInfo.getId()));
             return false;
         }
-
         if (vmTemplateDao.findById(srcVolumeInfo.getTemplateId()) == null) {
-            LOGGER.debug(String.format("%s template [%s] was removed.", logMessage, srcVolumeInfo.getTemplateId()));
+            LOGGER.debug(String.format("%s template [%s] was removed.", skipLogMessage, srcVolumeInfo.getTemplateId()));
             return false;
         }
-
         if (!isStoragePoolTypeInList(destStoragePool.getPoolType(), StoragePoolType.Filesystem, StoragePoolType.SharedMountPoint)) {
-            LOGGER.debug(String.format("%s storage pool type [%s] is not supported.", logMessage, destStoragePool.getPoolType()));
+            LOGGER.debug(String.format("%s storage pool type [%s] is not supported.", skipLogMessage, destStoragePool.getPoolType()));
             return false;
         }
+        return true;
+    }
 
+    protected boolean isCopyNeeded(String skipLogMessage, VolumeInfo srcVolumeInfo, VMTemplateStoragePoolVO sourceVolumeTemplateStoragePoolVO, DataStore sourceTemplateDataStore) {
         if (sourceVolumeTemplateStoragePoolVO != null) {
-            LOGGER.debug(String.format("%s template [%s] already exists on target storage pool.", logMessage, destStoragePool.getPoolType()));
+            LOGGER.debug(String.format("%s template [%s] already exists on target storage pool.", skipLogMessage, srcVolumeInfo.getTemplateId()));
             return false;
         }
-
         if (sourceTemplateDataStore == null) {
-            LOGGER.debug(String.format("%s template [%s] data store not found.", logMessage, srcVolumeInfo.getTemplateId()));
+            LOGGER.debug(String.format("%s template [%s] data store not found.", skipLogMessage, srcVolumeInfo.getTemplateId()));
             return false;
         }
         return true;
@@ -235,10 +232,15 @@ public class KvmNonManagedStorageDataMotionStrategy extends StorageSystemDataMot
     @Override
     protected void copyTemplateToTargetFilesystemStorageIfNeeded(VolumeInfo srcVolumeInfo, StoragePool srcStoragePool, DataStore destDataStore, StoragePool destStoragePool,
             Host destHost) {
+        String skipLogMessage = String.format("Skipping copy template from source storage pool [%s] to target storage pool [%s] before migration as", srcStoragePool, destStoragePool);
+        if (!isTemplateCopyable(skipLogMessage, srcVolumeInfo, destStoragePool)) {
+            return;
+        }
+
         VMTemplateStoragePoolVO sourceVolumeTemplateStoragePoolVO = vmTemplatePoolDao.findByPoolTemplate(destStoragePool.getId(), srcVolumeInfo.getTemplateId(), null);
         DataStore sourceTemplateDataStore = dataStoreManagerImpl.getRandomImageStore(srcVolumeInfo.getDataCenterId());
 
-        if (!isTemplateCopyable(srcVolumeInfo, srcStoragePool, destStoragePool, sourceVolumeTemplateStoragePoolVO, sourceTemplateDataStore)) {
+        if (!isCopyNeeded(skipLogMessage, srcVolumeInfo, sourceVolumeTemplateStoragePoolVO, sourceTemplateDataStore)) {
             return;
         }
 
