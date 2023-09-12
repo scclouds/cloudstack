@@ -16,12 +16,16 @@
 //under the License.
 package org.apache.cloudstack.api.response;
 
+import java.lang.reflect.Field;
+import java.lang.reflect.Modifier;
+import java.lang.reflect.ParameterizedType;
 import java.lang.reflect.Type;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.Calendar;
+import java.util.Arrays;
 import java.util.Comparator;
 import java.util.Date;
 import java.util.HashMap;
@@ -70,6 +74,7 @@ import org.apache.cloudstack.api.command.QuotaConfigureEmailCmd;
 import org.apache.cloudstack.api.command.QuotaCreditsListCmd;
 import org.apache.cloudstack.api.command.QuotaEmailTemplateListCmd;
 import org.apache.cloudstack.api.command.QuotaEmailTemplateUpdateCmd;
+import org.apache.cloudstack.api.command.QuotaPresetVariablesListCmd;
 import org.apache.cloudstack.api.command.QuotaResourceQuotingCmd;
 import org.apache.cloudstack.api.command.QuotaStatementCmd;
 import org.apache.cloudstack.api.command.QuotaStatementDetailsCmd;
@@ -85,9 +90,12 @@ import org.apache.cloudstack.discovery.ApiDiscoveryService;
 import org.apache.cloudstack.quota.QuotaManager;
 import org.apache.cloudstack.quota.QuotaService;
 import org.apache.cloudstack.quota.QuotaStatement;
+import org.apache.cloudstack.quota.activationrule.presetvariables.ComputingResources;
 import org.apache.cloudstack.quota.activationrule.presetvariables.GenericPresetVariable;
 import org.apache.cloudstack.quota.activationrule.presetvariables.PresetVariables;
 import org.apache.cloudstack.quota.constant.ProcessingPeriod;
+import org.apache.cloudstack.quota.activationrule.presetvariables.PresetVariableDefinition;
+import org.apache.cloudstack.quota.activationrule.presetvariables.Value;
 import org.apache.cloudstack.quota.constant.QuotaConfig;
 import org.apache.cloudstack.quota.constant.QuotaTypes;
 import org.apache.cloudstack.quota.dao.QuotaAccountDao;
@@ -117,6 +125,7 @@ import org.apache.cloudstack.utils.reflectiontostringbuilderutils.ReflectionToSt
 import org.apache.commons.collections.CollectionUtils;
 import org.apache.commons.lang3.ObjectUtils;
 import org.apache.commons.lang3.StringUtils;
+import org.apache.commons.lang3.reflect.FieldUtils;
 import org.apache.log4j.Logger;
 import org.springframework.stereotype.Component;
 
@@ -212,6 +221,8 @@ public class QuotaResponseBuilderImpl implements QuotaResponseBuilder {
 
     private final Type linkedListOfResourcesToQuoteType = new TypeToken<LinkedList<ResourcesToQuoteVO>>() {
     }.getType();
+
+    private final Class<?>[] assignableClasses = {GenericPresetVariable.class, ComputingResources.class};
 
     @Override
     public QuotaTariffResponse createQuotaTariffResponse(QuotaTariffVO tariff, boolean returnActivationRule) {
@@ -1459,6 +1470,119 @@ public class QuotaResponseBuilderImpl implements QuotaResponseBuilder {
         quotaUsageDetailsResponse.setTotalQuotaUsed(totalQuotaUsed);
 
         return quotaUsageDetailsResponse;
+    }
+
+    @Override
+    public List<QuotaPresetVariablesItemResponse> listQuotaPresetVariables(QuotaPresetVariablesListCmd cmd) {
+        List<QuotaPresetVariablesItemResponse> response;
+        List<Pair<String, String>> variables = new ArrayList<>();
+
+        QuotaTypes quotaUsageType = QuotaTypes.getQuotaTypeByName(cmd.getQuotaResourceType());
+        addAllPresetVariables(PresetVariables.class, quotaUsageType, variables, null);
+        response = createQuotaPresetVariablesResponse(variables);
+
+        return response;
+    }
+
+    /**
+     * Adds all preset variables for the given quota type. It recursively finds all presets variables for the given {@link Class} and puts it in a {@link List}. Each item in the
+     * list is a {@link Pair} that consists of the variable name and its description.
+     *
+     * @param clazz used to find the non-transient fields. If it is equal to the {@link Value} class, then it only gets the declared fields, otherwise, it gets all fields,
+     *              including its parent's fields.
+     * @param quotaType used to check if the field supports the quota resource type. It uses the annotation method {@link PresetVariableDefinition#supportedTypes()} for this
+     *                  verification.
+     * @param variables the {@link List} which contains the {@link Pair} of the preset variable and its description.
+     * @param recursiveVariableName {@link String} used for recursively building the preset variable string.
+     */
+    public void addAllPresetVariables(Class<?> clazz, QuotaTypes quotaType, List<Pair<String, String>> variables, String recursiveVariableName) {
+        Field[] allFields = Value.class.equals(clazz) ? clazz.getDeclaredFields() : FieldUtils.getAllFields(clazz);
+        List<Field> fieldsNonTransients = Arrays.stream(allFields).filter(field -> !Modifier.isTransient(field.getModifiers())).collect(Collectors.toList());
+        for (Field field : fieldsNonTransients) {
+            PresetVariableDefinition presetVariableDefinitionAnnotation = field.getAnnotation(PresetVariableDefinition.class);
+            Class<?> fieldClass = getClassOfField(field);
+            String presetVariableName = field.getName();
+
+            if (presetVariableDefinitionAnnotation == null) {
+                continue;
+            }
+
+            if (StringUtils.isNotEmpty(recursiveVariableName)) {
+                presetVariableName = String.format("%s.%s", recursiveVariableName, field.getName());
+            }
+            filterSupportedTypes(variables, quotaType, presetVariableDefinitionAnnotation, fieldClass, presetVariableName);
+        }
+    }
+
+    /**
+     * Returns the class of the {@link Field} depending on its type. This method is required for retrieving the Class of Generic Types, i.e. {@link List}.
+     */
+    protected Class<?> getClassOfField(Field field){
+        if (field.getGenericType() instanceof ParameterizedType) {
+            ParameterizedType genericType = (ParameterizedType) field.getGenericType();
+            return (Class<?>) genericType.getActualTypeArguments()[0];
+        }
+
+        return field.getType();
+    }
+
+    /**
+     * Checks if the {@link PresetVariableDefinition} supports the given {@link QuotaTypes}. If it supports it, it adds the preset variable to the {@link List} recursively
+     * if it is from the one of the classes in the {@link QuotaResponseBuilderImpl#assignableClasses} array or directly if not.
+     *
+     * @param variables {@link List} of the {@link Pair} of the preset variable and its description.
+     * @param quotaType the given {@link QuotaTypes} to filter.
+     * @param presetVariableDefinitionAnnotation used to check if the quotaType is supported.
+     * @param fieldClass class of the field used to verify if it is from the {@link GenericPresetVariable} or {@link ComputingResources} classes. If it is, then it calls
+     *                   {@link QuotaResponseBuilderImpl#addAllPresetVariables(Class, QuotaTypes, List, String)} to add the preset variable. Otherwise, the {@link Pair} is
+     *                   added directly to the variables {@link List}.
+     * @param presetVariableName {@link String} that contains the recursive created preset variable name.
+     */
+    public void filterSupportedTypes(List<Pair<String, String>> variables, QuotaTypes quotaType, PresetVariableDefinition presetVariableDefinitionAnnotation, Class<?> fieldClass,
+                                     String presetVariableName) {
+        if (Arrays.stream(presetVariableDefinitionAnnotation.supportedTypes()).noneMatch(supportedType ->
+                supportedType == quotaType.getQuotaType() || supportedType == 0)) {
+            return;
+        }
+
+        String presetVariableDescription = presetVariableDefinitionAnnotation.description();
+
+        Pair<String, String> pair = new Pair<>(presetVariableName, presetVariableDescription);
+        variables.add(pair);
+
+        if (isRecursivePresetVariable(fieldClass)) {
+            addAllPresetVariables(fieldClass, quotaType, variables, presetVariableName);
+        }
+    }
+
+    /**
+     * Returns true if the {@link Class} of the {@link Field} is from one of the classes in the array {@link QuotaResponseBuilderImpl#assignableClasses}, i.e., it is a recursive
+     * {@link PresetVariables}, returns false otherwise.
+     */
+    private boolean isRecursivePresetVariable(Class<?> fieldClass) {
+        for (Class<?> clazz : assignableClasses) {
+            if (clazz.isAssignableFrom(fieldClass)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    public List<QuotaPresetVariablesItemResponse> createQuotaPresetVariablesResponse(List<Pair<String, String>> variables) {
+        final List<QuotaPresetVariablesItemResponse> responses = new ArrayList<>();
+
+        for (Pair<String, String> variable : variables) {
+            responses.add(createPresetVariablesItemResponse(variable));
+        }
+
+        return responses;
+    }
+
+    public QuotaPresetVariablesItemResponse createPresetVariablesItemResponse(Pair<String, String> variable) {
+        QuotaPresetVariablesItemResponse response = new QuotaPresetVariablesItemResponse();
+        response.setVariables(variable.first());
+        response.setDescription(variable.second());
+        return response;
     }
 
     protected QuotaTariffStatementItemResponse createQuotaTariffStatementItemResponse(QuotaTariffVO tariff, List<QuotaUsageDetailVO> quotaUsageDetailList, List<QuotaUsageJoinVO> quotaUsageRecords, boolean showResources) {
