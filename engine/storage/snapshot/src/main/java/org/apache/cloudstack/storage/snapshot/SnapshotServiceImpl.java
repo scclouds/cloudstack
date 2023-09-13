@@ -382,7 +382,7 @@ public class SnapshotServiceImpl implements SnapshotService {
         SnapshotResult res = null;
         try {
             if (result.isFailed()) {
-                s_logger.debug("delete snapshot failed" + result.getResult());
+                s_logger.debug(String.format("Failed to delete snapshot [%s] due to: [%s].", snapshot.getUuid(), result.getResult()));
                 snapshot.processEvent(ObjectInDataStoreStateMachine.Event.OperationFailed);
                 res = new SnapshotResult(context.snapshot, null);
                 res.setResult(result.getResult());
@@ -391,7 +391,7 @@ public class SnapshotServiceImpl implements SnapshotService {
                 res = new SnapshotResult(context.snapshot, null);
             }
         } catch (Exception e) {
-            s_logger.debug("Failed to in deleteSnapshotCallback", e);
+            s_logger.error("An exception occurred while processing an event in delete snapshot callback.", e);
             res.setResult(e.toString());
         }
         future.complete(res);
@@ -436,15 +436,13 @@ public class SnapshotServiceImpl implements SnapshotService {
             if (result.isFailed()) {
                 throw new CloudRuntimeException(result.getResult());
             }
+            s_logger.debug(String.format("Successfully deleted snapshot [%s] with ID [%s].", snapInfo.getName(), snapInfo.getUuid()));
             return true;
-        } catch (InterruptedException e) {
-            s_logger.debug("delete snapshot is failed: " + e.toString());
-        } catch (ExecutionException e) {
-            s_logger.debug("delete snapshot is failed: " + e.toString());
+        } catch (InterruptedException | ExecutionException e) {
+            s_logger.error(String.format("Failed to delete snapshot [%s] due to: [%s].", snapInfo.getUuid(), e.getMessage()), e);
         }
 
         return false;
-
     }
 
     @Override
