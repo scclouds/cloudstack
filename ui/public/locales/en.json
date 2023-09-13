@@ -1557,6 +1557,7 @@
 "label.quota.usage.types.summary": "Usage types summary",
 "label.quota.usage.resources.by.type": "Resources by usage type",
 "label.quota.usage.details.by.resource": "Details by resource",
+"label.quota.validate.activation.rule": "Validate activation rule",
 "label.quota.value": "Quota value",
 "label.quotastate": "Quota state",
 "label.quota_enforce": "Enforce Quota",

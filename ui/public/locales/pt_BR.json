@@ -1312,6 +1312,7 @@
 "label.quota.usage.types.summary": "Sumário dos tipos",
 "label.quota.usage.resources.by.type": "Recursos por tipo",
 "label.quota.usage.details.by.resource": "Detalhes por recurso",
+"label.quota.validate.activation.rule": "Validar regra de ativa\u00e7\u00e3o",
 "label.quota.value": "Valor",
 "label.rados.monitor": "Monitor RADOS",
 "label.rados.pool": "Pool do RADOS",

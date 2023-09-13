@@ -16,6 +16,7 @@
 // under the License.
 
 <template>
+  <a-spin :spinning="loading">
    <a-form
       class="form"
       layout="vertical"
@@ -48,16 +49,21 @@
         <a-textarea
           v-model:value="form.activationRule"
           :placeholder="$t('placeholder.quota.tariff.activationrule')"
-          :max-length="65535" />
+          :class="stateBorder"
+          :max-length="65535"
+          @keydown="isActivationRuleValid = undefined" />
       </a-form-item>
-     <a-form-item ref="position" name="position">
-       <template #label>
+      <div class="action-button">
+        <a-button type="primary" @click="handleValidateActivationRule">{{ $t('label.quota.validate.activation.rule') }}</a-button>
+      </div>
+      <a-form-item ref="position" name="position">
+        <template #label>
          <tooltip-label :title="$t('label.quota.tariff.position')" :tooltip="apiParams.position.description"/>
        </template>
        <a-input-number
          v-model:value="form.position"
          :placeholder="$t('placeholder.quota.tariff.position')" />
-     </a-form-item>
+      </a-form-item>
       <a-form-item ref="endDate" name="endDate">
         <template #label>
           <tooltip-label :title="$t('label.end.date')" :tooltip="apiParams.enddate.description"/>
@@ -72,7 +78,8 @@
         <a-button @click="closeModal">{{ $t('label.cancel') }}</a-button>
         <a-button type="primary" ref="submit" @click="handleSubmit">{{ $t('label.ok') }}</a-button>
       </div>
-  </a-form>
+    </a-form>
+  </a-spin>
 </template>
 
 <script>
@@ -96,8 +103,17 @@ export default {
   },
   data: () => ({
     loading: false,
-    moment: moment
+    moment: moment,
+    isActivationRuleValid: undefined
   }),
+  computed: {
+    stateBorder () {
+      return {
+        'border-success': this.isActivationRuleValid,
+        'border-fail': this.isActivationRuleValid === false
+      }
+    }
+  },
   inject: ['parentFetchData'],
   beforeCreate () {
     this.apiParams = this.$getApiParams('quotaTariffUpdate')
@@ -177,6 +193,36 @@ export default {
         }).finally(() => {
           this.loading = false
         })
+      })
+    },
+    handleValidateActivationRule (e) {
+      e.preventDefault()
+      if (this.loading) return
+
+      const formRaw = toRaw(this.form)
+      const values = this.handleRemoveFields(formRaw)
+
+      this.loading = true
+      api('quotaTariffList', { id: this.$route.params.id }).then(response => {
+        const usageType = response.quotatarifflistresponse.quotatariff[0].usageName
+        api('quotaValidateActivationRule', {
+          activationRule: values.activationRule || ' ',
+          usageType
+        }).then(response => {
+          const shortResponse = response.quotavalidateactivationruleresponse.validactivationrule
+
+          if (shortResponse.isvalid) {
+            this.$message.success(shortResponse.message)
+          } else {
+            this.$message.error(shortResponse.message)
+          }
+
+          this.isActivationRuleValid = shortResponse.isvalid
+        })
+      }).catch(error => {
+        this.$notifyError(error)
+      }).finally(() => {
+        this.loading = false
       })
     },
     disabledDate (current) {

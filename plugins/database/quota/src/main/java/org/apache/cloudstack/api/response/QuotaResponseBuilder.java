@@ -30,6 +30,7 @@ import org.apache.cloudstack.api.command.QuotaTariffCreateCmd;
 import org.apache.cloudstack.api.command.QuotaTariffListCmd;
 import org.apache.cloudstack.api.command.QuotaTariffStatementCmd;
 import org.apache.cloudstack.api.command.QuotaTariffUpdateCmd;
+import org.apache.cloudstack.api.command.QuotaValidateActivationRuleCmd;
 import org.apache.cloudstack.quota.vo.QuotaEmailConfigurationVO;
 import org.apache.cloudstack.quota.vo.QuotaTariffVO;
 import org.apache.cloudstack.quota.vo.QuotaUsageJoinVO;
@@ -98,4 +99,6 @@ public interface QuotaResponseBuilder {
     List<QuotaPresetVariablesItemResponse> listQuotaPresetVariables(QuotaPresetVariablesListCmd cmd);
 
     QuotaTariffStatementResponse listQuotaTariffUsage(QuotaTariffStatementCmd cmd);
+
+    QuotaValidateActivationRuleResponse validateActivationRule(QuotaValidateActivationRuleCmd cmd);
 }
