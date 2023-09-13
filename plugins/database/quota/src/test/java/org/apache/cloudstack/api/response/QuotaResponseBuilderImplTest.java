@@ -54,9 +54,11 @@ import org.apache.cloudstack.api.command.QuotaCreditsListCmd;
 import org.apache.cloudstack.api.command.QuotaEmailTemplateListCmd;
 import org.apache.cloudstack.api.command.QuotaEmailTemplateUpdateCmd;
 import org.apache.cloudstack.api.command.QuotaSummaryCmd;
+import org.apache.cloudstack.api.command.QuotaValidateActivationRuleCmd;
 import org.apache.cloudstack.api.command.QuotaTariffStatementCmd;
 import org.apache.cloudstack.context.CallContext;
 import org.apache.cloudstack.discovery.ApiDiscoveryService;
+import org.apache.cloudstack.jsinterpreter.JsInterpreterHelper;
 import org.apache.cloudstack.quota.QuotaManager;
 import org.apache.cloudstack.quota.QuotaService;
 import org.apache.cloudstack.quota.activationrule.presetvariables.GenericPresetVariable;
@@ -79,6 +81,7 @@ import org.apache.cloudstack.quota.vo.QuotaTariffVO;
 import org.apache.cloudstack.quota.vo.ResourcesToQuoteVO;
 import org.apache.cloudstack.quota.vo.QuotaUsageDetailVO;
 import org.apache.cloudstack.quota.vo.QuotaUsageJoinVO;
+import org.apache.cloudstack.utils.jsinterpreter.JsInterpreter;
 import org.apache.cloudstack.quota.vo.QuotaUsageResourceVO;
 import org.apache.commons.lang3.time.DateUtils;
 import org.junit.Assert;
@@ -190,6 +193,12 @@ public class QuotaResponseBuilderImplTest extends TestCase {
     LinkedList<ResourcesToQuoteVO> linkedListResourcesToQuoteVoMock;
 
     LinkedList<ResourcesToQuoteVO> linkedListResourcesToQuoteVo = new LinkedList<>(Arrays.asList(new ResourcesToQuoteVO(), new ResourcesToQuoteVO(), new ResourcesToQuoteVO()));
+
+    @Mock
+    QuotaValidateActivationRuleCmd quotaValidateActivationRuleCmdMock = Mockito.mock(QuotaValidateActivationRuleCmd.class);
+
+    @Mock
+    JsInterpreterHelper jsInterpreterHelperMock = Mockito.mock(JsInterpreterHelper.class);
 
     AccountVO accountVo = new AccountVO();
     DomainVO domainVo = new DomainVO();
@@ -1554,5 +1563,50 @@ public class QuotaResponseBuilderImplTest extends TestCase {
         Assert.assertEquals(expected.getStartDate(), response.getStartDate());
         Assert.assertEquals(expected.getEndDate(), response.getEndDate());
         Assert.assertEquals(expected.getObjectName(), response.getObjectName());
+    }
+
+    public void validateActivationRuleTestValidateActivationRuleReturnValidScriptResponse() {
+        Mockito.doReturn("if (account.name == 'test') { true } else { false }").when(quotaValidateActivationRuleCmdMock).getActivationRule();
+        Mockito.doReturn("NETWORK").when(quotaValidateActivationRuleCmdMock).getQuotaType();
+        Mockito.doReturn(quotaValidateActivationRuleCmdMock.getActivationRule()).when(jsInterpreterHelperMock).replaceScriptVariables(Mockito.anyString(), Mockito.any());
+
+        QuotaValidateActivationRuleResponse response = quotaResponseBuilderSpy.validateActivationRule(quotaValidateActivationRuleCmdMock);
+
+        Assert.assertTrue(response.isValid());
+    }
+
+    @Test
+    public void validateActivationRuleTestUsageTypeIncompatibleVariableReturnInvalidScriptResponse() {
+        Mockito.doReturn("if (invalid.variable == 'test') { true } else { false }").when(quotaValidateActivationRuleCmdMock).getActivationRule();
+        Mockito.doReturn("NETWORK").when(quotaValidateActivationRuleCmdMock).getQuotaType();
+        Mockito.doReturn(quotaValidateActivationRuleCmdMock.getActivationRule()).when(jsInterpreterHelperMock).replaceScriptVariables(Mockito.anyString(), Mockito.any());
+        Mockito.when(jsInterpreterHelperMock.getScriptVariables(quotaValidateActivationRuleCmdMock.getActivationRule())).thenReturn(Set.of("invalid.variable"));
+
+        QuotaValidateActivationRuleResponse response = quotaResponseBuilderSpy.validateActivationRule(quotaValidateActivationRuleCmdMock);
+
+        Assert.assertFalse(response.isValid());
+    }
+
+
+    @Test
+    public void validateActivationRuleTestActivationRuleWithSyntaxErrorsReturnInvalidScriptResponse() {
+        Mockito.doReturn("{ if (account.name == 'test') { true } else { false } }}").when(quotaValidateActivationRuleCmdMock).getActivationRule();
+        Mockito.doReturn("NETWORK").when(quotaValidateActivationRuleCmdMock).getQuotaType();
+        Mockito.doReturn(quotaValidateActivationRuleCmdMock.getActivationRule()).when(jsInterpreterHelperMock).replaceScriptVariables(Mockito.anyString(), Mockito.any());
+
+        QuotaValidateActivationRuleResponse response = quotaResponseBuilderSpy.validateActivationRule(quotaValidateActivationRuleCmdMock);
+
+        Assert.assertFalse(response.isValid());
+    }
+
+
+    @Test
+    public void injectUsageTypeVariablesTestReturnInjectedVariables() {
+        JsInterpreter interpreter = Mockito.mock(JsInterpreter.class);
+
+        Map<String, String> formattedVariables = quotaResponseBuilderSpy.injectUsageTypeVariables(interpreter, List.of("account.name", "zone.name"));
+
+        Assert.assertTrue(formattedVariables.containsValue("accountname"));
+        Assert.assertTrue(formattedVariables.containsValue("zonename"));
     }
 }

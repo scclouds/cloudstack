@@ -16,6 +16,7 @@
 //under the License.
 package org.apache.cloudstack.api.response;
 
+import java.io.IOException;
 import java.lang.reflect.Field;
 import java.lang.reflect.Modifier;
 import java.lang.reflect.ParameterizedType;
@@ -24,8 +25,8 @@ import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.ZoneId;
 import java.util.ArrayList;
-import java.util.Calendar;
 import java.util.Arrays;
+import java.util.Calendar;
 import java.util.Comparator;
 import java.util.Date;
 import java.util.HashMap;
@@ -83,6 +84,7 @@ import org.apache.cloudstack.api.command.QuotaTariffCreateCmd;
 import org.apache.cloudstack.api.command.QuotaTariffListCmd;
 import org.apache.cloudstack.api.command.QuotaTariffStatementCmd;
 import org.apache.cloudstack.api.command.QuotaTariffUpdateCmd;
+import org.apache.cloudstack.api.command.QuotaValidateActivationRuleCmd;
 import org.apache.cloudstack.backup.BackupOfferingVO;
 import org.apache.cloudstack.backup.dao.BackupOfferingDao;
 import org.apache.cloudstack.context.CallContext;
@@ -93,9 +95,9 @@ import org.apache.cloudstack.quota.QuotaStatement;
 import org.apache.cloudstack.quota.activationrule.presetvariables.ComputingResources;
 import org.apache.cloudstack.quota.activationrule.presetvariables.GenericPresetVariable;
 import org.apache.cloudstack.quota.activationrule.presetvariables.PresetVariables;
+import org.apache.cloudstack.quota.activationrule.presetvariables.Value;
 import org.apache.cloudstack.quota.constant.ProcessingPeriod;
 import org.apache.cloudstack.quota.activationrule.presetvariables.PresetVariableDefinition;
-import org.apache.cloudstack.quota.activationrule.presetvariables.Value;
 import org.apache.cloudstack.quota.constant.QuotaConfig;
 import org.apache.cloudstack.quota.constant.QuotaTypes;
 import org.apache.cloudstack.quota.dao.QuotaAccountDao;
@@ -121,6 +123,7 @@ import org.apache.cloudstack.quota.vo.QuotaUsageDetailVO;
 import org.apache.cloudstack.quota.vo.QuotaUsageJoinVO;
 import org.apache.cloudstack.usage.UsageTypes;
 import org.apache.cloudstack.quota.vo.QuotaUsageResourceVO;
+import org.apache.cloudstack.jsinterpreter.JsInterpreterHelper;
 import org.apache.cloudstack.utils.reflectiontostringbuilderutils.ReflectionToStringBuilderUtils;
 import org.apache.commons.collections.CollectionUtils;
 import org.apache.commons.lang3.ObjectUtils;
@@ -213,6 +216,9 @@ public class QuotaResponseBuilderImpl implements QuotaResponseBuilder {
 
     @Inject
     private IPAddressDao ipAddressDao;
+
+    @Inject
+    private JsInterpreterHelper jsInterpreterHelper;
 
     @Inject
     private ProjectDao projectDao;
@@ -1692,5 +1698,64 @@ public class QuotaResponseBuilderImpl implements QuotaResponseBuilder {
         tariffStatementResponse.setObjectName(ApiConstants.TARIFF_STATEMENT);
 
         return tariffStatementResponse;
+    }
+
+    @Override
+    public QuotaValidateActivationRuleResponse validateActivationRule(QuotaValidateActivationRuleCmd cmd) {
+        String message;
+        String activationRule = cmd.getActivationRule();
+
+        String quotaUsageType = cmd.getQuotaType();
+        QuotaTypes quotaType = QuotaTypes.getQuotaTypeByName(quotaUsageType);
+        List<Pair<String, String>> usageTypeVariablesAndDescriptions = new ArrayList<>();
+        addAllPresetVariables(PresetVariables.class, quotaType, usageTypeVariablesAndDescriptions, null);
+        List<String> usageTypeVariables = usageTypeVariablesAndDescriptions.stream().map(Pair::first).collect(Collectors.toList());
+
+        try (JsInterpreter jsInterpreter = new JsInterpreter(QuotaConfig.QuotaActivationRuleTimeout.value())) {
+            Map<String, String> newVariables = injectUsageTypeVariables(jsInterpreter, usageTypeVariables);
+            String scriptToExecute = jsInterpreterHelper.replaceScriptVariables(activationRule, newVariables);
+            jsInterpreter.executeScript(String.format("new Function(\"%s\")", scriptToExecute.replaceAll("\n", "")));
+        } catch (IOException | CloudRuntimeException e) {
+            s_logger.error(String.format("Unable to execute activation rule due to: [%s].", e.getMessage()), e);
+            message = "Error while executing activation rule. Check if there are no syntax errors and all variables are compatible with the given usage type.";
+            return createValidateActivationRuleResponse(activationRule, quotaUsageType, false, message);
+        }
+
+        Set<String> scriptVariables = jsInterpreterHelper.getScriptVariables(activationRule);
+        if (scriptVariables.stream().allMatch(usageTypeVariables::contains)) {
+            message = "The script has no syntax errors and all variables are compatible with the given usage type.";
+            return createValidateActivationRuleResponse(activationRule, quotaUsageType, true, message);
+        }
+
+        message = "Found variables that are not compatible with the given usage type.";
+        return createValidateActivationRuleResponse(activationRule, quotaUsageType, false, message);
+    }
+
+    /**
+     *  Injects variables into JavaScript interpreter. It's necessary to remove all dots from the given variables for the interpreter
+     *  does not interpret the variables as attributes of objects.
+     *
+     * @param jsInterpreter the {@link JsInterpreter} which the variables will be injected.
+     * @param variables the {@link List} with variables to format and inject the formatted variables into interpreter.
+     * @return A {@link Map} which has the key as the given variable and the value as the given variable formatted (without dots).
+     */
+    protected Map<String, String> injectUsageTypeVariables(JsInterpreter jsInterpreter, List<String> variables) {
+        Map<String, String> formattedVariables = new HashMap<>();
+        for (String variable : variables) {
+            String formattedVariable = variable.replace(".", "");
+            formattedVariables.put(variable, formattedVariable);
+            jsInterpreter.injectVariable(formattedVariable, "false");
+        }
+
+        return formattedVariables;
+    }
+
+    public QuotaValidateActivationRuleResponse createValidateActivationRuleResponse(String activationRule, String quotaType, Boolean isValid, String message) {
+        QuotaValidateActivationRuleResponse response = new QuotaValidateActivationRuleResponse();
+        response.setActivationRule(activationRule);
+        response.setQuotaType(quotaType);
+        response.setValid(isValid);
+        response.setMessage(message);
+        return response;
     }
 }

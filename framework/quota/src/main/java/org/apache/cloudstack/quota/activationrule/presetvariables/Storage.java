@@ -29,7 +29,7 @@ public class Storage extends GenericPresetVariable {
     private Boolean isTagARule;
 
     @PresetVariableDefinition(description = "Scope of the storage where the volume is. Values can be: ZONE, CLUSTER or HOST. Applicable only for" +
-        "primary storages.")
+            " primary storages.")
     private ScopeType scope;
 
     public List<String> getTags() {
