@@ -17,12 +17,16 @@
 
 package com.cloud.api.query;
 
+import com.cloud.api.query.dao.TemplateJoinDao;
+import com.cloud.api.query.vo.TemplateJoinVO;
 import com.cloud.projects.ProjectManager;
 import static org.junit.Assert.assertEquals;
 import static org.mockito.Mockito.when;
 
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 import java.util.UUID;
 
 import org.apache.cloudstack.acl.SecurityChecker;
@@ -31,6 +35,7 @@ import org.apache.cloudstack.api.command.user.event.ListEventsCmd;
 import org.apache.cloudstack.api.response.EventResponse;
 import org.apache.cloudstack.api.response.ListResponse;
 import org.apache.cloudstack.context.CallContext;
+import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -93,6 +98,12 @@ public class QueryManagerImplTest {
 
     @Mock
     EventJoinDao eventJoinDao;
+
+    @Mock
+    TemplateJoinDao templateJoinDaoMock;
+
+    @Mock
+    SearchCriteria searchCriteriaMock;
 
     private AccountVO account;
     private UserVO user;
@@ -320,4 +331,66 @@ public class QueryManagerImplTest {
         queryManagerImplSpy.getCallerAccordingToProjectId(accountMock, projId);
     }
 
+    @Test
+    public void applyPublicTemplateRestrictionsTestDoesNotApplyRestrictionsWhenCallerIsRootAdmin() {
+        Mockito.when(accountMock.getType()).thenReturn(Account.Type.ADMIN);
+
+        queryManagerImplSpy.applyPublicTemplateSharingRestrictions(searchCriteriaMock, accountMock);
+
+        Mockito.verify(searchCriteriaMock, Mockito.never()).addAnd(Mockito.anyString(), Mockito.any(), Mockito.any());
+    }
+
+    @Test
+    public void applyPublicTemplateRestrictionsTestAppliesRestrictionsWhenCallerIsNotAdmin() {
+        long callerDomainId = 1L;
+        long sharableDomainId = 2L;
+        long unsharableDomainId = 3L;
+
+        Mockito.when(accountMock.getType()).thenReturn(Account.Type.NORMAL);
+
+        Mockito.when(accountMock.getDomainId()).thenReturn(callerDomainId);
+        TemplateJoinVO templateMock1 = Mockito.mock(TemplateJoinVO.class);
+        Mockito.when(templateMock1.getDomainId()).thenReturn(callerDomainId);
+        Mockito.doReturn(false).when(queryManagerImplSpy).checkIfDomainSharesTemplates(callerDomainId);
+
+        TemplateJoinVO templateMock2 = Mockito.mock(TemplateJoinVO.class);
+        Mockito.when(templateMock2.getDomainId()).thenReturn(sharableDomainId);
+        Mockito.doReturn(true).when(queryManagerImplSpy).checkIfDomainSharesTemplates(sharableDomainId);
+
+        TemplateJoinVO templateMock3 = Mockito.mock(TemplateJoinVO.class);
+        Mockito.when(templateMock3.getDomainId()).thenReturn(unsharableDomainId);
+        Mockito.doReturn(false).when(queryManagerImplSpy).checkIfDomainSharesTemplates(unsharableDomainId);
+
+        List<TemplateJoinVO> publicTemplates = List.of(templateMock1, templateMock2, templateMock3);
+        Mockito.when(templateJoinDaoMock.listPublicTemplates()).thenReturn(publicTemplates);
+
+        queryManagerImplSpy.applyPublicTemplateSharingRestrictions(searchCriteriaMock, accountMock);
+
+        Mockito.verify(searchCriteriaMock).addAnd("domainId", SearchCriteria.Op.NOTIN, unsharableDomainId);
+    }
+
+    @Test
+    public void addDomainIdToSetIfDomainDoesNotShareTemplatesTestDoesNotAddWhenCallerBelongsToDomain() {
+        long domainId = 1L;
+        Set<Long> set = new HashSet<>();
+
+        Mockito.when(accountMock.getDomainId()).thenReturn(domainId);
+
+        queryManagerImplSpy.addDomainIdToSetIfDomainDoesNotShareTemplates(domainId, accountMock, set);
+
+        Assert.assertEquals(0, set.size());
+    }
+
+    @Test
+    public void addDomainIdToSetIfDomainDoesNotShareTemplatesTestAddsWhenDomainDoesNotShareTemplates() {
+        long domainId = 1L;
+        Set<Long> set = new HashSet<>();
+
+        Mockito.when(accountMock.getDomainId()).thenReturn(2L);
+        Mockito.doReturn(false).when(queryManagerImplSpy).checkIfDomainSharesTemplates(domainId);
+
+        queryManagerImplSpy.addDomainIdToSetIfDomainDoesNotShareTemplates(domainId, accountMock, set);
+
+        Assert.assertTrue(set.contains(domainId));
+    }
 }
