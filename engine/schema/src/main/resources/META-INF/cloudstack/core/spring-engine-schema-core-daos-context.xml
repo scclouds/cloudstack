@@ -281,4 +281,5 @@
   <bean id="publicIpQuarantineDaoImpl" class="com.cloud.network.dao.PublicIpQuarantineDaoImpl" />
   <bean id="secondaryStorageHeuristicDaoImpl" class="org.apache.cloudstack.secstorage.dao.SecondaryStorageHeuristicDaoImpl" />
   <bean id="heuristicRuleHelper" class="org.apache.cloudstack.storage.heuristics.HeuristicRuleHelper" />
+  <bean id="guiThemeDaoImpl" class="org.apache.cloudstack.gui.theme.dao.GuiThemeDaoImpl" />
 </beans>

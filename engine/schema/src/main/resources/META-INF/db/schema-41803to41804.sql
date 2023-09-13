@@ -17,6 +17,23 @@
 
 -- Schema upgrade from 4.18.0.3 to 4.18.0.4
 
+-- Whitelabel GUI
+CREATE TABLE IF NOT EXISTS `cloud`.`gui_themes` (
+  `id` bigint(20) unsigned NOT NULL auto_increment,
+  `uuid` varchar(255) UNIQUE,
+  `name` varchar(2048) NOT NULL COMMENT 'A name to identify the theme.',
+  `description` varchar(4096) DEFAULT NULL COMMENT 'A description for the theme.',
+  `css` text DEFAULT NULL COMMENT 'The CSS to be retrieved and imported into the GUI when matching the theme access configurations.',
+  `json_configuration` text DEFAULT NULL COMMENT 'The JSON with the configurations to be retrieved and imported into the GUI when matching the theme access configurations.',
+  `common_names` text DEFAULT NULL COMMENT 'A set of internet Common Names (CN), fixed of wildcard, separated by comma that can use the theme; e.g.: *acme.com,acme2.com',
+  `domain_uuids` text DEFAULT NULL COMMENT 'A set of domain IDs separated by comma that can use the theme.',
+  `account_uuids` text DEFAULT NULL COMMENT 'A set of account IDs separated by comma that can use the theme.',
+  `is_public` tinyint(1) default 1 COMMENT 'Defines whether a theme can be retrieved by anyone when only the `internet_domains_names` is informed. If the `domain_uuids` or `account_uuids` is informed, it is considered as `false`.',
+  `created` datetime NOT NULL,
+  `removed` datetime DEFAULT NULL,
+  PRIMARY KEY (`id`)
+);
+
 -- Add posting date to quota credits table.
 ALTER TABLE `cloud_usage`.`quota_credits`
     ADD COLUMN `posting_date` datetime NOT NULL DEFAULT NOW() COMMENT 'Posting date of the payment';

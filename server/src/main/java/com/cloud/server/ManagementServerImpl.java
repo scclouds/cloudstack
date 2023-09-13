@@ -386,6 +386,10 @@ import org.apache.cloudstack.api.command.user.firewall.UpdateFirewallRuleCmd;
 import org.apache.cloudstack.api.command.user.firewall.UpdatePortForwardingRuleCmd;
 import org.apache.cloudstack.api.command.user.guest.ListGuestOsCategoriesCmd;
 import org.apache.cloudstack.api.command.user.guest.ListGuestOsCmd;
+import org.apache.cloudstack.api.command.user.gui.themes.CreateGuiThemeCmd;
+import org.apache.cloudstack.api.command.user.gui.themes.ListGuiThemesCmd;
+import org.apache.cloudstack.api.command.user.gui.themes.RemoveGuiThemeCmd;
+import org.apache.cloudstack.api.command.user.gui.themes.UpdateGuiThemeCmd;
 import org.apache.cloudstack.api.command.user.iso.AttachIsoCmd;
 import org.apache.cloudstack.api.command.user.iso.CopyIsoCmd;
 import org.apache.cloudstack.api.command.user.iso.DeleteIsoCmd;
@@ -3725,6 +3729,10 @@ public class ManagementServerImpl extends ManagerBase implements ManagementServe
         cmdList.add(CreateSecondaryStorageSelectorCmd.class);
         cmdList.add(UpdateSecondaryStorageSelectorCmd.class);
         cmdList.add(RemoveSecondaryStorageSelectorCmd.class);
+        cmdList.add(ListGuiThemesCmd.class);
+        cmdList.add(UpdateGuiThemeCmd.class);
+        cmdList.add(CreateGuiThemeCmd.class);
+        cmdList.add(RemoveGuiThemeCmd.class);
         // separated admin commands
         cmdList.add(ListAccountsCmdByAdmin.class);
         cmdList.add(ListZonesCmdByAdmin.class);
