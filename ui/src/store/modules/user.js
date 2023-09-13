@@ -39,6 +39,10 @@ import {
   CUSTOM_COLUMNS
 } from '@/store/mutation-types'
 
+import {
+  applyCustomGuiTheme
+} from '@/utils/guiTheme'
+
 const user = {
   state: {
     token: '',
@@ -156,7 +160,7 @@ const user = {
     },
     Login ({ commit }, userInfo) {
       return new Promise((resolve, reject) => {
-        login(userInfo).then(response => {
+        login(userInfo).then(async response => {
           const result = response.loginresponse || {}
           Cookies.set('account', result.account, { expires: 1 })
           Cookies.set('domainid', result.domainid, { expires: 1 })
@@ -193,6 +197,10 @@ const user = {
           commit('SET_2FA_ISSUER', result.issuerfor2fa)
           commit('SET_LOGIN_FLAG', false)
           notification.destroy()
+
+          await api('listUsers', { userid: result.userid }).then(async response => {
+            await applyCustomGuiTheme(response.listusersresponse.user[0].accountid, result.domainid)
+          })
 
           resolve()
         }).catch(error => {

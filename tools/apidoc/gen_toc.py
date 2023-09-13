@@ -251,7 +251,11 @@ known_categories = {
     'ConsoleEndpoint': 'Console Endpoint',
     'listQuarantinedIp': 'IP Quarantine',
     'updateQuarantinedIp': 'IP Quarantine',
-    'removeQuarantinedIp': 'IP Quarantine'
+    'removeQuarantinedIp': 'IP Quarantine',
+    'listGuiThemes': 'GUI Theme',
+    'createGuiTheme': 'GUI Theme',
+    'updateGuiTheme': 'GUI Theme',
+    'removeGuiTheme': 'GUI Theme'
 }
 
 

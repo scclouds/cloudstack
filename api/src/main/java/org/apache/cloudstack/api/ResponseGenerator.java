@@ -59,6 +59,7 @@ import org.apache.cloudstack.api.response.GuestOSResponse;
 import org.apache.cloudstack.api.response.GuestOsMappingResponse;
 import org.apache.cloudstack.api.response.GuestVlanRangeResponse;
 import org.apache.cloudstack.api.response.GuestVlanResponse;
+import org.apache.cloudstack.api.response.GuiThemeResponse;
 import org.apache.cloudstack.api.response.HostForMigrationResponse;
 import org.apache.cloudstack.api.response.HostResponse;
 import org.apache.cloudstack.api.response.HypervisorCapabilitiesResponse;
@@ -140,6 +141,7 @@ import org.apache.cloudstack.config.ConfigurationGroup;
 import org.apache.cloudstack.direct.download.DirectDownloadCertificate;
 import org.apache.cloudstack.direct.download.DirectDownloadCertificateHostMap;
 import org.apache.cloudstack.direct.download.DirectDownloadManager;
+import org.apache.cloudstack.gui.themes.GuiThemeVO;
 import org.apache.cloudstack.management.ManagementServerHost;
 import org.apache.cloudstack.network.lb.ApplicationLoadBalancerRule;
 import org.apache.cloudstack.region.PortableIp;
@@ -534,4 +536,6 @@ public interface ResponseGenerator {
     IpQuarantineResponse createQuarantinedIpsResponse(PublicIpQuarantine publicIp);
 
     SecondaryStorageHeuristicsResponse createSecondaryStorageSelectorResponse(Heuristic heuristic);
+
+    GuiThemeResponse createGuiThemeResponse(GuiThemeVO guiThemeVO);
 }

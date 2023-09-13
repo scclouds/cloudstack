@@ -194,7 +194,6 @@ public class ApiServer extends ManagerBase implements HttpRequestHandler, ApiSer
      * Non-printable ASCII characters - numbers 0 to 31 and 127 decimal
      */
     private static final String CONTROL_CHARACTERS = "[\000-\011\013-\014\016-\037\177]";
-
     @Inject
     private ApiDispatcher dispatcher;
     @Inject
@@ -231,6 +230,8 @@ public class ApiServer extends ManagerBase implements HttpRequestHandler, ApiSer
 
     @Inject
     private MessageBus messageBus;
+
+    private static final String LIST_GUI_THEMES_API = "listGuiThemes";
 
     private static final ConfigKey<Integer> IntegrationAPIPort = new ConfigKey<Integer>("Advanced"
             , Integer.class
@@ -863,6 +864,9 @@ public class ApiServer extends ManagerBase implements HttpRequestHandler, ApiSer
                 final User user = ApiDBUtils.findUserById(userId);
                 return commandAvailable(remoteAddress, commandName, user);
             } else {
+                if (commandName.equalsIgnoreCase(LIST_GUI_THEMES_API)) {
+                    return true;
+                }
                 // check against every available command to see if the command exists or not
                 if (!s_apiNameCmdClassMap.containsKey(commandName) && !commandName.equals("login") && !commandName.equals("logout")) {
                     final String errorMessage = "The given command " + commandName + " either does not exist, is not available" +

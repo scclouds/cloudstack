@@ -344,4 +344,6 @@
 
     <bean id="resourceIconManager" class="com.cloud.resourceicon.ResourceIconManagerImpl" />
 
+    <bean id="guiThemeServiceImpl" class="org.apache.cloudstack.gui.theme.GuiThemeServiceImpl" />
+
 </beans>

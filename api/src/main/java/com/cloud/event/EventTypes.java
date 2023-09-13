@@ -699,6 +699,11 @@ public class EventTypes {
     public static final String EVENT_QUOTA_TARIFF_DELETE = "QUOTA.TARIFF.DELETE";
     public static final String EVENT_QUOTA_TARIFF_UPDATE = "QUOTA.TARIFF.UPDATE";
 
+    // GUI Theme
+    public static final String EVENT_GUI_THEME_CREATE = "GUI.THEME.CREATE";
+    public static final String EVENT_GUI_THEME_REMOVE = "GUI.THEME.REMOVE";
+    public static final String EVENT_GUI_THEME_UPDATE = "GUI.THEME.UPDATE";
+
     static {
 
         // TODO: need a way to force author adding event types to declare the entity details as well, with out braking
@@ -1130,6 +1135,11 @@ public class EventTypes {
         entityEventDetails.put(EVENT_QUOTA_TARIFF_CREATE, "QuotaTariff");
         entityEventDetails.put(EVENT_QUOTA_TARIFF_DELETE, "QuotaTariff");
         entityEventDetails.put(EVENT_QUOTA_TARIFF_UPDATE, "QuotaTariff");
+
+        // GUI Theme
+        entityEventDetails.put(EVENT_GUI_THEME_CREATE, "GuiTheme");
+        entityEventDetails.put(EVENT_GUI_THEME_REMOVE, "GuiTheme");
+        entityEventDetails.put(EVENT_GUI_THEME_UPDATE, "GuiTheme");
     }
 
     public static boolean isNetworkEvent(String eventType) {

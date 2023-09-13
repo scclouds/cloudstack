@@ -1066,6 +1066,19 @@ public class ApiConstants {
     public static final String HEURISTIC_RULE = "heuristicrule";
 
     public static final String HEURISTIC_PURPOSE_VALID_OPTIONS = "Valid options are: ISO, SNAPSHOT, TEMPLATE and VOLUME.";
+    public static final String CSS = "css";
+
+    public static final String JSON_CONFIGURATION = "jsonconfiguration";
+
+    public static final String COMMON_NAMES = "commonnames";
+
+    public static final String COMMON_NAME = "commonname";
+
+    public static final String DOMAIN_IDS = "domainids";
+
+    public static final String SHOW_PUBLIC = "showpublic";
+
+    public static final String LIST_ONLY_DEFAULT_THEME = "listonlydefaulttheme";
 
     /**
      * This enum specifies IO Drivers, each option controls specific policies on I/O.
