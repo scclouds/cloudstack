@@ -54,18 +54,22 @@ public class JsInterpreterHelper {
             logger.error(String.format("Unable to create the script JSON tree due to: [%s].", e.getMessage()), e);
         }
 
+        logger.trace(String.format("Searching script variables from [%s].", script));
         StringBuilder variable = new StringBuilder();
         Set<String> variables = new HashSet<>();
         iterateOverJsonTree(jsonNode.fields(), variable, variables);
 
         if (StringUtils.isNotBlank(variable.toString())) {
+            logger.trace(String.format("Adding variable [%s] into the variables set.", variable));
             variables.add(variable.toString());
         }
 
+        logger.trace(String.format("Found the following variables from the given script: [%s]", variables));
         return variables;
     }
 
     private String getScriptAsJsonTree(String script) {
+        logger.trace(String.format("Creating JSON Tree for script [%s].", script));
         Options options = new Options("nashorn");
         options.set("anon.functions", true);
         options.set("parse.only", true);
@@ -139,11 +143,14 @@ public class JsInterpreterHelper {
 
     protected void appendFieldValueToVariable(String key, JsonNode value, StringBuilder variable, Set<String> variables) {
         if (!"name".equals(key)) {
+            logger.trace(String.format("Appending field value [%s] to variable [%s] as the field name is not \"name\".", value.toString(), variable));
             variable.append(".").append(value.toString().replace("\"", ""));
             return;
         }
 
+        logger.trace(String.format("Building new variable [%s] as the field name is \"name\"", value.toString()));
         if (StringUtils.isNotBlank(variable.toString())) {
+            logger.trace(String.format("Adding variable [%s] into the variables set.", variable));
             variables.add(variable.toString());
             variable.setLength(0);
         }

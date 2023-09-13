@@ -1490,8 +1490,8 @@ public class QuotaResponseBuilderImpl implements QuotaResponseBuilder {
         List<QuotaPresetVariablesItemResponse> response;
         List<Pair<String, String>> variables = new ArrayList<>();
 
-        QuotaTypes quotaUsageType = QuotaTypes.getQuotaTypeByName(cmd.getQuotaResourceType());
-        addAllPresetVariables(PresetVariables.class, quotaUsageType, variables, null);
+        QuotaTypes quotaType = cmd.getQuotaType();
+        addAllPresetVariables(PresetVariables.class, quotaType, variables, null);
         response = createQuotaPresetVariablesResponse(variables);
 
         return response;
@@ -1705,8 +1705,8 @@ public class QuotaResponseBuilderImpl implements QuotaResponseBuilder {
         String message;
         String activationRule = cmd.getActivationRule();
 
-        String quotaUsageType = cmd.getQuotaType();
-        QuotaTypes quotaType = QuotaTypes.getQuotaTypeByName(quotaUsageType);
+        QuotaTypes quotaType = cmd.getQuotaType();
+        String quotaName = quotaType.getQuotaName();
         List<Pair<String, String>> usageTypeVariablesAndDescriptions = new ArrayList<>();
         addAllPresetVariables(PresetVariables.class, quotaType, usageTypeVariablesAndDescriptions, null);
         List<String> usageTypeVariables = usageTypeVariablesAndDescriptions.stream().map(Pair::first).collect(Collectors.toList());
@@ -1718,17 +1718,17 @@ public class QuotaResponseBuilderImpl implements QuotaResponseBuilder {
         } catch (IOException | CloudRuntimeException e) {
             s_logger.error(String.format("Unable to execute activation rule due to: [%s].", e.getMessage()), e);
             message = "Error while executing activation rule. Check if there are no syntax errors and all variables are compatible with the given usage type.";
-            return createValidateActivationRuleResponse(activationRule, quotaUsageType, false, message);
+            return createValidateActivationRuleResponse(activationRule, quotaName, false, message);
         }
 
         Set<String> scriptVariables = jsInterpreterHelper.getScriptVariables(activationRule);
         if (scriptVariables.stream().allMatch(usageTypeVariables::contains)) {
             message = "The script has no syntax errors and all variables are compatible with the given usage type.";
-            return createValidateActivationRuleResponse(activationRule, quotaUsageType, true, message);
+            return createValidateActivationRuleResponse(activationRule, quotaName, true, message);
         }
 
         message = "Found variables that are not compatible with the given usage type.";
-        return createValidateActivationRuleResponse(activationRule, quotaUsageType, false, message);
+        return createValidateActivationRuleResponse(activationRule, quotaName, false, message);
     }
 
     /**

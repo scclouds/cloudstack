@@ -16,6 +16,7 @@
 //under the License.
 package org.apache.cloudstack.api.command;
 
+import com.cloud.exception.InvalidParameterValueException;
 import com.cloud.user.Account;
 import org.apache.cloudstack.api.APICommand;
 import org.apache.cloudstack.api.ApiConstants;
@@ -24,6 +25,7 @@ import org.apache.cloudstack.api.Parameter;
 import org.apache.cloudstack.api.response.ListResponse;
 import org.apache.cloudstack.api.response.QuotaPresetVariablesItemResponse;
 import org.apache.cloudstack.api.response.QuotaResponseBuilder;
+import org.apache.cloudstack.quota.constant.QuotaTypes;
 
 import javax.inject.Inject;
 import java.util.List;
@@ -35,9 +37,9 @@ public class QuotaPresetVariablesListCmd extends BaseCmd {
     @Inject
     QuotaResponseBuilder quotaResponseBuilder;
 
-    @Parameter(name = ApiConstants.USAGE_TYPE, type = CommandType.STRING, required = true, description = "The usage type for which the preset variables will be retrieved.",
+    @Parameter(name = ApiConstants.USAGE_TYPE, type = CommandType.INTEGER, required = true, description = "The usage type for which the preset variables will be retrieved.",
         since = "4.18.0.4-scclouds")
-    private String quotaResourceType;
+    private Integer quotaType;
 
     @Override
     public void execute() {
@@ -48,8 +50,14 @@ public class QuotaPresetVariablesListCmd extends BaseCmd {
         setResponseObject(listResponse);
     }
 
-    public String getQuotaResourceType() {
-        return quotaResourceType;
+    public QuotaTypes getQuotaType() {
+        QuotaTypes quotaTypes = QuotaTypes.getQuotaType(quotaType);
+
+        if (quotaTypes == null) {
+            throw new InvalidParameterValueException(String.format("Usage type not found for value [%s].", quotaType));
+        }
+
+        return quotaTypes;
     }
 
     @Override
