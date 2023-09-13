@@ -203,22 +203,19 @@ export default {
       const values = this.handleRemoveFields(formRaw)
 
       this.loading = true
-      api('quotaTariffList', { id: this.$route.params.id }).then(response => {
-        const usageType = response.quotatarifflistresponse.quotatariff[0].usageName
-        api('quotaValidateActivationRule', {
-          activationRule: values.activationRule || ' ',
-          usageType
-        }).then(response => {
-          const shortResponse = response.quotavalidateactivationruleresponse.validactivationrule
+      api('quotaValidateActivationRule', {
+        activationRule: values.activationRule || ' ',
+        usageType: this.resource.usageType
+      }).then(response => {
+        const shortResponse = response.quotavalidateactivationruleresponse.validactivationrule
 
-          if (shortResponse.isvalid) {
-            this.$message.success(shortResponse.message)
-          } else {
-            this.$message.error(shortResponse.message)
-          }
+        if (shortResponse.isvalid) {
+          this.$message.success(shortResponse.message)
+        } else {
+          this.$message.error(shortResponse.message)
+        }
 
-          this.isActivationRuleValid = shortResponse.isvalid
-        })
+        this.isActivationRuleValid = shortResponse.isvalid
       }).catch(error => {
         this.$notifyError(error)
       }).finally(() => {

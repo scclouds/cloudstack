@@ -1578,7 +1578,7 @@ public class QuotaResponseBuilderImplTest extends TestCase {
     @Test
     public void validateActivationRuleTestUsageTypeIncompatibleVariableReturnInvalidScriptResponse() {
         Mockito.doReturn("if (invalid.variable == 'test') { true } else { false }").when(quotaValidateActivationRuleCmdMock).getActivationRule();
-        Mockito.doReturn("NETWORK").when(quotaValidateActivationRuleCmdMock).getQuotaType();
+        Mockito.doReturn(QuotaTypes.getQuotaType(1)).when(quotaValidateActivationRuleCmdMock).getQuotaType();
         Mockito.doReturn(quotaValidateActivationRuleCmdMock.getActivationRule()).when(jsInterpreterHelperMock).replaceScriptVariables(Mockito.anyString(), Mockito.any());
         Mockito.when(jsInterpreterHelperMock.getScriptVariables(quotaValidateActivationRuleCmdMock.getActivationRule())).thenReturn(Set.of("invalid.variable"));
 
@@ -1591,7 +1591,7 @@ public class QuotaResponseBuilderImplTest extends TestCase {
     @Test
     public void validateActivationRuleTestActivationRuleWithSyntaxErrorsReturnInvalidScriptResponse() {
         Mockito.doReturn("{ if (account.name == 'test') { true } else { false } }}").when(quotaValidateActivationRuleCmdMock).getActivationRule();
-        Mockito.doReturn("NETWORK").when(quotaValidateActivationRuleCmdMock).getQuotaType();
+        Mockito.doReturn(QuotaTypes.getQuotaType(1)).when(quotaValidateActivationRuleCmdMock).getQuotaType();
         Mockito.doReturn(quotaValidateActivationRuleCmdMock.getActivationRule()).when(jsInterpreterHelperMock).replaceScriptVariables(Mockito.anyString(), Mockito.any());
 
         QuotaValidateActivationRuleResponse response = quotaResponseBuilderSpy.validateActivationRule(quotaValidateActivationRuleCmdMock);

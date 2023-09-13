@@ -16,6 +16,7 @@
 //under the License.
 package org.apache.cloudstack.api.command;
 
+import com.cloud.exception.InvalidParameterValueException;
 import com.cloud.user.Account;
 import org.apache.cloudstack.api.APICommand;
 import org.apache.cloudstack.api.ApiConstants;
@@ -23,6 +24,7 @@ import org.apache.cloudstack.api.BaseCmd;
 import org.apache.cloudstack.api.Parameter;
 import org.apache.cloudstack.api.response.QuotaResponseBuilder;
 import org.apache.cloudstack.api.response.QuotaValidateActivationRuleResponse;
+import org.apache.cloudstack.quota.constant.QuotaTypes;
 
 import javax.inject.Inject;
 
@@ -36,8 +38,8 @@ public class QuotaValidateActivationRuleCmd extends BaseCmd {
             "variables are compatible with the given usage type.", length = 65535)
     private String activationRule;
 
-    @Parameter(name = ApiConstants.USAGE_TYPE, type = CommandType.STRING, required = true, description = "The Quota usage type used to validate the activation rule.")
-    private String quotaType;
+    @Parameter(name = ApiConstants.USAGE_TYPE, type = CommandType.INTEGER, required = true, description = "The Quota usage type used to validate the activation rule.")
+    private Integer quotaType;
 
     @Override
     public void execute() {
@@ -56,7 +58,13 @@ public class QuotaValidateActivationRuleCmd extends BaseCmd {
         return activationRule;
     }
 
-    public String getQuotaType() {
-        return quotaType;
+    public QuotaTypes getQuotaType() {
+        QuotaTypes quotaTypes = QuotaTypes.getQuotaType(quotaType);
+
+        if (quotaTypes == null) {
+            throw new InvalidParameterValueException(String.format("Usage type not found for value [%s].", quotaType));
+        }
+
+        return quotaTypes;
     }
 }
