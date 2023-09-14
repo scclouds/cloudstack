@@ -226,7 +226,7 @@ export default {
       this.loading = true
       api('quotaValidateActivationRule', {
         activationRule: values.activationRule || ' ',
-        usageType: values?.usageType?.split('-')[1]
+        usageType: values?.usageType?.split('-')[0]
       }).then(response => {
         const shortResponse = response.quotavalidateactivationruleresponse.validactivationrule
 
