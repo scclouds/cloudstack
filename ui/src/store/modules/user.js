@@ -160,7 +160,7 @@ const user = {
     },
     Login ({ commit }, userInfo) {
       return new Promise((resolve, reject) => {
-        login(userInfo).then(async response => {
+        login(userInfo).then(response => {
           const result = response.loginresponse || {}
           Cookies.set('account', result.account, { expires: 1 })
           Cookies.set('domainid', result.domainid, { expires: 1 })
@@ -197,10 +197,6 @@ const user = {
           commit('SET_2FA_ISSUER', result.issuerfor2fa)
           commit('SET_LOGIN_FLAG', false)
           notification.destroy()
-
-          await api('listUsers', { userid: result.userid }).then(async response => {
-            await applyCustomGuiTheme(response.listusersresponse.user[0].accountid, result.domainid)
-          })
 
           resolve()
         }).catch(error => {
@@ -276,6 +272,7 @@ const user = {
           const result = response.listusersresponse.user[0]
           commit('SET_INFO', result)
           commit('SET_NAME', result.firstname + ' ' + result.lastname)
+          applyCustomGuiTheme(result.accountid, result.domainid)
         }).catch(error => {
           reject(error)
         })

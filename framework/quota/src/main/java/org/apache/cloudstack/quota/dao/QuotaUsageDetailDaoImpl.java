@@ -54,6 +54,7 @@ public class QuotaUsageDetailDaoImpl extends GenericDaoBase<QuotaUsageDetailVO, 
 
         searchQuotaUsageDetails = createSearchBuilder();
         searchQuotaUsageDetails.and("tariffId", searchQuotaUsageDetails.entity().getTariffId(), SearchCriteria.Op.EQ);
+        searchQuotaUsageDetails.and("quotaUsageId", searchQuotaUsageDetails.entity().getQuotaUsageId(), SearchCriteria.Op.EQ);
         searchQuotaUsageDetails.join("searchQuotaUsages", searchQuotaUsages, searchQuotaUsageDetails.entity().getQuotaUsageId(),
                 searchQuotaUsages.entity().getId(), JoinBuilder.JoinType.INNER);
         searchQuotaUsageDetails.done();
