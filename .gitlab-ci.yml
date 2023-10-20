@@ -5,6 +5,7 @@ workflow:
     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
 
 stages:
+  - rat
   - lint
   - build
   - packaging
@@ -23,6 +24,24 @@ stages:
         - "**/*.java"
         - "**/*.xml"
         - "**/*.sh"
+
+#####################
+#       RAT        #
+#####################
+rat-licence-all:
+  stage: rat
+  tags:
+    - cloudstack
+  script:
+    - echo "Starting Rat license..."
+    - mvn -P developer,systemvm -Dsimulator -Dnoredist -pl . org.apache.rat:apache-rat-plugin:0.12:check
+    - echo "Rat license done."
+  artifacts:
+    when: on_failure
+    expire_in: 72h
+    name: "rat-$CI_COMMIT_SHORT_SHA"
+    paths:
+      - target/rat.txt
 
 #####################
 #       LINT        #
