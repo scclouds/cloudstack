@@ -1098,8 +1098,10 @@ public class ApiServer extends ManagerBase implements HttpRequestHandler, ApiSer
         // We will always use domainId first. If that does not exist, we will use domain name. If THAT doesn't exist
         // we will default to ROOT
         final Domain userDomain = domainMgr.findDomainByIdOrPath(domainId, domainPath);
+        String errorMessage = String.format("Unable to authenticate %s to domain %s. Verify if the credentials and the domain informed are valid.", username, domainPath);
         if (userDomain == null || userDomain.getId() < 1L) {
-            throw new CloudAuthenticationException("Unable to find the domain from the path " + domainPath);
+            s_logger.warn(String.format("Invalid domain id [%s] or path [%s] entered by user [%s].", domainId, domainPath, username));
+            throw new CloudAuthenticationException(errorMessage);
         } else {
             domainId = userDomain.getId();
         }
@@ -1173,7 +1175,7 @@ public class ApiServer extends ManagerBase implements HttpRequestHandler, ApiSer
 
             return createLoginResponse(session);
         }
-        throw new CloudAuthenticationException("Failed to authenticate user " + username + " in domain " + domainId + "; please provide valid credentials");
+        throw new CloudAuthenticationException(errorMessage);
     }
 
     @Override
