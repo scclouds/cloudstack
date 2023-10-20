@@ -147,7 +147,9 @@ public class DefaultLoginAPIAuthenticatorCmd extends BaseCmd implements APIAuthe
                 if (userDomain != null) {
                     domainId = userDomain.getId();
                 } else {
-                    throw new CloudAuthenticationException("Unable to find the domain from the path " + domain);
+                    s_logger.warn(String.format("Invalid domain id [%s] or path [%s] entered by user [%s].", domainId, domain, username[0]));
+                    throw new CloudAuthenticationException(String.format("Unable to authenticate %s to domain %s. Verify if the credentials and the domain informed are valid.",
+                            username[0], domain));
                 }
                 final UserAccount userAccount = _accountService.getActiveUserAccount(username[0], domainId);
                 if (userAccount != null && User.Source.SAML2 == userAccount.getSource()) {
