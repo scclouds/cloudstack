@@ -1062,6 +1062,7 @@
                             <exclude>ui/public/**</exclude>
                             <exclude>ui/legacy/**</exclude>
                             <exclude>utils/testsmallfileinactive</exclude>
+                            <exclude>.gitlab-ci.yml</exclude>
                         </excludes>
                     </configuration>
                 </plugin>
