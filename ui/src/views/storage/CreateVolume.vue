@@ -17,6 +17,9 @@
 
 <template>
   <a-spin :spinning="loading">
+    <div v-if="!isNormalUserOrProject">
+      <ownership-selection @fetch-owner="fetchOwnerOptions" />
+    </div>
     <a-form
       class="form"
       layout="vertical"
@@ -126,11 +129,14 @@ import { api } from '@/api'
 import { mixinForm } from '@/utils/mixin'
 import ResourceIcon from '@/components/view/ResourceIcon'
 import TooltipLabel from '@/components/widgets/TooltipLabel'
+import OwnershipSelection from '@/views/compute/wizard/OwnershipSelection.vue'
+import store from '@/store'
 
 export default {
   name: 'CreateVolume',
   mixins: [mixinForm],
   components: {
+    OwnershipSelection,
     ResourceIcon,
     TooltipLabel
   },
@@ -142,6 +148,11 @@ export default {
   },
   data () {
     return {
+      owner: {
+        projectid: store.getters.project?.id,
+        domainid: store.getters.project?.id ? null : store.getters.userInfo.domainid,
+        account: store.getters.project?.id ? null : store.getters.userInfo.account
+      },
       zones: [],
       offerings: [],
       customDiskOffering: false,
@@ -150,6 +161,9 @@ export default {
     }
   },
   computed: {
+    isNormalUserOrProject () {
+      return ['User'].includes(this.$store.getters.userInfo.roletype) || store.getters.project?.id
+    },
     createVolumeFromSnapshot () {
       return this.$route.path.startsWith('/snapshot')
     }
@@ -190,6 +204,22 @@ export default {
         this.rules.diskofferingid = [{ required: true, message: this.$t('message.error.select') }]
       }
     },
+    fetchOwnerOptions (OwnerOptions) {
+      this.owner = {}
+      if (OwnerOptions.selectedAccountType === this.$t('label.account')) {
+        if (!OwnerOptions.selectedAccount) {
+          return
+        }
+        this.owner.account = OwnerOptions.selectedAccount
+        this.owner.domainid = OwnerOptions.selectedDomain
+      } else if (OwnerOptions.selectedAccountType === this.$t('label.project')) {
+        if (!OwnerOptions.selectedProject) {
+          return
+        }
+        this.owner.projectid = OwnerOptions.selectedProject
+      }
+      this.fetchData()
+    },
     fetchData () {
       this.loading = true
       api('listZones', { showicon: true }).then(json => {
@@ -202,10 +232,17 @@ export default {
     },
     fetchDiskOfferings (zoneId) {
       this.loading = true
-      api('listDiskOfferings', {
+      var params = {
         zoneid: zoneId,
-        listall: true
-      }).then(json => {
+        listall: true,
+        domainid: this.owner.domainid
+      }
+      if (this.owner.projectid) {
+        params.projectid = this.owner.projectid
+      } else {
+        params.account = this.owner.account
+      }
+      api('listDiskOfferings', params).then(json => {
         this.offerings = json.listdiskofferingsresponse.diskoffering || []
         if (!this.createVolumeFromSnapshot) {
           this.form.diskofferingid = this.offerings[0].id || ''
@@ -223,6 +260,12 @@ export default {
         const values = this.handleRemoveFields(formRaw)
         if (this.createVolumeFromSnapshot) {
           values.snapshotid = this.resource.id
+        }
+        values.domainid = this.owner.domainid
+        if (this.owner.projectid) {
+          values.projectid = this.owner.projectid
+        } else {
+          values.account = this.owner.account
         }
         this.loading = true
         api('createVolume', values).then(response => {
