@@ -87,6 +87,9 @@ public class Value extends GenericPresetVariable {
     @PresetVariableDefinition(description = "Backup offering of the backup.", supportedTypes = {QuotaTypes.BACKUP, QuotaTypes.BACKUP_OBJECT})
     private BackupOffering backupOffering;
 
+    @PresetVariableDefinition(description = "The amount of resources of the usage type.")
+    private ResourceCounting resourceCounting;
+
     @PresetVariableDefinition(description = "The network state. Values can be: Allocated, Setup, Implementing, Implemented, Shutdown and " +
             "Destroy.", supportedTypes = {QuotaTypes.NETWORK})
     private String state;
@@ -275,5 +278,14 @@ public class Value extends GenericPresetVariable {
     public void setVirtualMachine(GenericPresetVariable virtualMachine) {
         this.virtualMachine = virtualMachine;
         fieldNamesToIncludeInToString.add("virtualMachine");
+    }
+
+    public ResourceCounting getResourceCounting() {
+        return resourceCounting;
+    }
+
+    public void setResourceCounting(ResourceCounting resourceCounting) {
+        this.resourceCounting = resourceCounting;
+        fieldNamesToIncludeInToString.add("resourceCounting");
     }
 }
