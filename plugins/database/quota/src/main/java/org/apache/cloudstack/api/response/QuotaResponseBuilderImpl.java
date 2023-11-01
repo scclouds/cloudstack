@@ -95,6 +95,7 @@ import org.apache.cloudstack.quota.QuotaStatement;
 import org.apache.cloudstack.quota.activationrule.presetvariables.ComputingResources;
 import org.apache.cloudstack.quota.activationrule.presetvariables.GenericPresetVariable;
 import org.apache.cloudstack.quota.activationrule.presetvariables.PresetVariables;
+import org.apache.cloudstack.quota.activationrule.presetvariables.ResourceCounting;
 import org.apache.cloudstack.quota.activationrule.presetvariables.Value;
 import org.apache.cloudstack.quota.constant.ProcessingPeriod;
 import org.apache.cloudstack.quota.activationrule.presetvariables.PresetVariableDefinition;
@@ -228,7 +229,7 @@ public class QuotaResponseBuilderImpl implements QuotaResponseBuilder {
     private final Type linkedListOfResourcesToQuoteType = new TypeToken<LinkedList<ResourcesToQuoteVO>>() {
     }.getType();
 
-    private final Class<?>[] assignableClasses = {GenericPresetVariable.class, ComputingResources.class};
+    private final Class<?>[] assignableClasses = {GenericPresetVariable.class, ComputingResources.class, ResourceCounting.class};
 
     @Override
     public QuotaTariffResponse createQuotaTariffResponse(QuotaTariffVO tariff, boolean returnActivationRule) {
