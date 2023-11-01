@@ -532,6 +532,7 @@ public class VMwareGuru extends HypervisorGuruBase implements HypervisorGuru, Co
      */
     private Long getPoolIdFromDatastoreUuid(String datastoreUuid) {
         String poolUuid = UuidUtils.normalize(datastoreUuid);
+        s_logger.debug(String.format("Trying to find pool uuid for datastore uuid: [%s].", poolUuid));
         StoragePoolVO pool = _storagePoolDao.findByUuid(poolUuid);
         if (pool == null) {
             throw new CloudRuntimeException("Couldn't find storage pool " + poolUuid);
@@ -542,13 +543,13 @@ public class VMwareGuru extends HypervisorGuruBase implements HypervisorGuru, Co
     /**
      * Get pool ID for disk
      */
-    private Long getPoolId(VirtualDisk disk, Long datacenterId, Long clusterId) {
+    protected Long getPoolId(VirtualDisk disk, Long datacenterId, Long clusterId) {
         VirtualDeviceBackingInfo backing = disk.getBacking();
         checkBackingInfo(backing);
         VirtualDiskFlatVer2BackingInfo info = (VirtualDiskFlatVer2BackingInfo)backing;
         String[] fileNameParts = info.getFileName().split(" ");
         String datastore = StringUtils.substringBetween(fileNameParts[0], "[", "]");
-        if (UuidUtils.isUuid(datastore)) {
+        if (UuidUtils.isUuidWithoutHyphens(datastore)) {
             return getPoolIdFromDatastoreUuid(datastore);
         }
         String errorMsg = String.format("Could not find storage pool with name or path [%s].", datastore);
@@ -572,7 +573,6 @@ public class VMwareGuru extends HypervisorGuruBase implements HypervisorGuru, Co
     protected StoragePoolVO getPoolIdFromDatastoreNameOrPath(String datastore, Long datacenterId, Long clusterId) {
         s_logger.debug(String.format("Trying to find pool Id for datastore: [%s].", datastore));
 
-        String errorMessage = String.format("Could not find storage pool with name or path [%s].", datastore);
         StoragePoolVO poolVO = _storagePoolDao.findPoolByName(datastore, datacenterId, clusterId);
         if (poolVO != null) {
             return poolVO;

@@ -561,7 +561,7 @@ public class VeeamClient {
     }
 
     public boolean restoreFullVM(final String vmwareInstanceName, final String restorePointId) {
-        LOG.debug("Trying to restore full VM: " + vmwareInstanceName + " from backup");
+        LOG.debug(String.format("Trying to restore full VM [%s] from backup [%s].", vmwareInstanceName, restorePointId));
         try {
             final HttpResponse response = post(String.format("/vmRestorePoints/%s?action=restore", restorePointId), null);
             return checkTaskStatus(response);

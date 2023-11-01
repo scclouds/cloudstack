@@ -415,7 +415,7 @@ public class VeeamBackupProvider extends AdapterBase implements BackupProvider, 
             for (VolumeVO vol : vmVolumes) {
                 list.add(new Backup.VolumeInfo(vol.getUuid(), vol.getPath(), vol.getVolumeType(), vol.getSize(), vol.getDeviceId()));
             }
-            return new Gson().toJson(list.toArray(), Backup.VolumeInfo[].class);
+            return GSON.toJson(list.toArray(), Backup.VolumeInfo[].class);
         } catch (Exception e) {
             if (CollectionUtils.isEmpty(vmVolumes) || vmVolumes.get(0).getInstanceId() == null) {
                 LOG.error(String.format("Failed to create VolumeInfo of VM [id: null] volumes due to: [%s].", e.getMessage()), e);

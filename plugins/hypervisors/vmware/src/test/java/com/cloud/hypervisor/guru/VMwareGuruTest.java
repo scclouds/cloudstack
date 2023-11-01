@@ -18,6 +18,7 @@ package com.cloud.hypervisor.guru;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.fail;
 
 import java.util.ArrayList;
 
@@ -312,5 +313,86 @@ public class VMwareGuruTest {
         Mockito.when(vmInstanceVO.getVirtualDisks()).thenReturn(disks);
         VirtualDisk findRestoredVolume = vMwareGuru.findRestoredVolume(volumeInfo, vmInstanceVO, "test", 1);
         assertNotNull(findRestoredVolume);
+    }
+
+    @Test
+    public void getPoolIdTestDatastoreNameIsUuid() {
+        VirtualDisk virtualDisk = Mockito.mock(VirtualDisk.class);
+        VirtualDiskFlatVer2BackingInfo backingInfo = Mockito.mock(VirtualDiskFlatVer2BackingInfo.class);
+        StoragePoolVO poolVO = Mockito.mock(StoragePoolVO.class);
+
+        Mockito.when(poolVO.getId()).thenReturn(10L);
+        Mockito.when(backingInfo.getFileName()).thenReturn("[5758578ed6a6454087a6c62f13df8ce2] test/test.vmdk");
+        Mockito.when(virtualDisk.getBacking()).thenReturn(backingInfo);
+        Mockito.when(_storagePoolDao.findByUuid("5758578e-d6a6-4540-87a6-c62f13df8ce2")).thenReturn(poolVO);
+
+        Long result = vMwareGuru.getPoolId(virtualDisk, 1L, 2L);
+        assertEquals(10l, (long)result);
+    }
+
+    @Test
+    public void getPoolIdTestDatastoreNameIsNotUuid() {
+        VirtualDisk virtualDisk = Mockito.mock(VirtualDisk.class);
+        VirtualDiskFlatVer2BackingInfo backingInfo = Mockito.mock(VirtualDiskFlatVer2BackingInfo.class);
+        StoragePoolVO poolVO = Mockito.mock(StoragePoolVO.class);
+
+        Mockito.when(poolVO.getId()).thenReturn(11L);
+        Mockito.when(backingInfo.getFileName()).thenReturn("[storage-name] test/test.vmdk");
+        Mockito.when(virtualDisk.getBacking()).thenReturn(backingInfo);
+        Mockito.when(_storagePoolDao.findPoolByName("storage-name", 1L, 2L)).thenReturn(poolVO);
+
+        Long result = vMwareGuru.getPoolId(virtualDisk, 1L, 2L);
+        assertEquals(11l, (long)result);
+    }
+
+    @Test
+    public void getPoolIdFromDatastoreNameOrPathTestStorageDoesNotExist() {
+        VirtualDisk virtualDisk = Mockito.mock(VirtualDisk.class);
+        VirtualDiskFlatVer2BackingInfo backingInfo = Mockito.mock(VirtualDiskFlatVer2BackingInfo.class);
+
+        Mockito.when(backingInfo.getFileName()).thenReturn("[storage-name] test/test.vmdk");
+        Mockito.when(virtualDisk.getBacking()).thenReturn(backingInfo);
+        Mockito.when(_storagePoolDao.findPoolByName("storage-name")).thenReturn(null);
+        Mockito.when(_storagePoolDao.findPoolByPathLike("storage-name", 1L, 2L)).thenReturn(null);
+
+        try {
+            vMwareGuru.getPoolId(virtualDisk, 1L, 2L);
+            fail();
+        } catch (Exception e) {
+            assertEquals("Could not find storage pool with name or path [storage-name].", e.getMessage());
+        }
+    }
+
+    @Test
+    public void getPoolIdFromDatastoreNameOrPathTestStorageNameExist() {
+        VirtualDisk virtualDisk = Mockito.mock(VirtualDisk.class);
+        VirtualDiskFlatVer2BackingInfo backingInfo = Mockito.mock(VirtualDiskFlatVer2BackingInfo.class);
+        StoragePoolVO poolVO = Mockito.mock(StoragePoolVO.class);
+
+        Mockito.when(poolVO.getId()).thenReturn(13l);
+        Mockito.when(poolVO.getRemoved()).thenReturn(null);
+        Mockito.when(_storagePoolDao.findPoolByName("storage-name", 1L, 2L)).thenReturn(poolVO);
+        Mockito.when(backingInfo.getFileName()).thenReturn("[storage-name] test/test.vmdk");
+        Mockito.when(virtualDisk.getBacking()).thenReturn(backingInfo);
+
+        Long result = vMwareGuru.getPoolId(virtualDisk, 1L, 2L);
+        assertEquals(13l, (long)result);
+    }
+
+    @Test
+    public void getPoolIdFromDatastoreNameOrPathTestStoragePathExist() {
+        VirtualDisk virtualDisk = Mockito.mock(VirtualDisk.class);
+        VirtualDiskFlatVer2BackingInfo backingInfo = Mockito.mock(VirtualDiskFlatVer2BackingInfo.class);
+        StoragePoolVO poolVO = Mockito.mock(StoragePoolVO.class);
+
+        Mockito.when(poolVO.getId()).thenReturn(14l);
+        Mockito.when(poolVO.getRemoved()).thenReturn(null);
+        Mockito.when(_storagePoolDao.findPoolByName("storage-name")).thenReturn(null);
+        Mockito.when(_storagePoolDao.findPoolByPathLike("storage-name", 1l, 2L)).thenReturn(poolVO);
+        Mockito.when(backingInfo.getFileName()).thenReturn("[storage-name] test/test.vmdk");
+        Mockito.when(virtualDisk.getBacking()).thenReturn(backingInfo);
+
+        Long result = vMwareGuru.getPoolId(virtualDisk, 1L, 2L);
+        assertEquals(14l, (long)result);
     }
 }
