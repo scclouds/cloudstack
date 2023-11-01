@@ -27,6 +27,8 @@ import java.io.File;
 import java.io.FileWriter;
 import java.io.StringWriter;
 
+import com.cloud.exception.InvalidParameterValueException;
+import com.cloud.utils.EncryptionUtil;
 import org.apache.cloudstack.storage.command.DeleteCommand;
 import org.apache.cloudstack.storage.to.TemplateObjectTO;
 import org.apache.log4j.Level;
@@ -35,6 +37,7 @@ import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.mockito.Mockito;
+import org.mockito.Spy;
 import org.powermock.api.mockito.PowerMockito;
 import org.powermock.core.classloader.annotations.PowerMockIgnore;
 import org.powermock.core.classloader.annotations.PrepareForTest;
@@ -44,7 +47,26 @@ import com.cloud.test.TestAppender;
 
 @RunWith(PowerMockRunner.class)
 @PowerMockIgnore({ "javax.xml.*", "org.xml.*"})
+@PrepareForTest({EncryptionUtil.class})
 public class NfsSecondaryStorageResourceTest {
+    @Spy
+    private NfsSecondaryStorageResource nfsSecondaryStorageResourceSpy = new NfsSecondaryStorageResource();
+
+    private static final String HOSTNAME = "hostname";
+
+    private static final String UUID = "uuid";
+
+    private static final String METADATA = "metadata";
+
+    private static final String TIMEOUT = "timeout";
+
+    private static final String PSK = "6HyGMx9Vat7rZw1pMZrM4OlD4FFwLUPznTsFqVFSOIvk0mAWMRCVZ6UCq42gZvhp";
+
+    private static final String PROTOCOL = "http";
+
+    private static final String EXPECTED_SIGNATURE = "expectedSignature";
+
+    private static final String COMPUTED_SIGNATURE = "computedSignature";
 
     private NfsSecondaryStorageResource resource;
 
@@ -90,5 +112,76 @@ public class NfsSecondaryStorageResourceTest {
 
         testLogAppender.assertMessagesLogged();
 
+    }
+
+    private void prepareForValidatePostUploadRequestSignatureTests() {
+        Mockito.doReturn(PROTOCOL).when(nfsSecondaryStorageResourceSpy).getUploadProtocol();
+        Mockito.doReturn(PSK).when(nfsSecondaryStorageResourceSpy).getPostUploadPSK();
+        PowerMockito.mockStatic(EncryptionUtil.class);
+        PowerMockito.when(EncryptionUtil.generateSignature(Mockito.anyString(), Mockito.anyString())).thenReturn(COMPUTED_SIGNATURE);
+        String fullUrl = String.format("%s://%s/upload/%s", PROTOCOL, HOSTNAME, UUID);
+        String data = String.format("%s%s%s", METADATA, fullUrl, TIMEOUT);
+        PowerMockito.when(EncryptionUtil.generateSignature(data, PSK)).thenReturn(EXPECTED_SIGNATURE);
+    }
+
+    @Test(expected = InvalidParameterValueException.class)
+    public void validatePostUploadRequestSignatureTestThrowExceptionWhenProtocolDiffers() {
+        prepareForValidatePostUploadRequestSignatureTests();
+        Mockito.doReturn("https").when(nfsSecondaryStorageResourceSpy).getUploadProtocol();
+
+        nfsSecondaryStorageResourceSpy.validatePostUploadRequestSignature(EXPECTED_SIGNATURE, HOSTNAME, UUID, METADATA, TIMEOUT);
+    }
+
+    @Test(expected = InvalidParameterValueException.class)
+    public void validatePostUploadRequestSignatureTestThrowExceptionWhenHostnameDiffers() {
+        prepareForValidatePostUploadRequestSignatureTests();
+
+        nfsSecondaryStorageResourceSpy.validatePostUploadRequestSignature(EXPECTED_SIGNATURE, "test", UUID, METADATA, TIMEOUT);
+    }
+
+    @Test(expected = InvalidParameterValueException.class)
+    public void validatePostUploadRequestSignatureTestThrowExceptionWhenUuidDiffers() {
+        prepareForValidatePostUploadRequestSignatureTests();
+
+        nfsSecondaryStorageResourceSpy.validatePostUploadRequestSignature(EXPECTED_SIGNATURE, HOSTNAME, "test", METADATA, TIMEOUT);
+    }
+
+    @Test(expected = InvalidParameterValueException.class)
+    public void validatePostUploadRequestSignatureTestThrowExceptionWhenMetadataDiffers() {
+        prepareForValidatePostUploadRequestSignatureTests();
+
+        nfsSecondaryStorageResourceSpy.validatePostUploadRequestSignature(EXPECTED_SIGNATURE, HOSTNAME, UUID, "test", TIMEOUT);
+    }
+
+    @Test(expected = InvalidParameterValueException.class)
+    public void validatePostUploadRequestSignatureTestThrowExceptionWhenTimeoutDiffers() {
+        prepareForValidatePostUploadRequestSignatureTests();
+
+        nfsSecondaryStorageResourceSpy.validatePostUploadRequestSignature(EXPECTED_SIGNATURE, HOSTNAME, UUID, METADATA, "test");
+    }
+
+    @Test
+    public void validatePostUploadRequestSignatureTestSuccessWhenDataIsTheSame() {
+        prepareForValidatePostUploadRequestSignatureTests();
+
+        nfsSecondaryStorageResourceSpy.validatePostUploadRequestSignature(EXPECTED_SIGNATURE, HOSTNAME, UUID, METADATA, TIMEOUT);
+    }
+
+    @Test
+    public void getUploadProtocolTestReturnHttpsWhenUseHttpsToUploadIsTrue() {
+        Mockito.doReturn(true).when(nfsSecondaryStorageResourceSpy).useHttpsToUpload();
+
+        String result = nfsSecondaryStorageResourceSpy.getUploadProtocol();
+
+        Assert.assertEquals("https", result);
+    }
+
+    @Test
+    public void getUploadProtocolTestReturnHttpWhenUseHttpsToUploadIsFalse() {
+        Mockito.doReturn(false).when(nfsSecondaryStorageResourceSpy).useHttpsToUpload();
+
+        String result = nfsSecondaryStorageResourceSpy.getUploadProtocol();
+
+        Assert.assertEquals("http", result);
     }
 }
