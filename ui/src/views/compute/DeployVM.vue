@@ -1365,7 +1365,6 @@ export default {
         }
 
         this.serviceOffering = _.find(this.options.serviceOfferings, (option) => option.id === instanceConfig.computeofferingid)
-
         instanceConfig.overridediskofferingid = this.rootDiskSelected?.id || this.serviceOffering?.diskofferingid
         if (instanceConfig.overridediskofferingid) {
           this.overrideDiskOffering = _.find(this.options.diskOfferings, (option) => option.id === instanceConfig.overridediskofferingid)
@@ -1952,7 +1951,6 @@ export default {
       if (this.loading.deploy) return
       this.formRef.value.validate().then(async () => {
         const values = toRaw(this.form)
-
         if (!values.templateid && !values.isoid) {
           this.$notification.error({
             message: this.$t('message.request.failed'),
@@ -2038,7 +2036,7 @@ export default {
         if (this.selectedTemplateConfiguration) {
           deployVmData['details[0].configurationId'] = this.selectedTemplateConfiguration.id
         }
-        if (!this.serviceOffering.diskofferingstrictness && values.overridediskofferingid) {
+        if (!this.serviceOffering.diskofferingstrictness && values.overridediskofferingid && !values.isoid) {
           deployVmData.overridediskofferingid = values.overridediskofferingid
           if (values.rootdisksize && values.rootdisksize > 0) {
             deployVmData.rootdisksize = values.rootdisksize
