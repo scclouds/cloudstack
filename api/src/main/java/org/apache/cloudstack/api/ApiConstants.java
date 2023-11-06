@@ -1037,6 +1037,8 @@ public class ApiConstants {
 
     public static final String IS_TAG_A_RULE = "istagarule";
 
+    public static final String AGGREGATION_INTERVAL = "aggregationinterval";
+
     public static final String PARAMETER_DESCRIPTION_IS_TAG_A_RULE = "Whether the informed tag is a JS interpretable rule or not.";
     public static final String PARAMETER_DESCRIPTION_ONLY_RETRIEVE_RESOURCE_COUNT = "Makes the API return contain only the resource count. Default is 'false'.";
     public static final String PARAMETER_DESCRIPTION_START_DATE_POSSIBLE_FORMATS = "The recommended format is \"yyyy-MM-dd'T'HH:mm:ssZ\" (e.g.: \"2023-01-01T12:00:00+0100\"); " +
@@ -1130,5 +1132,9 @@ public class ApiConstants {
 
     public enum DomainDetails {
         all, resource, min;
+    }
+
+    public enum AggregationInterval {
+        DAILY, HOURLY, NONE;
     }
 }

@@ -18,6 +18,7 @@ package org.apache.cloudstack.api.response;
 
 import java.math.BigDecimal;
 import java.util.List;
+import java.util.Map;
 
 import com.google.gson.annotations.SerializedName;
 
@@ -47,6 +48,10 @@ public class QuotaStatementItemResponse extends BaseResponse {
     @SerializedName(ApiConstants.RESOURCES)
     @Param(description = "Item's resources.")
     private List<QuotaStatementItemResourceResponse> resources;
+
+    @SerializedName("timesortedquota")
+    @Param(description = "Quota consumed sorted by time.")
+    private Map<String, BigDecimal> timeSortedQuota;
 
     public QuotaStatementItemResponse(final int usageType) {
         this.usageType = usageType;
@@ -82,6 +87,14 @@ public class QuotaStatementItemResponse extends BaseResponse {
 
     public void setQuotaUsed(BigDecimal quotaUsed) {
         this.quotaUsed = quotaUsed;
+    }
+
+    public Map<String, BigDecimal> getTimeSortedQuota() {
+        return timeSortedQuota;
+    }
+
+    public void setTimeSortedQuota(Map<String, BigDecimal> timeSortedQuota) {
+        this.timeSortedQuota = timeSortedQuota;
     }
 
     public List<QuotaStatementItemResourceResponse> getResources() {

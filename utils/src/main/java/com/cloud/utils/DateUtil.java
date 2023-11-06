@@ -38,6 +38,7 @@ public class DateUtil {
     public static final String YYYYMMDD_FORMAT = "yyyyMMddHHmmss";
     private static final String ZONED_DATETIME_FORMAT = "yyyy-MM-dd'T'HH:mm:ssZ";
     private static final DateFormat ZONED_DATETIME_SIMPLE_FORMATTER = new SimpleDateFormat(ZONED_DATETIME_FORMAT);
+    public static final DateTimeFormatter ZONED_DATETIME_FORMATTER =  DateTimeFormatter.ofPattern(ZONED_DATETIME_FORMAT);
 
 
     private static final DateTimeFormatter[] parseFormats = new DateTimeFormatter[]{
