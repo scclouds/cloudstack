@@ -317,6 +317,9 @@ public class UserVmManagerImplTest {
     @Mock
     private ServiceOfferingVO serviceOffering;
 
+    @Mock
+    private VMInstanceVO vmInstanceMock;
+
     private static final long vmId = 1l;
     private static final long zoneId = 2L;
     private static final long accountId = 3L;
@@ -325,6 +328,8 @@ public class UserVmManagerImplTest {
     private static final long GiB_TO_BYTES = 1024 * 1024 * 1024;
 
     private Map<String, String> customParameters = new HashMap<>();
+
+    String[] detailsConstants = {VmDetailConstants.MEMORY, VmDetailConstants.CPU_NUMBER, VmDetailConstants.CPU_SPEED};
 
     private DiskOfferingVO smallerDisdkOffering = prepareDiskOffering(5l * GiB_TO_BYTES, 1l, 1L, 2L);
     private DiskOfferingVO largerDisdkOffering = prepareDiskOffering(10l * GiB_TO_BYTES, 2l, 10L, 20L);
@@ -344,6 +349,11 @@ public class UserVmManagerImplTest {
         CallContext.register(callerUser, callerAccount);
 
         customParameters.put(VmDetailConstants.ROOT_DISK_SIZE, "123");
+
+        customParameters.put(VmDetailConstants.MEMORY, "2048");
+        customParameters.put(VmDetailConstants.CPU_NUMBER, "4");
+        customParameters.put(VmDetailConstants.CPU_SPEED, "1000");
+
         lenient().doNothing().when(resourceLimitMgr).incrementResourceCount(anyLong(), any(Resource.ResourceType.class));
         lenient().doNothing().when(resourceLimitMgr).decrementResourceCount(anyLong(), any(Resource.ResourceType.class), anyLong());
     }
@@ -2541,5 +2551,72 @@ public class UserVmManagerImplTest {
         Mockito.verify(userVmManagerImpl).updateVolumesOwner(Mockito.any(), Mockito.any(), Mockito.any(), Mockito.anyLong());
         Mockito.verify(userVmManagerImpl).updateVmNetwork(Mockito.any(), Mockito.any(), Mockito.any(), Mockito.any(), Mockito.any());
         Mockito.verify(userVmManagerImpl, Mockito.never()).resourceCountIncrement(Mockito.anyLong(), Mockito.any(), Mockito.anyLong(), Mockito.anyLong());
+    }
+
+    @Test
+    public void updateInstanceDetailsWithCurrentValueTestDetailsConstantIsNotNullDoNothing() {
+        int currentValue = 123;
+
+        for (String detailsConstant : detailsConstants) {
+            userVmManagerImpl.updateInstanceDetailsWithCurrentValue(null, customParameters, detailsConstant, currentValue);
+        }
+
+        Assert.assertEquals(customParameters.get(VmDetailConstants.MEMORY), "2048");
+        Assert.assertEquals(customParameters.get(VmDetailConstants.CPU_NUMBER), "4");
+        Assert.assertEquals(customParameters.get(VmDetailConstants.CPU_SPEED), "1000");
+    }
+
+    @Test
+    public void updateInstanceDetailsWithCurrentValueTestNewValueIsNotNullDoNothing() {
+        Map<String, String> details = new HashMap<>();
+        int currentValue = 123;
+
+        for (String detailsConstant : detailsConstants) {
+            userVmManagerImpl.updateInstanceDetailsWithCurrentValue(321, details, detailsConstant, currentValue);
+        }
+
+        Assert.assertNull(details.get(VmDetailConstants.MEMORY));
+        Assert.assertNull(details.get(VmDetailConstants.CPU_NUMBER));
+        Assert.assertNull(details.get(VmDetailConstants.CPU_SPEED));
+    }
+
+    @Test
+    public void updateInstanceDetailsWithCurrentValueTestBothValuesAreNullKeepCurrentValue() {
+        Map<String, String> details = new HashMap<>();
+        int currentValue = 123;
+
+        for (String detailsConstant : detailsConstants) {
+            userVmManagerImpl.updateInstanceDetailsWithCurrentValue(null, details, detailsConstant, currentValue);
+        }
+
+        Assert.assertEquals(details.get(VmDetailConstants.MEMORY), String.valueOf(currentValue));
+        Assert.assertEquals(details.get(VmDetailConstants.CPU_NUMBER), String.valueOf(currentValue));
+        Assert.assertEquals(details.get(VmDetailConstants.CPU_SPEED),String.valueOf(currentValue));
+    }
+
+    @Test
+    public void updateInstanceDetailsWithCurrentValueTestNeitherValueIsNullDoNothing() {
+        int currentValue = 123;
+
+        for (String detailsConstant : detailsConstants) {
+            userVmManagerImpl.updateInstanceDetailsWithCurrentValue(321, customParameters, detailsConstant, currentValue);
+        }
+
+        Assert.assertEquals(customParameters.get(VmDetailConstants.MEMORY), "2048");
+        Assert.assertEquals(customParameters.get(VmDetailConstants.CPU_NUMBER), "4");
+        Assert.assertEquals(customParameters.get(VmDetailConstants.CPU_SPEED),"1000");
+    }
+
+    @Test
+    public void updateInstanceDetailsTestAllConstantsAreUpdated() {
+        Mockito.doReturn(serviceOfferingVoMock).when(_serviceOfferingDao).findById(Mockito.anyLong());
+        Mockito.doReturn(1L).when(vmInstanceMock).getId();
+        Mockito.doReturn(1L).when(vmInstanceMock).getServiceOfferingId();
+        Mockito.doReturn(serviceOfferingVoMock).when(_serviceOfferingDao).findByIdIncludingRemoved(Mockito.anyLong(), Mockito.anyLong());
+        userVmManagerImpl.updateInstanceDetails(null, vmInstanceMock, 0l);
+
+        Mockito.verify(userVmManagerImpl).updateInstanceDetailsWithCurrentValue(Mockito.any(), Mockito.any(), Mockito.eq(VmDetailConstants.CPU_SPEED), Mockito.any());
+        Mockito.verify(userVmManagerImpl).updateInstanceDetailsWithCurrentValue(Mockito.any(), Mockito.any(), Mockito.eq(VmDetailConstants.MEMORY), Mockito.any());
+        Mockito.verify(userVmManagerImpl).updateInstanceDetailsWithCurrentValue(Mockito.any(), Mockito.any(), Mockito.eq(VmDetailConstants.CPU_NUMBER), Mockito.any());
     }
 }
