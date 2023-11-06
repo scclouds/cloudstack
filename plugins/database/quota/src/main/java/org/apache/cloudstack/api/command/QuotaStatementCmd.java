@@ -22,9 +22,12 @@ import java.util.List;
 
 import javax.inject.Inject;
 
+import com.cloud.exception.InvalidParameterValueException;
 import org.apache.cloudstack.api.APICommand;
 import org.apache.cloudstack.api.ApiConstants;
+import org.apache.cloudstack.api.ApiErrorCode;
 import org.apache.cloudstack.api.Parameter;
+import org.apache.cloudstack.api.ServerApiException;
 import org.apache.cloudstack.api.response.AccountResponse;
 import org.apache.cloudstack.api.response.DomainResponse;
 import org.apache.cloudstack.api.response.QuotaResponseBuilder;
@@ -42,10 +45,11 @@ public class QuotaStatementCmd extends QuotaBaseCmd {
 
     public static final Logger s_logger = Logger.getLogger(QuotaStatementCmd.class);
 
-    @Parameter(name = ApiConstants.ACCOUNT, type = CommandType.STRING, required = true, description = "Account name for which statement will be generated.")
+    @Parameter(name = ApiConstants.ACCOUNT, type = CommandType.STRING, description = "Account name for which statement will be generated. Deprecated, please use " +
+            ApiConstants.ACCOUNT_ID + " instead.")
     private String accountName;
 
-    @Parameter(name = ApiConstants.DOMAIN_ID, type = CommandType.UUID, required = true, entityType = DomainResponse.class, description = "If domain Id is given and the caller is "
+    @Parameter(name = ApiConstants.DOMAIN_ID, type = CommandType.UUID, entityType = DomainResponse.class, description = "If domain Id is given and the caller is "
         + "domain admin then the statement is generated for domain.")
     private Long domainId;
 
@@ -152,11 +156,25 @@ public class QuotaStatementCmd extends QuotaBaseCmd {
 
     @Override
     public long getEntityOwnerId() {
-        Account activeAccountByName = _accountService.getActiveAccountByName(accountName, domainId);
-        if (activeAccountByName != null) {
-            return activeAccountByName.getAccountId();
+        if (accountId != null) {
+            if (_accountService.getActiveAccountById(accountId) != null) {
+                return accountId;
+            }
+            return Account.ACCOUNT_ID_SYSTEM;
         }
-        return Account.ACCOUNT_ID_SYSTEM;
+        if (accountName == null && domainId == null) {
+            throw new ServerApiException(ApiErrorCode.PARAM_ERROR, String.format("%s is required.", ApiConstants.ACCOUNT_ID));
+        }
+        try {
+            Account activeAccount = _accountService.getActiveAccountByName(accountName, domainId);
+            if (activeAccount != null) {
+                return activeAccount.getId();
+            }
+            return Account.ACCOUNT_ID_SYSTEM;
+        } catch (InvalidParameterValueException exception) {
+            throw new ServerApiException(ApiErrorCode.PARAM_ERROR, String.format("Both %s and %s are needed if using either. Consider using %s instead.",
+                    ApiConstants.ACCOUNT, ApiConstants.DOMAIN_ID, ApiConstants.ACCOUNT_ID));
+        }
     }
 
     @Override

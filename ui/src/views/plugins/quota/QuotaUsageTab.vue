@@ -417,8 +417,7 @@ export default {
     },
     async getQuotaStatement (apiParams) {
       const params = {
-        domainid: this.$route.query?.domainid,
-        account: this.$route.query?.account,
+        accountid: this.$route.query?.accountid,
         ...apiParams
       }
 

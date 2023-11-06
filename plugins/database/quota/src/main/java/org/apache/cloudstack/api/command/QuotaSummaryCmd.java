@@ -23,6 +23,7 @@ import org.apache.cloudstack.api.APICommand;
 import org.apache.cloudstack.api.ApiArgValidator;
 import org.apache.cloudstack.api.ApiConstants;
 import org.apache.cloudstack.api.Parameter;
+import org.apache.cloudstack.api.response.AccountResponse;
 import org.apache.cloudstack.api.response.DomainResponse;
 import org.apache.cloudstack.api.response.ListResponse;
 import org.apache.cloudstack.api.response.QuotaResponseBuilder;
@@ -41,8 +42,13 @@ import javax.inject.Inject;
 public class QuotaSummaryCmd extends QuotaBaseListCmd {
     public static final Logger s_logger = Logger.getLogger(QuotaSummaryCmd.class);
 
-    @Parameter(name = ApiConstants.ACCOUNT, type = CommandType.STRING, description = "Account's name for which balance will be listed.")
+    @Parameter(name = ApiConstants.ACCOUNT, type = CommandType.STRING, description = "Account's name for which balance will be listed. Deprecated, please use " +
+            ApiConstants.ACCOUNT_ID + " instead.")
     private String accountName;
+
+    @Parameter(name = ApiConstants.ACCOUNT_ID, type = CommandType.STRING, entityType = AccountResponse.class, description = "ID of the account for which balance will be listed. ",
+            validations = {ApiArgValidator.UuidString})
+    private String accountId;
 
     @Parameter(name = ApiConstants.DOMAIN_ID, type = CommandType.STRING, entityType = DomainResponse.class, description = "ID of the account's domain.",
         validations = {ApiArgValidator.UuidString})
@@ -74,6 +80,14 @@ public class QuotaSummaryCmd extends QuotaBaseListCmd {
 
     public void setAccountName(String accountName) {
         this.accountName = accountName;
+    }
+
+    public String getAccountId() {
+        return accountId;
+    }
+
+    public void setAccountId(String accountId) {
+        this.accountId = accountId;
     }
 
     public String getDomainId() {

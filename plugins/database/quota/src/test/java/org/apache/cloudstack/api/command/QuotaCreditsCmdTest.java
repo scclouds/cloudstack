@@ -62,6 +62,7 @@ public class QuotaCreditsCmdTest extends TestCase {
     @Test
     public void testQuotaCreditsCmd() throws NoSuchFieldException, IllegalAccessException {
         cmd.setAccountName("admin");
+        cmd.setDomainId(1L);
         cmd.setMinBalance(200.0);
 
         Field rbField = QuotaCreditsCmd.class.getDeclaredField("_responseBuilder");
@@ -81,7 +82,7 @@ public class QuotaCreditsCmdTest extends TestCase {
 
         Mockito.when(accountService.getActiveAccountByName(nullable(String.class), nullable(Long.class))).thenReturn(acc);
 
-        Mockito.when(responseBuilder.addQuotaCredits(nullable(Long.class), nullable(Long.class), nullable(Double.class), nullable(Long.class), nullable(Boolean.class), nullable(Date.class))).thenReturn(new QuotaCreditsResponse());
+        Mockito.when(responseBuilder.addQuotaCredits(nullable(Long.class), nullable(Double.class), nullable(Long.class), nullable(Boolean.class), nullable(Date.class))).thenReturn(new QuotaCreditsResponse());
 
         // No value provided test
         try {
@@ -90,12 +91,38 @@ public class QuotaCreditsCmdTest extends TestCase {
             assertTrue(e.getErrorCode().equals(ApiErrorCode.PARAM_ERROR));
         }
 
+        cmd.setAccountId(null);
         // With value provided test
         cmd.setValue(11.80);
         cmd.execute();
         Mockito.verify(quotaService, Mockito.times(0)).setLockAccount(anyLong(), anyBoolean());
         Mockito.verify(quotaService, Mockito.times(1)).setMinBalance(anyLong(), anyDouble());
-        Mockito.verify(responseBuilder, Mockito.times(1)).addQuotaCredits(nullable(Long.class), nullable(Long.class), nullable(Double.class), nullable(Long.class), nullable(Boolean.class), nullable(Date.class));
+        Mockito.verify(responseBuilder, Mockito.times(1)).addQuotaCredits(nullable(Long.class), nullable(Double.class), nullable(Long.class), nullable(Boolean.class), nullable(Date.class));
+    }
+
+    @Test
+    public void quotaCreditsTestAccountId() throws NoSuchFieldException, IllegalAccessException {
+        cmd.setAccountId(2L);
+        cmd.setValue(11.80);
+
+        Field rbField = QuotaCreditsCmd.class.getDeclaredField("_responseBuilder");
+        rbField.setAccessible(true);
+        rbField.set(cmd, responseBuilder);
+
+        Field asField = BaseCmd.class.getDeclaredField("_accountService");
+        asField.setAccessible(true);
+        asField.set(cmd, accountService);
+
+        AccountVO acc = new AccountVO();
+        acc.setId(2L);
+
+        Mockito.when(accountService.getActiveAccountById(nullable(Long.class))).thenReturn(acc);
+        Mockito.when(responseBuilder.addQuotaCredits(nullable(Long.class), nullable(Double.class), nullable(Long.class), nullable(Boolean.class), nullable(Date.class))).thenReturn(new QuotaCreditsResponse());
+
+        cmd.execute();
+        Mockito.verify(quotaService, Mockito.times(0)).setLockAccount(anyLong(), anyBoolean());
+        Mockito.verify(quotaService, Mockito.times(0)).setMinBalance(anyLong(), anyDouble());
+        Mockito.verify(responseBuilder, Mockito.times(1)).addQuotaCredits(nullable(Long.class), nullable(Double.class), nullable(Long.class), nullable(Boolean.class), nullable(Date.class));
     }
 
 }

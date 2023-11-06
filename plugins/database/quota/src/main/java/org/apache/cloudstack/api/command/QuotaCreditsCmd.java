@@ -16,6 +16,7 @@
 //under the License.
 package org.apache.cloudstack.api.command;
 
+import com.cloud.exception.InvalidParameterValueException;
 import com.cloud.user.Account;
 
 import org.apache.cloudstack.api.APICommand;
@@ -23,6 +24,7 @@ import org.apache.cloudstack.api.ApiConstants;
 import org.apache.cloudstack.api.ApiErrorCode;
 import org.apache.cloudstack.api.Parameter;
 import org.apache.cloudstack.api.ServerApiException;
+import org.apache.cloudstack.api.response.AccountResponse;
 import org.apache.cloudstack.api.response.DomainResponse;
 import org.apache.cloudstack.api.response.QuotaCreditsResponse;
 import org.apache.cloudstack.api.response.QuotaResponseBuilder;
@@ -45,10 +47,14 @@ public class QuotaCreditsCmd extends QuotaBaseCmd {
     public static final Logger s_logger = Logger.getLogger(QuotaStatementCmd.class);
 
 
-    @Parameter(name = ApiConstants.ACCOUNT, type = CommandType.STRING, required = true, description = "Account Id for which quota credits need to be added")
+    @Parameter(name = ApiConstants.ACCOUNT, type = CommandType.STRING, description = "Account name for which quota credits need to be added. Deprecated, please use " +
+            ApiConstants.ACCOUNT_ID + " instead.")
     private String accountName;
 
-    @Parameter(name = ApiConstants.DOMAIN_ID, type = CommandType.UUID, required = true, entityType = DomainResponse.class, description = "Domain for which quota credits need to be added")
+    @Parameter(name = ApiConstants.ACCOUNT_ID, type = CommandType.UUID, entityType = AccountResponse.class, description = "Account id for which quota credits need to be added")
+    private Long accountId;
+
+    @Parameter(name = ApiConstants.DOMAIN_ID, type = CommandType.UUID, entityType = DomainResponse.class, description = "Domain for which quota credits need to be added")
     private Long domainId;
 
     @Parameter(name = ApiConstants.VALUE, type = CommandType.DOUBLE, required = true, description = "Value of the credits to be added+, subtracted-")
@@ -96,6 +102,14 @@ public class QuotaCreditsCmd extends QuotaBaseCmd {
         this.domainId = domainId;
     }
 
+    public Long getAccountId() {
+        return accountId;
+    }
+
+    public void setAccountId(Long accountId) {
+        this.accountId = accountId;
+    }
+
     public Double getValue() {
         return value;
     }
@@ -118,25 +132,39 @@ public class QuotaCreditsCmd extends QuotaBaseCmd {
 
     @Override
     public void execute() {
-        Long accountId = null;
-        Account account = _accountService.getActiveAccountByName(accountName, domainId);
-        if (account != null) {
-            accountId = account.getAccountId();
+        Account account;
+        if (getAccountId() == null) {
+            try{
+                account = _accountService.getActiveAccountByName(getAccountName(), getDomainId());
+            } catch (InvalidParameterValueException exception) {
+                if (getAccountName() == null && getDomainId() == null) {
+                    throw new ServerApiException(ApiErrorCode.PARAM_ERROR, String.format("Please send a valid non-empty %s", ApiConstants.ACCOUNT_ID));
+                }
+                throw new ServerApiException(ApiErrorCode.PARAM_ERROR, String.format("Both %s and %s are needed if using either. Consider using %s instead.",
+                        ApiConstants.ACCOUNT, ApiConstants.DOMAIN_ID, ApiConstants.ACCOUNT_ID));
+            }
+        } else {
+            account = _accountService.getActiveAccountById(getAccountId());
         }
-        if (accountId == null) {
-            throw new ServerApiException(ApiErrorCode.INTERNAL_ERROR, "The account does not exists or has been removed/disabled");
+
+        if (account == null) {
+            throw new ServerApiException(ApiErrorCode.INTERNAL_ERROR, "The account does not exist or has been removed/disabled.");
+        }
+        if (getAccountId() == null) {
+            setAccountId(account.getAccountId());
         }
         if (getValue() == null) {
             throw new ServerApiException(ApiErrorCode.PARAM_ERROR, "Please send a valid non-empty quota value");
         }
         if (getQuotaEnforce() != null) {
-            _quotaService.setLockAccount(accountId, getQuotaEnforce());
+            _quotaService.setLockAccount(getAccountId(), getQuotaEnforce());
         }
         if (getMinBalance() != null) {
-            _quotaService.setMinBalance(accountId, getMinBalance());
+            _quotaService.setMinBalance(getAccountId(), getMinBalance());
         }
 
-        final QuotaCreditsResponse response = _responseBuilder.addQuotaCredits(accountId, getDomainId(), getValue(), CallContext.current().getCallingUserId(), getQuotaEnforce(), getPostingDate());
+        final QuotaCreditsResponse response = _responseBuilder.addQuotaCredits(getAccountId(), getValue(), CallContext.current().getCallingUserId(),
+                getQuotaEnforce(), getPostingDate());
         response.setResponseName(getCommandName());
         response.setObjectName("quotacredits");
         setResponseObject(response);
