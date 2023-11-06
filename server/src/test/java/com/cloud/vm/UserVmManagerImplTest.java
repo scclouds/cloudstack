@@ -16,6 +16,7 @@
 // under the License.
 package com.cloud.vm;
 
+import com.cloud.exception.UnavailableCommandException;
 import com.cloud.network.dao.NetworkDao;
 import com.cloud.network.dao.NetworkVO;
 import com.cloud.storage.Volume;
@@ -2453,6 +2454,67 @@ public class UserVmManagerImplTest {
         Mockito.doThrow(PermissionDeniedException.class).when(accountManager).checkAccess(Mockito.any(Account.class), Mockito.any());
 
         Assert.assertThrows(PermissionDeniedException.class, () -> userVmManagerImpl.moveVmToUser(assignVmCmdMock));
+    }
+
+    @Test
+    public void checkExpungeVMPermissionTestAccountIsNotAdminConfigFalseThrowsPermissionDeniedException () {
+        Mockito.doReturn(false).when(accountManager).isAdmin(Mockito.anyLong());
+        Mockito.doReturn(false).when(userVmManagerImpl).getConfigAllowUserExpungeRecoverVm(1L);
+        Mockito.doThrow(UnavailableCommandException.class).when(accountManager).checkApiAccess(accountMock, "expungeVirtualMachine");
+
+        Assert.assertThrows(PermissionDeniedException.class, () -> userVmManagerImpl.checkExpungeVmPermission(accountMock,1L));
+    }
+    @Test
+    public void checkExpungeVmPermissionTestAccountIsAdminConfigFalseThrowsPermissionDeniedException () {
+        Mockito.doReturn(true).when(accountManager).isAdmin(Mockito.anyLong());
+        Mockito.doReturn(false).when(userVmManagerImpl).getConfigAllowUserExpungeRecoverVm(Mockito.anyLong());
+        Mockito.doThrow(UnavailableCommandException.class).when(accountManager).checkApiAccess(accountMock, "expungeVirtualMachine");
+
+        Assert.assertThrows(PermissionDeniedException.class, () -> userVmManagerImpl.checkExpungeVmPermission(accountMock,1L));
+    }
+    @Test
+    public void checkExpungeVmPermissionTestAccountIsNotAdminConfigTrueThrowsPermissionDeniedException () {
+        Mockito.doReturn(false).when(accountManager).isAdmin(Mockito.anyLong());
+        Mockito.doReturn(true).when(userVmManagerImpl).getConfigAllowUserExpungeRecoverVm(Mockito.anyLong());
+        Mockito.doThrow(UnavailableCommandException.class).when(accountManager).checkApiAccess(accountMock, "expungeVirtualMachine");
+
+        Assert.assertThrows(PermissionDeniedException.class, () -> userVmManagerImpl.checkExpungeVmPermission(accountMock,1L));
+    }
+    @Test
+    public void checkExpungeVmPermissionTestAccountIsAdminConfigTrueThrowsPermissionDeniedException () {
+        Mockito.doReturn(true).when(accountManager).isAdmin(Mockito.anyLong());
+        Mockito.doReturn(true).when(userVmManagerImpl).getConfigAllowUserExpungeRecoverVm(Mockito.anyLong());
+        Mockito.doThrow(UnavailableCommandException.class).when(accountManager).checkApiAccess(accountMock, "expungeVirtualMachine");
+
+        Assert.assertThrows(PermissionDeniedException.class, () -> userVmManagerImpl.checkExpungeVmPermission(accountMock,1L));
+    }
+    @Test
+    public void checkExpungeVmPermissionTestAccountIsAdminConfigFalseNoApiAccessThrowsPermissionDeniedException () {
+        Mockito.doReturn(false).when(accountManager).isAdmin(Mockito.anyLong());
+        Mockito.doReturn(false).when(userVmManagerImpl).getConfigAllowUserExpungeRecoverVm(Mockito.anyLong());
+
+        Assert.assertThrows(PermissionDeniedException.class, () -> userVmManagerImpl.checkExpungeVmPermission(accountMock,1L));
+    }
+    @Test
+    public void checkExpungeVmPermissionTestAccountIsNotAdminConfigTrueHasApiAccessReturnNothing () {
+        Mockito.doReturn(false).when(accountManager).isAdmin(Mockito.anyLong());
+        Mockito.doReturn(true).when(userVmManagerImpl).getConfigAllowUserExpungeRecoverVm(Mockito.anyLong());
+
+        userVmManagerImpl.checkExpungeVmPermission(accountMock,1L);
+    }
+    @Test
+    public void checkExpungeVmPermissionTestAccountIsAdminConfigFalseHasApiAccessReturnNothing () {
+        Mockito.doReturn(true).when(accountManager).isAdmin(Mockito.anyLong());
+        Mockito.doReturn(false).when(userVmManagerImpl).getConfigAllowUserExpungeRecoverVm(Mockito.anyLong());
+
+        userVmManagerImpl.checkExpungeVmPermission(accountMock,1L);
+    }
+    @Test
+    public void checkExpungeVmPermissionTestAccountIsAdminConfigTrueHasApiAccessReturnNothing () {
+        Mockito.doReturn(true).when(accountManager).isAdmin(Mockito.anyLong());
+        Mockito.doReturn(true).when(userVmManagerImpl).getConfigAllowUserExpungeRecoverVm(Mockito.anyLong());
+
+        userVmManagerImpl.checkExpungeVmPermission(accountMock,1L);
     }
 
     @Test
