@@ -33,10 +33,16 @@ export default {
       permission: ['listNetworks'],
       resourceType: 'Network',
       columns: () => {
-        var fields = ['name', 'state', 'type', 'vpcname', 'cidr', 'ip6cidr', 'broadcasturi', 'domain', 'account', 'zonename']
+        var fields = ['name', 'state', 'type', 'vpcname', 'cidr', 'ip6cidr', 'broadcasturi', 'domain']
         if (!isAdmin()) {
           fields = fields.filter(function (e) { return e !== 'broadcasturi' })
         }
+        if (store.getters.listAllProjects) {
+          fields.push('project')
+        } else {
+          fields.push('account')
+        }
+        fields.push('zonename')
         return fields
       },
       details: () => {
@@ -192,7 +198,14 @@ export default {
       docHelp: 'adminguide/networking_and_traffic.html#configuring-a-virtual-private-cloud',
       permission: ['listVPCs'],
       resourceType: 'Vpc',
-      columns: ['name', 'state', 'displaytext', 'cidr', 'account', 'zonename'],
+      columns: () => {
+        var fields = ['name', 'state', 'displaytext', 'cidr', 'account']
+        if (store.getters.listAllProjects) {
+          fields.push('project')
+        }
+        fields.push('zonename')
+        return fields
+      },
       details: ['name', 'id', 'displaytext', 'cidr', 'networkdomain', 'ip6routes', 'ispersistent', 'redundantvpcrouter', 'restartrequired', 'zonename', 'account', 'domain', 'dns1', 'dns2', 'ip6dns1', 'ip6dns2', 'publicmtu'],
       searchFilters: ['name', 'zoneid', 'domainid', 'account', 'tags'],
       related: [{
@@ -322,7 +335,14 @@ export default {
       docHelp: 'adminguide/networking_and_traffic.html#reserving-public-ip-addresses-and-vlans-for-accounts',
       permission: ['listPublicIpAddresses'],
       resourceType: 'PublicIpAddress',
-      columns: ['ipaddress', 'state', 'associatednetworkname', 'virtualmachinename', 'allocated', 'account', 'zonename'],
+      columns: () => {
+        var fields = ['ipaddress', 'state', 'associatednetworkname', 'virtualmachinename', 'allocated', 'account']
+        if (store.getters.listAllProjects) {
+          fields.push('project')
+        }
+        fields.push('zonename')
+        return fields
+      },
       details: ['ipaddress', 'id', 'associatednetworkname', 'virtualmachinename', 'networkid', 'issourcenat', 'isstaticnat', 'virtualmachinename', 'vmipaddress', 'vlan', 'allocated', 'account', 'zonename'],
       filters: ['allocated', 'reserved', 'free'],
       component: shallowRef(() => import('@/views/network/PublicIpResource.vue')),
@@ -713,7 +733,13 @@ export default {
       title: 'label.vpncustomergatewayid',
       icon: 'lock-outlined',
       permission: ['listVpnCustomerGateways'],
-      columns: ['name', 'gateway', 'cidrlist', 'ipsecpsk', 'account'],
+      columns: () => {
+        var fields = ['name', 'gateway', 'cidrlist', 'ipsecpsk', 'account']
+        if (store.getters.listAllProjects) {
+          fields.push('project')
+        }
+        return fields
+      },
       details: ['name', 'id', 'gateway', 'cidrlist', 'ipsecpsk', 'ikepolicy', 'ikelifetime', 'ikeversion', 'esppolicy', 'esplifetime', 'dpd', 'splitconnections', 'forceencap', 'account', 'domain'],
       searchFilters: ['keyword', 'domainid', 'account'],
       resourceType: 'VPNCustomerGateway',
