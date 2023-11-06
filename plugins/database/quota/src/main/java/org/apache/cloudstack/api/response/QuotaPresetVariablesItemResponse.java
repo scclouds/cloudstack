@@ -29,6 +29,10 @@ public class QuotaPresetVariablesItemResponse extends BaseResponse {
     @Param(description = "description")
     private String description;
 
+    public QuotaPresetVariablesItemResponse() {
+        super("variables");
+    }
+
     public void setVariables(String variable) {
         this.variable = variable;
     }
