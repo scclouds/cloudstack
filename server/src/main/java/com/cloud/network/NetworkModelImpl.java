@@ -2553,8 +2553,12 @@ public class NetworkModelImpl extends ManagerBase implements NetworkModel, Confi
 
         //if the network has vms in Starting state (nics for those might not be allocated yet as Starting state also used when vm is being Created)
         //don't GC
-        if (_nicDao.countNicsForStartingVms(networkId) > 0) {
-            s_logger.debug("Network id=" + networkId + " is not ready for GC as it has vms that are Starting at the moment");
+        if (_nicDao.countNicsForVmsInState(networkId, VirtualMachine.State.Starting) > 0) {
+            s_logger.debug(String.format("Network [%s] is not ready for GC as it has VMs that are Starting at the moment.", network.getUuid()));
+            return false;
+        }
+        if (_nicDao.countNicsForVmsInState(networkId, VirtualMachine.State.Running) > 0) {
+            s_logger.warn(String.format("Network [%s] is not ready for GC as it has VMs that are Running at the moment. Please check the logs and the database for inconsistencies.", network.getUuid()));
             return false;
         }
 

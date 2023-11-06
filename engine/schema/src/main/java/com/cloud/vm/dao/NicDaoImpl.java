@@ -44,7 +44,7 @@ public class NicDaoImpl extends GenericDaoBase<NicVO, Long> implements NicDao {
     private GenericSearchBuilder<NicVO, String> IpSearch;
     private SearchBuilder<NicVO> NonReleasedSearch;
     private GenericSearchBuilder<NicVO, Integer> deviceIdSearch;
-    private GenericSearchBuilder<NicVO, Integer> CountByForStartingVms;
+    private GenericSearchBuilder<NicVO, Integer> countByForVmState;
     private SearchBuilder<NicVO> PeerRouterSearch;
 
     @Inject
@@ -91,14 +91,14 @@ public class NicDaoImpl extends GenericDaoBase<NicVO, Long> implements NicDao {
         deviceIdSearch.and("instance", deviceIdSearch.entity().getInstanceId(), Op.EQ);
         deviceIdSearch.done();
 
-        CountByForStartingVms = createSearchBuilder(Integer.class);
-        CountByForStartingVms.select(null, Func.COUNT, CountByForStartingVms.entity().getId());
-        CountByForStartingVms.and("networkId", CountByForStartingVms.entity().getNetworkId(), Op.EQ);
-        CountByForStartingVms.and("removed", CountByForStartingVms.entity().getRemoved(), Op.NULL);
+        countByForVmState = createSearchBuilder(Integer.class);
+        countByForVmState.select(null, Func.COUNT, countByForVmState.entity().getId());
+        countByForVmState.and("networkId", countByForVmState.entity().getNetworkId(), Op.EQ);
+        countByForVmState.and("removed", countByForVmState.entity().getRemoved(), Op.NULL);
         SearchBuilder<VMInstanceVO> join1 = _vmDao.createSearchBuilder();
         join1.and("state", join1.entity().getState(), Op.EQ);
-        CountByForStartingVms.join("vm", join1, CountByForStartingVms.entity().getInstanceId(), join1.entity().getId(), JoinBuilder.JoinType.INNER);
-        CountByForStartingVms.done();
+        countByForVmState.join("vm", join1, countByForVmState.entity().getInstanceId(), join1.entity().getId(), JoinBuilder.JoinType.INNER);
+        countByForVmState.done();
 
         PeerRouterSearch = createSearchBuilder();
         PeerRouterSearch.and("instanceId", PeerRouterSearch.entity().getInstanceId(), Op.NEQ);
@@ -346,10 +346,10 @@ public class NicDaoImpl extends GenericDaoBase<NicVO, Long> implements NicDao {
     }
 
     @Override
-    public int countNicsForStartingVms(long networkId) {
-        SearchCriteria<Integer> sc = CountByForStartingVms.create();
+    public int countNicsForVmsInState(long networkId, VirtualMachine.State state) {
+        SearchCriteria<Integer> sc = countByForVmState.create();
         sc.setParameters("networkId", networkId);
-        sc.setJoinParameters("vm", "state", VirtualMachine.State.Starting);
+        sc.setJoinParameters("vm", "state", state);
         List<Integer> results = customSearch(sc, null);
         return results.get(0);
     }
