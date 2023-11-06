@@ -16,6 +16,7 @@
 //under the License.
 package org.apache.cloudstack.api.command;
 
+import java.util.Arrays;
 import java.util.Date;
 import java.util.List;
 
@@ -30,6 +31,8 @@ import org.apache.cloudstack.api.response.QuotaResponseBuilder;
 import org.apache.cloudstack.api.response.QuotaStatementItemResponse;
 import org.apache.cloudstack.api.response.QuotaStatementResponse;
 import org.apache.cloudstack.quota.vo.QuotaUsageJoinVO;
+import org.apache.commons.lang3.ObjectUtils;
+import org.apache.commons.lang3.StringUtils;
 import org.apache.log4j.Logger;
 
 import com.cloud.user.Account;
@@ -62,6 +65,12 @@ public class QuotaStatementCmd extends QuotaBaseCmd {
 
     @Parameter(name = ApiConstants.SHOW_RESOURCES, type = CommandType.BOOLEAN, description = "List the resources of each quota type in the period.")
     private boolean showResources;
+
+    @Parameter(name = ApiConstants.AGGREGATION_INTERVAL, type = CommandType.STRING, description = "Aggregation interval for the usage records. Options are None, Hourly and Daily.")
+    private String aggregationInterval;
+
+    @Parameter(name = ApiConstants.TIMEZONE, type = CommandType.STRING, description = "Timezone to be used in the response if time aggregation is used.")
+    private String timezone;
 
     @Inject
     protected QuotaResponseBuilder responseBuilder;
@@ -116,6 +125,29 @@ public class QuotaStatementCmd extends QuotaBaseCmd {
 
     public boolean isShowResources() {
         return showResources;
+    }
+
+    public ApiConstants.AggregationInterval getAggregationInterval() {
+        if (StringUtils.isBlank(aggregationInterval)) {
+            return ApiConstants.AggregationInterval.NONE;
+        }
+        try {
+            String type = aggregationInterval.trim().toUpperCase();
+            return ApiConstants.AggregationInterval.valueOf(type);
+        } catch (IllegalArgumentException e) {
+            String errMsg = String.format("Not setting aggregation interval because an invalid value was received [%s]." +
+                    " Valid values are: [%s].", aggregationInterval, Arrays.toString(ApiConstants.AggregationInterval.values()));
+            s_logger.warn(errMsg);
+            return ApiConstants.AggregationInterval.NONE;
+        }
+    }
+
+    public void setAggregationInterval(String aggregationInterval) {
+        this.aggregationInterval = aggregationInterval;
+    }
+
+    public String getTimezone() {
+        return ObjectUtils.defaultIfNull(timezone, "UTC");
     }
 
     @Override
