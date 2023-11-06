@@ -59,7 +59,7 @@ public interface QuotaResponseBuilder {
 
     List<QuotaUsageJoinVO> getQuotaUsage(QuotaStatementCmd cmd);
 
-    QuotaCreditsResponse addQuotaCredits(Long accountId, Long domainId, Double amount, Long updatedBy, Boolean enforce, Date postingDate);
+    QuotaCreditsResponse addQuotaCredits(Long accountId, Double amount, Long updatedBy, Boolean enforce, Date postingDate);
 
     List<QuotaEmailTemplateResponse> listQuotaEmailTemplates(QuotaEmailTemplateListCmd cmd);
 

@@ -25,7 +25,7 @@
       :rules="rules"
       @finish="handleSubmit"
       v-ctrl-enter="handleSubmit">
-      <a-form-item v-if="'listDomains' in $store.getters.apis" ref="domainid" name="domainid">
+      <a-form-item v-if="'listDomains' in $store.getters.apis">
         <template #label>
           <tooltip-label :title="$t('label.domain')" :tooltip="apiParams.domainid.description"/>
         </template>
@@ -40,15 +40,15 @@
           </a-select-option>
         </a-select>
       </a-form-item>
-      <a-form-item v-if="'listDomains' in $store.getters.apis" ref="account" name="account">
+      <a-form-item v-if="'listDomains' in $store.getters.apis" ref="accountid" name="accountid">
         <template #label>
-          <tooltip-label :title="$t('label.account')" :tooltip="apiParams.account.description"/>
+          <tooltip-label :title="$t('label.account')" :tooltip="apiParams.accountid.description"/>
         </template>
         <a-select
           showSearch
-          v-model:value="form.account"
+          v-model:value="form.accountid"
           :placeholder="this.$t('label.account')">
-          <a-select-option v-for="account in accountList" :value="account.name" :key="account.id">
+          <a-select-option v-for="account in accountList" :value="account.id" :key="account.id">
             {{ account.name }}
           </a-select-option>
         </a-select>
@@ -131,7 +131,7 @@ export default {
       this.form = reactive({})
       this.rules = reactive({
         domainid: [{ required: true, message: this.$t('message.action.quota.credit.add.error.domainidrequired') }],
-        account: [{ required: true, message: this.$t('message.action.quota.credit.add.error.accountrequired') }],
+        accountid: [{ required: true, message: this.$t('message.action.quota.credit.add.error.accountrequired') }],
         value: [{ required: true, message: this.$t('message.action.quota.credit.add.error.valuerequired') }]
       })
     },
@@ -142,7 +142,7 @@ export default {
       this.formRef.value.validate().then(() => {
         const formRaw = toRaw(this.form)
         const values = this.handleRemoveFields(formRaw)
-        values.domainid = this.domainId
+        delete values.domainid
 
         if (values.postingDate) {
           values.postingDate = getMomentFormattedAndNormalized({ value: values.postingDate })

@@ -296,6 +296,7 @@ public class QuotaResponseBuilderImpl implements QuotaResponseBuilder {
 
     protected Pair<List<QuotaSummaryResponse>, Integer> getQuotaSummaryResponseWithListAll(QuotaSummaryCmd cmd, Account caller) {
         String accountName = cmd.getAccountName();
+        String accountUuid = cmd.getAccountId();
         String domainUuid = cmd.getDomainId();
 
         Long domainId = null;
@@ -311,7 +312,7 @@ public class QuotaResponseBuilderImpl implements QuotaResponseBuilder {
             domainId = domain.getId();
         }
 
-        Long accountId = getAccountIdByAccountName(accountName, domainId, caller);
+        Long accountId = accountUuid == null ? getAccountIdByAccountName(accountName, domainId, caller) : getAccountIdByAccountUuid(accountUuid, domainId, caller);
         String domainPath = getDomainPathByDomainIdForDomainAdmin(caller);
 
         String keyword = null;
@@ -334,6 +335,21 @@ public class QuotaResponseBuilderImpl implements QuotaResponseBuilder {
 
         if (account == null) {
             throw new InvalidParameterValueException(String.format("Account name [%s] or domain id [%s] is invalid.", accountName, domainId));
+        }
+
+        return account.getAccountId();
+    }
+
+    protected Long getAccountIdByAccountUuid(String accountUuid, Long domainId, Account caller) {
+        AccountVO account = _accountDao.findByUuidIncludingRemoved(accountUuid);
+        if (account == null) {
+            throw new InvalidParameterValueException(String.format("Account [%s] does not exist.", accountUuid));
+        }
+
+        Domain domain = domainDao.findByIdIncludingRemoved(account.getDomainId());
+        _accountMgr.checkAccess(caller, domain);
+        if (domainId != null && domainId != account.getDomainId()) {
+            throw new InvalidParameterValueException(String.format("Account [%s] is not of domain [%s].", account.getAccountId(), domainId));
         }
 
         return account.getAccountId();
@@ -703,7 +719,13 @@ public class QuotaResponseBuilderImpl implements QuotaResponseBuilder {
     }
 
     @Override
-    public QuotaCreditsResponse addQuotaCredits(Long accountId, Long domainId, Double amount, Long updatedBy, Boolean enforce, Date postingDate) {
+    public QuotaCreditsResponse addQuotaCredits(Long accountId, Double amount, Long updatedBy, Boolean enforce, Date postingDate) {
+        final AccountVO account = _accountDao.findById(accountId);
+        if (account == null) {
+            throw new InvalidParameterValueException("Account does not exist with account id " + accountId);
+        }
+        Long domainId = account.getDomainId();
+
         Date despositedOn = new Date();
         QuotaBalanceVO qb = _quotaBalanceDao.findLaterBalanceEntry(accountId, domainId, despositedOn);
 
@@ -720,10 +742,6 @@ public class QuotaResponseBuilderImpl implements QuotaResponseBuilder {
         credits.setUpdatedOn(despositedOn);
         QuotaCreditsVO result = quotaCreditsDao.saveCredits(credits);
 
-        final AccountVO account = _accountDao.findById(accountId);
-        if (account == null) {
-            throw new InvalidParameterValueException("Account does not exist with account id " + accountId);
-        }
         final boolean lockAccountEnforcement = "true".equalsIgnoreCase(QuotaConfig.QuotaEnableEnforcement.value());
         final BigDecimal currentAccountBalance = _quotaBalanceDao.getLastQuotaBalance(accountId, domainId);
         if (s_logger.isDebugEnabled()) {
