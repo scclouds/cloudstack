@@ -326,6 +326,10 @@
       <router-link v-if="record.roleid && $router.resolve('/role/' + record.roleid).matched[0].redirect !== '/exception/404'" :to="{ path: '/role/' + record.roleid }">{{ text }}</router-link>
       <span v-else>{{ text }}</span>
     </template>
+    <template #project="{ text, record }">
+      <router-link v-if="$router.resolve('/project/' + record.projectid).matched[0].redirect !== '/exception/404'" :to="{ path: '/project/' + record.projectid }">{{ text }}</router-link>
+      <span v-else>{{ text }}</span>
+    </template>
     <template #templateversion="{ record }">
       <span>  {{ record.version }} </span>
     </template>

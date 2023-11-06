@@ -38,6 +38,9 @@ export default {
         var fields = ['name', 'hypervisor', 'ostypename']
         if (['Admin', 'DomainAdmin'].includes(store.getters.userInfo.roletype)) {
           fields.push('account')
+          if (store.getters.listAllProjects) {
+            fields.push('project')
+          }
         }
         if (['Admin'].includes(store.getters.userInfo.roletype)) {
           fields.push('order')
@@ -189,6 +192,9 @@ export default {
         var fields = ['name', 'ostypename']
         if (['Admin', 'DomainAdmin'].includes(store.getters.userInfo.roletype)) {
           fields.push('account')
+          if (store.getters.listAllProjects) {
+            fields.push('project')
+          }
         }
         if (['Admin'].includes(store.getters.userInfo.roletype)) {
           fields.push('order')
