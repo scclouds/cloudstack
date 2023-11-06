@@ -414,6 +414,14 @@ public abstract class SearchBase<J extends SearchBase<?, T, K>, T, K> {
                 sql.append(" FIND_IN_SET(?, ");
             }
 
+            if (op == Op.LIKE_REPLACE) {
+                sql.append(" ? LIKE REPLACE (");
+            }
+
+            if (op == Op.LIKE_CONCAT) {
+                sql.append(" ? LIKE CONCAT (");
+            }
+
             sql.append(attr.table).append(".").append(attr.columnName).append(op.toString());
             if (op == Op.IN && params.length == 1) {
                 sql.delete(sql.length() - op.toString().length(), sql.length());
