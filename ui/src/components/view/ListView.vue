@@ -221,7 +221,7 @@
       <router-link :to="{ path: '/guestnetwork/' + record.associatednetworkid }">{{ text }}</router-link>
     </template>
     <template #vpcname="{ text, record }">
-      <a v-if="record.vpcid">
+      <a v-if="record.vpcid && record.vpcaccess">
         <router-link :to="{ path: '/vpc/' + record.vpcid }">{{ text }}</router-link>
       </a>
       <span v-else>{{ text }}</span>

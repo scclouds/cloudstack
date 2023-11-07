@@ -162,6 +162,9 @@
       :footer="null"
       @cancel="showCreateNetworkModal = false">
       <a-spin :spinning="modalLoading" v-ctrl-enter="handleAddNetworkSubmit">
+        <div v-if="isNormalUserOrProject">
+          <ownership-selection @fetch-owner="fetchOwnerOptions"/>
+        </div>
         <a-form
           layout="vertical"
           :ref="formRef"
@@ -340,11 +343,13 @@ import { api } from '@/api'
 import { mixinForm } from '@/utils/mixin'
 import Status from '@/components/widgets/Status'
 import TooltipLabel from '@/components/widgets/TooltipLabel'
+import OwnershipSelection from '@/views/compute/wizard/OwnershipSelection.vue'
 
 export default {
   name: 'VpcTiersTab',
   mixins: [mixinForm],
   components: {
+    OwnershipSelection,
     Status,
     TooltipLabel
   },
@@ -488,6 +493,9 @@ export default {
     isObjectEmpty (obj) {
       return !(obj !== null && obj !== undefined && Object.keys(obj).length > 0 && obj.constructor === Object)
     },
+    isNormalUserOrProject () {
+      return ['User'].includes(this.$store.getters.userInfo.roletype) || this.$store.getters.userInfo.project?.id
+    },
     initForm () {
       this.formRef = ref()
       this.form = reactive({})
@@ -515,6 +523,23 @@ export default {
         this.fetchVMs(network.id)
       }
       this.publicLBNetworkExists()
+    },
+    fetchOwnerOptions (OwnerOptions) {
+      this.owner = {}
+      if (OwnerOptions.selectedAccountType === this.$t('label.account')) {
+        if (!OwnerOptions.selectedAccount) {
+          this.owner = undefined
+          return
+        }
+        this.owner.account = OwnerOptions.selectedAccount
+        this.owner.domainid = OwnerOptions.selectedDomain
+      } else if (OwnerOptions.selectedAccountType === this.$t('label.project')) {
+        if (!OwnerOptions.selectedProject) {
+          this.owner = undefined
+          return
+        }
+        this.owner.projectid = OwnerOptions.selectedProject
+      }
     },
     fetchMtuForZone () {
       api('listZones', {
@@ -678,8 +703,9 @@ export default {
         this.showCreateNetworkModal = false
         var params = {
           vpcid: this.resource.id,
-          domainid: this.resource.domainid,
-          account: this.resource.account,
+          domainid: this.owner?.domainid ? this.owner.domainid : this.resource.domainid,
+          account: this.owner?.projectid ? null : (this.owner?.account ? this.owner.account : this.resource.account),
+          projectid: this.owner?.projectid ? this.owner.projectid : null,
           networkOfferingId: values.networkOffering,
           name: values.name,
           displayText: values.name,

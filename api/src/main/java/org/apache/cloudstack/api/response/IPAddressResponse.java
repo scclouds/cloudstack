@@ -135,6 +135,10 @@ public class IPAddressResponse extends BaseResponseWithAnnotations implements Co
     @Param(description = "purpose of the IP address. In Acton this value is not null for Ips with isSystem=true, and can have either StaticNat or LB value")
     private String purpose;
 
+    @SerializedName(ApiConstants.VPC_ACCESS)
+    @Param(description = "If the calling account has access to this network's VPC")
+    private boolean vpcAccess;
+
     @SerializedName(ApiConstants.VPC_ID)
     @Param(description = "VPC id the ip belongs to")
     private String vpcId;
@@ -276,6 +280,10 @@ public class IPAddressResponse extends BaseResponseWithAnnotations implements Co
 
     public void setPurpose(String purpose) {
         this.purpose = purpose;
+    }
+
+    public void setVpcAccess(boolean vpcAccess) {
+        this.vpcAccess = vpcAccess;
     }
 
     public void setVpcId(String vpcId) {

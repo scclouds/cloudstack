@@ -995,7 +995,7 @@ public class ApiResponseHelper implements ResponseGenerator {
         }
 
 
-        setVpcIdInResponse(ipAddr.getVpcId(), ipResponse::setVpcId, ipResponse::setVpcName);
+        setVpcIdInResponse(ipAddr.getVpcId(), ipResponse::setVpcId, ipResponse::setVpcName, ipResponse::setVpcAccess);
 
 
         // Network id the ip is associated with (if associated networkId is
@@ -1065,8 +1065,7 @@ public class ApiResponseHelper implements ResponseGenerator {
         return ipResponse;
     }
 
-
-    protected void setVpcIdInResponse(Long vpcId, Consumer<String> vpcUuidSetter, Consumer<String> vpcNameSetter) {
+    protected void setVpcIdInResponse(Long vpcId, Consumer<String> vpcUuidSetter, Consumer<String> vpcNameSetter, Consumer<Boolean> vpcBooleanSetter) {
         if (vpcId == null) {
             return;
         }
@@ -1077,10 +1076,12 @@ public class ApiResponseHelper implements ResponseGenerator {
         }
         try {
             _accountMgr.checkAccess(CallContext.current().getCallingAccount(), null, false, vpc);
-            vpcUuidSetter.accept(vpc.getUuid());
+            vpcBooleanSetter.accept(true);
         } catch (PermissionDeniedException e) {
-            s_logger.debug("Not setting the vpcId to the response because the caller does not have access to the VPC.");
+            vpcBooleanSetter.accept(false);
+            s_logger.debug("Setting the vpcaccess as false in the response because the caller does not have access to the VPC.");
         }
+        vpcUuidSetter.accept(vpc.getUuid());
         vpcNameSetter.accept(vpc.getName());
     }
 
@@ -2562,7 +2563,7 @@ public class ApiResponseHelper implements ResponseGenerator {
         response.setSpecifyIpRanges(network.getSpecifyIpRanges());
 
 
-        setVpcIdInResponse(network.getVpcId(), response::setVpcId, response::setVpcName);
+        setVpcIdInResponse(network.getVpcId(), response::setVpcId, response::setVpcName, response::setVpcAccess);
 
         setResponseAssociatedNetworkInformation(response, network.getId());
 
