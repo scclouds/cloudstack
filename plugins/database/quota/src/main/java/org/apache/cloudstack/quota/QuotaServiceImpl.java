@@ -73,7 +73,6 @@ import com.cloud.user.Account;
 import com.cloud.user.AccountVO;
 import com.cloud.user.dao.AccountDao;
 import com.cloud.utils.component.ManagerBase;
-import com.cloud.utils.db.Filter;
 
 @Component
 public class QuotaServiceImpl extends ManagerBase implements QuotaService, Configurable, QuotaConfig {
@@ -178,6 +177,11 @@ public class QuotaServiceImpl extends ManagerBase implements QuotaService, Confi
             endDate = DateUtils.addDays(new Date(), -1);
         }
 
+        if (domainId == null) {
+            AccountVO account = _accountDao.findByIdIncludingRemoved(accountId);
+            domainId = account.getDomainId();
+        }
+
         List<QuotaBalanceVO> quotaBalances = quotaBalanceDao.listQuotaBalances(accountId, domainId, startDate, endDate);
 
         if (quotaBalances.isEmpty()) {
@@ -206,21 +210,20 @@ public class QuotaServiceImpl extends ManagerBase implements QuotaService, Confi
 
     protected Long getAccountToWhomQuotaBalancesWillBeListed(Long accountId, String accountName, Long domainId) {
         if (accountId != null) {
+            Account account = _accountDao.findByIdIncludingRemoved(accountId);
+            if (account == null) {
+                throw new InvalidParameterValueException(String.format("Unable to find account [%s].", accountId));
+            }
             return accountId;
         }
 
         validateIsChildDomain(accountName, domainId);
 
-        List<AccountVO> accounts = _accountDao.listAccounts(accountName, domainId, new Filter(AccountVO.class, "id", false));
-        if (!accounts.isEmpty()) {
-            Account userAccount = accounts.get(0);
-
-            if (userAccount != null) {
-                return userAccount.getId();
-            }
+        Account account = _accountDao.findActiveAccount(accountName, domainId);
+        if (account == null) {
+            throw new InvalidParameterValueException(String.format("Unable to find active account [%s] in domain [%s].", accountName, domainId));
         }
-
-        throw new InvalidParameterValueException(String.format("Unable to find account [%s] in domain [%s].", accountName, domainId));
+        return account.getAccountId();
     }
 
     protected void validateIsChildDomain(String accountName, Long domainId) {

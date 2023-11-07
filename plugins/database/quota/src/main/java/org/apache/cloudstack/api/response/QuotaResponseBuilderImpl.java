@@ -429,6 +429,13 @@ public class QuotaResponseBuilderImpl implements QuotaResponseBuilder {
         return response;
     }
 
+    protected Account selectAccount(Long accountId, String accountName, Long domainId) {
+        if (accountId != null) {
+            return _accountDao.findByIdIncludingRemoved(accountId);
+        }
+        return _accountDao.findActiveAccount(accountName, domainId);
+    }
+
     @Override
     public QuotaStatementResponse createQuotaStatementResponse(final List<QuotaUsageJoinVO> quotaUsages, QuotaStatementCmd cmd) {
         if (CollectionUtils.isEmpty(quotaUsages)) {
@@ -456,8 +463,8 @@ public class QuotaResponseBuilderImpl implements QuotaResponseBuilder {
         statement.setCurrency(QuotaConfig.QuotaCurrencySymbol.value());
         statement.setObjectName("statement");
 
-        AccountVO account = _accountDao.findAccountByNameAndDomainIncludingRemoved(cmd.getAccountName(), cmd.getDomainId());
-        DomainVO domain = domainDao.findByIdIncludingRemoved(cmd.getDomainId());
+        Account account = selectAccount(cmd.getAccountId(), cmd.getAccountName(), cmd.getDomainId());
+        Domain domain = domainDao.findByIdIncludingRemoved(account.getDomainId());
 
         statement.setAccountId(account.getUuid());
         statement.setAccountName(account.getAccountName());
