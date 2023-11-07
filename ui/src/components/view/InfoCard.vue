@@ -673,6 +673,10 @@
         </div>
       </div>
 
+      <div v-if="resource.deployvm && resource.quotaenabled">
+        <estimated-cost :resource="resource" />
+      </div>
+
       <div class="account-center-tags" v-if="$route.meta.related">
         <a-divider/>
         <div v-for="item in $route.meta.related" :key="item.path">
@@ -781,10 +785,12 @@ import UploadResourceIcon from '@/components/view/UploadResourceIcon'
 import eventBus from '@/config/eventBus'
 import ResourceIcon from '@/components/view/ResourceIcon'
 import ResourceLabel from '@/components/widgets/ResourceLabel'
+import EstimatedCost from '@/components/view/stats/EstimatedCost.vue'
 
 export default {
   name: 'InfoCard',
   components: {
+    EstimatedCost,
     Console,
     OsLogo,
     Status,

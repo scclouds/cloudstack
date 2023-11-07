@@ -47,3 +47,10 @@ SELECT
     `cloud`.`gui_themes`.`removed` AS `removed`
 FROM `cloud`.`gui_themes` LEFT JOIN `cloud`.`gui_themes_details` ON `cloud`.`gui_themes_details`.`gui_theme_id` = `cloud`.`gui_themes`.`id`
 GROUP BY `cloud`.`gui_themes`.`id`;
+
+-- Role permission for Quota estimation
+INSERT INTO `cloud`.`role_permissions` (uuid, role_id, rule, permission, sort_order)
+SELECT uuid(), role_id, 'quotaResourceQuoting', permission, sort_order
+FROM `cloud`.`role_permissions` rp
+WHERE rule = 'quotaStatement'
+AND NOT EXISTS(SELECT 1 FROM `cloud`.`role_permissions` rp_ WHERE rp.role_id = rp_.role_id AND rp_.rule = 'quotaResourceQuoting');
