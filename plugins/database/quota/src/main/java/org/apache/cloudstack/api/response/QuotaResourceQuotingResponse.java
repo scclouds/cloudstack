@@ -35,12 +35,28 @@ public class QuotaResourceQuotingResponse extends BaseResponse {
     @Param(description = "Quoting by the IDs sent as API parameter")
     private List<ResourcesQuotingResultResponse> details;
 
+    @SerializedName("currencysymbol")
+    @Param(description = "The symbol for the currency in use to measure usage")
+    private String currencySymbol;
+
+    @SerializedName("currencylocale")
+    @Param(description = "The location used for formatting the value (e.g. \"en-US\" for English or \"pt-BR\" for Brazilian Portuguese)")
+    private String currencyLocale;
+
     public BigDecimal getTotalQuote() {
         return totalQuote;
     }
 
     public void setTotalQuote(BigDecimal totalQuote) {
         this.totalQuote = totalQuote.setScale(2, RoundingMode.HALF_EVEN);;
+    }
+
+    public void setCurrencySymbol(String currencySymbol) {
+        this.currencySymbol = currencySymbol;
+    }
+
+    public void setCurrencyLocale(String currencyLocale) {
+        this.currencyLocale = currencyLocale;
     }
 
     public List<ResourcesQuotingResultResponse> getDetails() {

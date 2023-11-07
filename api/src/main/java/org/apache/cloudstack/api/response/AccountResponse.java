@@ -267,6 +267,10 @@ public class AccountResponse extends BaseResponse implements ResourceLimitAndCou
     @Param(description = "Base64 string representation of the resource icon", since = "4.16.0.0")
     ResourceIconResponse icon;
 
+    @SerializedName(ApiConstants.QUOTA_ENABLED)
+    @Param(description = "true if account has the Quota plugin enabled, false otherwise")
+    private boolean quotaEnabled;
+
     @Override
     public String getObjectId() {
         return id;
@@ -544,5 +548,9 @@ public class AccountResponse extends BaseResponse implements ResourceLimitAndCou
     @Override
     public void setResourceIconResponse(ResourceIconResponse icon) {
         this.icon = icon;
+    }
+
+    public void setQuotaEnabled(boolean quotaEnabled) {
+        this.quotaEnabled = quotaEnabled;
     }
 }

@@ -23,6 +23,7 @@ import org.apache.cloudstack.api.Parameter;
 import org.apache.cloudstack.api.response.QuotaResourceQuotingResponse;
 import org.apache.cloudstack.api.response.QuotaResponseBuilder;
 import org.apache.cloudstack.api.response.ResourcesQuotingResultResponse;
+import org.apache.cloudstack.quota.constant.QuotaConfig;
 
 import javax.inject.Inject;
 import java.math.BigDecimal;
@@ -66,6 +67,8 @@ public class QuotaResourceQuotingCmd extends QuotaBaseCmd {
         QuotaResourceQuotingResponse response = new QuotaResourceQuotingResponse();
         response.setDetails(responses);
         response.setTotalQuote(responses.stream().map(ResourcesQuotingResultResponse::getQuote).reduce(BigDecimal.ZERO, BigDecimal::add));
+        response.setCurrencySymbol(QuotaConfig.QuotaCurrencySymbol.value());
+        response.setCurrencyLocale(QuotaConfig.QuotaCurrencyLocale.value());
         response.setResponseName(getCommandName());
         setResponseObject(response);
     }
