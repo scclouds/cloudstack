@@ -23,6 +23,7 @@ import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.net.URISyntaxException;
+import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -211,6 +212,8 @@ public final class LibvirtMigrateCommandWrapper extends CommandWrapper<MigrateCo
                 }
             }
 
+            xmlDesc = updateVmSharesIfNeeded(command, xmlDesc, libvirtComputingResource);
+
             dconn = libvirtUtilitiesHelper.retrieveQemuConnection(destinationUri);
 
             if (to.getType() == VirtualMachine.Type.User) {
@@ -363,6 +366,44 @@ public final class LibvirtMigrateCommandWrapper extends CommandWrapper<MigrateCo
     }
 
     /**
+     * Checks if the CPU shares are equal in the source host and destination host.
+     *  <ul>
+     *      <li>
+     *          If both hosts utilize cgroup v1; then, the shares value of the VM is equal in both hosts, and there is no need to update the VM CPU shares value for the
+     *          migration.</li>
+     *      <li>
+     *          If, at least, one of the hosts utilize cgroup v2, the VM CPU shares must be recalculated for the migration, accordingly to
+     *          method {@link LibvirtComputingResource#calculateCpuShares(VirtualMachineTO)}.
+     *      </li>
+     *  </ul>
+     */
+    protected String updateVmSharesIfNeeded(MigrateCommand migrateCommand, String xmlDesc, LibvirtComputingResource libvirtComputingResource)
+            throws ParserConfigurationException, IOException, SAXException, TransformerException {
+        Integer newVmCpuShares = migrateCommand.getNewVmCpuShares();
+        int currentCpuShares = libvirtComputingResource.calculateCpuShares(migrateCommand.getVirtualMachine());
+
+        if (newVmCpuShares == currentCpuShares) {
+            s_logger.info(String.format("Current CPU shares [%s] is equal in both hosts; therefore, there is no need to update the CPU shares for the new host.",
+                    currentCpuShares));
+            return xmlDesc;
+        }
+
+        InputStream inputStream = IOUtils.toInputStream(xmlDesc, StandardCharsets.UTF_8);
+        DocumentBuilderFactory docFactory = ParserUtils.getSaferDocumentBuilderFactory();
+        DocumentBuilder docBuilder = docFactory.newDocumentBuilder();
+        Document document = docBuilder.parse(inputStream);
+
+        Element root = document.getDocumentElement();
+        Node sharesNode = root.getElementsByTagName("shares").item(0);
+        String currentShares = sharesNode.getTextContent();
+
+        s_logger.info(String.format("VM [%s] will have CPU shares altered from [%s] to [%s] as part of migration because the cgroups version differs between hosts.",
+                migrateCommand.getVmName(), currentShares, newVmCpuShares));
+        sharesNode.setTextContent(String.valueOf(newVmCpuShares));
+        return getXml(document);
+    }
+
+    /**
      * Replace DPDK source path and target before migrations
      */
     protected String replaceDpdkInterfaces(String xmlDesc, Map<String, DpdkTO> dpdkPortsMapping) throws TransformerException, ParserConfigurationException, IOException, SAXException {
@@ -437,7 +478,7 @@ public final class LibvirtMigrateCommandWrapper extends CommandWrapper<MigrateCo
      * This method must be executed after a successful migration to a target storage pool, cleaning up the source storage.
      */
     protected void deleteOrDisconnectDisksOnSourcePool(final LibvirtComputingResource libvirtComputingResource, final List<MigrateDiskInfo> migrateDiskInfoList,
-            List<DiskDef> disks) {
+                                             List<DiskDef> disks) {
         for (DiskDef disk : disks) {
             MigrateDiskInfo migrateDiskInfo = searchDiskDefOnMigrateDiskInfoList(migrateDiskInfoList, disk);
             if (migrateDiskInfo != null && migrateDiskInfo.isSourceDiskOnStorageFileSystem()) {
@@ -516,7 +557,7 @@ public final class LibvirtMigrateCommandWrapper extends CommandWrapper<MigrateCo
      * </ul>
      */
     protected String replaceStorage(String xmlDesc, Map<String, MigrateCommand.MigrateDiskInfo> migrateStorage,
-                                  boolean migrateStorageManaged)
+                          boolean migrateStorageManaged)
             throws IOException, ParserConfigurationException, SAXException, TransformerException {
         InputStream in = IOUtils.toInputStream(xmlDesc);
 
