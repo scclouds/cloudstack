@@ -245,7 +245,7 @@ public class ListNetworksCmd extends BaseListTaggedResourcesCmd implements UserC
     private void updateNetworkResponse(List<NetworkResponse> response) {
         for (NetworkResponse networkResponse : response) {
             ResourceIcon resourceIcon = resourceIconManager.getByResourceTypeAndUuid(ResourceTag.ResourceObjectType.Network, networkResponse.getId());
-            if (resourceIcon == null && networkResponse.getVpcId() != null) {
+            if (resourceIcon == null && networkResponse.getVpcId() != null && networkResponse.getVpcAccess()) {
                 resourceIcon = resourceIconManager.getByResourceTypeAndUuid(ResourceTag.ResourceObjectType.Vpc, networkResponse.getVpcId());
             }
             if (resourceIcon == null) {

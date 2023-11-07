@@ -292,7 +292,7 @@ public class ApiResponseHelperTest {
     @Test
     public void setVpcIdInResponseTestNoVpcIdPassed() {
         NetworkResponse response = new NetworkResponse();
-        apiResponseHelper.setVpcIdInResponse(null, response::setVpcId, response::setVpcName);
+        apiResponseHelper.setVpcIdInResponse(null, response::setVpcId, response::setVpcName, response::setVpcAccess);
         Assert.assertNull(response.getVpcId());
         Assert.assertNull(response.getVpcName());
     }
@@ -303,7 +303,7 @@ public class ApiResponseHelperTest {
         NetworkResponse response = new NetworkResponse();
         PowerMockito.mockStatic(ApiDBUtils.class);
         PowerMockito.when(ApiDBUtils.findVpcById(anyLong())).thenReturn(null);
-        apiResponseHelper.setVpcIdInResponse(1L, response::setVpcId, response::setVpcName);
+        apiResponseHelper.setVpcIdInResponse(1L, response::setVpcId, response::setVpcName, response::setVpcAccess);
         Assert.assertNull(response.getVpcId());
         Assert.assertNull(response.getVpcName());
     }
@@ -318,7 +318,7 @@ public class ApiResponseHelperTest {
         String vpcUuid = "any UUID";
         Mockito.doReturn(vpcUuid).when(vpcVOMock).getUuid();
         Mockito.doReturn(vpcName).when(vpcVOMock).getName();
-        apiResponseHelper.setVpcIdInResponse(1L, response::setVpcId, response::setVpcName);
+        apiResponseHelper.setVpcIdInResponse(1L, response::setVpcId, response::setVpcName, response::setVpcAccess);
         Assert.assertEquals(vpcUuid, response.getVpcId());
         Assert.assertEquals(vpcName, response.getVpcName());
     }
@@ -332,7 +332,7 @@ public class ApiResponseHelperTest {
         PowerMockito.when(ApiDBUtils.findVpcById(anyLong())).thenReturn(vpcVOMock);
         Mockito.doThrow(PermissionDeniedException.class).when(accountManagerMock).checkAccess(Mockito.any(Account.class), Mockito.any(), Mockito.any(Boolean.class), Mockito.any());
         Mockito.doReturn(vpcName).when(vpcVOMock).getName();
-        apiResponseHelper.setVpcIdInResponse(1L, response::setVpcId, response::setVpcName);
+        apiResponseHelper.setVpcIdInResponse(1L, response::setVpcId, response::setVpcName, response::setVpcAccess);
         Assert.assertNull(response.getVpcId());
         Assert.assertEquals(vpcName, response.getVpcName());
     }
