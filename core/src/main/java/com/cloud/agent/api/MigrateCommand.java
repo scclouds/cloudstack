@@ -42,6 +42,8 @@ public class MigrateCommand extends Command {
     private Map<String, DpdkTO> dpdkInterfaceMapping = new HashMap<>();
     Map<String, Boolean> vlanToPersistenceMap = new HashMap<>();
 
+    private int newVmCpuShares;
+
     public Map<String, DpdkTO> getDpdkInterfaceMapping() {
         return dpdkInterfaceMapping;
     }
@@ -123,6 +125,14 @@ public class MigrateCommand extends Command {
 
     public String getHostGuid() {
         return this.hostGuid;
+    }
+
+    public int getNewVmCpuShares() {
+        return newVmCpuShares;
+    }
+
+    public void setNewVmCpuShares(int newVmCpuShares) {
+        this.newVmCpuShares = newVmCpuShares;
     }
 
     @Override
