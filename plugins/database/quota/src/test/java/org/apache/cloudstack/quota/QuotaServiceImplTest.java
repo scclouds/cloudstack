@@ -99,6 +99,7 @@ public class QuotaServiceImplTest extends TestCase {
         final Date endDate = new Date();
 
         Mockito.when(quotaResponseBuilderMock.startOfNextDay()).thenReturn(endDate);
+        Mockito.when(accountDaoMock.findByIdIncludingRemoved(Mockito.anyLong())).thenReturn(Mockito.mock(AccountVO.class));
         quotaServiceImplSpy.getQuotaUsage(accountId, accountName, domainId, QuotaTypes.IP_ADDRESS, startDate, endDate);
 
         Mockito.verify(quotaUsageDaoJoinMock, Mockito.times(1)).findQuotaUsage(Mockito.eq(accountId), Mockito.eq(domainId), Mockito.eq(QuotaTypes.IP_ADDRESS), Mockito.any(),
@@ -138,9 +139,19 @@ public class QuotaServiceImplTest extends TestCase {
         Mockito.verify(quotaAccountDaoMock, Mockito.times(1)).persistQuotaAccount(Mockito.any(QuotaAccountVO.class));
     }
 
+
     @Test
-    public void getAccountToWhomQuotaBalancesWillBeListedTestAccountIdIsNotNullReturnsIt() {
+    public void getAccountToWhomQuotaBalancesWillBeListedTestAccountIdIsNotNullReturnsExistingAccount() {
         long expected = 1L;
+        Mockito.doReturn(Mockito.mock(AccountVO.class)).when(accountDaoMock).findByIdIncludingRemoved(Mockito.anyLong());
+        long result = quotaServiceImplSpy.getAccountToWhomQuotaBalancesWillBeListed(expected, "test", 2L);
+        Assert.assertEquals(expected, result);
+    }
+
+    @Test(expected = InvalidParameterValueException.class)
+    public void getAccountToWhomQuotaBalancesWillBeListedTestAccountIdIsNotValidThrowsInvalidParameterValueException() {
+        long expected = 1L;
+        Mockito.doReturn(null).when(accountDaoMock).findByIdIncludingRemoved(Mockito.anyLong());
         long result = quotaServiceImplSpy.getAccountToWhomQuotaBalancesWillBeListed(expected, "test", 2L);
         Assert.assertEquals(expected, result);
     }
@@ -172,7 +183,7 @@ public class QuotaServiceImplTest extends TestCase {
         AccountVO accountVo = new AccountVO();
         accountVo.setId(expected);
 
-        Mockito.doReturn(List.of(accountVo)).when(accountDaoMock).listAccounts(Mockito.anyString(), Mockito.anyLong(), Mockito.any());
+        Mockito.doReturn(accountVo).when(accountDaoMock).findActiveAccount(Mockito.anyString(), Mockito.anyLong());
 
         long result = quotaServiceImplSpy.getAccountToWhomQuotaBalancesWillBeListed(null, "test", 9136L);
 

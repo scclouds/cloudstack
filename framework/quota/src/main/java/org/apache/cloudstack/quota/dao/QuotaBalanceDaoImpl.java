@@ -94,7 +94,14 @@ public class QuotaBalanceDaoImpl extends GenericDaoBase<QuotaBalanceVO, Long> im
         return Transaction.execute(TransactionLegacy.USAGE_DB, (TransactionCallback<List<QuotaBalanceVO>>) status -> {
             QueryBuilder<QuotaBalanceVO> qb = getQuotaBalanceQueryBuilder(accountId, domainId);
             qb.and(qb.entity().getCreditsId(), SearchCriteria.Op.EQ, 0);
-            qb.and(qb.entity().getUpdatedOn(), SearchCriteria.Op.BETWEEN, startDate, endDate);
+
+            if (startDate != null) {
+                qb.and(qb.entity().getUpdatedOn(), SearchCriteria.Op.GTEQ, startDate);
+            }
+
+            if (endDate != null) {
+                qb.and(qb.entity().getUpdatedOn(), SearchCriteria.Op.LTEQ, endDate);
+            }
 
             Filter filter = new Filter(QuotaBalanceVO.class, "updatedOn", true);
             return listBy(qb.create(), filter);
