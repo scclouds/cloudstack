@@ -97,6 +97,7 @@ public class NicDaoImpl extends GenericDaoBase<NicVO, Long> implements NicDao {
         countByForVmState.and("removed", countByForVmState.entity().getRemoved(), Op.NULL);
         SearchBuilder<VMInstanceVO> join1 = _vmDao.createSearchBuilder();
         join1.and("state", join1.entity().getState(), Op.EQ);
+        join1.and("type", join1.entity().getType(), Op.EQ);
         countByForVmState.join("vm", join1, countByForVmState.entity().getInstanceId(), join1.entity().getId(), JoinBuilder.JoinType.INNER);
         countByForVmState.done();
 
@@ -350,6 +351,7 @@ public class NicDaoImpl extends GenericDaoBase<NicVO, Long> implements NicDao {
         SearchCriteria<Integer> sc = countByForVmState.create();
         sc.setParameters("networkId", networkId);
         sc.setJoinParameters("vm", "state", state);
+        sc.setJoinParameters("vm", "type", VirtualMachine.Type.User);
         List<Integer> results = customSearch(sc, null);
         return results.get(0);
     }
