@@ -45,6 +45,7 @@ import org.apache.cloudstack.affinity.AffinityGroup;
 import org.apache.cloudstack.affinity.AffinityGroupResponse;
 import org.apache.cloudstack.annotation.AnnotationService;
 import org.apache.cloudstack.annotation.dao.AnnotationDao;
+import org.apache.cloudstack.api.ApiConstants;
 import org.apache.cloudstack.api.ApiConstants.DomainDetails;
 import org.apache.cloudstack.api.ApiConstants.HostDetails;
 import org.apache.cloudstack.api.ApiConstants.VMDetails;
@@ -1079,7 +1080,7 @@ public class ApiResponseHelper implements ResponseGenerator {
             vpcBooleanSetter.accept(true);
         } catch (PermissionDeniedException e) {
             vpcBooleanSetter.accept(false);
-            s_logger.debug("Setting the vpcaccess as false in the response because the caller does not have access to the VPC.");
+            s_logger.debug(String.format("Setting [%s] as false in the response because the caller does not have access to the VPC [%s].", ApiConstants.VPC_ACCESS, vpc));
         }
         vpcUuidSetter.accept(vpc.getUuid());
         vpcNameSetter.accept(vpc.getName());

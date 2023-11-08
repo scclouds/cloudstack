@@ -123,7 +123,7 @@
       centered
       width="450px">
       <a-spin :spinning="acquireLoading" v-ctrl-enter="acquireIpAddress">
-        <div v-if="$route.path.startsWith('/vpc') && isNormalUserOrProject">
+        <div v-if="$route.path.startsWith('/vpc') && !isNormalUserOrProject()">
           <ownership-selection :override="possibleOwnership" @fetch-owner="fetchOwnerOptions"/>
         </div>
         <a-form layout="vertical" style="margin-top: 10px">
@@ -456,9 +456,13 @@ export default {
       })
     },
     getAvailableOwnersForIP () {
-      this.possibleOwnership.domains = new Set(this.resource.domainid)
-      this.possibleOwnership.projects = this.resource.projectid ? new Set(this.resource.projectid) : new Set()
-      this.possibleOwnership.accounts = this.resource.projectid ? new Set() : new Set(this.resource.account)
+      if (!this.$route.path.startsWith('/vpc')) {
+        return
+      }
+
+      this.possibleOwnership.domains = new Set([this.resource.domainid])
+      this.possibleOwnership.projects = this.resource.projectid ? new Set([this.resource.projectid]) : new Set([])
+      this.possibleOwnership.accounts = this.resource.projectid ? new Set([]) : new Set([this.resource.account])
 
       this.resource.network.forEach(network => {
         this.possibleOwnership.domains.add(network.domainid)
