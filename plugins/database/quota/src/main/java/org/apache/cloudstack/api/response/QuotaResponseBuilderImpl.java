@@ -50,6 +50,7 @@ import com.cloud.event.EventTypes;
 import com.cloud.exception.PermissionDeniedException;
 import com.cloud.projects.dao.ProjectDao;
 import com.cloud.serializer.GsonHelper;
+import com.cloud.utils.DateUtil;
 import com.cloud.utils.exception.CloudRuntimeException;
 import com.cloud.network.dao.IPAddressDao;
 import com.cloud.network.dao.IPAddressVO;
@@ -144,8 +145,6 @@ import com.cloud.user.User;
 import com.cloud.user.dao.AccountDao;
 import com.cloud.user.dao.UserDao;
 import com.cloud.utils.Pair;
-
-import static com.cloud.utils.DateUtil.ZONED_DATETIME_FORMATTER;
 
 @Component
 public class QuotaResponseBuilderImpl implements QuotaResponseBuilder {
@@ -536,7 +535,7 @@ public class QuotaResponseBuilderImpl implements QuotaResponseBuilder {
                 continue;
             }
             ZonedDateTime zonedRecordStartTime = ZonedDateTime.ofInstant(usageRecord.getStartDate().toInstant(), ZoneId.of(timezone)).truncatedTo(aggregationUnit);
-            String recordStartTime = zonedRecordStartTime.format(ZONED_DATETIME_FORMATTER);
+            String recordStartTime = zonedRecordStartTime.format(DateUtil.ZONED_DATETIME_FORMATTER);
             if (quotaDateMap.containsKey(recordStartTime)) {
                 quotaDateMap.put(recordStartTime, quotaDateMap.get(recordStartTime).add(usageRecord.getQuotaUsed()));
             } else {

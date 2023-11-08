@@ -162,7 +162,7 @@
       :footer="null"
       @cancel="showCreateNetworkModal = false">
       <a-spin :spinning="modalLoading" v-ctrl-enter="handleAddNetworkSubmit">
-        <div v-if="isNormalUserOrProject">
+        <div v-if="!isNormalUserOrProject()">
           <ownership-selection @fetch-owner="fetchOwnerOptions"/>
         </div>
         <a-form
