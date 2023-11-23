@@ -1036,7 +1036,10 @@ public class StorageManagerImpl extends ManagerBase implements StorageManager, C
                     }
                 });
             } else {
-                throw new CloudRuntimeException("Cannot delete pool " + sPool.getName() + " as there are associated " + "non-destroyed vols for this pool");
+                if (s_logger.isDebugEnabled()) {
+                    s_logger.debug(String.format("Cannot delete storage pool [%s] as the following non-destroyed volumes are on it: %s.", sPool.getName(), getStoragePoolNonDestroyedVolumesLog(sPool.getId())));
+                }
+                throw new CloudRuntimeException(String.format("Cannot delete pool %s as there are non-destroyed volumes associated to this pool.", sPool.getName()));
             }
         }
         return deleteDataStoreInternal(sPool, forced);
@@ -1071,7 +1074,10 @@ public class StorageManagerImpl extends ManagerBase implements StorageManager, C
             if (vlms.first() > 0) {
                 Pair<Long, Long> nonDstrdVlms = _volsDao.getNonDestroyedCountAndTotalByPool(sPool.getId());
                 if (nonDstrdVlms.first() > 0) {
-                    throw new CloudRuntimeException("Cannot delete pool " + sPool.getName() + " as there are associated " + "non-destroyed vols for this pool");
+                    if (s_logger.isDebugEnabled()) {
+                        s_logger.debug(String.format("Cannot delete storage pool [%s] as the following non-destroyed volumes are on it: %s.", sPool.getName(), getStoragePoolNonDestroyedVolumesLog(sPool.getId())));
+                    }
+                    throw new CloudRuntimeException(String.format("Cannot delete pool %s as there are non-destroyed volumes associated to this pool.", sPool.getName()));
                 }
                 // force expunge non-destroyed volumes
                 List<VolumeVO> vols = _volsDao.listVolumesToBeDestroyed();
@@ -1090,7 +1096,10 @@ public class StorageManagerImpl extends ManagerBase implements StorageManager, C
             // Check if the pool has associated volumes in the volumes table
             // If it does , then you cannot delete the pool
             if (vlms.first() > 0) {
-                throw new CloudRuntimeException("Cannot delete pool " + sPool.getName() + " as there are associated volumes for this pool");
+                if (s_logger.isDebugEnabled()) {
+                    s_logger.debug(String.format("Cannot delete storage pool [%s] as the following non-destroyed volumes are on it: %s.", sPool.getName(), getStoragePoolNonDestroyedVolumesLog(sPool.getId())));
+                }
+                throw new CloudRuntimeException(String.format("Cannot delete pool %s as there are non-destroyed volumes associated to this pool.", sPool.getName()));
             }
         }
 
@@ -1111,6 +1120,25 @@ public class StorageManagerImpl extends ManagerBase implements StorageManager, C
         DataStoreLifeCycle lifeCycle = storeProvider.getDataStoreLifeCycle();
         DataStore store = _dataStoreMgr.getDataStore(sPool.getId(), DataStoreRole.Primary);
         return lifeCycle.deleteDataStore(store);
+    }
+
+    protected String getStoragePoolNonDestroyedVolumesLog(long storagePoolId) {
+        StringBuilder sb = new StringBuilder();
+        List<VolumeVO> nonDestroyedVols = _volsDao.findByPoolId(storagePoolId, null).stream().filter(vol -> vol.getState() != Volume.State.Destroy).collect(Collectors.toList());
+        VMInstanceVO volInstance;
+
+        sb.append("[");
+        for (int i = 0; i < nonDestroyedVols.size()-1; i++) {
+            VolumeVO vol = nonDestroyedVols.get(i);
+            volInstance = _vmInstanceDao.findById(vol.getInstanceId());
+            sb.append(String.format("Volume [%s] (attached to VM [%s]), ", vol.getUuid(), volInstance.getUuid()));
+        }
+        VolumeVO lastVol = nonDestroyedVols.get(nonDestroyedVols.size()-1);
+        volInstance = _vmInstanceDao.findById(lastVol.getInstanceId());
+        sb.append(String.format("Volume [%s] (attached to VM [%s])", lastVol.getUuid(), volInstance.getUuid()));
+        sb.append("]");
+
+        return sb.toString();
     }
 
     @Override
