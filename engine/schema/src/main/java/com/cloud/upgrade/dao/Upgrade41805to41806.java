@@ -17,20 +17,9 @@
 package com.cloud.upgrade.dao;
 
 import com.cloud.utils.exception.CloudRuntimeException;
-import org.apache.cloudstack.gui.theme.dao.GuiThemeDetailsDao;
-import org.apache.cloudstack.gui.theme.dao.GuiThemeDetailsDaoImpl;
-import org.apache.cloudstack.gui.themes.GuiThemeDetailsVO;
-import org.apache.commons.lang3.StringUtils;
-import org.apache.log4j.Logger;
 
 import java.io.InputStream;
 import java.sql.Connection;
-import java.sql.PreparedStatement;
-import java.sql.ResultSet;
-import java.sql.SQLException;
-import java.util.LinkedHashMap;
-import java.util.List;
-import java.util.Map;
 
 public class Upgrade41805to41806 implements DbUpgrade {
     @Override
