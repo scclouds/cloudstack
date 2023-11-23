@@ -2188,7 +2188,8 @@ public class VpcManagerImpl extends ManagerBase implements VpcManager, VpcProvis
     /**
      * This method checks if the ACL that is being used to create the private gateway is valid. First, the aclId is used to search for a {@link NetworkACLVO} object
      * by calling the {@link NetworkACLDao#findById(Serializable)} method. If the object is null, an {@link InvalidParameterValueException} exception is thrown.
-     * Secondly, we check if the ACL and the private gateway are in the same VPC and an {@link InvalidParameterValueException} is thrown if they are not.
+     * Secondly, if the ACL is not a default or global type, we check if the ACL and the private gateway are in the same VPC and an {@link InvalidParameterValueException} is
+     * thrown if they are not.
      *
      * @param vpcId Private gateway VPC ID.
      * @param aclId Private gateway ACL ID.
@@ -2201,10 +2202,12 @@ public class VpcManagerImpl extends ManagerBase implements VpcManager, VpcProvis
 
         final NetworkACLVO aclVO = _networkAclDao.findById(aclId);
         if (aclVO == null) {
-            throw new InvalidParameterValueException("Invalid network acl id passed.");
+            throw new InvalidParameterValueException("Invalid network ACL ID passed.");
         }
-        if (aclVO.getVpcId() != vpcId && !(aclId == NetworkACL.DEFAULT_DENY || aclId == NetworkACL.DEFAULT_ALLOW)) {
-            throw new InvalidParameterValueException("Private gateway and network acl are not in the same vpc.");
+
+        Long aclVpcId = aclVO.getVpcId();
+        if (aclVpcId != vpcId && !isDefaultAcl(aclId) && !isGlobalAcl(aclVpcId)) {
+            throw new InvalidParameterValueException("Private gateway and network ACL are not in the same VPC.");
         }
     }
 
@@ -3123,5 +3126,13 @@ public class VpcManagerImpl extends ManagerBase implements VpcManager, VpcProvis
             }
         }
         return filteredDomainIds;
+    }
+
+    protected boolean isGlobalAcl(Long aclVpcId) {
+        return aclVpcId != null && aclVpcId == 0;
+    }
+
+    protected boolean isDefaultAcl(long aclId) {
+        return aclId == NetworkACL.DEFAULT_ALLOW || aclId == NetworkACL.DEFAULT_DENY;
     }
 }

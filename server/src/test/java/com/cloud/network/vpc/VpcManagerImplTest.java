@@ -173,7 +173,7 @@ public class VpcManagerImplTest {
     final String vpcName = "Test-VPC";
     final String vpcDomain = "domain";
     final Long aclId = 1L;
-    final Long globalAclId = 3L;
+    final Long globalAcl = 0L;
     final Long vpcId = 1L;
 
     private void registerCallContext() {
@@ -485,10 +485,38 @@ public class VpcManagerImplTest {
     }
 
     @Test
-    public void validateVpcPrivateGatewayTestGlobalAclThrowsInvalidParameterValueException() {
+    public void validateVpcPrivateGatewayTestSpecifiedAclIsDefaultAllowShouldNotThrowInvalidParameterValueException() {
+        long aclId = NetworkACL.DEFAULT_ALLOW;
         Mockito.doReturn(2L).when(networkACLVOMock).getVpcId();
-        Mockito.doReturn(networkACLVOMock).when(networkACLDaoMock).findById(globalAclId);
-        Assert.assertThrows(InvalidParameterValueException.class, () -> manager.validateVpcPrivateGatewayAclId(vpcId, globalAclId));
+        Mockito.doReturn(networkACLVOMock).when(networkACLDaoMock).findById(aclId);
+
+        manager.validateVpcPrivateGatewayAclId(vpcId, aclId);
     }
 
+    @Test
+    public void validateVpcPrivateGatewayTestDefaultDenyGlobalAclShouldNotThrowInvalidParameterValueException() {
+        long aclId = NetworkACL.DEFAULT_DENY;
+        Mockito.doReturn(2L).when(networkACLVOMock).getVpcId();
+        Mockito.doReturn(networkACLVOMock).when(networkACLDaoMock).findById(aclId);
+
+        manager.validateVpcPrivateGatewayAclId(vpcId, aclId);
+    }
+
+    @Test
+    public void validateVpcPrivateGatewayTestGlobalAclShouldNotThrowInvalidParameterValueException() {
+        long aclId = 3L;
+        Mockito.doReturn(globalAcl).when(networkACLVOMock).getVpcId();
+        Mockito.doReturn(networkACLVOMock).when(networkACLDaoMock).findById(aclId);
+
+        manager.validateVpcPrivateGatewayAclId(vpcId, aclId);
+    }
+
+    @Test
+    public void validateVpcPrivateGatewayTestNonGlobalAclShouldThrowInvalidParameterValueException() {
+        long aclId = 3L;
+        Mockito.doReturn(2L).when(networkACLVOMock).getVpcId();
+        Mockito.doReturn(networkACLVOMock).when(networkACLDaoMock).findById(aclId);
+
+        Assert.assertThrows(InvalidParameterValueException.class, () -> manager.validateVpcPrivateGatewayAclId(vpcId, aclId));
+    }
 }
