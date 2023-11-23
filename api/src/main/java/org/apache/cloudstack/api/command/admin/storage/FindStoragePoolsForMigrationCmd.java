@@ -88,7 +88,7 @@ public class FindStoragePoolsForMigrationCmd extends BaseListCmd {
         }
         sortPoolsBySuitabilityAndName(poolResponses);
         List<StoragePoolResponse> pagingList = com.cloud.utils.StringUtils.applyPagination(poolResponses, this.getStartIndex(), this.getPageSizeVal());
-        response.setResponses(pagingList);
+        response.setResponses(pagingList, poolResponses.size());
         response.setResponseName(getCommandName());
         this.setResponseObject(response);
     }
