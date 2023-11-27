@@ -27,6 +27,7 @@ import org.openjdk.nashorn.internal.runtime.Context;
 import org.openjdk.nashorn.internal.runtime.ErrorManager;
 import org.openjdk.nashorn.internal.runtime.options.Options;
 
+import java.util.Arrays;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.Map;
@@ -36,6 +37,12 @@ import java.util.regex.Pattern;
 
 public class JsInterpreterHelper {
     private final Logger logger = Logger.getLogger(this.getClass());
+
+    private int callExpressions;
+
+    private StringBuilder variable;
+
+    private Set<String> variables;
 
     /**
      * Returns all variables from the given script.
@@ -47,6 +54,8 @@ public class JsInterpreterHelper {
         String parseTree = getScriptAsJsonTree(script);
         ObjectMapper mapper = new ObjectMapper();
         JsonNode jsonNode = null;
+        variables = new HashSet<>();
+        variable = new StringBuilder();
 
         try {
             jsonNode = mapper.readTree(parseTree);
@@ -55,12 +64,11 @@ public class JsInterpreterHelper {
         }
 
         logger.trace(String.format("Searching script variables from [%s].", script));
-        StringBuilder variable = new StringBuilder();
-        Set<String> variables = new HashSet<>();
-        iterateOverJsonTree(jsonNode.fields(), variable, variables);
+        iterateOverJsonTree(jsonNode.fields());
 
         if (StringUtils.isNotBlank(variable.toString())) {
             logger.trace(String.format("Adding variable [%s] into the variables set.", variable));
+            removeCallFunctionsFromVariable();
             variables.add(variable.toString());
         }
 
@@ -76,85 +84,105 @@ public class JsInterpreterHelper {
         options.set("scripting", true);
 
         ErrorManager errors = new ErrorManager();
-        Context contextm = new Context(options, errors, Thread.currentThread().getContextClassLoader());
-        Context.setGlobal(contextm.createGlobal());
+        Context context = new Context(options, errors, Thread.currentThread().getContextClassLoader());
+        Context.setGlobal(context.createGlobal());
 
         return ScriptUtils.parse(script, "nashorn", false);
     }
 
-    protected void iterateOverJsonTree(Iterator<Map.Entry<String, JsonNode>> iterator, StringBuilder variable, Set<String> variables) {
+    protected void iterateOverJsonTree(Iterator<Map.Entry<String, JsonNode>> iterator) {
         while (iterator.hasNext()) {
-            iterateOverJsonTree(iterator.next(), variable, variables);
+            iterateOverJsonTree(iterator.next());
         }
     }
 
-    protected void iterateOverJsonTree(Map.Entry<String, JsonNode> fields, StringBuilder variable, Set<String> variables) {
+    protected void iterateOverJsonTree(Map.Entry<String, JsonNode> fields) {
         JsonNode node = null;
 
         if (fields.getValue().isArray()) {
-            iterateOverArrayNodes(fields, variable, variables);
+            iterateOverArrayNodes(fields);
         } else {
             node = fields.getValue();
         }
 
-        String fieldName = null;
-        fieldName = searchIntoObjectNodes(variable, variables, node);
+        String fieldName = searchIntoObjectNodes(node);
 
         if (fieldName == null) {
             String key = fields.getKey();
+            if ("type".equals(key) && "CallExpression".equals(node.textValue())) {
+                callExpressions++;
+            }
+
             if ("name".equals(key) || "property".equals(key)) {
-                appendFieldValueToVariable(key, fields.getValue(), variable, variables);
+                appendFieldValueToVariable(key, node);
             }
         }
     }
 
-    protected void iterateOverArrayNodes(Map.Entry<String, JsonNode> fields, StringBuilder variable, Set<String> variables) {
-        int count = 0;
-
-        while (fields.getValue().get(count) != null) {
-            iterateOverJsonTree(fields.getValue().get(count).fields(), variable, variables);
-            count++;
+    protected void iterateOverArrayNodes(Map.Entry<String, JsonNode> fields) {
+        for (int count = 0; fields.getValue().get(count) != null; count++) {
+            iterateOverJsonTree(fields.getValue().get(count).fields());
         }
     }
 
-    protected String searchIntoObjectNodes(StringBuilder variable, Set<String> variables, JsonNode node) {
-        String fieldName = null;
-
+    protected String searchIntoObjectNodes(JsonNode node) {
         if (node == null) {
             return null;
         }
 
+        String fieldName = null;
         Iterator<String> iterator = node.fieldNames();
         while (iterator.hasNext()) {
             fieldName = iterator.next();
+            if ("type".equals(fieldName) && "CallExpression".equals(node.get(fieldName).textValue())) {
+                callExpressions++;
+            }
+
             if ("name".equals(fieldName) || "property".equals(fieldName)) {
-                appendFieldValueToVariable(fieldName, node.get(fieldName), variable, variables);
+                appendFieldValueToVariable(fieldName, node.get(fieldName));
             }
 
             if (node.get(fieldName).isArray()) {
-                iterateOverJsonTree(node.get(fieldName).get(0).fields(), variable, variables);
+                iterateOverJsonTree(node.get(fieldName).get(0).fields());
             } else {
-                iterateOverJsonTree(node.get(fieldName).fields(), variable, variables);
+                iterateOverJsonTree(node.get(fieldName).fields());
             }
         }
 
         return fieldName;
     }
 
-    protected void appendFieldValueToVariable(String key, JsonNode value, StringBuilder variable, Set<String> variables) {
-        if (!"name".equals(key)) {
-            logger.trace(String.format("Appending field value [%s] to variable [%s] as the field name is not \"name\".", value.toString(), variable));
-            variable.append(".").append(value.toString().replace("\"", ""));
+    protected void appendFieldValueToVariable(String key, JsonNode node) {
+        String nodeTextValue = node.textValue();
+        if (nodeTextValue == null) {
             return;
         }
 
-        logger.trace(String.format("Building new variable [%s] as the field name is \"name\"", value.toString()));
+        if (!"name".equals(key)) {
+            logger.trace(String.format("Appending field value [%s] to variable [%s] as the field name is not \"name\".", nodeTextValue, variable));
+            variable.append(".").append(nodeTextValue);
+            return;
+        }
+
+        logger.trace(String.format("Building new variable [%s] as the field name is \"name\"", nodeTextValue));
         if (StringUtils.isNotBlank(variable.toString())) {
             logger.trace(String.format("Adding variable [%s] into the variables set.", variable));
+            removeCallFunctionsFromVariable();
             variables.add(variable.toString());
             variable.setLength(0);
         }
-        variable.append(value.toString().replace("\"", ""));
+        variable.append(nodeTextValue);
+    }
+
+    protected void removeCallFunctionsFromVariable() {
+        String[] disassembledVariable = variable.toString().split("\\.");
+        variable.setLength(0);
+
+        int newVariableSize = disassembledVariable.length - callExpressions;
+        String[] newVariable = Arrays.copyOfRange(disassembledVariable, 0, newVariableSize);
+
+        variable.append(String.join(".", newVariable));
+        callExpressions = 0;
     }
 
     /**
@@ -175,5 +203,29 @@ public class JsInterpreterHelper {
         matcher.appendTail(sb);
 
         return sb.toString();
+    }
+
+    public int getCallExpressions() {
+        return callExpressions;
+    }
+
+    public void setCallExpressions(int callExpressions) {
+        this.callExpressions = callExpressions;
+    }
+
+    public StringBuilder getVariable() {
+        return variable;
+    }
+
+    public void setVariable(StringBuilder variable) {
+        this.variable = variable;
+    }
+
+    public Set<String> getVariables() {
+        return variables;
+    }
+
+    public void setVariables(Set<String> variables) {
+        this.variables = variables;
     }
 }

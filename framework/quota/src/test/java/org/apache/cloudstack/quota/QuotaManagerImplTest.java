@@ -521,7 +521,8 @@ public class QuotaManagerImplTest {
 
         Mockito.doReturn(true, false, true).when(quotaManagerImplSpy).isQuotaTariffInPeriodToBeApplied(Mockito.any(), Mockito.any(), Mockito.anyString());
         Mockito.doReturn(BigDecimal.TEN).when(quotaManagerImplSpy).getQuotaTariffValueToBeApplied(Mockito.any(), Mockito.any(), Mockito.any(), Mockito.any());
-        Map<QuotaTariffVO, BigDecimal> result = quotaManagerImplSpy.aggregateQuotaTariffsValues(usageVoMock, tariffs, false, jsInterpreterMock, "");
+        Mockito.doReturn(presetVariablesMock).when(presetVariableHelperMock).getPresetVariables(Mockito.any());
+        Map<QuotaTariffVO, BigDecimal> result = quotaManagerImplSpy.aggregateQuotaTariffsValues(usageVoMock, tariffs, true, jsInterpreterMock, "");
 
         Assert.assertEquals(2, result.size());
         Assert.assertTrue(result.values().stream().allMatch(value -> value.equals(BigDecimal.TEN)));
