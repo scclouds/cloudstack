@@ -1643,7 +1643,7 @@ public class QuotaResponseBuilderImpl implements QuotaResponseBuilder {
      */
     public void filterSupportedTypes(List<Pair<String, String>> variables, QuotaTypes quotaType, PresetVariableDefinition presetVariableDefinitionAnnotation, Class<?> fieldClass,
                                      String presetVariableName) {
-        if (Arrays.stream(presetVariableDefinitionAnnotation.supportedTypes()).noneMatch(supportedType ->
+        if (quotaType != null && Arrays.stream(presetVariableDefinitionAnnotation.supportedTypes()).noneMatch(supportedType ->
                 supportedType == quotaType.getQuotaType() || supportedType == 0)) {
             return;
         }
@@ -1800,6 +1800,7 @@ public class QuotaResponseBuilderImpl implements QuotaResponseBuilder {
 
         QuotaTypes quotaType = cmd.getQuotaType();
         String quotaName = quotaType.getQuotaName();
+
         List<Pair<String, String>> usageTypeVariablesAndDescriptions = new ArrayList<>();
         addAllPresetVariables(PresetVariables.class, quotaType, usageTypeVariablesAndDescriptions, null);
         List<String> usageTypeVariables = usageTypeVariablesAndDescriptions.stream().map(Pair::first).collect(Collectors.toList());
@@ -1815,13 +1816,32 @@ public class QuotaResponseBuilderImpl implements QuotaResponseBuilder {
         }
 
         Set<String> scriptVariables = jsInterpreterHelper.getScriptVariables(activationRule);
-        if (scriptVariables.stream().allMatch(usageTypeVariables::contains)) {
+        if (isScriptVariablesValid(scriptVariables, usageTypeVariables)) {
             message = "The script has no syntax errors and all variables are compatible with the given usage type.";
             return createValidateActivationRuleResponse(activationRule, quotaName, true, message);
         }
 
         message = "Found variables that are not compatible with the given usage type.";
         return createValidateActivationRuleResponse(activationRule, quotaName, false, message);
+    }
+
+    /**
+     * Checks whether script variables are compatible with the usage type. First, we remove all script variables that correspond to the script's usage type variables.
+     * Then, returns true if none of the remaining script variables match any usage types variables, and false otherwise.
+     *
+     * @param scriptVariables Script variables.
+     * @param scriptUsageTypeVariables Script usage type variables.
+     * @return True if the script variables are valid, false otherwise.
+     */
+    protected boolean isScriptVariablesValid(Set<String> scriptVariables, List<String> scriptUsageTypeVariables) {
+        List<Pair<String, String>> allUsageTypeVariablesAndDescriptions = new ArrayList<>();
+        addAllPresetVariables(PresetVariables.class, null, allUsageTypeVariablesAndDescriptions, null);
+        List<String> allUsageTypesVariables = allUsageTypeVariablesAndDescriptions.stream().map(Pair::first).collect(Collectors.toList());
+
+        List<String> matchVariables = scriptVariables.stream().filter(scriptUsageTypeVariables::contains).collect(Collectors.toList());
+        matchVariables.forEach(scriptVariables::remove);
+
+        return scriptVariables.stream().noneMatch(allUsageTypesVariables::contains);
     }
 
     /**

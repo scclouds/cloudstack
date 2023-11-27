@@ -31,6 +31,7 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.Set;
 import java.util.Map;
+import java.util.HashSet;
 import java.util.function.Consumer;
 import java.util.stream.Collectors;
 
@@ -1660,16 +1661,15 @@ public class QuotaResponseBuilderImplTest extends TestCase {
 
     @Test
     public void validateActivationRuleTestUsageTypeIncompatibleVariableReturnInvalidScriptResponse() {
-        Mockito.doReturn("if (invalid.variable == 'test') { true } else { false }").when(quotaValidateActivationRuleCmdMock).getActivationRule();
-        Mockito.doReturn(QuotaTypes.getQuotaType(1)).when(quotaValidateActivationRuleCmdMock).getQuotaType();
+        Mockito.doReturn("if (value.osName == 'test') { true } else { false }").when(quotaValidateActivationRuleCmdMock).getActivationRule();
+        Mockito.doReturn(QuotaTypes.getQuotaType(30)).when(quotaValidateActivationRuleCmdMock).getQuotaType();
         Mockito.doReturn(quotaValidateActivationRuleCmdMock.getActivationRule()).when(jsInterpreterHelperMock).replaceScriptVariables(Mockito.anyString(), Mockito.any());
-        Mockito.when(jsInterpreterHelperMock.getScriptVariables(quotaValidateActivationRuleCmdMock.getActivationRule())).thenReturn(Set.of("invalid.variable"));
+        Mockito.when(jsInterpreterHelperMock.getScriptVariables(quotaValidateActivationRuleCmdMock.getActivationRule())).thenReturn(Set.of("value.osName"));
 
         QuotaValidateActivationRuleResponse response = quotaResponseBuilderSpy.validateActivationRule(quotaValidateActivationRuleCmdMock);
 
         Assert.assertFalse(response.isValid());
     }
-
 
     @Test
     public void validateActivationRuleTestActivationRuleWithSyntaxErrorsReturnInvalidScriptResponse() {
@@ -1682,6 +1682,35 @@ public class QuotaResponseBuilderImplTest extends TestCase {
         Assert.assertFalse(response.isValid());
     }
 
+    @Test
+    public void isScriptVariablesValidTestUnsupportedUsageTypeVariablesReturnFalse() {
+        Set<String> scriptVariables = new HashSet<>(List.of("value.computingResources.cpuNumber", "account.name", "zone.id"));
+        List<String> usageTypeVariables = List.of("value.virtualSize", "account.name", "zone.id");
+
+        boolean isScriptVariablesValid = quotaResponseBuilderSpy.isScriptVariablesValid(scriptVariables, usageTypeVariables);
+
+        Assert.assertFalse(isScriptVariablesValid);
+    }
+
+    @Test
+    public void isScriptVariablesValidTestSupportedUsageTypeVariablesReturnTrue() {
+        Set<String> scriptVariables = new HashSet<>(List.of("value.computingResources.cpuNumber", "account.name", "zone.id"));
+        List<String> usageTypeVariables = List.of("value.computingResources.cpuNumber", "account.name", "zone.id");
+
+        boolean isScriptVariablesValid = quotaResponseBuilderSpy.isScriptVariablesValid(scriptVariables, usageTypeVariables);
+
+        Assert.assertTrue(isScriptVariablesValid);
+    }
+
+    @Test
+    public void isScriptVariablesValidTestVariablesUnrelatedToUsageTypeReturnTrue() {
+        Set<String> scriptVariables = new HashSet<>(List.of("variable1.valid", "variable2.valid.", "variable3.valid"));
+        List<String> usageTypeVariables = List.of("project.name", "account.id", "domain.path");
+
+        boolean isScriptVariablesValid = quotaResponseBuilderSpy.isScriptVariablesValid(scriptVariables, usageTypeVariables);
+
+        Assert.assertTrue(isScriptVariablesValid);
+    }
 
     @Test
     public void injectUsageTypeVariablesTestReturnInjectedVariables() {

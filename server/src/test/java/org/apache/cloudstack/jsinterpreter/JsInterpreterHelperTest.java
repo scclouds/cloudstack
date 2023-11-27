@@ -88,7 +88,7 @@ public class JsInterpreterHelperTest {
 
     @Test
     public void searchIntoObjectNodesTestNullNodeReturnNull() {
-        String fieldName = jsInterpreterHelperSpy.searchIntoObjectNodes(new StringBuilder(), new HashSet<>(), null);
+        String fieldName = jsInterpreterHelperSpy.searchIntoObjectNodes(null);
 
         Assert.assertEquals(null, fieldName);
     }
@@ -98,10 +98,10 @@ public class JsInterpreterHelperTest {
         Mockito.doReturn(true, false).when(fieldNamesMock).hasNext();
         Mockito.doReturn("fieldName").when(fieldNamesMock).next();
         Mockito.doReturn(jsonNodeMock).when(jsonNodeMock).get("fieldName");
-        Mockito.doNothing().when(jsInterpreterHelperSpy).iterateOverJsonTree((Iterator<Map.Entry<String, JsonNode>>) Mockito.any(), Mockito.any(), Mockito.any());
+        Mockito.doNothing().when(jsInterpreterHelperSpy).iterateOverJsonTree((Iterator<Map.Entry<String, JsonNode>>) Mockito.any());
         Mockito.doReturn(fieldNamesMock).when(jsonNodeMock).fieldNames();
 
-        String fieldName = jsInterpreterHelperSpy.searchIntoObjectNodes(new StringBuilder(), new HashSet<>(), jsonNodeMock);
+        String fieldName = jsInterpreterHelperSpy.searchIntoObjectNodes(jsonNodeMock);
 
         Assert.assertEquals("fieldName", fieldName);
     }
@@ -111,12 +111,12 @@ public class JsInterpreterHelperTest {
         Mockito.doReturn(true, false).when(fieldNamesMock).hasNext();
         Mockito.doReturn("name").when(fieldNamesMock).next();
         Mockito.doReturn(jsonNodeMock).when(jsonNodeMock).get("name");
-        Mockito.doNothing().when(jsInterpreterHelperSpy).iterateOverJsonTree((Iterator<Map.Entry<String, JsonNode>>) Mockito.any(), Mockito.any(), Mockito.any());
+        Mockito.doNothing().when(jsInterpreterHelperSpy).iterateOverJsonTree((Iterator<Map.Entry<String, JsonNode>>) Mockito.any());
         Mockito.doReturn(fieldNamesMock).when(jsonNodeMock).fieldNames();
 
-        jsInterpreterHelperSpy.searchIntoObjectNodes(new StringBuilder(), new HashSet<>(), jsonNodeMock);
+        jsInterpreterHelperSpy.searchIntoObjectNodes(jsonNodeMock);
 
-        Mockito.verify(jsInterpreterHelperSpy, Mockito.times(1)).appendFieldValueToVariable(Mockito.any(), Mockito.any(), Mockito.any(), Mockito.any());
+        Mockito.verify(jsInterpreterHelperSpy, Mockito.times(1)).appendFieldValueToVariable(Mockito.any(), Mockito.any());
     }
 
     @Test
@@ -124,64 +124,66 @@ public class JsInterpreterHelperTest {
         Mockito.doReturn(true, false).when(fieldNamesMock).hasNext();
         Mockito.doReturn("property").when(fieldNamesMock).next();
         Mockito.doReturn(jsonNodeMock).when(jsonNodeMock).get("property");
-        Mockito.doNothing().when(jsInterpreterHelperSpy).iterateOverJsonTree((Iterator<Map.Entry<String, JsonNode>>) Mockito.any(), Mockito.any(), Mockito.any());
+        Mockito.doNothing().when(jsInterpreterHelperSpy).iterateOverJsonTree((Iterator<Map.Entry<String, JsonNode>>) Mockito.any());
         Mockito.doReturn(fieldNamesMock).when(jsonNodeMock).fieldNames();
 
-        jsInterpreterHelperSpy.searchIntoObjectNodes(new StringBuilder(), new HashSet<>(), jsonNodeMock);
+        jsInterpreterHelperSpy.searchIntoObjectNodes(jsonNodeMock);
 
-        Mockito.verify(jsInterpreterHelperSpy, Mockito.times(1)).appendFieldValueToVariable(Mockito.any(), Mockito.any(), Mockito.any(), Mockito.any());
+        Mockito.verify(jsInterpreterHelperSpy, Mockito.times(1)).appendFieldValueToVariable(Mockito.any(), Mockito.any());
     }
 
     @Test
     public void appendFieldValueToVariableTestPropertyKeyAppendFieldValueAsAttribute() {
-        StringBuilder variable = new StringBuilder();
-        variable.append("account");
-        Mockito.doReturn("\"name\"").when(jsonNodeMock).toString();
+        jsInterpreterHelperSpy.setVariable(new StringBuilder("account"));
+        jsInterpreterHelperSpy.setVariables(new HashSet<>());
+        Mockito.doReturn("name").when(jsonNodeMock).textValue();
 
-        jsInterpreterHelperSpy.appendFieldValueToVariable("property", jsonNodeMock, variable, new HashSet<>());
+        jsInterpreterHelperSpy.appendFieldValueToVariable("property", jsonNodeMock);
 
-        Assert.assertEquals("account.name", variable.toString());
+        Assert.assertEquals("account.name", jsInterpreterHelperSpy.getVariable().toString());
     }
 
     @Test
     public void appendFieldValueToVariableTestNameKeyAppendFieldValueAsNewVariable() {
-        StringBuilder variable = new StringBuilder();
-        variable.append("account");
-        Mockito.doReturn("\"zone\"").when(jsonNodeMock).toString();
+        jsInterpreterHelperSpy.setVariable(new StringBuilder("account"));
+        jsInterpreterHelperSpy.setVariables(new HashSet<>());
+        Mockito.doReturn("zone").when(jsonNodeMock).textValue();
 
-        jsInterpreterHelperSpy.appendFieldValueToVariable("name", jsonNodeMock, variable, new HashSet<>());
+        jsInterpreterHelperSpy.appendFieldValueToVariable("name", jsonNodeMock);
 
-        Assert.assertEquals("zone", variable.toString());
+        Assert.assertEquals("zone", jsInterpreterHelperSpy.getVariable().toString());
     }
 
     @Test
     public void iterateOverJsonTreeTestMethodsCall() {
         setupIterateOverJsonTreeTests();
 
-        jsInterpreterHelperSpy.iterateOverJsonTree(fields, new StringBuilder(), new HashSet<>());
+        jsInterpreterHelperSpy.iterateOverJsonTree(fields);
 
-        Mockito.verify(jsInterpreterHelperSpy, Mockito.times(1)).iterateOverArrayNodes(Mockito.any(), Mockito.any(), Mockito.any());
-        Mockito.verify(jsInterpreterHelperSpy, Mockito.times(1)).searchIntoObjectNodes(Mockito.any(), Mockito.any(), Mockito.any());
+        Mockito.verify(jsInterpreterHelperSpy, Mockito.times(1)).iterateOverArrayNodes(Mockito.any());
+        Mockito.verify(jsInterpreterHelperSpy, Mockito.times(1)).searchIntoObjectNodes(Mockito.any());
     }
 
     @Test
     public void iterateOverJsonTreeTestFieldNameNullAndNameKeyAppendFieldValueToVariable() {
         setupIterateOverJsonTreeTests();
         Mockito.doReturn("name").when(fields).getKey();
+        Mockito.doNothing().when(jsInterpreterHelperSpy).appendFieldValueToVariable(Mockito.any(), Mockito.any());
 
-        jsInterpreterHelperSpy.iterateOverJsonTree(fields, new StringBuilder(), new HashSet<>());
+        jsInterpreterHelperSpy.iterateOverJsonTree(fields);
 
-        Mockito.verify(jsInterpreterHelperSpy, Mockito.times(1)).appendFieldValueToVariable(Mockito.any(), Mockito.any(), Mockito.any(), Mockito.any());
+        Mockito.verify(jsInterpreterHelperSpy, Mockito.times(1)).appendFieldValueToVariable(Mockito.any(), Mockito.any());
     }
 
     @Test
     public void iterateOverJsonTreeTestFieldNameNullAndNamePropertyAppendFieldValueToVariable() {
         setupIterateOverJsonTreeTests();
         Mockito.doReturn("property").when(fields).getKey();
+        Mockito.doNothing().when(jsInterpreterHelperSpy).appendFieldValueToVariable(Mockito.any(), Mockito.any());
 
-        jsInterpreterHelperSpy.iterateOverJsonTree(fields, new StringBuilder(), new HashSet<>());
+        jsInterpreterHelperSpy.iterateOverJsonTree(fields);
 
-        Mockito.verify(jsInterpreterHelperSpy, Mockito.times(1)).appendFieldValueToVariable(Mockito.any(), Mockito.any(), Mockito.any(), Mockito.any());
+        Mockito.verify(jsInterpreterHelperSpy, Mockito.times(1)).appendFieldValueToVariable(Mockito.any(), Mockito.any());
     }
 
     @Test
@@ -207,10 +209,20 @@ public class JsInterpreterHelperTest {
         Mockito.doReturn(node1).when(rootEntry.getValue()).get(0);
         Mockito.doReturn(node2).when(rootEntry.getValue()).get(1);
         Mockito.doReturn(node3).when(rootEntry.getValue()).get(2);
-        Mockito.doNothing().when(jsInterpreterHelperSpy).iterateOverJsonTree((Iterator<Map.Entry<String, JsonNode>>) Mockito.any(), Mockito.any(), Mockito.any());
+        Mockito.doNothing().when(jsInterpreterHelperSpy).iterateOverJsonTree((Iterator<Map.Entry<String, JsonNode>>) Mockito.any());
 
-        jsInterpreterHelperSpy.iterateOverArrayNodes(rootEntry, new StringBuilder(), new HashSet<>());
+        jsInterpreterHelperSpy.iterateOverArrayNodes(rootEntry);
 
-        Mockito.verify(jsInterpreterHelperSpy, Mockito.times(3)).iterateOverJsonTree((Iterator<Map.Entry<String, JsonNode>>) Mockito.any(), Mockito.any(), Mockito.any());
+        Mockito.verify(jsInterpreterHelperSpy, Mockito.times(3)).iterateOverJsonTree((Iterator<Map.Entry<String, JsonNode>>) Mockito.any());
+    }
+
+    @Test
+    public void removeCallFunctionsFromVariableTestTwoCallExpressionsRemoveTwoLastProperties() {
+        jsInterpreterHelperSpy.setCallExpressions(2);
+        jsInterpreterHelperSpy.setVariable(new StringBuilder("value.osName.toLowerCase().indexOf('windows')"));
+
+        jsInterpreterHelperSpy.removeCallFunctionsFromVariable();
+
+        Assert.assertEquals("value.osName", jsInterpreterHelperSpy.getVariable().toString());
     }
 }
