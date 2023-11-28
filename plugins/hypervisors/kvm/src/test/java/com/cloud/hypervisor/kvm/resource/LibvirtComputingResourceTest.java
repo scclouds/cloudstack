@@ -94,7 +94,6 @@ import org.mockito.BDDMockito;
 import org.mockito.Mock;
 import org.mockito.Mockito;
 import org.mockito.Spy;
-import org.mockito.invocation.InvocationOnMock;
 import org.powermock.api.mockito.PowerMockito;
 import org.powermock.core.classloader.annotations.PowerMockIgnore;
 import org.powermock.core.classloader.annotations.PrepareForTest;
@@ -230,6 +229,8 @@ import com.cloud.vm.VirtualMachine.Type;
 @PrepareForTest(value = {MemStat.class, SshHelper.class, AgentPropertiesFileHandler.class, AgentProperties.class, Script.class})
 @PowerMockIgnore({"javax.xml.*", "org.w3c.dom.*", "org.apache.xerces.*"})
 public class LibvirtComputingResourceTest {
+    @Spy
+    private LibvirtComputingResource libvirtComputingResourceSpy = new LibvirtComputingResource();
 
     @Mock
     private LibvirtComputingResource libvirtComputingResourceMock;
@@ -244,11 +245,16 @@ public class LibvirtComputingResourceTest {
     @Mock
     LibvirtDomainXMLParser parserMock;
 
-    @Spy
-    private LibvirtComputingResource libvirtComputingResourceSpy = Mockito.spy(new LibvirtComputingResource());
+    final static String vmName = "test";
 
     @Mock
     Domain domainMock;
+    @Mock
+    DomainInfo domainInfoMock;
+    @Mock
+    DomainInterfaceStats domainInterfaceStatsMock;
+    @Mock
+    DomainBlockStats domainBlockStatsMock;
 
     private final static long HYPERVISOR_LIBVIRT_VERSION_SUPPORTS_IOURING = 6003000;
     private final static long HYPERVISOR_QEMU_VERSION_SUPPORTS_IOURING = 5000000;
@@ -931,90 +937,164 @@ public class LibvirtComputingResourceTest {
         Assert.assertTrue(uuid.equals(oldUuid));
     }
 
-    private static final String VMNAME = "test";
+    @Test
+    public void getVmStatTestVmIsNullReturnsNull() throws LibvirtException {
+        doReturn(null).when(libvirtComputingResourceSpy).getDomain(connMock, vmName);
+
+        VmStatsEntry stat = libvirtComputingResourceSpy.getVmStat(connMock, vmName);
+
+        verify(libvirtComputingResourceSpy).getDomain(connMock, vmName);
+        verify(libvirtComputingResourceSpy, never()).getVmCurrentStats(domainMock);
+        verify(libvirtComputingResourceSpy, never()).calculateVmMetrics(Mockito.any(), Mockito.any(), Mockito.any());
+        Assert.assertNull(stat);
+    }
 
     @Test
-    public void testGetVmStat() throws LibvirtException {
-        final Connect connect = Mockito.mock(Connect.class);
-        final Domain domain = Mockito.mock(Domain.class);
-        final DomainInfo domainInfo = new DomainInfo();
-        final MemoryStatistic[] domainMem = new MemoryStatistic[2];
-        domainMem[0] = Mockito.mock(MemoryStatistic.class);
-        Mockito.when(domain.getInfo()).thenReturn(domainInfo);
-        Mockito.when(domain.memoryStats(20)).thenReturn(domainMem);
-        Mockito.when(domainMem[0].getTag()).thenReturn(4);
-        Mockito.when(connect.domainLookupByName(VMNAME)).thenReturn(domain);
+    public void getVmStatTestVmIsNotNullReturnsMetrics() throws LibvirtException {
+        doReturn(domainMock).when(libvirtComputingResourceSpy).getDomain(connMock, vmName);
+        doReturn(Mockito.mock(LibvirtExtendedVmStatsEntry.class)).when(libvirtComputingResourceSpy).getVmCurrentStats(domainMock);
+        doReturn(Mockito.mock(VmStatsEntry.class)).when(libvirtComputingResourceSpy).calculateVmMetrics(Mockito.any(), Mockito.any(), Mockito.any());
+
+        VmStatsEntry stat = libvirtComputingResourceSpy.getVmStat(connMock, vmName);
+
+        verify(libvirtComputingResourceSpy).getDomain(connMock, vmName);
+        verify(libvirtComputingResourceSpy).getVmCurrentStats(domainMock);
+        verify(libvirtComputingResourceSpy).calculateVmMetrics(Mockito.any(), Mockito.any(), Mockito.any());
+        Assert.assertNotNull(stat);
+    }
+
+    private void prepareVmInfoForGetVmCurrentStats() throws LibvirtException {
         final NodeInfo nodeInfo = new NodeInfo();
         nodeInfo.cpus = 8;
         nodeInfo.memory = 8 * 1024 * 1024;
         nodeInfo.sockets = 2;
         nodeInfo.threads = 2;
         nodeInfo.model = "Foo processor";
-        Mockito.when(connect.nodeInfo()).thenReturn(nodeInfo);
-        // this is testing the interface stats, returns an increasing number of sent and received bytes
+        Mockito.when(connMock.nodeInfo()).thenReturn(nodeInfo);
+        Mockito.when(connMock.domainLookupByName(Mockito.any())).thenReturn(domainMock);
 
-        Mockito.when(domain.interfaceStats(nullable(String.class))).thenAnswer(new org.mockito.stubbing.Answer<DomainInterfaceStats>() {
-            // increment with less than a KB, so this should be less than 1 KB
-            final static int increment = 1000;
-            int rxBytes = 1000;
-            int txBytes = 1000;
+        Mockito.when(domainMock.getName()).thenReturn(vmName);
+        Mockito.when(domainMock.getConnect()).thenReturn(connMock);
+        domainInfoMock.cpuTime = 500L;
+        domainInfoMock.nrVirtCpu = 4;
+        domainInfoMock.memory = 2048;
+        domainInfoMock.maxMem = 4096;
+        Mockito.when(domainMock.getInfo()).thenReturn(domainInfoMock);
+        final MemoryStatistic[] domainMem = new MemoryStatistic[2];
+        domainMem[0] = Mockito.mock(MemoryStatistic.class);
+        Mockito.when(domainMem[0].getTag()).thenReturn(4);
+        Mockito.when(domainMock.memoryStats(20)).thenReturn(domainMem);
+        doReturn(1024L).when(libvirtComputingResourceSpy).getMemoryFreeInKBs(domainMock);
 
-            @Override
-            public DomainInterfaceStats answer(final InvocationOnMock invocation) throws Throwable {
-                final DomainInterfaceStats domainInterfaceStats = new DomainInterfaceStats();
-                domainInterfaceStats.rx_bytes = rxBytes += increment;
-                domainInterfaceStats.tx_bytes = txBytes += increment;
-                return domainInterfaceStats;
+        domainInterfaceStatsMock.rx_bytes = 1000L;
+        domainInterfaceStatsMock.tx_bytes = 2000L;
+        doReturn(domainInterfaceStatsMock).when(domainMock).interfaceStats(Mockito.any());
+        doReturn(List.of(new InterfaceDef())).when(libvirtComputingResourceSpy).getInterfaces(connMock, vmName);
 
-            }
+        domainBlockStatsMock.rd_req = 3000L;
+        domainBlockStatsMock.rd_bytes = 4000L;
+        domainBlockStatsMock.wr_req = 5000L;
+        domainBlockStatsMock.wr_bytes = 6000L;
+        doReturn(domainBlockStatsMock).when(domainMock).blockStats(Mockito.any());
+        doReturn(List.of(new DiskDef())).when(libvirtComputingResourceSpy).getDisks(connMock, vmName);
+    }
 
-        });
+    @Test
+    public void getVmCurrentStatsTestIfStatsAreAsExpected() throws LibvirtException {
+        prepareVmInfoForGetVmCurrentStats();
 
+        LibvirtExtendedVmStatsEntry vmStatsEntry = libvirtComputingResourceSpy.getVmCurrentStats(domainMock);
 
-        Mockito.when(domain.blockStats(nullable(String.class))).thenAnswer(new org.mockito.stubbing.Answer<DomainBlockStats>() {
-            // a little less than a KB
-            final static int increment = 1000;
+        Assert.assertEquals(domainInfoMock.cpuTime, vmStatsEntry.getCpuTime());
+        Assert.assertEquals((double) domainInterfaceStatsMock.rx_bytes / 1024, vmStatsEntry.getNetworkReadKBs(), 0);
+        Assert.assertEquals((double) domainInterfaceStatsMock.tx_bytes / 1024, vmStatsEntry.getNetworkWriteKBs(), 0);
+        Assert.assertEquals(domainBlockStatsMock.rd_req, vmStatsEntry.getDiskReadIOs(), 0);
+        Assert.assertEquals((double) domainBlockStatsMock.rd_bytes / 1024, vmStatsEntry.getDiskReadKBs(), 0);
+        Assert.assertEquals(domainBlockStatsMock.wr_req, vmStatsEntry.getDiskWriteIOs(), 0);
+        Assert.assertEquals((double) domainBlockStatsMock.wr_bytes / 1024, vmStatsEntry.getDiskWriteKBs(), 0);
+        Assert.assertNotNull(vmStatsEntry.getTimestamp());
+    }
 
-            int rdBytes = 0;
-            int wrBytes = 1024;
+    @Test
+    public void getVmCurrentCpuStatsTestIfStatsAreAsExpected() throws LibvirtException {
+        prepareVmInfoForGetVmCurrentStats();
 
-            @Override
-            public DomainBlockStats answer(final InvocationOnMock invocation) throws Throwable {
-                final DomainBlockStats domainBlockStats = new DomainBlockStats();
+        LibvirtExtendedVmStatsEntry vmStatsEntry = new LibvirtExtendedVmStatsEntry();
+        libvirtComputingResourceSpy.getVmCurrentCpuStats(domainMock, vmStatsEntry);
 
-                domainBlockStats.rd_bytes = rdBytes += increment;
-                domainBlockStats.wr_bytes = wrBytes += increment;
-                return domainBlockStats;
-            }
+        Assert.assertEquals(domainInfoMock.cpuTime, vmStatsEntry.getCpuTime());
+    }
 
-        });
+    @Test
+    public void getVmCurrentNetworkStatsTestIfStatsAreAsExpected() throws LibvirtException {
+        prepareVmInfoForGetVmCurrentStats();
 
-        final LibvirtComputingResource libvirtComputingResource = new LibvirtComputingResource() {
-            @Override
-            public List<InterfaceDef> getInterfaces(final Connect conn, final String vmName) {
-                final InterfaceDef interfaceDef = new InterfaceDef();
-                return Arrays.asList(interfaceDef);
-            }
+        LibvirtExtendedVmStatsEntry vmStatsEntry = new LibvirtExtendedVmStatsEntry();
+        libvirtComputingResourceSpy.getVmCurrentNetworkStats(domainMock, vmStatsEntry);
 
-            @Override
-            public List<DiskDef> getDisks(final Connect conn, final String vmName) {
-                final DiskDef diskDef = new DiskDef();
-                return Arrays.asList(diskDef);
-            }
+        Assert.assertEquals((double) domainInterfaceStatsMock.rx_bytes / 1024, vmStatsEntry.getNetworkReadKBs(), 0);
+        Assert.assertEquals((double) domainInterfaceStatsMock.tx_bytes / 1024, vmStatsEntry.getNetworkWriteKBs(), 0);
+    }
 
-        };
-        libvirtComputingResource.getVmStat(connect, VMNAME);
-        final VmStatsEntry vmStat = libvirtComputingResource.getVmStat(connect, VMNAME);
-        // network traffic as generated by the logic above, must be greater than zero
-        Assert.assertTrue(vmStat.getNetworkReadKBs() > 0);
-        Assert.assertTrue(vmStat.getNetworkWriteKBs() > 0);
-        // IO traffic as generated by the logic above, must be greater than zero
-        Assert.assertTrue(vmStat.getDiskReadKBs() > 0);
-        Assert.assertTrue(vmStat.getDiskWriteKBs() > 0);
-        // Memory limit of VM must be greater than zero
-        Assert.assertTrue(vmStat.getIntFreeMemoryKBs() >= 0);
-        Assert.assertTrue(vmStat.getMemoryKBs() >= 0);
-        Assert.assertTrue(vmStat.getTargetMemoryKBs() >= vmStat.getMemoryKBs());
+    @Test
+    public void getVmCurrentDiskStatsTestIfStatsAreAsExpected() throws LibvirtException {
+        prepareVmInfoForGetVmCurrentStats();
+
+        LibvirtExtendedVmStatsEntry vmStatsEntry = new LibvirtExtendedVmStatsEntry();
+        libvirtComputingResourceSpy.getVmCurrentDiskStats(domainMock, vmStatsEntry);
+
+        Assert.assertEquals(domainBlockStatsMock.rd_req, vmStatsEntry.getDiskReadIOs(), 0);
+        Assert.assertEquals((double) domainBlockStatsMock.rd_bytes / 1024, vmStatsEntry.getDiskReadKBs(), 0);
+        Assert.assertEquals(domainBlockStatsMock.wr_req, vmStatsEntry.getDiskWriteIOs(), 0);
+        Assert.assertEquals((double) domainBlockStatsMock.wr_bytes / 1024, vmStatsEntry.getDiskWriteKBs(), 0);
+    }
+
+    @Test
+    public void calculateVmMetricsTestOldStatsIsNullDoesNotCalculateUtilization() throws LibvirtException {
+        prepareVmInfoForGetVmCurrentStats();
+
+        LibvirtExtendedVmStatsEntry vmStatsEntry = libvirtComputingResourceSpy.getVmCurrentStats(domainMock);
+        VmStatsEntry metrics = libvirtComputingResourceSpy.calculateVmMetrics(domainMock, null, vmStatsEntry);
+
+        Assert.assertEquals(domainInfoMock.nrVirtCpu, metrics.getNumCPUs());
+        Assert.assertEquals(domainInfoMock.maxMem, (long) metrics.getMemoryKBs());
+        Assert.assertEquals(libvirtComputingResourceSpy.getMemoryFreeInKBs(domainMock), (long) metrics.getIntFreeMemoryKBs());
+        Assert.assertEquals(domainInfoMock.memory, (long) metrics.getTargetMemoryKBs());
+        Assert.assertEquals(0, metrics.getCPUUtilization(), 0);
+        Assert.assertEquals(0, metrics.getNetworkReadKBs(), 0);
+        Assert.assertEquals(0, metrics.getNetworkWriteKBs(), 0);
+        Assert.assertEquals(0, metrics.getDiskReadKBs(), 0);
+        Assert.assertEquals(0, metrics.getDiskReadIOs(), 0);
+        Assert.assertEquals(0, metrics.getDiskWriteKBs(), 0);
+        Assert.assertEquals(0, metrics.getDiskWriteIOs(), 0);
+    }
+
+    @Test
+    public void calculateVmMetricsTestOldStatsIsNotNullCalculatesUtilization() throws LibvirtException {
+        prepareVmInfoForGetVmCurrentStats();
+        LibvirtExtendedVmStatsEntry oldStats = libvirtComputingResourceSpy.getVmCurrentStats(domainMock);
+        domainInfoMock.cpuTime *= 3;
+        domainInterfaceStatsMock.rx_bytes *= 3;
+        domainInterfaceStatsMock.tx_bytes *= 3;
+        domainBlockStatsMock.rd_req *= 3;
+        domainBlockStatsMock.rd_bytes *= 3;
+        domainBlockStatsMock.wr_req *= 3;
+        domainBlockStatsMock.wr_bytes *= 3;
+        LibvirtExtendedVmStatsEntry newStats = libvirtComputingResourceSpy.getVmCurrentStats(domainMock);
+
+        VmStatsEntry metrics = libvirtComputingResourceSpy.calculateVmMetrics(domainMock, oldStats, newStats);
+
+        Assert.assertEquals(domainInfoMock.nrVirtCpu, metrics.getNumCPUs());
+        Assert.assertEquals(domainInfoMock.maxMem, (long) metrics.getMemoryKBs());
+        Assert.assertEquals(libvirtComputingResourceSpy.getMemoryFreeInKBs(domainMock), (long) metrics.getIntFreeMemoryKBs());
+        Assert.assertEquals(domainInfoMock.memory, (long) metrics.getTargetMemoryKBs());
+        Assert.assertTrue(metrics.getCPUUtilization() > 0);
+        Assert.assertEquals(newStats.getNetworkReadKBs() - oldStats.getNetworkReadKBs(), metrics.getNetworkReadKBs(), 0);
+        Assert.assertEquals(newStats.getNetworkWriteKBs() - oldStats.getNetworkWriteKBs(), metrics.getNetworkWriteKBs(), 0);
+        Assert.assertEquals(newStats.getDiskReadIOs() - oldStats.getDiskReadIOs(), metrics.getDiskReadIOs(), 0);
+        Assert.assertEquals(newStats.getDiskWriteIOs() - oldStats.getDiskWriteIOs(), metrics.getDiskWriteIOs(), 0);
+        Assert.assertEquals(newStats.getDiskReadKBs() - oldStats.getDiskReadKBs(), metrics.getDiskReadKBs(), 0);
+        Assert.assertEquals(newStats.getDiskWriteKBs() - oldStats.getDiskWriteKBs(), metrics.getDiskWriteKBs(), 0);
     }
 
     /*
