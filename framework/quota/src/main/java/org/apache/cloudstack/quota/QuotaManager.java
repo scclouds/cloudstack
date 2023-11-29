@@ -19,6 +19,7 @@ package org.apache.cloudstack.quota;
 import com.cloud.user.AccountVO;
 import com.cloud.utils.Pair;
 import com.cloud.utils.component.Manager;
+import org.apache.cloudstack.framework.config.ConfigKey;
 import org.apache.cloudstack.quota.constant.QuotaTypes;
 import org.apache.cloudstack.quota.vo.QuotaTariffVO;
 import org.apache.cloudstack.quota.vo.ResourcesToQuoteVO;
@@ -42,4 +43,6 @@ public interface QuotaManager extends Manager {
 
     BigDecimal getResourceRating(JsInterpreter jsInterpreter, ResourcesToQuoteVO resourceToQuote, List<QuotaTariffVO> tariffs, QuotaTypes quotaTypeObject, Date date)
             throws IllegalAccessException;
+
+    boolean findConfigurationValue(AccountVO accountVO, ConfigKey<Boolean> key);
 }
