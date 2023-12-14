@@ -150,7 +150,8 @@ export default {
 
         this.loading = true
         api('quotaCredits', values).then(response => {
-          this.$message.success(this.$t('message.action.quota.credit.add.success', { credit: values.value, account: values.account }))
+          this.$message.success(this.$t('message.action.quota.credit.add.success',
+            { credit: response.quotacreditsresponse.quotacredits.credit, account: response.quotacreditsresponse.quotacredits.creditorid }))
           this.parentFetchData()
           this.closeModal()
         }).catch(error => {
