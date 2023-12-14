@@ -33,7 +33,7 @@
         <router-link :to="{ path: '/iso/' + vm.isoid }">{{ vm.isoname }}</router-link> <br/>
         <barcode-outlined /> {{ vm.isoid }}
       </a-tab-pane>
-      <a-tab-pane :tab="$t('label.volumes')" key="volumes">
+      <a-tab-pane :tab="$t('label.volumes')" key="volumes" v-if="'listVolumes' in $store.getters.apis">
         <volumes-tab :resource="vm" :items="volumes" :loading="loading" />
       </a-tab-pane>
       <a-tab-pane :tab="$t('label.nics')" key="nics" v-if="'listNics' in $store.getters.apis">
