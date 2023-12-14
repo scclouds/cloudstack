@@ -33,6 +33,7 @@ import org.apache.cloudstack.framework.config.ConfigKey;
 import org.apache.cloudstack.framework.config.Configurable;
 import org.apache.cloudstack.framework.config.dao.ConfigurationDao;
 import org.apache.cloudstack.storage.datastore.db.PrimaryDataStoreDao;
+import org.apache.commons.lang3.ObjectUtils;
 import org.apache.log4j.Logger;
 
 import com.cloud.capacity.Capacity;
@@ -215,11 +216,11 @@ public class FirstFitPlanner extends AdapterBase implements DeploymentClusterPla
             Long uniqueTags;
             for (Long clusterId : clusterList) {
                 uniqueTags = (long) 0;
-            List<Long> hostList = capacityDao.listHostsWithEnoughCapacity(requiredCpu, requiredRam, clusterId, Host.Type.Routing.toString());
-            if (!hostList.isEmpty() && implicitHostTags.length > 0) {
-                uniqueTags = new Long(hostTagsDao.getDistinctImplicitHostTags(hostList, implicitHostTags).size());
-                uniqueTags = uniqueTags + getHostsByCapability(hostList, Host.HOST_UEFI_ENABLE);
-            }
+                List<Long> hostList = capacityDao.listHostsWithEnoughCapacity(requiredCpu, requiredRam, clusterId, Host.Type.Routing.toString());
+                if (!hostList.isEmpty() && ObjectUtils.isNotEmpty(implicitHostTags)) {
+                    uniqueTags = new Long(hostTagsDao.getDistinctImplicitHostTags(hostList, implicitHostTags).size());
+                    uniqueTags = uniqueTags + getHostsByCapability(hostList, Host.HOST_UEFI_ENABLE);
+                }
                 UniqueTagsInClusterMap.put(clusterId, uniqueTags);
             }
             Collections.sort(clusterList, new Comparator<Long>() {
