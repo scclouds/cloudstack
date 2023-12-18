@@ -16,27 +16,79 @@
 // under the License.
 package com.cloud.configuration;
 
+import com.cloud.dc.dao.DataCenterDao;
+import com.cloud.domain.Domain;
+import com.cloud.domain.dao.DomainDao;
+import com.cloud.exception.InvalidParameterValueException;
+import com.cloud.offering.DiskOffering;
+import com.cloud.storage.DiskOfferingVO;
+import com.cloud.user.Account;
+import com.cloud.user.User;
+import com.cloud.utils.db.EntityManager;
+import com.cloud.utils.db.SearchCriteria;
 import com.cloud.utils.net.NetUtils;
+import org.apache.cloudstack.api.command.admin.offering.UpdateDiskOfferingCmd;
+import org.apache.cloudstack.resourcedetail.DiskOfferingDetailVO;
+import org.apache.cloudstack.resourcedetail.dao.DiskOfferingDetailsDao;
 import org.junit.Assert;
 import org.junit.Test;
 import org.junit.runner.RunWith;
+import org.mockito.InjectMocks;
+import org.mockito.Mock;
 import org.mockito.Mockito;
+import org.mockito.Spy;
 import org.powermock.api.mockito.PowerMockito;
 import org.powermock.core.classloader.annotations.PrepareForTest;
 import org.powermock.modules.junit4.PowerMockRunner;
 
+import java.util.ArrayList;
 import java.util.List;
 
 
 @RunWith(PowerMockRunner.class)
 @PrepareForTest(NetUtils.class)
 public class ConfigurationManagerImplTest {
+    @InjectMocks
     ConfigurationManagerImpl configurationManagerImplSpy = Mockito.spy(new ConfigurationManagerImpl());
+    @Mock
+    SearchCriteria<DiskOfferingDetailVO> searchCriteriaDiskOfferingDetailMock;
+    @Mock
+    DiskOffering diskOfferingMock;
+    @Mock
+    Account accountMock;
+    @Mock
+    User userMock;
+    @Mock
+    Domain domainMock;
+    @Mock
+    DataCenterDao zoneDaoMock;
+    @Mock
+    DomainDao domainDaoMock;
+    @Mock
+    EntityManager entityManagerMock;
+    @Mock
+    DiskOfferingDetailsDao diskOfferingDetailsDao;
+    @Spy
+    DiskOfferingVO diskOfferingVOSpy = new DiskOfferingVO();
+    @Spy
+    UpdateDiskOfferingCmd updateDiskOfferingCmdSpy = new UpdateDiskOfferingCmd();
+
+    Long validId = 1L;
+    Long invalidId = 100L;
+    List<Long> filteredZoneIds = List.of(1L, 2L, 3L);
+    List<Long> existingZoneIds = List.of(1L, 2L, 3L);
+    List<Long> filteredDomainIds = List.of(1L, 2L, 3L);
+    List<Long> existingDomainIds = List.of(1L, 2L, 3L);
+    List<Long> emptyExistingZoneIds = new ArrayList<>();
+    List<Long> emptyExistingDomainIds = new ArrayList<>();
+    List<Long> emptyFilteredDomainIds = new ArrayList<>();
+
     @Test
     public void validateIfIntValueIsInRangeTestValidValueReturnNull() {
         String testVariable = configurationManagerImplSpy.validateIfIntValueIsInRange("String name", "3", "1-5");
         Assert.assertNull(testVariable);
     }
+
 
     @Test
     public void validateIfIntValueIsInRangeTestInvalidValueReturnString() {
@@ -190,5 +242,126 @@ public class ConfigurationManagerImplTest {
     public void validateRangeOtherTestInvalidValueReturnString() {
         String testVariable = configurationManagerImplSpy.validateRangeOther("NameTest1", "ThisShouldNotWork", "ThisShouldWork,ThisShouldAlsoWork,SoShouldThis");
         Assert.assertNotNull(testVariable);
+    }
+
+    @Test
+    public void validateDomainTestInvalidIdThrowException() {
+        Mockito.doReturn(null).when(domainDaoMock).findById(invalidId);
+        Assert.assertThrows(InvalidParameterValueException.class, () -> configurationManagerImplSpy.validateDomain(List.of(invalidId)));
+    }
+
+    @Test
+    public void validateZoneTestInvalidIdThrowException() {
+        Mockito.doReturn(null).when(zoneDaoMock).findById(invalidId);
+        Assert.assertThrows(InvalidParameterValueException.class, () -> configurationManagerImplSpy.validateZone(List.of(invalidId)));
+    }
+
+    @Test
+    public void updateDiskOfferingIfCmdAttributeNotNullTestNotNullValueUpdateOfferingAttribute() {
+        Mockito.doReturn("DiskOfferingName").when(updateDiskOfferingCmdSpy).getDiskOfferingName();
+        Mockito.doReturn("DisplayText").when(updateDiskOfferingCmdSpy).getDisplayText();
+        Mockito.doReturn(1).when(updateDiskOfferingCmdSpy).getSortKey();
+        Mockito.doReturn(false).when(updateDiskOfferingCmdSpy).getDisplayOffering();
+
+        configurationManagerImplSpy.updateDiskOfferingIfCmdAttributeNotNull(this.diskOfferingVOSpy, updateDiskOfferingCmdSpy);
+
+        Assert.assertEquals(updateDiskOfferingCmdSpy.getDiskOfferingName(), diskOfferingVOSpy.getName());
+        Assert.assertEquals(updateDiskOfferingCmdSpy.getDisplayText(), diskOfferingVOSpy.getDisplayText());
+        Assert.assertEquals(updateDiskOfferingCmdSpy.getSortKey(), (Integer) diskOfferingVOSpy.getSortKey());
+        Assert.assertEquals(updateDiskOfferingCmdSpy.getDisplayOffering(), diskOfferingVOSpy.getDisplayOffering());
+    }
+
+    @Test
+    public void updateDiskOfferingIfCmdAttributeNotNullTestNullValueDoesntUpdateOfferingAttribute() {
+        diskOfferingVOSpy.setName("Name");
+        diskOfferingVOSpy.setDisplayText("DisplayText");
+        diskOfferingVOSpy.setSortKey(1);
+        diskOfferingVOSpy.setDisplayOffering(true);
+
+        configurationManagerImplSpy.updateDiskOfferingIfCmdAttributeNotNull(diskOfferingVOSpy, updateDiskOfferingCmdSpy);
+
+        Assert.assertNotEquals(updateDiskOfferingCmdSpy.getDiskOfferingName(), diskOfferingVOSpy.getName());
+        Assert.assertNotEquals(updateDiskOfferingCmdSpy.getDisplayText(), diskOfferingVOSpy.getDisplayText());
+        Assert.assertNotEquals(updateDiskOfferingCmdSpy.getSortKey(), (Integer) diskOfferingVOSpy.getSortKey());
+        Assert.assertNotEquals(updateDiskOfferingCmdSpy.getDisplayOffering(), diskOfferingVOSpy.getDisplayOffering());
+    }
+
+    @Test
+    public void updateDiskOfferingDetailsDomainIdsTestDifferentDomainIdsDiskOfferingDetailsAddDomainIds() {
+        List<DiskOfferingDetailVO> detailsVO = new ArrayList<>();
+        Long diskOfferingId = validId;
+
+        Mockito.doReturn(1).when(diskOfferingDetailsDao).remove(searchCriteriaDiskOfferingDetailMock);
+        configurationManagerImplSpy.updateDiskOfferingDetailsDomainIds(detailsVO, searchCriteriaDiskOfferingDetailMock, diskOfferingId, filteredDomainIds, existingDomainIds);
+
+        for (int i = 0; i < detailsVO.size(); i++) {
+            Assert.assertEquals(filteredDomainIds.get(i), (Long) Long.parseLong(detailsVO.get(i).getValue()));
+        }
+    }
+
+    @Test
+    public void updateDiskOfferingDetailsZoneIdsTestDifferentZoneIdsDiskOfferingDetailsAddZoneIds() {
+        List<DiskOfferingDetailVO> detailsVO = new ArrayList<>();
+        Long diskOfferingId = validId;
+
+        Mockito.doReturn(1).when(diskOfferingDetailsDao).remove(searchCriteriaDiskOfferingDetailMock);
+        configurationManagerImplSpy.updateDiskOfferingDetailsDomainIds(detailsVO, searchCriteriaDiskOfferingDetailMock, diskOfferingId, filteredZoneIds, existingZoneIds);
+
+        for (int i = 0; i < detailsVO.size(); i++) {
+            Assert.assertEquals(filteredZoneIds.get(i), (Long) Long.parseLong(detailsVO.get(i).getValue()));
+        }
+    }
+
+    @Test
+    public void checkDomainAdminUpdateOfferingRestrictionsTestDifferentZoneIdsThrowException() {
+        Assert.assertThrows(InvalidParameterValueException.class,
+                () -> configurationManagerImplSpy.checkDomainAdminUpdateOfferingRestrictions(diskOfferingMock, userMock, filteredZoneIds, emptyExistingZoneIds, existingDomainIds, filteredDomainIds));
+    }
+
+    @Test
+    public void checkDomainAdminUpdateOfferingRestrictionsTestEmptyExistingDomainIdsThrowException() {
+        Assert.assertThrows(InvalidParameterValueException.class,
+                () -> configurationManagerImplSpy.checkDomainAdminUpdateOfferingRestrictions(diskOfferingMock, userMock, filteredZoneIds, existingZoneIds, emptyExistingDomainIds, filteredDomainIds));
+    }
+
+    @Test
+    public void checkDomainAdminUpdateOfferingRestrictionsTestEmptyFilteredDomainIdsThrowException() {
+        Assert.assertThrows(InvalidParameterValueException.class,
+                () -> configurationManagerImplSpy.checkDomainAdminUpdateOfferingRestrictions(diskOfferingMock, userMock, filteredZoneIds, existingZoneIds, existingDomainIds, emptyFilteredDomainIds));
+    }
+
+    @Test
+    public void getAccountNonChildDomainsTestValidValuesReturnChildDomains() {
+        List<Long> nonChildDomains = configurationManagerImplSpy.getAccountNonChildDomains(diskOfferingMock, accountMock, userMock, updateDiskOfferingCmdSpy, existingDomainIds);
+
+        for (int i = 0; i < existingDomainIds.size(); i++) {
+            Assert.assertEquals(existingDomainIds.get(i), nonChildDomains.get(i));
+        }
+    }
+
+    @Test
+    public void getAccountNonChildDomainsTestAllDomainsAreChildDomainsReturnEmptyList() {
+        for (int i = 0; i < existingDomainIds.size(); i++) {
+            Mockito.when(domainDaoMock.isChildDomain(accountMock.getDomainId(), existingDomainIds.get(i))).thenReturn(true);
+        }
+
+        List<Long> nonChildDomains = configurationManagerImplSpy.getAccountNonChildDomains(diskOfferingMock, accountMock, userMock, updateDiskOfferingCmdSpy, existingDomainIds);
+
+        Assert.assertTrue(nonChildDomains.isEmpty());
+    }
+
+    @Test
+    public void getAccountNonChildDomainsTestNotNullCmdAttributeThrowException() {
+        Mockito.doReturn("name").when(updateDiskOfferingCmdSpy).getDiskOfferingName();
+
+        Assert.assertThrows(InvalidParameterValueException.class, () -> configurationManagerImplSpy.getAccountNonChildDomains(diskOfferingMock, accountMock, userMock, updateDiskOfferingCmdSpy, existingDomainIds));
+    }
+
+    @Test
+    public void checkIfDomainIsChildDomainTestNonChildDomainThrowException() {
+        Mockito.doReturn(false).when(domainDaoMock).isChildDomain(Mockito.anyLong(), Mockito.anyLong());
+        Mockito.doReturn(domainMock).when(entityManagerMock).findById(Domain.class, 1L);
+
+        Assert.assertThrows(InvalidParameterValueException.class, () -> configurationManagerImplSpy.checkIfDomainIsChildDomain(diskOfferingMock, accountMock, userMock, filteredDomainIds));
     }
 }
