@@ -511,11 +511,11 @@ public class QuotaResponseBuilderImpl implements QuotaResponseBuilder {
      */
     protected Map<String, BigDecimal> createQuotaDateMap(List<QuotaUsageJoinVO> usageRecords, QuotaStatementCmd cmd, BigDecimal quotaUsed) {
         if (quotaUsed.equals(BigDecimal.ZERO)) {
-            s_logger.debug("Not aggregating quota by time because item has not used any quota in the period.");
+            s_logger.trace("Not aggregating quota by time because item has not used any quota in the period.");
             return null;
         }
         if (cmd.getAggregationInterval() == ApiConstants.AggregationInterval.NONE) {
-            s_logger.debug("Not aggregating quota by time because AggregationInterval is set to None.");
+            s_logger.trace("Not aggregating quota by time because AggregationInterval is set to None.");
             return null;
         }
 
@@ -524,7 +524,7 @@ public class QuotaResponseBuilderImpl implements QuotaResponseBuilder {
             aggregationUnit = ChronoUnit.DAYS;
         }
 
-        s_logger.debug(String.format("Creating a time sorted map with [%s] aggregation for the used quota.", cmd.getAggregationInterval()));
+        s_logger.trace(String.format("Creating a time sorted map with [%s] aggregation for the used quota.", cmd.getAggregationInterval()));
 
         String timezone = cmd.getTimezone();
 
@@ -547,7 +547,7 @@ public class QuotaResponseBuilderImpl implements QuotaResponseBuilder {
 
     protected void setStatementItemResources(QuotaStatementItemResponse statementItem, int usageType, List<QuotaUsageJoinVO> quotaUsageRecords, QuotaStatementCmd cmd) {
         if (!cmd.isShowResources()) {
-            s_logger.debug("Not creating resources statement for the item because isShowResources is set to false.");
+            s_logger.trace("Not creating resources statement for the item because isShowResources is set to false.");
             return;
         }
 
