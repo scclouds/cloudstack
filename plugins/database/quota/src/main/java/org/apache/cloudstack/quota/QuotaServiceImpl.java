@@ -27,7 +27,12 @@ import java.util.TimeZone;
 import javax.inject.Inject;
 import javax.naming.ConfigurationException;
 
+import com.cloud.projects.Project;
+import com.cloud.projects.ProjectManager;
 import com.cloud.utils.DateUtil;
+import org.apache.cloudstack.api.ApiConstants;
+import org.apache.cloudstack.api.ApiErrorCode;
+import org.apache.cloudstack.api.ServerApiException;
 import org.apache.cloudstack.api.command.QuotaBalanceCmd;
 import org.apache.cloudstack.api.command.QuotaConfigureEmailCmd;
 import org.apache.cloudstack.api.command.QuotaCreditsCmd;
@@ -70,6 +75,7 @@ import com.cloud.domain.dao.DomainDao;
 import com.cloud.exception.InvalidParameterValueException;
 import com.cloud.exception.PermissionDeniedException;
 import com.cloud.user.Account;
+import com.cloud.user.AccountService;
 import com.cloud.user.AccountVO;
 import com.cloud.user.dao.AccountDao;
 import com.cloud.utils.component.ManagerBase;
@@ -80,6 +86,8 @@ public class QuotaServiceImpl extends ManagerBase implements QuotaService, Confi
 
     @Inject
     private AccountDao _accountDao;
+    @Inject
+    private AccountService accountService;
     @Inject
     private QuotaAccountDao _quotaAcc;
     @Inject
@@ -92,6 +100,8 @@ public class QuotaServiceImpl extends ManagerBase implements QuotaService, Confi
     private QuotaBalanceDao quotaBalanceDao;
     @Inject
     private QuotaResponseBuilder _respBldr;
+    @Inject
+    private ProjectManager _projectMgr;
 
     private TimeZone _usageTimezone;
 
@@ -157,8 +167,6 @@ public class QuotaServiceImpl extends ManagerBase implements QuotaService, Confi
 
     @Override
     public List<QuotaBalanceVO> listQuotaBalancesForAccount(Long accountId, String accountName, Long domainId, Date startDate, Date endDate) {
-        accountId = getAccountToWhomQuotaBalancesWillBeListed(accountId, accountName, domainId);
-
         validateStartDateAndEndDateForListQuotaBalancesForAccount(startDate, endDate);
 
         if (startDate == null && endDate == null) {
@@ -208,24 +216,6 @@ public class QuotaServiceImpl extends ManagerBase implements QuotaService, Confi
         }
     }
 
-    protected Long getAccountToWhomQuotaBalancesWillBeListed(Long accountId, String accountName, Long domainId) {
-        if (accountId != null) {
-            Account account = _accountDao.findByIdIncludingRemoved(accountId);
-            if (account == null) {
-                throw new InvalidParameterValueException(String.format("Unable to find account [%s].", accountId));
-            }
-            return accountId;
-        }
-
-        validateIsChildDomain(accountName, domainId);
-
-        Account account = _accountDao.findActiveAccount(accountName, domainId);
-        if (account == null) {
-            throw new InvalidParameterValueException(String.format("Unable to find active account [%s] in domain [%s].", accountName, domainId));
-        }
-        return account.getAccountId();
-    }
-
     protected void validateIsChildDomain(String accountName, Long domainId) {
         Account caller = CallContext.current().getCallingAccount();
 
@@ -239,8 +229,7 @@ public class QuotaServiceImpl extends ManagerBase implements QuotaService, Confi
     }
 
     @Override
-    public List<QuotaUsageJoinVO> getQuotaUsage(Long accountId, String accountName, Long domainId, Integer usageType, Date startDate, Date endDate) {
-        accountId = getAccountToWhomQuotaBalancesWillBeListed(accountId, accountName, domainId);
+    public List<QuotaUsageJoinVO> getQuotaUsage(Long accountId, Long domainId, Integer usageType, Date startDate, Date endDate) {
         if (startDate.after(endDate)) {
             throw new InvalidParameterValueException("Incorrect Date Range. Start date: " + startDate + " is after end date:" + endDate);
         }
@@ -301,4 +290,44 @@ public class QuotaServiceImpl extends ManagerBase implements QuotaService, Confi
         }
     }
 
+    /**
+     * Returns the Id of the account that will be used when provided with either accountId, projectId or accountName and domainId.
+     */
+    @Override
+    public Long finalizeAccountId(Long accountId, String accountName, Long domainId, Long projectId) {
+        if (projectId != null) {
+            if (accountId != null || accountName != null) {
+                throw new ServerApiException(ApiErrorCode.PARAM_ERROR, "Project and account can not be specified together.");
+            }
+            final Project project = _projectMgr.getProject(projectId);
+            if (project == null) {
+                throw new ServerApiException(ApiErrorCode.PARAM_ERROR, String.format("Unable to find project with id: [%s].", projectId));
+            }
+            if (project.getState() != Project.State.Active) {
+                throw new ServerApiException(ApiErrorCode.PARAM_ERROR, String.format("Project with projectId [%s] is not active.", projectId));
+            }
+            return project.getProjectAccountId();
+        }
+
+        if (accountId != null) {
+            if (accountService.getActiveAccountById(accountId) != null) {
+                return accountId;
+            }
+            throw new InvalidParameterValueException(String.format("Unable to find account with accountId: [%s].", accountId));
+        }
+
+        if (accountName == null && domainId == null) {
+            throw new ServerApiException(ApiErrorCode.PARAM_ERROR, String.format("Either %s or %s is required.", ApiConstants.ACCOUNT_ID, ApiConstants.PROJECT_ID));
+        }
+        try {
+            Account activeAccount = accountService.getActiveAccountByName(accountName, domainId);
+            if (activeAccount != null) {
+                return activeAccount.getId();
+            }
+        } catch (InvalidParameterValueException exception) {
+            throw new ServerApiException(ApiErrorCode.PARAM_ERROR, String.format("Both %s and %s are needed if using either. Consider using %s instead.",
+                    ApiConstants.ACCOUNT, ApiConstants.DOMAIN_ID, ApiConstants.ACCOUNT_ID));
+        }
+        throw new InvalidParameterValueException(String.format("Unable to find account by name: [%s] on domain: [%s]", accountName, domainId));
+    }
 }

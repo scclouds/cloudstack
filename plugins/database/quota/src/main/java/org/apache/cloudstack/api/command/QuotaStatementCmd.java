@@ -23,22 +23,22 @@ import java.util.List;
 import javax.inject.Inject;
 
 import com.cloud.exception.InvalidParameterValueException;
+import com.cloud.user.Account;
 import org.apache.cloudstack.api.APICommand;
 import org.apache.cloudstack.api.ApiConstants;
-import org.apache.cloudstack.api.ApiErrorCode;
 import org.apache.cloudstack.api.Parameter;
-import org.apache.cloudstack.api.ServerApiException;
 import org.apache.cloudstack.api.response.AccountResponse;
 import org.apache.cloudstack.api.response.DomainResponse;
+import org.apache.cloudstack.api.response.ProjectResponse;
 import org.apache.cloudstack.api.response.QuotaResponseBuilder;
 import org.apache.cloudstack.api.response.QuotaStatementItemResponse;
 import org.apache.cloudstack.api.response.QuotaStatementResponse;
+import org.apache.cloudstack.quota.QuotaService;
 import org.apache.cloudstack.quota.vo.QuotaUsageJoinVO;
 import org.apache.commons.lang3.ObjectUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.log4j.Logger;
 
-import com.cloud.user.Account;
 
 @APICommand(name = "quotaStatement", responseObject = QuotaStatementItemResponse.class, description = "Create a quota statement", since = "4.7.0", requestHasSensitiveInfo = false, responseHasSensitiveInfo = false)
 public class QuotaStatementCmd extends QuotaBaseCmd {
@@ -64,8 +64,11 @@ public class QuotaStatementCmd extends QuotaBaseCmd {
     @Parameter(name = ApiConstants.TYPE, type = CommandType.INTEGER, description = "List quota usage records for the specified usage type.")
     private Integer usageType;
 
-    @Parameter(name = ApiConstants.ACCOUNT_ID, type = CommandType.UUID, entityType = AccountResponse.class, description = "List usage records for the specified account")
+    @Parameter(name = ApiConstants.ACCOUNT_ID, type = CommandType.UUID, entityType = AccountResponse.class, description = "List usage records for the specified account. Can not be specified with projectId.")
     private Long accountId;
+
+    @Parameter(name = ApiConstants.PROJECT_ID, type = CommandType.UUID, entityType = ProjectResponse.class, description = "List usage records for the specified project. Can not be specified with accountId.")
+    private Long projectId;
 
     @Parameter(name = ApiConstants.SHOW_RESOURCES, type = CommandType.BOOLEAN, description = "List the resources of each quota type in the period.")
     private boolean showResources;
@@ -79,12 +82,19 @@ public class QuotaStatementCmd extends QuotaBaseCmd {
     @Inject
     protected QuotaResponseBuilder responseBuilder;
 
+    @Inject
+    QuotaService quotaService;
+
     public Long getAccountId() {
         return accountId;
     }
 
     public void setAccountId(Long accountId) {
         this.accountId = accountId;
+    }
+
+    public Long getProjectId() {
+        return projectId;
     }
 
     public Integer getUsageType() {
@@ -156,24 +166,11 @@ public class QuotaStatementCmd extends QuotaBaseCmd {
 
     @Override
     public long getEntityOwnerId() {
-        if (accountId != null) {
-            if (_accountService.getActiveAccountById(accountId) != null) {
-                return accountId;
-            }
-            return Account.ACCOUNT_ID_SYSTEM;
-        }
-        if (accountName == null && domainId == null) {
-            throw new ServerApiException(ApiErrorCode.PARAM_ERROR, String.format("%s is required.", ApiConstants.ACCOUNT_ID));
-        }
         try {
-            Account activeAccount = _accountService.getActiveAccountByName(accountName, domainId);
-            if (activeAccount != null) {
-                return activeAccount.getId();
-            }
+            return quotaService.finalizeAccountId(accountId, accountName, domainId, projectId);
+        }
+        catch (InvalidParameterValueException exception) {
             return Account.ACCOUNT_ID_SYSTEM;
-        } catch (InvalidParameterValueException exception) {
-            throw new ServerApiException(ApiErrorCode.PARAM_ERROR, String.format("Both %s and %s are needed if using either. Consider using %s instead.",
-                    ApiConstants.ACCOUNT, ApiConstants.DOMAIN_ID, ApiConstants.ACCOUNT_ID));
         }
     }
 

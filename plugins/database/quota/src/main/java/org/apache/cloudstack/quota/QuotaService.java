@@ -28,7 +28,7 @@ import java.util.List;
 
 public interface QuotaService extends PluggableService {
 
-    List<QuotaUsageJoinVO> getQuotaUsage(Long accountId, String accountName, Long domainId, Integer usageType, Date startDate, Date endDate);
+    List<QuotaUsageJoinVO> getQuotaUsage(Long accountId, Long domainId, Integer usageType, Date startDate, Date endDate);
 
     List<QuotaBalanceVO> listQuotaBalancesForAccount(Long accountId, String accountName, Long domainId, Date startDate, Date endDate);
 
@@ -39,5 +39,7 @@ public interface QuotaService extends PluggableService {
     Boolean isQuotaServiceEnabled();
 
     boolean saveQuotaAccount(AccountVO account, BigDecimal aggrUsage, Date endDate);
+
+    Long finalizeAccountId(Long accountId, String accountName, Long domainId, Long projectId);
 
 }

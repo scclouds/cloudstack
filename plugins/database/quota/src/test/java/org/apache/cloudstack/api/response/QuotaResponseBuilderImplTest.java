@@ -754,7 +754,7 @@ public class QuotaResponseBuilderImplTest extends TestCase {
 
         QuotaSummaryCmd cmd = new QuotaSummaryCmd();
         cmd.setAccountName(null);
-        cmd.setDomainId("test");
+        cmd.setDomainId(1L);
 
         Mockito.doReturn(domainVoMock).when(domainDaoMock).findByUuidIncludingRemoved(Mockito.anyString());
         Mockito.doReturn(expectedDomainId).when(domainVoMock).getId();
@@ -773,9 +773,9 @@ public class QuotaResponseBuilderImplTest extends TestCase {
     public void getQuotaSummaryResponseWithListAllTestAccountNameIsNullAndDomainIdIsNotNullButDomainDoesNotExistThrowInvalidParameterValueException() {
         QuotaSummaryCmd cmd = new QuotaSummaryCmd();
         cmd.setAccountName(null);
-        cmd.setDomainId("test");
+        cmd.setDomainId(1L);
 
-        Mockito.doReturn(null).when(domainDaoMock).findByUuidIncludingRemoved(Mockito.anyString());
+        Mockito.doReturn(null).when(domainDaoMock).findByIdIncludingRemoved(Mockito.anyLong());
         quotaResponseBuilderSpy.getQuotaSummaryResponseWithListAll(cmd, accountMock);
     }
 
@@ -785,9 +785,9 @@ public class QuotaResponseBuilderImplTest extends TestCase {
 
         QuotaSummaryCmd cmd = new QuotaSummaryCmd();
         cmd.setAccountName("test");
-        cmd.setDomainId("test");
+        cmd.setDomainId(9837l);
 
-        Mockito.doReturn(domainVoMock).when(domainDaoMock).findByUuidIncludingRemoved(Mockito.anyString());
+        Mockito.doReturn(domainVoMock).when(domainDaoMock).findByIdIncludingRemoved(Mockito.anyLong());
         Mockito.doReturn(expectedDomainId).when(domainVoMock).getId();
 
         Mockito.doReturn(null).when(quotaResponseBuilderSpy).getAccountIdByAccountName(Mockito.anyString(), Mockito.anyLong(), Mockito.any());

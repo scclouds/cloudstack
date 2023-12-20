@@ -48,6 +48,7 @@ import com.cloud.domain.DomainVO;
 import com.cloud.event.ActionEvent;
 import com.cloud.event.EventTypes;
 import com.cloud.exception.PermissionDeniedException;
+import com.cloud.projects.ProjectManager;
 import com.cloud.projects.dao.ProjectDao;
 import com.cloud.serializer.GsonHelper;
 import com.cloud.utils.DateUtil;
@@ -189,6 +190,9 @@ public class QuotaResponseBuilderImpl implements QuotaResponseBuilder {
     private QuotaSummaryDao quotaSummaryDao;
 
     @Inject
+    private ProjectManager _projectMgr;
+
+    @Inject
     private ApiDiscoveryService apiDiscoveryService;
 
     @Inject
@@ -266,11 +270,13 @@ public class QuotaResponseBuilderImpl implements QuotaResponseBuilder {
 
     @Override
     public QuotaBalanceResponse createQuotaBalanceResponse(QuotaBalanceCmd cmd) {
-        List<QuotaBalanceVO> quotaBalances = _quotaService.listQuotaBalancesForAccount(cmd.getAccountId(), cmd.getAccountName(), cmd.getDomainId(), cmd.getStartDate(), cmd.getEndDate());
+        Long accountId = _quotaService.finalizeAccountId(cmd.getAccountId(), cmd.getAccountName(), cmd.getDomainId(), cmd.getProjectId());
+
+        List<QuotaBalanceVO> quotaBalances = _quotaService.listQuotaBalancesForAccount(accountId, cmd.getAccountName(), cmd.getDomainId(), cmd.getStartDate(), cmd.getEndDate());
 
         if (CollectionUtils.isEmpty(quotaBalances)) {
             throw new InvalidParameterValueException(String.format("There are no quota balances for the parameters [%s].",
-                    ReflectionToStringBuilderUtils.reflectOnlySelectedFields(cmd, "accountId", "accountName", "domainId", "startDate", "endDate")));
+                    ReflectionToStringBuilderUtils.reflectOnlySelectedFields(cmd, "accountId", "accountName", "domainId", "startDate", "endDate", "projectId")));
         }
 
         List<QuotaBalanceResponse> balances =
@@ -298,24 +304,21 @@ public class QuotaResponseBuilderImpl implements QuotaResponseBuilder {
     }
 
     protected Pair<List<QuotaSummaryResponse>, Integer> getQuotaSummaryResponseWithListAll(QuotaSummaryCmd cmd, Account caller) {
-        String accountName = cmd.getAccountName();
-        String accountUuid = cmd.getAccountId();
-        String domainUuid = cmd.getDomainId();
 
-        Long domainId = null;
-        if (accountName != null && domainUuid == null) {
-            domainId = caller.getDomainId();
-        } else if (domainUuid != null) {
-            DomainVO domain = domainDao.findByUuidIncludingRemoved(domainUuid);
 
-            if (domain == null) {
-                throw new InvalidParameterValueException(String.format("Domain [%s] does not exist.", domainUuid));
-            }
-
-            domainId = domain.getId();
+        Long accountId = null;
+        if (cmd.getAccountName() != null || cmd.getProjectId() != null || cmd.getAccountId() != null) {
+            accountId = _quotaService.finalizeAccountId(cmd.getAccountId(), cmd.getAccountName(), cmd.getDomainId(), cmd.getProjectId());
         }
 
-        Long accountId = accountUuid == null ? getAccountIdByAccountName(accountName, domainId, caller) : getAccountIdByAccountUuid(accountUuid, domainId, caller);
+        Long domainId = cmd.getDomainId();
+        if (domainId != null) {
+            DomainVO domain = domainDao.findByIdIncludingRemoved(domainId);
+            if (domain == null) {
+                throw new InvalidParameterValueException(String.format("Domain [%s] does not exist.", domainId));
+            }
+        }
+
         String domainPath = getDomainPathByDomainIdForDomainAdmin(caller);
 
         String keyword = null;
@@ -386,7 +389,7 @@ public class QuotaResponseBuilderImpl implements QuotaResponseBuilder {
 
         if (CollectionUtils.isEmpty(summaries)) {
             s_logger.info(String.format("There are no summaries to list for parameters [%s].",
-                    ReflectionToStringBuilderUtils.reflectOnlySelectedFields(cmd, "accountName", "domainId", "listAll", "page", "pageSize")));
+                    ReflectionToStringBuilderUtils.reflectOnlySelectedFields(cmd, "accountName", "domainId", "listAll", "page", "pageSize", "projectId")));
             return new Pair<>(new ArrayList<>(), 0);
         }
 
@@ -428,22 +431,26 @@ public class QuotaResponseBuilderImpl implements QuotaResponseBuilder {
         return response;
     }
 
-    protected Account selectAccount(Long accountId, String accountName, Long domainId) {
-        if (accountId != null) {
-            return _accountDao.findByIdIncludingRemoved(accountId);
+    protected Account selectAccount(Long accountId, Long projectId, String accountName, Long domainId) {
+        if (accountName != null && domainId != null) {
+            return _accountDao.findActiveAccount(accountName, domainId);
         }
-        return _accountDao.findActiveAccount(accountName, domainId);
+        if (projectId != null) {
+            final Project project = _projectMgr.getProject(projectId);
+            accountId = project.getProjectAccountId();
+        }
+        return _accountDao.findByIdIncludingRemoved(accountId);
     }
 
     @Override
     public QuotaStatementResponse createQuotaStatementResponse(final List<QuotaUsageJoinVO> quotaUsages, QuotaStatementCmd cmd) {
         if (CollectionUtils.isEmpty(quotaUsages)) {
             throw new InvalidParameterValueException(String.format("There is no usage data for parameters [%s].", ReflectionToStringBuilderUtils.reflectOnlySelectedFields(cmd,
-                    "accountName", "accountId", "domainId", "startDate", "endDate", "type", "showDetails")));
+                    "accountName", "accountId", "domainId", "startDate", "endDate", "projectId", "type", "showDetails")));
         }
 
         s_logger.debug(String.format("Creating quota statement from [%s] usage records for parameters [%s].", quotaUsages.size(),
-                ReflectionToStringBuilderUtils.reflectOnlySelectedFields(cmd, "accountName", "accountId", "domainId", "startDate", "endDate", "type", "showDetails")));
+                ReflectionToStringBuilderUtils.reflectOnlySelectedFields(cmd, "accountName", "accountId", "domainId", "startDate", "endDate", "projectId", "type", "showDetails")));
 
         createDummyRecordForEachQuotaTypeIfUsageTypeIsNotInformed(quotaUsages, cmd.getUsageType());
 
@@ -462,7 +469,7 @@ public class QuotaResponseBuilderImpl implements QuotaResponseBuilder {
         statement.setCurrency(QuotaConfig.QuotaCurrencySymbol.value());
         statement.setObjectName("statement");
 
-        Account account = selectAccount(cmd.getAccountId(), cmd.getAccountName(), cmd.getDomainId());
+        Account account = selectAccount(cmd.getAccountId(), cmd.getProjectId(), cmd.getAccountName(), cmd.getDomainId());
         Domain domain = domainDao.findByIdIncludingRemoved(account.getDomainId());
 
         statement.setAccountId(account.getUuid());
@@ -894,7 +901,9 @@ public class QuotaResponseBuilderImpl implements QuotaResponseBuilder {
 
     @Override
     public List<QuotaUsageJoinVO> getQuotaUsage(QuotaStatementCmd cmd) {
-        return _quotaService.getQuotaUsage(cmd.getAccountId(), cmd.getAccountName(), cmd.getDomainId(), cmd.getUsageType(), cmd.getStartDate(), cmd.getEndDate());
+        Long accountId = cmd.getEntityOwnerId();
+
+        return _quotaService.getQuotaUsage(accountId, cmd.getDomainId(), cmd.getUsageType(), cmd.getStartDate(), cmd.getEndDate());
     }
 
     @Override
@@ -1057,8 +1066,8 @@ public class QuotaResponseBuilderImpl implements QuotaResponseBuilder {
     }
 
     protected List<QuotaCreditsVO> getCreditsForQuotaCreditsList(QuotaCreditsListCmd cmd) {
-        Long accountId = cmd.getAccountId();
         Long domainId = cmd.getDomainId();
+        Long accountId = _quotaService.finalizeAccountId(cmd.getAccountId(), null, domainId, cmd.getProjectId());
         Date startDate = cmd.getStartDate();
         Date endDate = cmd.getEndDate();
 
@@ -1073,7 +1082,7 @@ public class QuotaResponseBuilderImpl implements QuotaResponseBuilder {
         }
 
         String message = String.format("There are no credit statements for parameters [%s].", ReflectionToStringBuilderUtils.reflectOnlySelectedFields(cmd, "accountName",
-                "domainId", "startDate", "endDate"));
+                "domainId", "startDate", "endDate", "projectId"));
         s_logger.debug(message);
         throw new InvalidParameterValueException(message);
     }

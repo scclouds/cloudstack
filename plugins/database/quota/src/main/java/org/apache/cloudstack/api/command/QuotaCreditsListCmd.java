@@ -25,6 +25,7 @@ import org.apache.cloudstack.api.Parameter;
 import org.apache.cloudstack.api.response.AccountResponse;
 import org.apache.cloudstack.api.response.DomainResponse;
 import org.apache.cloudstack.api.response.ListResponse;
+import org.apache.cloudstack.api.response.ProjectResponse;
 import org.apache.cloudstack.api.response.QuotaCreditsResponse;
 import org.apache.cloudstack.api.response.QuotaResponseBuilder;
 import org.apache.commons.lang3.time.DateUtils;
@@ -41,8 +42,11 @@ public class QuotaCreditsListCmd extends QuotaBaseCmd {
     @Inject
     QuotaResponseBuilder quotaResponseBuilder;
 
-    @Parameter(name = ApiConstants.ACCOUNT_ID, type = CommandType.UUID, required = true, entityType = AccountResponse.class, description = "Account's id for which credit statements will be generated.")
+    @Parameter(name = ApiConstants.ACCOUNT_ID, type = CommandType.UUID, entityType = AccountResponse.class, description = "Account's id for which credit statements will be generated. Can not be specified with projectId.")
     private Long accountId;
+
+    @Parameter(name = ApiConstants.PROJECT_ID, type = CommandType.UUID, entityType = ProjectResponse.class, description = "Project's id for which credit statements will be generated. Can not be specified with accountId.")
+    private Long projectId;
 
     @Parameter(name = ApiConstants.DOMAIN_ID, type = CommandType.UUID, required = true, entityType = DomainResponse.class, description = "If domain id is given and the caller is"
             + " domain admin then the credits are listed for the domain given by the user.")
@@ -62,6 +66,10 @@ public class QuotaCreditsListCmd extends QuotaBaseCmd {
 
     public void setAccountId(Long accountId) {
         this.accountId = accountId;
+    }
+
+    public Long getProjectId() {
+        return projectId;
     }
 
     public Long getDomainId() {
