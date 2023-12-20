@@ -45,12 +45,13 @@
     <a-card-grid class="estimatedcost-card-grid" :hoverable="false" style="text-align: center">
       <a-slider
         v-model:value="timevalue"
+        :min="1"
         :max="maxtimevalue"
       />
       <a-input-number
         class="estimatedcost-input"
         size="small"
-        :min="0"
+        :min="1"
         :max="maxtimevalue"
         v-model:value="timevalue"
       />
@@ -85,9 +86,9 @@ export default {
       loading: false,
       currencysymbol: '$',
       currencylocale: 'en-US',
-      timevalue: 0,
-      maxtimevalue: 24,
-      timeunit: 'hour',
+      timevalue: 30,
+      maxtimevalue: 30,
+      timeunit: 'day',
       virtualmachine: 0,
       rootvolume: 0,
       datavolume: 0,
@@ -106,6 +107,7 @@ export default {
     }
   },
   created () {
+    this.maxtimevalue = this.daysInMonth
     this.updateEstimatedCost()
   },
   computed: {
