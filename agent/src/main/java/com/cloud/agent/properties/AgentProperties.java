@@ -760,6 +760,13 @@ public class AgentProperties{
      */
     public static final Property<String> HOSTNAME_PATH = new Property<>("hostname.path", "/usr/bin/hostname");
 
+    /**
+     *  If set to true, creates VMs as full clones on KVM hypervisor. Creates as linked clones otherwise. <br>
+     * Data type: Boolean. <br>
+     * Default value: <code>false</code>
+     */
+    public static final Property<Boolean> CREATE_FULL_CLONE = new Property<>("create.full.clone", false);
+
     public static class Property <T>{
         private String name;
         private T defaultValue;
