@@ -22,17 +22,17 @@ import javax.inject.Inject;
 
 import com.cloud.exception.InvalidParameterValueException;
 import com.cloud.user.Account;
-import org.apache.cloudstack.api.ApiErrorCode;
-import org.apache.cloudstack.api.ServerApiException;
 import org.apache.log4j.Logger;
 import org.apache.cloudstack.api.APICommand;
 import org.apache.cloudstack.api.ApiConstants;
 import org.apache.cloudstack.api.Parameter;
 import org.apache.cloudstack.api.response.AccountResponse;
 import org.apache.cloudstack.api.response.DomainResponse;
+import org.apache.cloudstack.api.response.ProjectResponse;
 import org.apache.cloudstack.api.response.QuotaBalanceResponse;
 import org.apache.cloudstack.api.response.QuotaResponseBuilder;
 import org.apache.cloudstack.api.response.QuotaStatementItemResponse;
+import org.apache.cloudstack.quota.QuotaService;
 
 @APICommand(name = "quotaBalance", responseObject = QuotaStatementItemResponse.class, description = "Create quota balance statements for the account.", since = "4.7.0",
     requestHasSensitiveInfo = false, responseHasSensitiveInfo = false)
@@ -55,8 +55,14 @@ public class QuotaBalanceCmd extends QuotaBaseCmd {
             ApiConstants.PARAMETER_DESCRIPTION_START_DATE_POSSIBLE_FORMATS)
     private Date startDate;
 
-    @Parameter(name = ApiConstants.ACCOUNT_ID, type = CommandType.UUID, entityType = AccountResponse.class, description = "Account's id for which statement will be generated.")
+    @Parameter(name = ApiConstants.ACCOUNT_ID, type = CommandType.UUID, entityType = AccountResponse.class, description = "Account's id for which statement will be generated. Can not be specified with projectId.")
     private Long accountId;
+
+    @Parameter(name = ApiConstants.PROJECT_ID, type = CommandType.UUID, entityType = ProjectResponse.class, description = "Project's id for which statement will be generated. Can not be specified with accountId.")
+    private Long projectId;
+
+    @Inject
+    QuotaService quotaService;
 
     @Inject
     QuotaResponseBuilder responseBuilder;
@@ -85,6 +91,10 @@ public class QuotaBalanceCmd extends QuotaBaseCmd {
         this.domainId = domainId;
     }
 
+    public Long getProjectId() {
+        return projectId;
+    }
+
     public Date getEndDate() {
         return endDate;
     }
@@ -103,24 +113,11 @@ public class QuotaBalanceCmd extends QuotaBaseCmd {
 
     @Override
     public long getEntityOwnerId() {
-        if (accountId != null) {
-            if (_accountService.getActiveAccountById(accountId) != null) {
-                return accountId;
-            }
-            return Account.ACCOUNT_ID_SYSTEM;
-        }
-        if (accountName == null && domainId == null) {
-            throw new ServerApiException(ApiErrorCode.PARAM_ERROR, String.format("%s is required.", ApiConstants.ACCOUNT_ID));
-        }
         try {
-            Account activeAccount = _accountService.getActiveAccountByName(accountName, domainId);
-            if (activeAccount != null) {
-                return activeAccount.getId();
-            }
+            return quotaService.finalizeAccountId(accountId, accountName, domainId, projectId);
+        }
+        catch (InvalidParameterValueException exception) {
             return Account.ACCOUNT_ID_SYSTEM;
-        } catch (InvalidParameterValueException exception) {
-            throw new ServerApiException(ApiErrorCode.PARAM_ERROR, String.format("Both %s and %s are needed if using either. Consider using %s instead.",
-                    ApiConstants.ACCOUNT, ApiConstants.DOMAIN_ID, ApiConstants.ACCOUNT_ID));
         }
     }
 

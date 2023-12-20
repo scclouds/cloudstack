@@ -289,7 +289,6 @@
             v-if="$route.path.startsWith('/quotasummary') && $router.resolve(`${$route.path}/${record.account}`) !== '404'"
             :to="{ path: `${$route.path}/${record.account}`, query:
               {
-                account: record.account,
                 domainid: record.domainid,
                 accountid: record.accountid,
                 filter: $route.query.filter

@@ -26,6 +26,7 @@ import org.apache.cloudstack.api.Parameter;
 import org.apache.cloudstack.api.response.AccountResponse;
 import org.apache.cloudstack.api.response.DomainResponse;
 import org.apache.cloudstack.api.response.ListResponse;
+import org.apache.cloudstack.api.response.ProjectResponse;
 import org.apache.cloudstack.api.response.QuotaResponseBuilder;
 import org.apache.cloudstack.api.response.QuotaSummaryResponse;
 import org.apache.cloudstack.quota.QuotaAccountStateFilter;
@@ -46,13 +47,16 @@ public class QuotaSummaryCmd extends QuotaBaseListCmd {
             ApiConstants.ACCOUNT_ID + " instead.")
     private String accountName;
 
-    @Parameter(name = ApiConstants.ACCOUNT_ID, type = CommandType.STRING, entityType = AccountResponse.class, description = "ID of the account for which balance will be listed. ",
+    @Parameter(name = ApiConstants.ACCOUNT_ID, type = CommandType.UUID, entityType = AccountResponse.class, description = "ID of the account for which balance will be listed. Can not be specified with projectId.",
             validations = {ApiArgValidator.UuidString})
-    private String accountId;
+    private Long accountId;
 
-    @Parameter(name = ApiConstants.DOMAIN_ID, type = CommandType.STRING, entityType = DomainResponse.class, description = "ID of the account's domain.",
+    @Parameter(name = ApiConstants.DOMAIN_ID, type = CommandType.UUID, entityType = DomainResponse.class, description = "ID of the account's domain.",
         validations = {ApiArgValidator.UuidString})
-    private String domainId;
+    private Long domainId;
+
+    @Parameter(name = ApiConstants.PROJECT_ID, type = CommandType.UUID, entityType = ProjectResponse.class, description = "Project Id for which balance will be listed. Can not be specified with accountId.")
+    private Long projectId;
 
     @Parameter(name = ApiConstants.LIST_ALL, type = CommandType.BOOLEAN, description = "False (default) lists balance summary for account. True lists balance summary for " +
         "accounts which the caller has access.")
@@ -82,20 +86,24 @@ public class QuotaSummaryCmd extends QuotaBaseListCmd {
         this.accountName = accountName;
     }
 
-    public String getAccountId() {
+    public Long getAccountId() {
         return accountId;
     }
 
-    public void setAccountId(String accountId) {
+    public void setAccountId(Long accountId) {
         this.accountId = accountId;
     }
 
-    public String getDomainId() {
+    public Long getDomainId() {
         return domainId;
     }
 
-    public void setDomainId(String domainId) {
+    public void setDomainId(Long domainId) {
         this.domainId = domainId;
+    }
+
+    public Long getProjectId() {
+        return projectId;
     }
 
     public Boolean isListAll() {

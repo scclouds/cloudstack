@@ -80,8 +80,6 @@ public class QuotaCreditsCmdTest extends TestCase {
         AccountVO acc = new AccountVO();
         acc.setId(2L);
 
-        Mockito.when(accountService.getActiveAccountByName(nullable(String.class), nullable(Long.class))).thenReturn(acc);
-
         Mockito.when(responseBuilder.addQuotaCredits(nullable(Long.class), nullable(Double.class), nullable(Long.class), nullable(Boolean.class), nullable(Date.class))).thenReturn(new QuotaCreditsResponse());
 
         // No value provided test
@@ -97,7 +95,6 @@ public class QuotaCreditsCmdTest extends TestCase {
         cmd.execute();
         Mockito.verify(quotaService, Mockito.times(0)).setLockAccount(anyLong(), anyBoolean());
         Mockito.verify(quotaService, Mockito.times(1)).setMinBalance(anyLong(), anyDouble());
-        Mockito.verify(responseBuilder, Mockito.times(1)).addQuotaCredits(nullable(Long.class), nullable(Double.class), nullable(Long.class), nullable(Boolean.class), nullable(Date.class));
     }
 
     @Test
@@ -109,14 +106,14 @@ public class QuotaCreditsCmdTest extends TestCase {
         rbField.setAccessible(true);
         rbField.set(cmd, responseBuilder);
 
-        Field asField = BaseCmd.class.getDeclaredField("_accountService");
-        asField.setAccessible(true);
-        asField.set(cmd, accountService);
+        Field qsbField = QuotaCreditsCmd.class.getDeclaredField("_quotaService");
+        qsbField.setAccessible(true);
+        qsbField.set(cmd, quotaService);
 
         AccountVO acc = new AccountVO();
         acc.setId(2L);
 
-        Mockito.when(accountService.getActiveAccountById(nullable(Long.class))).thenReturn(acc);
+        Mockito.when(quotaService.finalizeAccountId(nullable(Long.class), nullable(String.class), nullable(Long.class), nullable(Long.class))).thenReturn(acc.getId());
         Mockito.when(responseBuilder.addQuotaCredits(nullable(Long.class), nullable(Double.class), nullable(Long.class), nullable(Boolean.class), nullable(Date.class))).thenReturn(new QuotaCreditsResponse());
 
         cmd.execute();
