@@ -16,3 +16,13 @@
 -- under the License.
 
 -- Schema upgrade from 4.18.0.6 to 4.18.0.7
+
+UPDATE cloud_usage.quota_tariff
+SET usage_unit = 'Bytes', updated_on = NOW()
+WHERE effective_on = '2010-05-04 00:00:00'
+AND name IN ('VM_DISK_BYTES_READ', 'VM_DISK_BYTES_WRITE');
+
+UPDATE cloud_usage.quota_tariff
+SET usage_unit = 'IOPS', updated_on = NOW()
+WHERE effective_on = '2010-05-04 00:00:00'
+AND name IN ('VM_DISK_IO_READ', 'VM_DISK_IO_WRITE');
