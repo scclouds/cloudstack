@@ -45,6 +45,7 @@
     <a-card-grid class="estimatedcost-card-grid" :hoverable="false" style="text-align: center">
       <a-slider
         v-model:value="timevalue"
+        :tooltip-visible="false"
         :min="1"
         :max="maxtimevalue"
       />
@@ -55,9 +56,6 @@
         :max="maxtimevalue"
         v-model:value="timevalue"
       />
-      <a-button type="primary" @click="updateEstimatedCost">
-        {{ $t('label.calculate') }}
-      </a-button>
       <br>
       <a-radio-group v-model:value="timeunit" button-style="solid" size="small" style="margin-top: 12px">
         <a-radio-button value="hour">{{ $t('label.hours') }}</a-radio-button>
@@ -83,6 +81,10 @@ export default {
   },
   data () {
     return {
+      lastupdate: {
+        timestamp: 0,
+        called: false
+      },
       loading: false,
       currencysymbol: '$',
       currencylocale: 'en-US',
@@ -103,6 +105,16 @@ export default {
         this.maxtimevalue = this.daysInMonth
       } else if (val === 'month') {
         this.maxtimevalue = 12
+      }
+      this.updateEstimatedCost()
+    },
+    timevalue: function () {
+      this.updateEstimatedCost()
+    },
+    resource: {
+      deep: true,
+      handler () {
+        this.updateEstimatedCost()
       }
     }
   },
@@ -325,6 +337,14 @@ export default {
     },
 
     async updateEstimatedCost () {
+      const currentupdate = new Date().getTime()
+      if (this.loading || currentupdate - this.lastupdate.timestamp < 300) {
+        if (!this.lastupdate.called) {
+          this.lastupdate.called = true
+          setTimeout(this.updateEstimatedCost, 1000)
+        }
+        return
+      }
       this.loading = true
 
       api('quotaResourceQuoting', {
@@ -357,6 +377,8 @@ export default {
         }
         this.total = total
         this.loading = false
+        this.lastupdate.timestamp = new Date().getTime()
+        this.lastupdate.called = false
       })
     }
   }
@@ -369,7 +391,6 @@ export default {
   box-shadow: none;
 }
 .estimatedcost-input {
-  width: 50px;
-  margin-right: 10px;
+  width: 55px;
 }
 </style>
