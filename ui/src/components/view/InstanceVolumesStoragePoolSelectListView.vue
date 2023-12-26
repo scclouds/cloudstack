@@ -98,7 +98,11 @@ export default {
           slots: { customRender: 'size' }
         },
         {
-          title: this.$t('label.storage'),
+          title: this.$t('label.current.storage'),
+          dataIndex: 'storage'
+        },
+        {
+          title: this.$t('label.selected.storage'),
           slots: { customRender: 'selectedstorage' }
         },
         {
