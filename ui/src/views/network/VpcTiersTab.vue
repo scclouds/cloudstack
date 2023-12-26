@@ -494,7 +494,7 @@ export default {
       return !(obj !== null && obj !== undefined && Object.keys(obj).length > 0 && obj.constructor === Object)
     },
     isNormalUserOrProject () {
-      return ['User'].includes(this.$store.getters.userInfo.roletype) || this.$store.getters.userInfo.project?.id
+      return ['User'].includes(this.$store.getters.userInfo.roletype) || this.$store.getters.project?.id
     },
     initForm () {
       this.formRef = ref()
