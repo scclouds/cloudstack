@@ -20,6 +20,7 @@ import com.cloud.user.Account;
 
 import org.apache.cloudstack.api.APICommand;
 import org.apache.cloudstack.api.ApiConstants;
+import org.apache.cloudstack.api.BaseCmd;
 import org.apache.cloudstack.api.Parameter;
 import org.apache.cloudstack.api.response.QuotaResponseBuilder;
 import org.apache.cloudstack.api.response.QuotaUsageDetailsResponse;
@@ -30,7 +31,7 @@ import java.util.Date;
 
 @APICommand(name = "quotaStatementDetails", responseObject = QuotaUsageDetailsResponse.class, description = "Lists quota statement details by usage type and id of the resource",
         since = "4.16.0.13", requestHasSensitiveInfo = false, responseHasSensitiveInfo = false)
-public class QuotaStatementDetailsCmd extends QuotaBaseCmd {
+public class QuotaStatementDetailsCmd extends BaseCmd {
     @Inject
     QuotaResponseBuilder responseBuilder;
 

@@ -26,6 +26,7 @@ import com.cloud.exception.InvalidParameterValueException;
 import com.cloud.user.Account;
 import org.apache.cloudstack.api.APICommand;
 import org.apache.cloudstack.api.ApiConstants;
+import org.apache.cloudstack.api.BaseCmd;
 import org.apache.cloudstack.api.Parameter;
 import org.apache.cloudstack.api.response.AccountResponse;
 import org.apache.cloudstack.api.response.DomainResponse;
@@ -41,7 +42,7 @@ import org.apache.log4j.Logger;
 
 
 @APICommand(name = "quotaStatement", responseObject = QuotaStatementItemResponse.class, description = "Create a quota statement", since = "4.7.0", requestHasSensitiveInfo = false, responseHasSensitiveInfo = false)
-public class QuotaStatementCmd extends QuotaBaseCmd {
+public class QuotaStatementCmd extends BaseCmd {
 
     public static final Logger s_logger = Logger.getLogger(QuotaStatementCmd.class);
 

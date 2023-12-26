@@ -22,6 +22,7 @@ import com.cloud.utils.Pair;
 import org.apache.cloudstack.api.APICommand;
 import org.apache.cloudstack.api.ApiArgValidator;
 import org.apache.cloudstack.api.ApiConstants;
+import org.apache.cloudstack.api.BaseListCmd;
 import org.apache.cloudstack.api.Parameter;
 import org.apache.cloudstack.api.response.AccountResponse;
 import org.apache.cloudstack.api.response.DomainResponse;
@@ -32,17 +33,13 @@ import org.apache.cloudstack.api.response.QuotaSummaryResponse;
 import org.apache.cloudstack.quota.QuotaAccountStateFilter;
 import org.apache.commons.lang3.BooleanUtils;
 import org.apache.commons.lang3.StringUtils;
-import org.apache.log4j.Logger;
 
 import java.util.List;
 
 import javax.inject.Inject;
 
-@APICommand(name = "quotaSummary", responseObject = QuotaSummaryResponse.class, description = "\"Lists accounts' balance summary.", since = "4.7.0",
-    requestHasSensitiveInfo = false, responseHasSensitiveInfo = false)
-public class QuotaSummaryCmd extends QuotaBaseListCmd {
-    public static final Logger s_logger = Logger.getLogger(QuotaSummaryCmd.class);
-
+@APICommand(name = "quotaSummary", responseObject = QuotaSummaryResponse.class, description = "Lists accounts' balance summary.", since = "4.7.0", requestHasSensitiveInfo = false, responseHasSensitiveInfo = false)
+public class QuotaSummaryCmd extends BaseListCmd {
     @Parameter(name = ApiConstants.ACCOUNT, type = CommandType.STRING, description = "Account's name for which balance will be listed. Deprecated, please use " +
             ApiConstants.ACCOUNT_ID + " instead.")
     private String accountName;

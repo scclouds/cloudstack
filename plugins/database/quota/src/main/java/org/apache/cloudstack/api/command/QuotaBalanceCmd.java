@@ -22,9 +22,9 @@ import javax.inject.Inject;
 
 import com.cloud.exception.InvalidParameterValueException;
 import com.cloud.user.Account;
-import org.apache.log4j.Logger;
 import org.apache.cloudstack.api.APICommand;
 import org.apache.cloudstack.api.ApiConstants;
+import org.apache.cloudstack.api.BaseCmd;
 import org.apache.cloudstack.api.Parameter;
 import org.apache.cloudstack.api.response.AccountResponse;
 import org.apache.cloudstack.api.response.DomainResponse;
@@ -35,9 +35,8 @@ import org.apache.cloudstack.api.response.QuotaStatementItemResponse;
 import org.apache.cloudstack.quota.QuotaService;
 
 @APICommand(name = "quotaBalance", responseObject = QuotaStatementItemResponse.class, description = "Create quota balance statements for the account.", since = "4.7.0",
-    requestHasSensitiveInfo = false, responseHasSensitiveInfo = false)
-public class QuotaBalanceCmd extends QuotaBaseCmd {
-    public static final Logger s_logger = Logger.getLogger(QuotaBalanceCmd.class);
+requestHasSensitiveInfo = false, responseHasSensitiveInfo = false)
+public class QuotaBalanceCmd extends BaseCmd {
 
     @Parameter(name = ApiConstants.ACCOUNT, type = CommandType.STRING, description = "Account's name for which statement will be generated. Deprecated, please use " +
             ApiConstants.ACCOUNT_ID + " instead.")
