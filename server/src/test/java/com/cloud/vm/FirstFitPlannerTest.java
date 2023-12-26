@@ -153,6 +153,7 @@ public class FirstFitPlannerTest {
     public void setUp() {
         ConfigKey.init(configDepot);
 
+        when(configDepot.global()).thenReturn(configDao);
         when(configDao.getValue(Mockito.anyString())).thenReturn(null);
         when(configDao.getValue(Config.ImplicitHostTags.key())).thenReturn("GPU");
 
@@ -244,8 +245,6 @@ public class FirstFitPlannerTest {
     }
 
     private List<Long> initializeForClusterThresholdDisabled() {
-        when(configDepot.global()).thenReturn(configDao);
-
         ConfigurationVO config = mock(ConfigurationVO.class);
         when(config.getValue()).thenReturn(String.valueOf(false));
         when(configDao.findById(DeploymentClusterPlanner.ClusterThresholdEnabled.key())).thenReturn(config);
