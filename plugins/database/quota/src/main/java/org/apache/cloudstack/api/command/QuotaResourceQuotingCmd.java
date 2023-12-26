@@ -19,6 +19,7 @@ package org.apache.cloudstack.api.command;
 import com.cloud.user.Account;
 import org.apache.cloudstack.api.APICommand;
 import org.apache.cloudstack.api.ApiConstants;
+import org.apache.cloudstack.api.BaseCmd;
 import org.apache.cloudstack.api.Parameter;
 import org.apache.cloudstack.api.response.QuotaResourceQuotingResponse;
 import org.apache.cloudstack.api.response.QuotaResponseBuilder;
@@ -32,7 +33,7 @@ import java.util.List;
 @APICommand(name = QuotaResourceQuotingCmd.API_NAME, responseObject = QuotaResourceQuotingResponse.class, description = "Quotes the resources passed as parameter according to " +
         "the volume passed as parameter and the current quota tariffs. It will return the total of the quoting and details the value of each usage type quoted. A detailed documentation " +
         "about the params can be found in " + QuotaResourceQuotingCmd.LINK_TO_QUOTA_SPEC, since = "4.16.0.7-scclouds", requestHasSensitiveInfo = false, responseHasSensitiveInfo = false)
-public class QuotaResourceQuotingCmd extends QuotaBaseCmd {
+public class QuotaResourceQuotingCmd extends BaseCmd {
     public static final String API_NAME = "quotaResourceQuoting";
     public static final String LINK_TO_QUOTA_SPEC = "https://files.scclouds.com.br/sharing/r9g6EPcsB";
 

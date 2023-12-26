@@ -28,9 +28,9 @@ import java.util.Map;
 public abstract class QuotaBaseCmd extends BaseCmd {
 
     @Override
-    public void validateCommandSpecificPermissionsAndParameters(final Map<String, String> params) {
+    public void validateSpecificParameters(final Map<String, String> params) {
         validateQuotaAccountEnabled(this);
-        super.validateCommandSpecificPermissionsAndParameters(params);
+        super.validateSpecificParameters(params);
     }
 
     public static void validateQuotaAccountEnabled(BaseCmd cmd) {
@@ -40,7 +40,7 @@ public abstract class QuotaBaseCmd extends BaseCmd {
             return;
         }
 
-        if (!QuotaConfig.QuotaPluginEnabled.value() || !QuotaConfig.QuotaAccountEnabled.valueIn(caller.getAccountId())){
+        if (!QuotaConfig.QuotaPluginEnabled.value()){
             throw new UnavailableCommandException(String.format("The API [%s] is not available for account %s.", cmd.getActualCommandName(),
                     ReflectionToStringBuilderUtils.reflectOnlySelectedFields(caller, "accountName", "uuid")));
         }

@@ -26,7 +26,7 @@ import java.util.stream.Collectors;
 
 import javax.inject.Inject;
 
-import org.apache.cloudstack.framework.config.PluginAccessConfigs;
+import org.apache.cloudstack.quota.constant.QuotaConfig;
 import org.apache.log4j.Logger;
 import org.springframework.stereotype.Component;
 
@@ -127,7 +127,7 @@ public class ProjectJoinDaoImpl extends GenericDaoBase<ProjectJoinVO, Long> impl
             _accountJoinDao.setResourceLimits(accountJn, false, response);
         }
         response.setProjectAccountName(account.getAccountName());
-        response.setQuotaEnabled(PluginAccessConfigs.QuotaPluginEnabled.value() && PluginAccessConfigs.QuotaAccountEnabled.valueIn(account.getId()));
+        response.setQuotaEnabled(QuotaConfig.QuotaPluginEnabled.value() && QuotaConfig.QuotaAccountEnabled.valueIn(account.getId()));
 
         response.setObjectName("project");
         return response;

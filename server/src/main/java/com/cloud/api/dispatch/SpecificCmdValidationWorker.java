@@ -28,7 +28,7 @@ public class SpecificCmdValidationWorker implements DispatchWorker {
     @SuppressWarnings("unchecked")
     @Override
     public void handle(final DispatchTask task) {
-        task.getCmd().validateCommandSpecificPermissionsAndParameters(task.getParams());
+        task.getCmd().validateSpecificParameters(task.getParams());
     }
 
 }

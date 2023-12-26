@@ -21,6 +21,7 @@ import com.cloud.utils.Pair;
 
 import org.apache.cloudstack.api.APICommand;
 import org.apache.cloudstack.api.ApiConstants;
+import org.apache.cloudstack.api.BaseCmd;
 import org.apache.cloudstack.api.Parameter;
 import org.apache.cloudstack.api.response.AccountResponse;
 import org.apache.cloudstack.api.response.DomainResponse;
@@ -37,8 +38,9 @@ import java.util.List;
 import javax.inject.Inject;
 
 @APICommand(name = "quotaCreditsList", responseObject = QuotaCreditsResponse.class, description = "Lists quota credits of an account.", since = "4.16.0.4",
-        requestHasSensitiveInfo = false, responseHasSensitiveInfo = false)
-public class QuotaCreditsListCmd extends QuotaBaseCmd {
+requestHasSensitiveInfo = false, responseHasSensitiveInfo = false)
+public class QuotaCreditsListCmd extends BaseCmd {
+
     @Inject
     QuotaResponseBuilder quotaResponseBuilder;
 
