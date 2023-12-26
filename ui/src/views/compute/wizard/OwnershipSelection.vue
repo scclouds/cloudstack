@@ -139,7 +139,7 @@ export default {
       domains: [],
       accounts: [],
       projects: [],
-      selectedAccountType: this.$t('label.account'),
+      selectedAccountType: this.$store.getters.project?.id ? this.$t('label.project') : this.$t('label.account'),
       selectedDomain: null,
       selectedAccount: null,
       selectedProject: null,
@@ -174,7 +174,10 @@ export default {
             this.selectedAccount = null
             return
           }
-          this.selectedDomain = this.domains[0].id
+          const domainIds = this.domains?.map(domain => domain.id)
+          const ownerDomainId = this.$store.getters.project?.domainid || this.$store.getters.userInfo.domainid
+          this.selectedDomain = domainIds?.includes(ownerDomainId) ? ownerDomainId : this.domains?.[0]?.id
+
           this.changeDomain()
         })
         .catch((error) => {
@@ -198,7 +201,12 @@ export default {
           if (this.override?.accounts && this.accounts) {
             this.accounts = this.accounts.filter(item => this.override.accounts.has(item.name))
           }
-          this.selectedAccount = (this.accounts?.length > 0) ? this.accounts[0].name : null
+          const accountNames = this.accounts.map(account => account.name)
+          if (this.selectedDomain === this.$store.getters.userInfo.domainid && accountNames.includes(this.$store.getters.userInfo.account)) {
+            this.selectedAccount = this.$store.getters.userInfo.account
+          } else {
+            this.selectedAccount = this.accounts?.[0]?.name
+          }
           this.selectedProject = null
           this.emitChangeEvent()
         })
@@ -224,7 +232,7 @@ export default {
           if (this.override?.projects && this.projects) {
             this.projects = this.projects.filter(item => this.override.projects.has(item.id))
           }
-          this.selectedProject = (this.projects?.length > 0) ? this.projects[0].id : null
+          this.selectedProject = this.projects?.map(project => project.id)?.includes(this.$store.getters.project?.id) ? this.$store.getters.project?.id : this.projects?.[0]?.id
           this.selectedAccount = null
           this.emitChangeEvent()
         })
