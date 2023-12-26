@@ -30,7 +30,7 @@ import org.apache.cloudstack.quota.constant.QuotaTypes;
 import javax.inject.Inject;
 import java.util.List;
 
-@APICommand(name = "quotaListPresetVariables", responseObject = QuotaPresetVariablesItemResponse.class, description = "List the preset variables available for using in the " +
+@APICommand(name = "quotaPresetVariablesList", responseObject = QuotaPresetVariablesItemResponse.class, description = "List the preset variables available for using in the " +
     "Quota tariff activation rules given the usage type.", since = "4.18.0.4-scclouds", requestHasSensitiveInfo = false, responseHasSensitiveInfo = false)
 public class QuotaPresetVariablesListCmd extends BaseCmd {
 
