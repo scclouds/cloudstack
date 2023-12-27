@@ -540,6 +540,14 @@ public class AgentProperties{
     public static final Property<Integer> VM_MIGRATE_DOMAIN_RETRIEVE_TIMEOUT = new Property<>("vm.migrate.domain.retrieve.timeout", 10);
 
     /**
+     * Override flags passed to libvirt with virDomainMigrate when migrating a VM with KVM. <br>
+     # The default value is -1, which means that the migration flags will not be overridden. <br>
+     * Data type: Long. <br>
+     * Default value: <code>-1L</code>
+     */
+    public static final Property<Long> VM_MIGRATE_DOMAIN_FLAGS = new Property<>("vm.migrate.domain.flags", -1L);
+
+    /**
      * This parameter specifies if the host must be rebooted when something goes wrong with the heartbeat.<br>
      * Data type: Boolean.<br>
      * Default value: <code>true</code>
