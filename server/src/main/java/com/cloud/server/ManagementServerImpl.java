@@ -1560,7 +1560,7 @@ public class ManagementServerImpl extends ManagerBase implements ManagementServe
                 suitableHosts = allocator.allocateTo(vmProfile, plan, Host.Type.Routing, excludes, HostAllocator.RETURN_UPTO_ALL, false);
             }
 
-            if (suitableHosts != null && !suitableHosts.isEmpty()) {
+            if (CollectionUtils.isNotEmpty(suitableHosts)) {
                 break;
             }
         }
@@ -1570,7 +1570,7 @@ public class ManagementServerImpl extends ManagerBase implements ManagementServe
 
         if (s_logger.isDebugEnabled()) {
             if (suitableHosts.isEmpty()) {
-                s_logger.debug("No suitable hosts found");
+                s_logger.warn("No suitable hosts found.");
             } else {
                 s_logger.debug("Hosts having capacity and suitable for migration: " + suitableHosts);
             }
