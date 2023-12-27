@@ -20,11 +20,16 @@ package com.cloud.hypervisor.kvm.resource;
 
 import java.util.concurrent.Callable;
 
+import com.cloud.agent.properties.AgentProperties;
+import com.cloud.agent.properties.AgentPropertiesFileHandler;
+import org.apache.log4j.Logger;
 import org.libvirt.Connect;
 import org.libvirt.Domain;
 import org.libvirt.LibvirtException;
 
 public class MigrateKVMAsync implements Callable<Domain> {
+
+    private static final Logger s_logger = Logger.getLogger(MigrateKVMAsync.class);
 
     private final LibvirtComputingResource libvirtComputingResource;
 
@@ -100,27 +105,43 @@ public class MigrateKVMAsync implements Callable<Domain> {
         this.destIp = destIp;
     }
 
-    @Override
-    public Domain call() throws LibvirtException {
+    protected long getFlags() throws LibvirtException {
+        long configFlags = AgentPropertiesFileHandler.getPropertyValue(AgentProperties.VM_MIGRATE_DOMAIN_FLAGS);
+        if (configFlags != -1) {
+            s_logger.warn(String.format("Property [%s] was set; therefore, the migration flags will be overridden with [%s].", AgentProperties.VM_MIGRATE_DOMAIN_FLAGS.getName(), configFlags));
+            return configFlags;
+        }
+
         long flags = VIR_MIGRATE_LIVE;
+        s_logger.debug("Setting virMigrateLive for live migration.");
 
         if (dconn.getLibVirVersion() >= LIBVIRT_VERSION_SUPPORTS_MIGRATE_COMPRESSED) {
             flags |= VIR_MIGRATE_COMPRESSED;
+            s_logger.debug(String.format("Setting virMigrateCompressed since libvirt version [%s] supports it.", dconn.getLibVirVersion()));
         }
 
         if (migrateStorage) {
             if (migrateNonSharedInc) {
                 flags |= VIR_MIGRATE_PERSIST_DEST;
                 flags |= VIR_MIGRATE_NON_SHARED_INC;
+                s_logger.debug("Setting virMigratePersistDest and virMigrateNonSharedInc for incremental migration.");
             } else {
                 flags |= VIR_MIGRATE_NON_SHARED_DISK;
+                s_logger.debug("Setting virMigrateNonSharedDisk for full migration.");
             }
         }
 
         if (autoConvergence && dconn.getLibVirVersion() >= LIBVIRT_VERSION_SUPPORTS_AUTO_CONVERGE) {
             flags |= VIR_MIGRATE_AUTO_CONVERGE;
+            s_logger.debug("Setting virMigrateAutoConverge.");
         }
+        return flags;
+    }
 
+    @Override
+    public Domain call() throws LibvirtException {
+        long flags = getFlags();
+        s_logger.debug(String.format("Migrating [%s] with flags [%s], destination [%s] and speed [%s].", vmName, flags, destIp, libvirtComputingResource.getMigrateSpeed()));
         return dm.migrate(dconn, flags, dxml, vmName, "tcp:" + destIp, libvirtComputingResource.getMigrateSpeed());
     }
 }
