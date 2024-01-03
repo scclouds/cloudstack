@@ -24,7 +24,6 @@ import java.util.Map;
 
 import javax.inject.Inject;
 
-import org.apache.commons.collections.CollectionUtils;
 import org.apache.log4j.Logger;
 import org.springframework.stereotype.Component;
 
@@ -119,9 +118,9 @@ public class ZoneWideStoragePoolAllocator extends AbstractStoragePoolAllocator {
         List<StoragePool> pools) {
         Long zoneId = plan.getDataCenterId();
         short capacityType;
-        if (CollectionUtils.isNotEmpty(pools)) {
-            capacityType = pools.get(0).isShared() ? Capacity.CAPACITY_TYPE_STORAGE_ALLOCATED : Capacity.CAPACITY_TYPE_LOCAL_STORAGE;
-        } else {
+        if(pools != null && pools.size() != 0){
+            capacityType = pools.get(0).getPoolType().isShared() ? Capacity.CAPACITY_TYPE_STORAGE_ALLOCATED : Capacity.CAPACITY_TYPE_LOCAL_STORAGE;
+        } else{
             return null;
         }
 
