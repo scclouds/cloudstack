@@ -37,6 +37,10 @@ import java.util.concurrent.Future;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 
+import com.cloud.api.query.dao.DomainRouterJoinDao;
+import com.cloud.api.query.vo.DomainRouterJoinVO;
+import com.cloud.dc.ClusterVO;
+import com.cloud.dc.dao.ClusterDao;
 import com.cloud.event.UsageEventUtils;
 import javax.annotation.PostConstruct;
 import javax.inject.Inject;
@@ -58,6 +62,8 @@ import org.apache.cloudstack.api.command.user.vpc.ListVPCOfferingsCmd;
 import org.apache.cloudstack.api.command.user.vpc.RestartVPCCmd;
 import org.apache.cloudstack.context.CallContext;
 import org.apache.cloudstack.engine.orchestration.service.NetworkOrchestrationService;
+import org.apache.cloudstack.framework.config.ConfigKey;
+import org.apache.cloudstack.framework.config.Configurable;
 import org.apache.cloudstack.framework.config.dao.ConfigurationDao;
 import org.apache.cloudstack.managed.context.ManagedContextRunnable;
 import org.apache.cloudstack.query.QueryService;
@@ -177,7 +183,7 @@ import com.cloud.vm.VirtualMachine;
 import com.cloud.vm.dao.DomainRouterDao;
 import com.cloud.vm.dao.NicDao;
 
-public class VpcManagerImpl extends ManagerBase implements VpcManager, VpcProvisioningService, VpcService {
+public class VpcManagerImpl extends ManagerBase implements VpcManager, VpcProvisioningService, VpcService, Configurable {
     private static final Logger s_logger = Logger.getLogger(VpcManagerImpl.class);
 
     public static final String SERVICE = "service";
@@ -256,6 +262,10 @@ public class VpcManagerImpl extends ManagerBase implements VpcManager, VpcProvis
     NetworkOfferingDao _networkOfferingDao;
     @Inject
     NicDao nicDao;
+    @Inject
+    DomainRouterJoinDao domainRouterJoinDao;
+    @Inject
+    ClusterDao clusterDao;
     @Inject
     AlertManager alertManager;
     @Inject
@@ -373,8 +383,7 @@ public class VpcManagerImpl extends ManagerBase implements VpcManager, VpcProvis
         final String value = configs.get(Config.VpcCleanupInterval.key());
         _cleanupInterval = NumbersUtil.parseInt(value, 60 * 60); // 1 hour
 
-        final String maxNtwks = configs.get(Config.VpcMaxNetworks.key());
-        _maxNetworks = NumbersUtil.parseInt(maxNtwks, 3); // max=3 is default
+        _maxNetworks = VpcMaxNetworks.value();
 
         IpAddressSearch = _ipAddressDao.createSearchBuilder();
         IpAddressSearch.and("accountId", IpAddressSearch.entity().getAllocatedToAccountId(), Op.EQ);
@@ -1783,10 +1792,12 @@ public class VpcManagerImpl extends ManagerBase implements VpcManager, VpcProvis
                     throw new CloudRuntimeException("Unable to acquire lock on " + vpc);
                 }
 
+                _maxNetworks = getVpcMaxNetworksValue(vpc.getId());
+
                 try {
                     // check number of active networks in vpc
                     if (_ntwkDao.countVpcNetworks(vpc.getId()) >= _maxNetworks) {
-                        s_logger.warn(String.format("Failed to create a new VPC Guest Network because the number of networks per VPC has reached its maximum capacity of [%s]. Increase it by modifying global config [%s].", _maxNetworks, Config.VpcMaxNetworks));
+                        s_logger.warn(String.format("Failed to create a new VPC Guest Network because the number of networks per VPC has reached its maximum capacity of [%s]. Increase it by modifying global or cluster config [%s]. Bear in mind that the maximum number of networks per VPC depends on the hypervisor where the VR is deployed; therefore, using the global value as reference might cause errors during the VR's deploy, if this situation is not considered.", _maxNetworks, VpcMaxNetworks));
                         throw new CloudRuntimeException(String.format("Number of networks per VPC cannot surpass [%s].", _maxNetworks));
                     }
 
@@ -1829,6 +1840,37 @@ public class VpcManagerImpl extends ManagerBase implements VpcManager, VpcProvis
                 }
             }
         });
+    }
+
+    /**
+     * Searches for the {@link #VpcMaxNetworks} value in the VPC domain routers cluster and returns the smallest value.
+     * If the VPC does not have any domain routers, it returns the {@link #VpcMaxNetworks} global configuration value.
+     *
+     * @param vpcId ID from VPC.
+     * @return The {@link #VpcMaxNetworks} configuration value.
+     */
+    protected int getVpcMaxNetworksValue(long vpcId) {
+        List<DomainRouterJoinVO> domainRouters = domainRouterJoinDao.listByVpcId(vpcId);
+
+        if (domainRouters.isEmpty()) {
+            s_logger.warn(String.format("Using [%s] global configuration value [%s] as VPC does not have any VRs deployed within a cluster. Bear in mind that the maximum number of networks per VPC depends on the hypervisor where the VR is deployed; therefore, using the global value as reference might cause errors during the VR's deploy, if this situation is not considered.", VpcMaxNetworks, VpcMaxNetworks.value()));
+            return VpcMaxNetworks.value();
+        }
+
+        ClusterVO vpcCluster = clusterDao.findById(domainRouters.get(0).getClusterId());
+        int configValue = VpcMaxNetworks.valueIn(vpcCluster.getId());
+        s_logger.debug(String.format("Using [%s] configuration value [%s] from cluster [%s], which is using the [%s] hypervisor.", VpcMaxNetworks, configValue, vpcCluster.getUuid(), vpcCluster.getHypervisorType()));
+
+        for (DomainRouterJoinVO domainRouter : domainRouters) {
+            int clusterConfigValue = VpcMaxNetworks.valueIn(domainRouter.getClusterId());
+            if (configValue > clusterConfigValue) {
+                configValue = clusterConfigValue;
+                vpcCluster = clusterDao.findById(domainRouter.getClusterId());
+                s_logger.warn(String.format("Using value [%s] as max number of networks per VPC as the VRs of VPC [%s] are deployed in different clusters. This value is referent to the cluster's [%s] configuration, which has the smallest value and uses the [%s] hypervisor.", configValue, domainRouter.getVpcUuid(), vpcCluster.getUuid(), vpcCluster.getHypervisorType()));
+            }
+        }
+
+        return configValue;
     }
 
     private void CheckAccountsAccess(Vpc vpc, Account networkAccount) {
@@ -3134,5 +3176,15 @@ public class VpcManagerImpl extends ManagerBase implements VpcManager, VpcProvis
 
     protected boolean isDefaultAcl(long aclId) {
         return aclId == NetworkACL.DEFAULT_ALLOW || aclId == NetworkACL.DEFAULT_DENY;
+    }
+
+    @Override
+    public String getConfigComponentName() {
+        return VpcManager.class.getSimpleName();
+    }
+
+    @Override
+    public ConfigKey<?>[] getConfigKeys() {
+        return new ConfigKey<?>[] {VpcMaxNetworks};
     }
 }
