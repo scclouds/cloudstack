@@ -74,7 +74,7 @@
           <code-highlight v-else-if="['activationRule'].includes(item)" language="javascript">
             {{ dataResource[item] }}
           </code-highlight>
-          <div style="white-space: pre;" v-else-if="$route.meta.name === 'quotatariff' && item === 'description'">{{ dataResource[item] }} </div>
+          <div style="white-space: pre-wrap;" v-else-if="$route.meta.name === 'quotatariff' && item === 'description'">{{ dataResource[item] }} </div>
           <div v-else>{{ dataResource[item] }}</div>
         </div>
       </a-list-item>
