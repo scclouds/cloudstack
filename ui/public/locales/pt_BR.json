@@ -918,6 +918,7 @@
 "label.kvmnetworklabel": "Etiqueta de tr\u00e1fego KVM",
 "label.l2": "L2",
 "label.l2gatewayserviceuuid": "UUID do servi\u00e7o de gateway L2",
+"label.l2.update.description": "Redes do tipo L2 n\u00e3o s\u00e3o gerenciadas pelo CloudStack, portanto, quaisquer mudan\u00e7as neste formul\u00e1rio afetar\u00e1 apenas a apresenta\u00e7\u00e3o da rede na UI.",
 "label.l3gatewayserviceuuid": "UUID do servi\u00e7o de gateway L3",
 "label.label": "Etiqueta",
 "label.last.updated": "\u00daltima atualiza\u00e7\u00e3o",

@@ -31,12 +31,11 @@
       :scroll="{ y: 225 }">
       <template #name="{ text, record }">
         <div>{{ text }}</div>
-        <small v-if="record.type!=='L2'">{{ $t('label.cidr') + ': ' + record.cidr }}</small>
+        <small v-if='record.cidr'>{{ $t('label.cidr') + ': ' + record.cidr}}</small>
       </template>
       <template #ipAddress="{ record }" v-if="!this.autoscale">
         <a-form-item
           style="display: block"
-          v-if="record.type !== 'L2'"
           :name="'ipAddress' + record.id">
           <a-input
             style="width: 150px;"
@@ -241,7 +240,7 @@ export default {
         return Promise.resolve()
       } else if (!this.ipV4Regex.test(value)) {
         return Promise.reject(this.$t('message.error.ipv4.address'))
-      } else if (rule.networkType !== 'L2' && !this.isIp4InCidr(value, rule.cidr)) {
+      } else if (rule.cidr && !this.isIp4InCidr(value, rule.cidr)) {
         const rangeIps = this.calculateCidrRange(rule.cidr)
         const message = `${this.$t('message.error.ip.range')} ${this.$t('label.from')} ${rangeIps[0]} ${this.$t('label.to')} ${rangeIps[1]}`
         return Promise.reject(message)
@@ -251,15 +250,21 @@ export default {
     },
     getIpRangeDescription (network) {
       const rangeIps = this.calculateCidrRange(network.cidr)
-      const rangeIpDescription = [`${this.$t('label.ip.range')}:`, rangeIps[0], '-', rangeIps[1]].join(' ')
+      const rangeIpDescription = rangeIps ? [`${this.$t('label.ip.range')}:`, rangeIps[0], '-', rangeIps[1]].join(' ') : ''
       return rangeIpDescription
     },
     isIp4InCidr (ip, cidr) {
+      if (!cidr) {
+        return false
+      }
       const [range, bits = 32] = cidr.split('/')
       const mask = ~(2 ** (32 - bits) - 1)
       return (this.ip4ToInt(ip) & mask) === (this.ip4ToInt(range) & mask)
     },
     calculateCidrRange (cidr) {
+      if (!cidr) {
+        return
+      }
       const [range, bits = 32] = cidr.split('/')
       const mask = ~(2 ** (32 - bits) - 1)
       return [this.intToIp4(this.ip4ToInt(range) & mask), this.intToIp4(this.ip4ToInt(range) | ~mask)]

@@ -70,7 +70,8 @@ public class UpdateNetworkCmd extends BaseAsyncCustomIdCmd implements UserCmd {
     @Parameter(name = ApiConstants.NETWORK_OFFERING_ID, type = CommandType.UUID, entityType = NetworkOfferingResponse.class, description = "network offering ID")
     private Long networkOfferingId;
 
-    @Parameter(name = ApiConstants.GUEST_VM_CIDR, type = CommandType.STRING, description = "CIDR for guest VMs, CloudStack allocates IPs to guest VMs only from this CIDR")
+    @Parameter(name = ApiConstants.GUEST_VM_CIDR, type = CommandType.STRING, description = "CIDR for guest VMs, CloudStack allocates IPs to guest VMs only from this CIDR." +
+            ApiConstants.L2_NETWORK_UPDATE_MESSAGE)
     private String guestVmCidr;
 
     @Parameter(name =ApiConstants.UPDATE_IN_SEQUENCE, type=CommandType.BOOLEAN, description = "if true, we will update the routers one after the other. applicable only for redundant router based networks using virtual router as provider")
@@ -103,6 +104,9 @@ public class UpdateNetworkCmd extends BaseAsyncCustomIdCmd implements UserCmd {
 
     @Parameter(name = ApiConstants.IP6_DNS2, type = CommandType.STRING, description = "the second IPv6 DNS for the network. Empty string will update the second IPv6 DNS with the value from the zone", since = "4.18.0")
     private String ip6Dns2;
+
+    @Parameter(name = ApiConstants.GATEWAY, type = CommandType.STRING, description = "the gateway of the network."  + ApiConstants.L2_NETWORK_UPDATE_MESSAGE)
+    private String gateway;
 
     /////////////////////////////////////////////////////
     /////////////////// Accessors ///////////////////////
@@ -179,6 +183,10 @@ public class UpdateNetworkCmd extends BaseAsyncCustomIdCmd implements UserCmd {
 
     public String getIp6Dns2() {
         return ip6Dns2;
+    }
+
+    public String getGateway() {
+        return gateway;
     }
 
     /////////////////////////////////////////////////////

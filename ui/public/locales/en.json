@@ -1112,6 +1112,7 @@
 "label.kvmnetworklabel": "KVM traffic label",
 "label.l2": "L2",
 "label.l2gatewayserviceuuid": "L2 Gateway Service UUID",
+"label.l2.update.description": "L2 networks are not managed by CloudStack, therefore, any changes in this form will only affect the network presentation in the UI.",
 "label.l3gatewayserviceuuid": "L3 Gateway Service UUID",
 "label.label": "Label",
 "label.last.updated": "Last update",
