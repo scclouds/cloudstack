@@ -61,7 +61,6 @@
                 icon="check-square-outlined" />
             </a-popconfirm>
             <tooltip-button
-              v-if="record.nic.type !== 'L2'"
               tooltipPlacement="bottom"
               :tooltip="$t('label.change.ip.address')"
               icon="swap-outlined"

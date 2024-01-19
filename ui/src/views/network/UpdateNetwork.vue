@@ -25,6 +25,11 @@
         @finish="handleSubmit"
         layout="vertical"
        >
+        <a-alert v-if="resource.type === 'L2'" type="warning">
+          <template #message>
+            <span v-html="$t('label.l2.update.description')"/>
+          </template>
+        </a-alert>
         <a-form-item name="name" ref="name">
           <template #label>
             <tooltip-label :title="$t('label.name')" :tooltip="apiParams.name.description"/>
@@ -116,6 +121,14 @@
             v-model:value="form.guestvmcidr"
             :placeholder="apiParams.guestvmcidr.description"
             @change="(e) => { cidrChanged = e.target.value !== resource.cidr }" />
+        </a-form-item>
+        <a-form-item ref="gateway" name="gateway" v-if="resource.type === 'L2'">
+          <template #label>
+            <tooltip-label :title="$t('label.gateway')" :tooltip="apiParams.gateway.description"/>
+          </template>
+          <a-input
+            v-model:value="form.gateway"
+            :placeholder="apiParams.gateway.description"/>
         </a-form-item>
         <a-form-item name="changecidr" ref="changecidr" v-if="cidrChanged">
           <template #label>
@@ -253,7 +266,8 @@ export default {
       dns1: this.resource.dns1,
       dns2: this.resource.dns2,
       ip6dns1: this.resource.ip6dns1,
-      ip6dns2: this.resource.ip6dns2
+      ip6dns2: this.resource.ip6dns2,
+      gateway: this.resource.gateway
     }
     if (this.isUpdatingIsolatedNetwork) {
       this.resourceValues.networkdomain = this.resource.networkdomain
