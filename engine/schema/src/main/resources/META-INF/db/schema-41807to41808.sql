@@ -66,3 +66,13 @@ GROUP BY
 ALTER TABLE `cloud`.`snapshot_store_ref` ADD COLUMN `download_url` varchar(2048) NULL;
 ALTER TABLE `cloud`.`snapshot_store_ref` ADD COLUMN `download_url_created` datetime NULL;
 
+-- Change deleteEvent and archiveEvent permissions for default roles.
+UPDATE `cloud`.`role_permissions` rp, `cloud`.`roles` r
+SET rp.`permission` = 'DENY'
+WHERE
+  rp.`role_id` = r.`id`
+  AND (rp.`rule` = 'deleteEvents' OR rp.`rule` = 'archiveEvents')
+  AND r.`is_default` = TRUE
+  AND r.`name` != 'Root Admin'
+  AND r.`removed` IS NULL;
+
