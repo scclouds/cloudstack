@@ -29,11 +29,13 @@ import java.util.concurrent.TimeUnit;
 import javax.inject.Inject;
 import javax.naming.ConfigurationException;
 
+import com.cloud.api.ApiDBUtils;
 import org.apache.cloudstack.annotation.AnnotationService;
 import org.apache.cloudstack.annotation.dao.AnnotationDao;
 import org.apache.cloudstack.api.ApiCommandResourceType;
 import org.apache.cloudstack.api.command.user.snapshot.CreateSnapshotPolicyCmd;
 import org.apache.cloudstack.api.command.user.snapshot.DeleteSnapshotPoliciesCmd;
+import org.apache.cloudstack.api.command.user.snapshot.ExtractSnapshotCmd;
 import org.apache.cloudstack.api.command.user.snapshot.ListSnapshotPoliciesCmd;
 import org.apache.cloudstack.api.command.user.snapshot.ListSnapshotsCmd;
 import org.apache.cloudstack.api.command.user.snapshot.UpdateSnapshotPolicyCmd;
@@ -61,9 +63,11 @@ import org.apache.cloudstack.storage.datastore.db.PrimaryDataStoreDao;
 import org.apache.cloudstack.storage.datastore.db.SnapshotDataStoreDao;
 import org.apache.cloudstack.storage.datastore.db.SnapshotDataStoreVO;
 import org.apache.cloudstack.storage.datastore.db.StoragePoolVO;
+import org.apache.cloudstack.storage.image.datastore.ImageStoreEntity;
 import org.apache.cloudstack.utils.reflectiontostringbuilderutils.ReflectionToStringBuilderUtils;
 import org.apache.commons.collections.CollectionUtils;
 import org.apache.commons.collections.MapUtils;
+import org.apache.commons.lang3.ObjectUtils;
 import org.apache.commons.lang3.builder.ReflectionToStringBuilder;
 import org.apache.commons.lang3.builder.ToStringStyle;
 import org.apache.log4j.Logger;
@@ -428,6 +432,74 @@ public class SnapshotManagerImpl extends MutualExclusiveIdsManagerBase implement
         }
 
         return snapshot;
+    }
+
+    @Override
+    @ActionEvent(eventType = EventTypes.EVENT_SNAPSHOT_EXTRACT, eventDescription = "extracting snapshot", async = true)
+    public String extractSnapshot(ExtractSnapshotCmd cmd) {
+        Account caller = CallContext.current().getCallingAccount();
+        Long snapshotId = cmd.getId();
+        Long zoneId = cmd.getZoneId();
+
+        if (!_accountMgr.isRootAdmin(caller.getId()) && ApiDBUtils.isExtractionDisabled()) {
+            s_logger.error(String.format("Extraction is disabled through [%s].", Config.DisableExtraction));
+            throw new PermissionDeniedException("Extraction could not be completed.");
+        }
+
+        SnapshotVO snapshot = _snapshotDao.findById(snapshotId);
+        if (snapshot == null || snapshot.getRemoved() != null) {
+            s_logger.error(String.format("Unable to find active [%s].", snapshot));
+            throw new InvalidParameterValueException("Unable to find active snapshot.");
+        }
+
+        if (zoneId != null && dataCenterDao.findById(zoneId) == null) {
+            s_logger.error(String.format("Invalid zone id [%s].", zoneId));
+            throw new IllegalArgumentException("Please specify a valid zone.");
+        }
+
+        _accountMgr.checkAccess(caller, null, true, snapshot);
+
+        List<DataStore> imageStores = dataStoreMgr.getImageStoresByScope(new ZoneScope(zoneId));
+
+        if (CollectionUtils.isEmpty(imageStores)) {
+            s_logger.error(String.format("Could not find any zone storages."));
+            throw new InvalidParameterValueException("Extraction could not be completed");
+        }
+
+        SnapshotDataStoreVO snapshotDataStoreReference = null;
+        ImageStoreEntity chosenStore = null;
+
+        for (DataStore store : imageStores) {
+            snapshotDataStoreReference = _snapshotStoreDao.findByStoreSnapshot(DataStoreRole.Image, store.getId(), snapshotId);
+            if (snapshotDataStoreReference == null) {
+                s_logger.trace(String.format("Snapshot [%s] not in store [%s].", snapshotId, store.getId()));
+                continue;
+            }
+            String existingExtractUrl = snapshotDataStoreReference.getExtractUrl();
+            if (existingExtractUrl != null) {
+                s_logger.debug(String.format("Extract URL already exists: [%s].", existingExtractUrl));
+                return existingExtractUrl;
+            }
+            chosenStore = (ImageStoreEntity) store;
+            s_logger.debug(String.format("Snapshot [%s] found in store [%s].", snapshotId, chosenStore.getId()));
+            break;
+        }
+
+        if (ObjectUtils.anyNull(chosenStore, snapshotDataStoreReference)) {
+            s_logger.error(String.format("Snapshot [%s] not found in any secondary storage.", snapshotId));
+            throw new InvalidParameterValueException("Snapshot not found.");
+        }
+
+        snapshotSrv.syncVolumeSnapshotsToRegionStore(snapshot.getVolumeId(), chosenStore);
+
+        SnapshotInfo snapshotObject = snapshotFactory.getSnapshot(snapshotId, chosenStore);
+        String extractUrl = chosenStore.createEntityExtractUrl(snapshotObject.getPath(), snapshotObject.getBaseVolume().getFormat(), snapshotObject);
+        s_logger.debug(String.format("Extract URL [%s] created for snapshot [%s].", extractUrl, snapshot));
+        snapshotDataStoreReference.setExtractUrl(extractUrl);
+        snapshotDataStoreReference.setExtractUrlCreated(DateUtil.now());
+        _snapshotStoreDao.update(snapshotDataStoreReference.getId(), snapshotDataStoreReference);
+
+        return extractUrl;
     }
 
     @Override

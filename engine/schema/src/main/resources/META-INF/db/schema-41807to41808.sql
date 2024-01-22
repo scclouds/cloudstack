@@ -61,3 +61,8 @@ FROM
   AND r.removed IS NULL
 GROUP BY
   rp.role_id;
+
+-- Fields related to Snapshot Extraction
+ALTER TABLE `cloud`.`snapshot_store_ref` ADD COLUMN `download_url` varchar(2048) NULL;
+ALTER TABLE `cloud`.`snapshot_store_ref` ADD COLUMN `download_url_created` datetime NULL;
+
