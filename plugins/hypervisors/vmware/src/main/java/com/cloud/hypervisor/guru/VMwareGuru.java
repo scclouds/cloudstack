@@ -25,6 +25,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
+import com.cloud.agent.api.CleanupVMCommand;
 import com.cloud.storage.VolumeApiService;
 import com.cloud.utils.LogUtils;
 import javax.inject.Inject;
@@ -353,6 +354,13 @@ public class VMwareGuru extends HypervisorGuruBase implements HypervisorGuru, Co
             return guid;
 
         return tokens[0] + "@" + vCenterIp;
+    }
+
+    @Override public List<Command> finalizeExpunge(VirtualMachine vm) {
+        List<Command> commands = new ArrayList<Command>();
+        final CleanupVMCommand cleanupVMCommand = new CleanupVMCommand(vm.getInstanceName(), true);
+        commands.add(cleanupVMCommand);
+        return commands;
     }
 
     @Override public List<Command> finalizeExpungeNics(VirtualMachine vm, List<NicProfile> nics) {
