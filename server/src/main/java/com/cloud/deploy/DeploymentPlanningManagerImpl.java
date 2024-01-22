@@ -299,8 +299,9 @@ StateListener<State, VirtualMachine.Event, VirtualMachine>, Configurable {
             s_logger.debug(String.format("Trying to allocate a host and storage pools from datacenter [%s], pod [%s], cluster [%s], to deploy VM [%s] "
                     + "with requested CPU [%s] and requested RAM [%s].", datacenter, podVO, clusterVO, vmDetails, cpuRequested, toHumanReadableSize(ramRequested)));
         }
+        String rootVolumeUuid = getRootVolumeUuid(_volsDao.findByInstance(vm.getId()));
         String isRootVolumeReadyMsg = plan.getPoolId() != null ? "is ready" : "is not ready";
-        s_logger.debug(String.format("ROOT volume %s to deploy VM [%s].", vm.getUuid(), isRootVolumeReadyMsg));
+        s_logger.debug(String.format("ROOT volume [%s] %s to deploy VM [%s].", rootVolumeUuid, isRootVolumeReadyMsg, vm.getUuid()));
 
         avoidDisabledResources(vmProfile, dc, avoids);
 
@@ -628,6 +629,15 @@ StateListener<State, VirtualMachine.Event, VirtualMachine>, Configurable {
         long templateId = vm.getTemplateId();
         VMTemplateVO template = templateDao.findById(templateId);
         return template != null && template.isDeployAsIs();
+    }
+
+    protected String getRootVolumeUuid(List<? extends Volume> volumes) {
+        for (Volume volume : volumes) {
+            if (volume.getVolumeType() == Volume.Type.ROOT) {
+                return volume.getUuid();
+            }
+        }
+        return null;
     }
 
     /**
