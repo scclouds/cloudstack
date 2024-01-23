@@ -81,7 +81,7 @@ public class Value extends GenericPresetVariable {
         "setting 'snapshot.backup.to.secondary' is false, otherwise it will be from secondary storage.", supportedTypes = {QuotaTypes.VOLUME, QuotaTypes.SNAPSHOT})
     private Storage storage;
 
-    @PresetVariableDefinition(description = "Computing resources consumed by the VM.", supportedTypes = {QuotaTypes.RUNNING_VM})
+    @PresetVariableDefinition(description = "Computing resources consumed by the VM.", supportedTypes = {QuotaTypes.RUNNING_VM, QuotaTypes.ALLOCATED_VM})
     private ComputingResources computingResources;
 
     @PresetVariableDefinition(description = "Backup offering of the backup.", supportedTypes = {QuotaTypes.BACKUP, QuotaTypes.BACKUP_OBJECT})

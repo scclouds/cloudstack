@@ -409,10 +409,7 @@ public class PresetVariableHelper {
         ServiceOfferingVO serviceOfferingVo = serviceOfferingDao.findByIdIncludingRemoved(computeOfferingId);
         validateIfObjectIsNull(serviceOfferingVo, computeOfferingId, "compute offering");
         value.setComputeOffering(getPresetVariableValueComputeOffering(serviceOfferingVo));
-
-        if (usageType == UsageTypes.RUNNING_VM) {
-            value.setComputingResources(getPresetVariableValueComputingResource(vmVo, serviceOfferingVo));
-        }
+        value.setComputingResources(getPresetVariableValueComputingResource(vmVo, serviceOfferingVo));
     }
 
     protected ComputingResources getPresetVariableValueComputingResource(VMInstanceVO vmVo, ServiceOfferingVO serviceOfferingVo) {

@@ -1118,13 +1118,8 @@ public class PresetVariableHelperTest {
             presetVariableHelperSpy.setPresetVariableValueServiceOfferingAndComputingResources(result, typeInt, vmInstanceVoMock);
 
             Assert.assertEquals(expected.getComputeOffering(), result.getComputeOffering());
-
-            if (typeInt == UsageTypes.RUNNING_VM) {
-                Assert.assertEquals(expected.getComputingResources(), result.getComputingResources());
-                validateFieldNamesToIncludeInToString(Arrays.asList("computeOffering", "computingResources"), result);
-            } else {
-                validateFieldNamesToIncludeInToString(Arrays.asList("computeOffering"), result);
-            }
+            Assert.assertEquals(expected.getComputingResources(), result.getComputingResources());
+            validateFieldNamesToIncludeInToString(Arrays.asList("computeOffering", "computingResources"), result);
         });
     }
 
