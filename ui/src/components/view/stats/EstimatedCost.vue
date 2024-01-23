@@ -190,6 +190,11 @@ export default {
         id: this.resource.serviceofferingid || '',
         name: this.resource.serviceofferingname || ''
       }
+      obj.value.computingResources = {
+        cpuNumber: this.resource.cpunumber,
+        cpuSpeed: this.resource.cpuspeed,
+        memory: this.resource.memory
+      }
       obj.value.tags = {}
       obj.value.template = {
         id: this.resource.templateid || '',
