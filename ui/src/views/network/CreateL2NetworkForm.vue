@@ -183,6 +183,34 @@
               v-model:value="form.isolatedpvlan"
               :placeholder="apiParams.isolatedpvlan.description"/>
           </a-form-item>
+          <a-form-item v-if="accountVisible" name="account" ref="account">
+            <template #label>
+              <tooltip-label :title="$t('label.account')" :tooltip="apiParams.account.description"/>
+            </template>
+            <a-input
+              v-model:value="form.account"
+              :placeholder="apiParams.account.description"/>
+          </a-form-item>
+          <a-form-item
+            ref="gateway"
+            name="gateway">
+            <template #label>
+              <tooltip-label :title="$t('label.gateway')" :tooltip="apiParams.gateway.description"/>
+            </template>
+            <a-input
+             v-model:value="form.gateway"
+              :placeholder="apiParams.gateway.description"/>
+          </a-form-item>
+          <a-form-item
+            ref="netmask"
+            name="netmask">
+            <template #label>
+              <tooltip-label :title="$t('label.netmask')" :tooltip="apiParams.netmask.description"/>
+            </template>
+            <a-input
+             v-model:value="form.netmask"
+              :placeholder="apiParams.netmask.description"/>
+          </a-form-item>
           <div :span="24" class="action-button">
             <a-button
               :loading="actionLoading"
@@ -443,7 +471,9 @@ export default {
           zoneId: this.selectedZone.id,
           name: values.name,
           displayText: values.displaytext,
-          networkOfferingId: this.selectedNetworkOffering.id
+          networkOfferingId: this.selectedNetworkOffering.id,
+          gateway: values.gateway,
+          netmask: values.netmask
         }
         if (this.isValidTextValueForKey(values, 'vlanid')) {
           params.vlan = values.vlanid

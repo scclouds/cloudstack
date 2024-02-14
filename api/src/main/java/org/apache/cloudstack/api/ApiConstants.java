@@ -1091,6 +1091,9 @@ public class ApiConstants {
 
     public static final String PARAMETER_DESCRIPTION_IS_TAG_A_RULE = "Whether the informed tag is a JS interpretable rule or not.";
 
+    public static final String L2_NETWORK_UPDATE_MESSAGE = "This field is only available when updating L2 networks to allow operators to customize information about this type of" +
+            " guest network, and they only affect the presentation of this field.";
+
     /**
      * This enum specifies IO Drivers, each option controls specific policies on I/O.
      * Qemu guests support "threads" and "native" options Since 0.8.8 ; "io_uring" is supported Since 6.3.0 (QEMU 5.0).
