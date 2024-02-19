@@ -97,15 +97,17 @@
           </a-select>
         </a-form-item>
         <a-form-item v-if="'listPublicIpAddresses' in $store.getters.apis">
-          <tooltip-label :title="$t('label.router.source.nat.ip')" :tooltip="apiParams.sourcenatip.description"/>
+          <template #label>
+            <tooltip-label :title="$t('label.router.source.nat.ip')" :tooltip="apiParams.sourcenatip.description"/>
+          </template>
           <a-select
             :loading="loadingIp"
-            v-decorator="['sourcenatip']"
+            v-model:value="form.sourcenatip"
             showSearch
             optionFilterProp="children"
             :placeholder="apiParams.sourcenatip.description"
             :filterOption="(input, option) => {
-              return option.componentOptions.children[0].text.toLowerCase().indexOf(input.toLowerCase()) >= 0
+              return option.children[0].children.toLowerCase().indexOf(input.toLowerCase()) >= 0
             }" >
             <a-select-option
               v-for="ip in publicIpAddresses"
@@ -306,7 +308,7 @@ export default {
       this.publicIpAddresses = []
 
       try {
-        this.publicIpAddresses = await networkUtils.getAvailablePublicIpAddresses(this.selectedZone)
+        this.publicIpAddresses = await networkUtils.getAvailablePublicIpAddresses(this.form.zoneid)
       } catch (e) {
         this.$notifyError(e)
       }
