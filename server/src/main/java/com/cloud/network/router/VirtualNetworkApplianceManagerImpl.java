@@ -2497,6 +2497,7 @@ Configurable, StateListener<VirtualMachine.State, VirtualMachine.Event, VirtualM
         if (!ipv6firewallRules.isEmpty()) {
             _commandSetupHelper.createIpv6FirewallRulesCommands(ipv6firewallRules, router, cmds, guestNetworkId);
         }
+        Network guestNetwork = _networkDao.findById(guestNetworkId);
 
         if (publicIps != null && !publicIps.isEmpty()) {
             final List<RemoteAccessVpn> vpns = new ArrayList<RemoteAccessVpn>();
@@ -2577,7 +2578,13 @@ Configurable, StateListener<VirtualMachine.State, VirtualMachine.Event, VirtualM
                 }
             }
 
-            final List<LoadBalancerVO> lbs = _loadBalancerDao.listByNetworkIdAndScheme(guestNetworkId, Scheme.Public);
+            List<LoadBalancerVO> lbs = null;
+            Long vpcId = guestNetwork.getVpcId();
+            if (vpcId != null) {
+                lbs = _loadBalancerDao.listByVpcIdAndScheme(vpcId, Scheme.Public);
+            } else {
+                lbs = _loadBalancerDao.listByNetworkIdAndScheme(guestNetworkId, Scheme.Public);
+            }
             final List<LoadBalancingRule> lbRules = new ArrayList<LoadBalancingRule>();
             if (_networkModel.isProviderSupportServiceInNetwork(guestNetworkId, Service.Lb, provider)) {
                 // Re-apply load balancing rules
@@ -2598,7 +2605,6 @@ Configurable, StateListener<VirtualMachine.State, VirtualMachine.Event, VirtualM
             }
         }
         // Reapply dhcp and dns configuration.
-        final Network guestNetwork = _networkDao.findById(guestNetworkId);
         if (guestNetwork.getGuestType() == GuestType.Shared && _networkModel.isProviderSupportServiceInNetwork(guestNetworkId, Service.Dhcp, provider)) {
             final Map<Network.Capability, String> dhcpCapabilities = _networkSvc.getNetworkOfferingServiceCapabilities(
                     _networkOfferingDao.findById(_networkDao.findById(guestNetworkId).getNetworkOfferingId()), Service.Dhcp);
