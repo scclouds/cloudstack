@@ -59,6 +59,9 @@
             {{ opt.name }}
           </a-select-option>
         </a-select>
+        <a-form-item :label="$t('label.action.start.instance')" name="startVm" ref="startVm" >
+          <a-switch v-model:checked="form.startVm" />
+        </a-form-item>
       </a-form-item>
       <div :span="24" class="action-button">
         <a-button :loading="loading || actionLoading" @click="closeAction">{{ $t('label.cancel') }}</a-button>
@@ -105,7 +108,9 @@ export default {
   methods: {
     initForm () {
       this.formRef = ref()
-      this.form = reactive({})
+      this.form = reactive({
+        startVm: false
+      })
       this.rules = reactive({
         volumeid: [{ required: true, message: this.$t('message.error.select') }],
         virtualmachineid: [{ required: true, message: this.$t('message.error.select') }]
@@ -152,6 +157,7 @@ export default {
         params.backupid = this.resource.id
         params.volumeid = values.volumeid
         params.virtualmachineid = this.virtualMachineOptions.opts.filter(opt => opt.name === values.virtualmachineid)[0].id || null
+        params.startVm = values.startVm
 
         this.actionLoading = true
         const title = this.$t('label.restore.volume.attach')
