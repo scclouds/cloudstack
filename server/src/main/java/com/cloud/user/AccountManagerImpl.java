@@ -1811,7 +1811,6 @@ public class AccountManagerImpl extends ManagerBase implements AccountManager, M
     @Override
     @ActionEvent(eventType = EventTypes.EVENT_ACCOUNT_DELETE, eventDescription = "deleting account", async = true)
     public boolean deleteUserAccount(long accountId) {
-
         CallContext ctx = CallContext.current();
         long callerUserId = ctx.getCallingUserId();
         Account caller = ctx.getCallingAccount();
@@ -1819,18 +1818,21 @@ public class AccountManagerImpl extends ManagerBase implements AccountManager, M
         // If the user is a System user, return an error. We do not allow this
         AccountVO account = _accountDao.findById(accountId);
 
-        if (account == null || account.getRemoved() != null) {
-            if (account != null) {
-                s_logger.info("The account:" + account.getAccountName() + " is already removed");
-            }
-            return true;
+        if (account == null) {
+            throw new InvalidParameterValueException("The specified account does not exist in the system.");
         }
 
         // don't allow removing Project account
-        if (account == null || account.getType() == Account.Type.PROJECT) {
-            throw new InvalidParameterValueException("The specified account does not exist in the system");
+        if (account.getType() == Account.Type.PROJECT) {
+            throw new InvalidParameterValueException("The account is a Project Account and can't be deleted. Use the deleteProject API instead.");
         }
 
+        if (caller.getId() == accountId) {
+            Domain domain = _domainDao.findById(account.getDomainId());
+            throw new InvalidParameterValueException(String.format("The caller is requesting to delete their own account. As a security measure, ACS will not allow this operation." +
+                            "To delete account %s (ID: %s, Domain: %s), request to another user with permission to execute the operation.",
+                    account.getAccountName(), account.getUuid(), domain.getUuid()));
+        }
         checkAccess(caller, null, true, account);
 
         // don't allow to delete default account (system and admin)
