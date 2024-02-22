@@ -974,6 +974,10 @@ public class LibvirtVMDef {
             return _diskLabel;
         }
 
+        public void setDiskLabel(String label) {
+            _diskLabel = label;
+        }
+
         public DiskType getDiskType() {
             return _diskType;
         }

@@ -21,11 +21,14 @@ import org.junit.runner.RunWith;
 import org.libvirt.Connect;
 import org.libvirt.Domain;
 import org.libvirt.LibvirtException;
+import org.libvirt.TypedParameter;
 import org.mockito.Mock;
 import org.mockito.Mockito;
 import org.powermock.api.mockito.PowerMockito;
 import org.powermock.core.classloader.annotations.PrepareForTest;
 import org.powermock.modules.junit4.PowerMockRunner;
+
+import java.util.Set;
 
 @RunWith(PowerMockRunner.class)
 public class MigrateKVMAsyncTest {
@@ -42,7 +45,7 @@ public class MigrateKVMAsyncTest {
     @PrepareForTest(AgentPropertiesFileHandler.class)
     public void getFlagsTestPropertyChangedReturnIt() throws LibvirtException{
         MigrateKVMAsync migrateKVMAsync = new MigrateKVMAsync(libvirtComputingResource, domain, connect, "",
-                false, false, true, "", "");
+                false, false, true, "", "", null);
 
         PowerMockito.mockStatic(AgentPropertiesFileHandler.class);
         PowerMockito.when(AgentPropertiesFileHandler.getPropertyValue(Mockito.any())).thenReturn(1000L);
@@ -55,7 +58,7 @@ public class MigrateKVMAsyncTest {
     @PrepareForTest(AgentPropertiesFileHandler.class)
     public void getFlagsTestVirMigrateLive() throws LibvirtException{
         MigrateKVMAsync migrateKVMAsync = new MigrateKVMAsync(libvirtComputingResource, domain, connect, "",
-                false, false, false, "", "");
+                false, false, false, "", "", null);
 
         PowerMockito.mockStatic(AgentPropertiesFileHandler.class);
         PowerMockito.when(AgentPropertiesFileHandler.getPropertyValue(Mockito.any())).thenReturn(-1L);
@@ -68,7 +71,7 @@ public class MigrateKVMAsyncTest {
     @PrepareForTest(AgentPropertiesFileHandler.class)
     public void getFlagsTestVirMigrateCompressed() throws LibvirtException{
         MigrateKVMAsync migrateKVMAsync = new MigrateKVMAsync(libvirtComputingResource, domain, connect, "",
-                false, false, false, "", "");
+                false, false, false, "", "", null);
 
         PowerMockito.mockStatic(AgentPropertiesFileHandler.class);
         PowerMockito.when(AgentPropertiesFileHandler.getPropertyValue(Mockito.any())).thenReturn(-1L);
@@ -83,7 +86,7 @@ public class MigrateKVMAsyncTest {
     @PrepareForTest(AgentPropertiesFileHandler.class)
     public void getFlagsTestVirMigrateCompressedVersionNotSupported() throws LibvirtException{
         MigrateKVMAsync migrateKVMAsync = new MigrateKVMAsync(libvirtComputingResource, domain, connect, "",
-                false, false, false, "", "");
+                false, false, false, "", "", null);
 
         PowerMockito.mockStatic(AgentPropertiesFileHandler.class);
         PowerMockito.when(AgentPropertiesFileHandler.getPropertyValue(Mockito.any())).thenReturn(-1L);
@@ -98,7 +101,7 @@ public class MigrateKVMAsyncTest {
     @PrepareForTest(AgentPropertiesFileHandler.class)
     public void getFlagsTestVirMigratePersistDestAndVirMigrateNonSharedInc() throws LibvirtException{
         MigrateKVMAsync migrateKVMAsync = new MigrateKVMAsync(libvirtComputingResource, domain, connect, "",
-                true, true, false, "", "");
+                true, true, false, "", "", null);
 
         PowerMockito.mockStatic(AgentPropertiesFileHandler.class);
         PowerMockito.when(AgentPropertiesFileHandler.getPropertyValue(Mockito.any())).thenReturn(-1L);
@@ -111,7 +114,7 @@ public class MigrateKVMAsyncTest {
     @PrepareForTest(AgentPropertiesFileHandler.class)
     public void getFlagsTestVirMigratePersistDestAndVirMigrateNonSharedIncNotEqualReturnFail() throws LibvirtException{
         MigrateKVMAsync migrateKVMAsync = new MigrateKVMAsync(libvirtComputingResource, domain, connect, "",
-                true, true, false, "", "");
+                true, true, false, "", "", null);
 
         PowerMockito.mockStatic(AgentPropertiesFileHandler.class);
         PowerMockito.when(AgentPropertiesFileHandler.getPropertyValue(Mockito.any())).thenReturn(-1L);
@@ -125,7 +128,7 @@ public class MigrateKVMAsyncTest {
     @PrepareForTest(AgentPropertiesFileHandler.class)
     public void getFlagsTestVirMigratePersistDestAndVirMigrateNonSharedIncWithVirMigrateNonSharedDiskReturnFail() throws LibvirtException{
         MigrateKVMAsync migrateKVMAsync = new MigrateKVMAsync(libvirtComputingResource, domain, connect, "",
-                true, true, false, "", "");
+                true, true, false, "", "", null);
 
         PowerMockito.mockStatic(AgentPropertiesFileHandler.class);
         PowerMockito.when(AgentPropertiesFileHandler.getPropertyValue(Mockito.any())).thenReturn(-1L);
@@ -139,7 +142,7 @@ public class MigrateKVMAsyncTest {
     @PrepareForTest(AgentPropertiesFileHandler.class)
     public void getFlagsTestVirMigrateNonSharedDiskWithVirMigratePersistDestOrVirMigrateNonSharedIncReturnFail() throws LibvirtException{
         MigrateKVMAsync migrateKVMAsync = new MigrateKVMAsync(libvirtComputingResource, domain, connect, "",
-                true, false, false, "", "");
+                true, false, false, "", "", null);
 
         PowerMockito.mockStatic(AgentPropertiesFileHandler.class);
         PowerMockito.when(AgentPropertiesFileHandler.getPropertyValue(Mockito.any())).thenReturn(-1L);
@@ -153,7 +156,7 @@ public class MigrateKVMAsyncTest {
     @PrepareForTest(AgentPropertiesFileHandler.class)
     public void getFlagsTestVirMigrateNonSharedDisk() throws LibvirtException{
         MigrateKVMAsync migrateKVMAsync = new MigrateKVMAsync(libvirtComputingResource, domain, connect, "",
-                true, false, false, "", "");
+                true, false, false, "", "", null);
 
         PowerMockito.mockStatic(AgentPropertiesFileHandler.class);
         PowerMockito.when(AgentPropertiesFileHandler.getPropertyValue(Mockito.any())).thenReturn(-1L);
@@ -166,7 +169,7 @@ public class MigrateKVMAsyncTest {
     @PrepareForTest(AgentPropertiesFileHandler.class)
     public void getFlagsTestVirMigrateAutoConvergeVersionSupportedReturn() throws LibvirtException{
         MigrateKVMAsync migrateKVMAsync = new MigrateKVMAsync(libvirtComputingResource, domain, connect, "",
-                false, false, true, "", "");
+                false, false, true, "", "", null);
 
         PowerMockito.mockStatic(AgentPropertiesFileHandler.class);
         PowerMockito.when(AgentPropertiesFileHandler.getPropertyValue(Mockito.any())).thenReturn(-1L);
@@ -181,7 +184,7 @@ public class MigrateKVMAsyncTest {
     @PrepareForTest(AgentPropertiesFileHandler.class)
     public void getFlagsTestVirMigrateAutoConvergeVersionNotSupportedNotReturn() throws LibvirtException{
         MigrateKVMAsync migrateKVMAsync = new MigrateKVMAsync(libvirtComputingResource, domain, connect, "",
-                false, false, true, "", "");
+                false, false, true, "", "", null);
 
         PowerMockito.mockStatic(AgentPropertiesFileHandler.class);
         PowerMockito.when(AgentPropertiesFileHandler.getPropertyValue(Mockito.any())).thenReturn(-1L);
@@ -196,7 +199,7 @@ public class MigrateKVMAsyncTest {
     @PrepareForTest(AgentPropertiesFileHandler.class)
     public void getFlagsTestNotVirMigrateAutoConvergeVersionSupportedNotReturn() throws LibvirtException{
         MigrateKVMAsync migrateKVMAsync = new MigrateKVMAsync(libvirtComputingResource, domain, connect, "",
-                false, false, false, "", "");
+                false, false, false, "", "", null);
 
         PowerMockito.mockStatic(AgentPropertiesFileHandler.class);
         PowerMockito.when(AgentPropertiesFileHandler.getPropertyValue(Mockito.any())).thenReturn(-1L);
@@ -211,7 +214,7 @@ public class MigrateKVMAsyncTest {
     @PrepareForTest(AgentPropertiesFileHandler.class)
     public void getFlagsTestNotVirMigrateAutoConvergeVersionNotSupportedNotReturn() throws LibvirtException{
         MigrateKVMAsync migrateKVMAsync = new MigrateKVMAsync(libvirtComputingResource, domain, connect, "",
-                false, false, false, "", "");
+                false, false, false, "", "", null);
 
         PowerMockito.mockStatic(AgentPropertiesFileHandler.class);
         PowerMockito.when(AgentPropertiesFileHandler.getPropertyValue(Mockito.any())).thenReturn(-1L);
@@ -222,4 +225,41 @@ public class MigrateKVMAsyncTest {
         Assert.assertNotEquals(8192L, flags & 8192L);
     }
 
+    @Test
+    public void createTypedParameterListTestNoMigrateDiskLabels() {
+        MigrateKVMAsync migrateKVMAsync = new MigrateKVMAsync(libvirtComputingResource, domain, connect, "testxml",
+                false, false, false, "tst", "1.1.1.1", null);
+
+        Mockito.doReturn(10).when(libvirtComputingResource).getMigrateSpeed();
+
+        TypedParameter[] result = migrateKVMAsync.createTypedParameterList();
+
+        Assert.assertEquals(4, result.length);
+
+        Assert.assertEquals("tst", result[0].getValueAsString());
+        Assert.assertEquals("testxml", result[1].getValueAsString());
+        Assert.assertEquals("tcp:1.1.1.1", result[2].getValueAsString());
+        Assert.assertEquals("10", result[3].getValueAsString());
+
+    }
+
+    @Test
+    public void createTypedParameterListTestWithMigrateDiskLabels() {
+        Set<String> labels = Set.of("vda", "vdb");
+        MigrateKVMAsync migrateKVMAsync = new MigrateKVMAsync(libvirtComputingResource, domain, connect, "testxml",
+                false, false, false, "tst", "1.1.1.1", labels);
+
+        Mockito.doReturn(10).when(libvirtComputingResource).getMigrateSpeed();
+
+        TypedParameter[] result = migrateKVMAsync.createTypedParameterList();
+
+        Assert.assertEquals(6, result.length);
+
+        Assert.assertEquals("tst", result[0].getValueAsString());
+        Assert.assertEquals("testxml", result[1].getValueAsString());
+        Assert.assertEquals("tcp:1.1.1.1", result[2].getValueAsString());
+        Assert.assertEquals("10", result[3].getValueAsString());
+
+        Assert.assertEquals(labels, Set.of(result[4].getValueAsString(), result[5].getValueAsString()));
+    }
 }
