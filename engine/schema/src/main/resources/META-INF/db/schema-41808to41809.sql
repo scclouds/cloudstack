@@ -16,3 +16,6 @@
 -- under the License.
 
 -- Schema upgrade from 4.18.0.8 to 4.18.0.9
+
+-- Remove on delete cascade from snapshot schedule
+ALTER TABLE `cloud`.`snapshot_schedule` DROP CONSTRAINT `fk__snapshot_schedule_async_job_id`;
