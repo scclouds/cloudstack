@@ -19,7 +19,6 @@
 package org.apache.cloudstack.storage.motion;
 
 import static org.junit.Assert.assertEquals;
-import static org.mockito.ArgumentMatchers.nullable;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.when;
 
@@ -70,7 +69,6 @@ import com.cloud.storage.Storage;
 import com.cloud.storage.Storage.StoragePoolType;
 import com.cloud.storage.StoragePool;
 import com.cloud.storage.VMTemplateVO;
-import com.cloud.storage.VMTemplateStoragePoolVO;
 import com.cloud.storage.Volume;
 import com.cloud.storage.dao.DiskOfferingDao;
 import com.cloud.storage.dao.VMTemplatePoolDao;
@@ -394,191 +392,6 @@ public class KvmNonManagedStorageSystemDataMotionTest {
             boolean result = kvmNonManagedStorageDataMotionStrategy.isTemplateCopyable("", srcVolumeInfo, destStoragePool);
             assertFalse(result);
         }
-    }
-
-    @Test
-    public void isCopyNeededTestTemplateAlreadyAtTargetStoragePool() {
-        VMTemplateStoragePoolVO sourceVolumeTemplateStoragePoolVO = Mockito.mock(VMTemplateStoragePoolVO.class);
-
-        boolean result = kvmNonManagedStorageDataMotionStrategy.isCopyNeeded("", srcVolumeInfo, sourceVolumeTemplateStoragePoolVO, sourceTemplateDataStore);
-        assertFalse(result);
-    }
-
-    @Test
-    public void isCopyNeededTestNoDataStore() {
-        boolean result = kvmNonManagedStorageDataMotionStrategy.isCopyNeeded("", srcVolumeInfo, null, null);
-        assertFalse(result);
-    }
-
-    @Test
-    public void isCopyNeededTestReturnTrue() {
-        boolean result = kvmNonManagedStorageDataMotionStrategy.isCopyNeeded("", srcVolumeInfo, null, sourceTemplateDataStore);
-        assertTrue(result);
-    }
-
-    @Test
-    public void copyTemplateToTargetFilesystemStorageIfNeededTestNeeded() {
-        Mockito.when(srcVolumeInfo.getTemplateId()).thenReturn(0l);
-
-        StoragePool destStoragePool = Mockito.mock(StoragePool.class);
-        Mockito.when(destStoragePool.getId()).thenReturn(0l);
-
-        TemplateInfo sourceTemplateInfo = Mockito.mock(TemplateInfo.class);
-        Mockito.when(sourceTemplateInfo.getUuid()).thenReturn("uuid");
-
-        VMTemplateStoragePoolVO sourceVolumeTemplateStoragePoolVO = Mockito.mock(VMTemplateStoragePoolVO.class);
-        Mockito.doReturn(true).when(kvmNonManagedStorageDataMotionStrategy).isTemplateCopyable(Mockito.anyString(), Mockito.eq(srcVolumeInfo), Mockito.eq(destStoragePool));
-        Mockito.when(vmTemplatePoolDao.findByPoolTemplate(Mockito.anyLong(), Mockito.anyLong(), nullable(String.class))).thenReturn(sourceVolumeTemplateStoragePoolVO);
-        Mockito.when(dataStoreManagerImpl.getRandomImageStore(Mockito.anyLong())).thenReturn(sourceTemplateDataStore);
-        Mockito.doReturn(true).when(kvmNonManagedStorageDataMotionStrategy).isCopyNeeded(Mockito.anyString(), Mockito.eq(srcVolumeInfo), Mockito.eq(sourceVolumeTemplateStoragePoolVO), Mockito.eq(sourceTemplateDataStore));
-        Mockito.when(templateDataFactory.getTemplate(Mockito.anyLong(), Mockito.eq(sourceTemplateDataStore))).thenReturn(sourceTemplateInfo);
-        Mockito.when(templateDataFactory.getTemplate(Mockito.anyLong(), Mockito.eq(destDataStore))).thenReturn(sourceTemplateInfo);
-
-        Answer copyCommandAnswer = Mockito.mock(Answer.class);
-        Mockito.when(copyCommandAnswer.getResult()).thenReturn(true);
-        Mockito.doReturn(copyCommandAnswer).when(kvmNonManagedStorageDataMotionStrategy).sendCopyCommand(Mockito.any(Host.class),
-                Mockito.any(TemplateObjectTO.class), Mockito.any(TemplateObjectTO.class), Mockito.any(DataStore.class));
-
-        kvmNonManagedStorageDataMotionStrategy.copyTemplateToTargetFilesystemStorageIfNeeded(srcVolumeInfo, srcStoragePool, destDataStore, destStoragePool, destHost);
-
-        InOrder verifyInOrder = Mockito.inOrder(vmTemplatePoolDao, dataStoreManagerImpl, templateDataFactory, kvmNonManagedStorageDataMotionStrategy);
-        verifyInOrder.verify(kvmNonManagedStorageDataMotionStrategy).isTemplateCopyable(Mockito.anyString(), Mockito.eq(srcVolumeInfo), Mockito.eq(destStoragePool));
-        verifyInOrder.verify(vmTemplatePoolDao).findByPoolTemplate(Mockito.anyLong(), Mockito.anyLong(), nullable(String.class));
-        verifyInOrder.verify(dataStoreManagerImpl).getRandomImageStore(Mockito.anyLong());
-        verifyInOrder.verify(kvmNonManagedStorageDataMotionStrategy).isCopyNeeded(Mockito.anyString(), Mockito.eq(srcVolumeInfo), Mockito.eq(sourceVolumeTemplateStoragePoolVO), Mockito.eq(sourceTemplateDataStore));
-        verifyInOrder.verify(templateDataFactory).getTemplate(Mockito.anyLong(), Mockito.eq(sourceTemplateDataStore));
-        verifyInOrder.verify(templateDataFactory).getTemplate(Mockito.anyLong(), Mockito.eq(destDataStore));
-        verifyInOrder.verify(kvmNonManagedStorageDataMotionStrategy).sendCopyCommand(Mockito.eq(destHost), Mockito.any(TemplateObjectTO.class),
-                Mockito.any(TemplateObjectTO.class), Mockito.eq(destDataStore));
-        verifyInOrder.verify(kvmNonManagedStorageDataMotionStrategy).updateTemplateReferenceIfSuccessfulCopy(Mockito.anyLong(), Mockito.anyString(), Mockito.anyLong(), Mockito.anyLong());
-    }
-
-    @Test
-    public void copyTemplateToTargetFilesystemStorageIfNeededTestTemplateNotCopyable() {
-        VolumeInfo srcVolumeInfo = Mockito.mock(VolumeInfo.class);
-        StoragePool destStoragePool = Mockito.mock(StoragePool.class);
-
-        VMTemplateStoragePoolVO sourceVolumeTemplateStoragePoolVO = Mockito.mock(VMTemplateStoragePoolVO.class);
-        Mockito.doReturn(false).when(kvmNonManagedStorageDataMotionStrategy).isTemplateCopyable(Mockito.anyString(), Mockito.eq(srcVolumeInfo), Mockito.eq(destStoragePool));
-
-        kvmNonManagedStorageDataMotionStrategy.copyTemplateToTargetFilesystemStorageIfNeeded(srcVolumeInfo, srcStoragePool, destDataStore, destStoragePool, destHost);
-
-        InOrder verifyInOrder = Mockito.inOrder(vmTemplatePoolDao, dataStoreManagerImpl, templateDataFactory, kvmNonManagedStorageDataMotionStrategy);
-        verifyInOrder.verify(kvmNonManagedStorageDataMotionStrategy).isTemplateCopyable(Mockito.anyString(), Mockito.eq(srcVolumeInfo), Mockito.eq(destStoragePool));
-        verifyInOrder.verify(vmTemplatePoolDao, Mockito.never()).findByPoolTemplate(Mockito.anyLong(), Mockito.anyLong(), nullable(String.class));
-        verifyInOrder.verify(dataStoreManagerImpl, Mockito.never()).getRandomImageStore(Mockito.anyLong());
-        verifyInOrder.verify(kvmNonManagedStorageDataMotionStrategy, Mockito.never()).isCopyNeeded(Mockito.anyString(), Mockito.eq(srcVolumeInfo), Mockito.eq(sourceVolumeTemplateStoragePoolVO), Mockito.eq(sourceTemplateDataStore));
-        verifyInOrder.verify(templateDataFactory, Mockito.never()).getTemplate(Mockito.anyLong(), Mockito.eq(sourceTemplateDataStore));
-        verifyInOrder.verify(templateDataFactory, Mockito.never()).getTemplate(Mockito.anyLong(), Mockito.eq(destDataStore));
-        verifyInOrder.verify(kvmNonManagedStorageDataMotionStrategy, Mockito.never()).sendCopyCommand(Mockito.eq(destHost), Mockito.any(TemplateObjectTO.class),
-                Mockito.any(TemplateObjectTO.class), Mockito.eq(destDataStore));
-        verifyInOrder.verify(kvmNonManagedStorageDataMotionStrategy, Mockito.never()).updateTemplateReferenceIfSuccessfulCopy(Mockito.anyLong(), Mockito.anyString(), Mockito.anyLong(), Mockito.anyLong());
-    }
-
-    @Test
-    public void copyTemplateToTargetFilesystemStorageIfNeededTestCopyNotNeeded() {
-        VolumeInfo srcVolumeInfo = Mockito.mock(VolumeInfo.class);
-        Mockito.when(srcVolumeInfo.getTemplateId()).thenReturn(0l);
-
-        StoragePool destStoragePool = Mockito.mock(StoragePool.class);
-        Mockito.when(destStoragePool.getId()).thenReturn(0l);
-
-        VMTemplateStoragePoolVO sourceVolumeTemplateStoragePoolVO = Mockito.mock(VMTemplateStoragePoolVO.class);
-        Mockito.doReturn(true).when(kvmNonManagedStorageDataMotionStrategy).isTemplateCopyable(Mockito.anyString(), Mockito.eq(srcVolumeInfo), Mockito.eq(destStoragePool));
-        Mockito.when(vmTemplatePoolDao.findByPoolTemplate(Mockito.anyLong(), Mockito.anyLong(), nullable(String.class))).thenReturn(sourceVolumeTemplateStoragePoolVO);
-        Mockito.when(dataStoreManagerImpl.getRandomImageStore(Mockito.anyLong())).thenReturn(sourceTemplateDataStore);
-
-        kvmNonManagedStorageDataMotionStrategy.copyTemplateToTargetFilesystemStorageIfNeeded(srcVolumeInfo, srcStoragePool, destDataStore, destStoragePool, destHost);
-
-        InOrder verifyInOrder = Mockito.inOrder(vmTemplatePoolDao, dataStoreManagerImpl, templateDataFactory, kvmNonManagedStorageDataMotionStrategy);
-        verifyInOrder.verify(kvmNonManagedStorageDataMotionStrategy).isTemplateCopyable(Mockito.any(), Mockito.eq(srcVolumeInfo), Mockito.eq(destStoragePool));
-        verifyInOrder.verify(vmTemplatePoolDao).findByPoolTemplate(Mockito.anyLong(), Mockito.anyLong(), nullable(String.class));
-        verifyInOrder.verify(dataStoreManagerImpl).getRandomImageStore(Mockito.anyLong());
-        verifyInOrder.verify(kvmNonManagedStorageDataMotionStrategy).isCopyNeeded(Mockito.anyString(), Mockito.eq(srcVolumeInfo), Mockito.eq(sourceVolumeTemplateStoragePoolVO), Mockito.eq(sourceTemplateDataStore));
-        verifyInOrder.verify(templateDataFactory, Mockito.never()).getTemplate(Mockito.anyLong(), Mockito.eq(sourceTemplateDataStore));
-        verifyInOrder.verify(templateDataFactory, Mockito.never()).getTemplate(Mockito.anyLong(), Mockito.eq(destDataStore));
-        verifyInOrder.verify(kvmNonManagedStorageDataMotionStrategy, Mockito.never()).sendCopyCommand(Mockito.eq(destHost), Mockito.any(TemplateObjectTO.class),
-                Mockito.any(TemplateObjectTO.class), Mockito.eq(destDataStore));
-        verifyInOrder.verify(kvmNonManagedStorageDataMotionStrategy, Mockito.never()).updateTemplateReferenceIfSuccessfulCopy(Mockito.anyLong(), Mockito.anyString(), Mockito.anyLong(), Mockito.anyLong());
-    }
-
-    @Test
-    public void copyTemplateToTargetFilesystemStorageIfNeededTestCopyCommandAnswerNull() {
-        VolumeInfo srcVolumeInfo = Mockito.mock(VolumeInfo.class);
-        Mockito.when(srcVolumeInfo.getTemplateId()).thenReturn(0l);
-
-        StoragePool destStoragePool = Mockito.mock(StoragePool.class);
-        Mockito.when(destStoragePool.getId()).thenReturn(0l);
-
-        TemplateInfo sourceTemplateInfo = Mockito.mock(TemplateInfo.class);
-        Mockito.when(sourceTemplateInfo.getUuid()).thenReturn("uuid");
-
-        VMTemplateStoragePoolVO sourceVolumeTemplateStoragePoolVO = Mockito.mock(VMTemplateStoragePoolVO.class);
-        Mockito.doReturn(true).when(kvmNonManagedStorageDataMotionStrategy).isTemplateCopyable(Mockito.anyString(), Mockito.eq(srcVolumeInfo), Mockito.eq(destStoragePool));
-        Mockito.when(vmTemplatePoolDao.findByPoolTemplate(Mockito.anyLong(), Mockito.anyLong(), nullable(String.class))).thenReturn(sourceVolumeTemplateStoragePoolVO);
-        Mockito.when(dataStoreManagerImpl.getRandomImageStore(Mockito.anyLong())).thenReturn(sourceTemplateDataStore);
-        Mockito.doReturn(true).when(kvmNonManagedStorageDataMotionStrategy).isCopyNeeded(Mockito.anyString(), Mockito.eq(srcVolumeInfo), Mockito.eq(sourceVolumeTemplateStoragePoolVO), Mockito.eq(sourceTemplateDataStore));
-        Mockito.when(templateDataFactory.getTemplate(Mockito.anyLong(), Mockito.eq(sourceTemplateDataStore))).thenReturn(sourceTemplateInfo);
-        Mockito.when(templateDataFactory.getTemplate(Mockito.anyLong(), Mockito.eq(destDataStore))).thenReturn(sourceTemplateInfo);
-
-        Mockito.doReturn(null).when(kvmNonManagedStorageDataMotionStrategy).sendCopyCommand(Mockito.any(Host.class),
-                Mockito.any(TemplateObjectTO.class), Mockito.any(TemplateObjectTO.class), Mockito.any(DataStore.class));
-
-        kvmNonManagedStorageDataMotionStrategy.copyTemplateToTargetFilesystemStorageIfNeeded(srcVolumeInfo, srcStoragePool, destDataStore, destStoragePool, destHost);
-
-        InOrder verifyInOrder = Mockito.inOrder(vmTemplatePoolDao, dataStoreManagerImpl, templateDataFactory, kvmNonManagedStorageDataMotionStrategy);
-        verifyInOrder.verify(kvmNonManagedStorageDataMotionStrategy).isTemplateCopyable(Mockito.anyString(), Mockito.eq(srcVolumeInfo), Mockito.eq(destStoragePool));
-        verifyInOrder.verify(vmTemplatePoolDao).findByPoolTemplate(Mockito.anyLong(), Mockito.anyLong(), nullable(String.class));
-        verifyInOrder.verify(dataStoreManagerImpl).getRandomImageStore(Mockito.anyLong());
-        verifyInOrder.verify(kvmNonManagedStorageDataMotionStrategy).isCopyNeeded(Mockito.anyString(), Mockito.eq(srcVolumeInfo), Mockito.eq(sourceVolumeTemplateStoragePoolVO), Mockito.eq(sourceTemplateDataStore));
-        verifyInOrder.verify(templateDataFactory).getTemplate(Mockito.anyLong(), Mockito.eq(sourceTemplateDataStore));
-        verifyInOrder.verify(templateDataFactory).getTemplate(Mockito.anyLong(), Mockito.eq(destDataStore));
-        verifyInOrder.verify(kvmNonManagedStorageDataMotionStrategy).sendCopyCommand(Mockito.eq(destHost), Mockito.any(TemplateObjectTO.class),
-                Mockito.any(TemplateObjectTO.class), Mockito.eq(destDataStore));
-        verifyInOrder.verify(kvmNonManagedStorageDataMotionStrategy, Mockito.never()).updateTemplateReferenceIfSuccessfulCopy(Mockito.anyLong(), Mockito.anyString(), Mockito.anyLong(), Mockito.anyLong());
-    }
-
-    @Test
-    public void copyTemplateToTargetFilesystemStorageIfNeededTestCopyCommandAnswerNoResult() {
-        DataStore destDataStore = Mockito.mock(DataStore.class);
-        Host destHost = Mockito.mock(Host.class);
-        StoragePool srcStoragePool = Mockito.mock(StoragePool.class);
-        DataStore sourceTemplateDataStore = Mockito.mock(DataStore.class);
-
-        VolumeInfo srcVolumeInfo = Mockito.mock(VolumeInfo.class);
-        Mockito.when(srcVolumeInfo.getTemplateId()).thenReturn(0l);
-
-        StoragePool destStoragePool = Mockito.mock(StoragePool.class);
-        Mockito.when(destStoragePool.getId()).thenReturn(0l);
-
-        TemplateInfo sourceTemplateInfo = Mockito.mock(TemplateInfo.class);
-        Mockito.when(sourceTemplateInfo.getUuid()).thenReturn("uuid");
-
-        VMTemplateStoragePoolVO sourceVolumeTemplateStoragePoolVO = Mockito.mock(VMTemplateStoragePoolVO.class);
-        Mockito.doReturn(true).when(kvmNonManagedStorageDataMotionStrategy).isTemplateCopyable(Mockito.anyString(), Mockito.eq(srcVolumeInfo), Mockito.eq(destStoragePool));
-        Mockito.when(vmTemplatePoolDao.findByPoolTemplate(Mockito.anyLong(), Mockito.anyLong(), nullable(String.class))).thenReturn(sourceVolumeTemplateStoragePoolVO);
-        Mockito.when(dataStoreManagerImpl.getRandomImageStore(Mockito.anyLong())).thenReturn(sourceTemplateDataStore);
-        Mockito.doReturn(true).when(kvmNonManagedStorageDataMotionStrategy).isCopyNeeded(Mockito.anyString(), Mockito.eq(srcVolumeInfo), Mockito.eq(sourceVolumeTemplateStoragePoolVO), Mockito.eq(sourceTemplateDataStore));
-        Mockito.when(templateDataFactory.getTemplate(Mockito.anyLong(), Mockito.eq(sourceTemplateDataStore))).thenReturn(sourceTemplateInfo);
-        Mockito.when(templateDataFactory.getTemplate(Mockito.anyLong(), Mockito.eq(destDataStore))).thenReturn(sourceTemplateInfo);
-
-        Answer copyCommandAnswer = Mockito.mock(Answer.class);
-        Mockito.when(copyCommandAnswer.getResult()).thenReturn(false);
-        Mockito.doReturn(copyCommandAnswer).when(kvmNonManagedStorageDataMotionStrategy).sendCopyCommand(Mockito.any(Host.class),
-                Mockito.any(TemplateObjectTO.class), Mockito.any(TemplateObjectTO.class), Mockito.any(DataStore.class));
-
-        kvmNonManagedStorageDataMotionStrategy.copyTemplateToTargetFilesystemStorageIfNeeded(srcVolumeInfo, srcStoragePool, destDataStore, destStoragePool, destHost);
-
-        InOrder verifyInOrder = Mockito.inOrder(vmTemplatePoolDao, dataStoreManagerImpl, templateDataFactory, kvmNonManagedStorageDataMotionStrategy);
-        verifyInOrder.verify(kvmNonManagedStorageDataMotionStrategy).isTemplateCopyable(Mockito.anyString(), Mockito.eq(srcVolumeInfo), Mockito.eq(destStoragePool));
-        verifyInOrder.verify(vmTemplatePoolDao).findByPoolTemplate(Mockito.anyLong(), Mockito.anyLong(), nullable(String.class));
-        verifyInOrder.verify(dataStoreManagerImpl).getRandomImageStore(Mockito.anyLong());
-        verifyInOrder.verify(kvmNonManagedStorageDataMotionStrategy).isCopyNeeded(Mockito.anyString(), Mockito.eq(srcVolumeInfo), Mockito.eq(sourceVolumeTemplateStoragePoolVO), Mockito.eq(sourceTemplateDataStore));
-        verifyInOrder.verify(templateDataFactory).getTemplate(Mockito.anyLong(), Mockito.eq(sourceTemplateDataStore));
-        verifyInOrder.verify(templateDataFactory).getTemplate(Mockito.anyLong(), Mockito.eq(destDataStore));
-        verifyInOrder.verify(kvmNonManagedStorageDataMotionStrategy).sendCopyCommand(Mockito.eq(destHost), Mockito.any(TemplateObjectTO.class),
-                Mockito.any(TemplateObjectTO.class), Mockito.eq(destDataStore));
-        verifyInOrder.verify(kvmNonManagedStorageDataMotionStrategy, Mockito.times(0)).updateTemplateReferenceIfSuccessfulCopy(Mockito.anyLong(), Mockito.anyString(), Mockito.anyLong(), Mockito.anyLong());
     }
 
     @Before

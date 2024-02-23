@@ -1757,19 +1757,12 @@ public class StorageSystemDataMotionStrategy implements DataMotionStrategy {
     protected void setVolumeMigrationOptions(VolumeInfo srcVolumeInfo, VolumeInfo destVolumeInfo,
                                              VirtualMachineTO vmTO, Host srcHost, StoragePoolVO destStoragePool) {
         if (!destStoragePool.isManaged()) {
-            String srcVolumeBackingFile = getVolumeBackingFile(srcVolumeInfo);
-
             String srcPoolUuid = srcVolumeInfo.getDataStore().getUuid();
             StoragePoolVO srcPool = _storagePoolDao.findById(srcVolumeInfo.getPoolId());
             Storage.StoragePoolType srcPoolType = srcPool.getPoolType();
 
-            MigrationOptions migrationOptions;
-            if (StringUtils.isNotBlank(srcVolumeBackingFile)) {
-                migrationOptions = createLinkedCloneMigrationOptions(srcVolumeInfo, destVolumeInfo,
-                        srcVolumeBackingFile, srcPoolUuid, srcPoolType);
-            } else {
-                migrationOptions = createFullCloneMigrationOptions(srcVolumeInfo, vmTO, srcHost, srcPoolUuid, srcPoolType);
-            }
+            MigrationOptions migrationOptions = createFullCloneMigrationOptions(srcVolumeInfo, vmTO, srcHost, srcPoolUuid, srcPoolType);
+
             migrationOptions.setTimeout(StorageManager.KvmStorageOnlineMigrationWait.value());
             destVolumeInfo.setMigrationOptions(migrationOptions);
         }
@@ -1819,8 +1812,6 @@ public class StorageSystemDataMotionStrategy implements DataMotionStrategy {
                 if (!shouldMigrateVolume(sourceStoragePool, destHost, destStoragePool)) {
                     continue;
                 }
-
-                copyTemplateToTargetFilesystemStorageIfNeeded(srcVolumeInfo, sourceStoragePool, destDataStore, destStoragePool, destHost);
 
                 VolumeVO destVolume = duplicateVolumeOnAnotherStorage(srcVolume, destStoragePool);
                 VolumeInfo destVolumeInfo = _volumeDataFactory.getVolume(destVolume.getId(), destDataStore);
@@ -1897,14 +1888,11 @@ public class StorageSystemDataMotionStrategy implements DataMotionStrategy {
             VMInstanceVO vm = _vmDao.findById(vmTO.getId());
             boolean isWindows = _guestOsCategoryDao.findById(_guestOsDao.findById(vm.getGuestOSId()).getCategoryId()).getName().equalsIgnoreCase("Windows");
 
-            boolean migrateNonSharedInc = isSourceAndDestinationPoolTypeOfNfs(volumeDataStoreMap);
-
             MigrateCommand migrateCommand = new MigrateCommand(vmTO.getName(), destHost.getPrivateIpAddress(), isWindows, vmTO, true);
             migrateCommand.setWait(StorageManager.KvmStorageOnlineMigrationWait.value());
             migrateCommand.setMigrateStorage(migrateStorage);
             migrateCommand.setMigrateDiskInfoList(migrateDiskInfoList);
             migrateCommand.setMigrateStorageManaged(managedStorageDestination);
-            migrateCommand.setMigrateNonSharedInc(migrateNonSharedInc);
 
             Integer newVmCpuShares = ((PrepareForMigrationAnswer) pfma).getNewVmCpuShares();
             if (newVmCpuShares != null) {
@@ -1956,23 +1944,6 @@ public class StorageSystemDataMotionStrategy implements DataMotionStrategy {
         VolumeInfo srcVolumeInfo = entry.getKey();
         DataStore destDataStore = entry.getValue();
         return formatMigrationElementsAsJsonToDisplayOnLog("volume", srcVolumeInfo.getId(), srcVolumeInfo.getPoolId(), destDataStore.getId());
-    }
-
-    /**
-     * Returns true if at least one of the entries on the map 'volumeDataStoreMap' has both source and destination storage pools of Network Filesystem (NFS).
-     */
-    protected boolean isSourceAndDestinationPoolTypeOfNfs(Map<VolumeInfo, DataStore> volumeDataStoreMap) {
-        for (Map.Entry<VolumeInfo, DataStore> entry : volumeDataStoreMap.entrySet()) {
-            VolumeInfo srcVolumeInfo = entry.getKey();
-            DataStore destDataStore = entry.getValue();
-
-            StoragePoolVO destStoragePool = _storagePoolDao.findById(destDataStore.getId());
-            StoragePoolVO sourceStoragePool = _storagePoolDao.findById(srcVolumeInfo.getPoolId());
-            if (sourceStoragePool.getPoolType() == StoragePoolType.NetworkFilesystem && destStoragePool.getPoolType() == StoragePoolType.NetworkFilesystem) {
-                return true;
-            }
-        }
-        return false;
     }
 
     /**
