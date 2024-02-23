@@ -21,7 +21,6 @@ import java.util.List;
 
 import javax.annotation.PostConstruct;
 
-import org.apache.log4j.Logger;
 import org.springframework.stereotype.Component;
 
 import com.cloud.utils.db.Filter;
@@ -30,12 +29,12 @@ import com.cloud.utils.db.SearchBuilder;
 import com.cloud.utils.db.SearchCriteria;
 import com.cloud.utils.db.SearchCriteria.Op;
 import com.cloud.vm.VmStatsVO;
+import org.apache.log4j.Logger;
 
 @Component
 public class VmStatsDaoImpl extends GenericDaoBase<VmStatsVO, Long> implements VmStatsDao {
 
     protected Logger logger = Logger.getLogger(getClass());
-
     protected SearchBuilder<VmStatsVO> vmIdSearch;
     protected SearchBuilder<VmStatsVO> vmIdTimestampGreaterThanEqualSearch;
     protected SearchBuilder<VmStatsVO> vmIdTimestampLessThanEqualSearch;
@@ -116,11 +115,11 @@ public class VmStatsDaoImpl extends GenericDaoBase<VmStatsVO, Long> implements V
     }
 
     @Override
-    public void removeAllByTimestampLessThan(Date limitDate, Long limitPerQuery) {
+    public Integer removeAllByTimestampLessThan(Date limit, Long limitPerQuery) {
         SearchCriteria<VmStatsVO> sc = timestampSearch.create();
-        sc.setParameters("timestamp", limitDate);
+        sc.setParameters("timestamp", limit);
 
-        logger.debug(String.format("Starting to remove all vm_stats rows older than [%s].", limitDate));
+        logger.debug(String.format("Starting to remove all vm_stats rows older than [%s].", limit));
 
         long totalRemoved = 0;
         long removed;
@@ -128,10 +127,12 @@ public class VmStatsDaoImpl extends GenericDaoBase<VmStatsVO, Long> implements V
         do {
             removed = expunge(sc, limitPerQuery);
             totalRemoved += removed;
-            logger.trace(String.format("Removed [%s] vm_stats rows on the last update and a sum of [%s] vm_stats rows older than [%s] until now.", removed, totalRemoved, limitDate));
+            logger.trace(String.format("Removed [%s] vm_stats rows on the last update and a sum of [%s] vm_stats rows older than [%s] until now.", removed, totalRemoved, limit));
         } while (limitPerQuery > 0 && removed >= limitPerQuery);
 
-        logger.info(String.format("Removed a total of [%s] vm_stats rows older than [%s].", totalRemoved, limitDate));
+        logger.info(String.format("Removed a total of [%s] vm_stats rows older than [%s].", totalRemoved, limit));
+
+        return expunge(sc);
     }
 
 }

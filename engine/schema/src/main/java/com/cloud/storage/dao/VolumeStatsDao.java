@@ -77,6 +77,6 @@ public interface VolumeStatsDao extends GenericDao<VolumeStatsVO, Long> {
      * a given Date.
      * @param limit the maximum date to keep stored. Records that exceed this limit will be removed.
      */
-    void removeAllByTimestampLessThan(Date limit);
+    Integer removeAllByTimestampLessThan(Date limit);
 
 }
