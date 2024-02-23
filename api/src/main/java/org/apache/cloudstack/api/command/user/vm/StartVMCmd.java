@@ -123,6 +123,10 @@ public class StartVMCmd extends BaseAsyncCmd implements UserCmd {
         return considerLastHost;
     }
 
+    public void setId(Long id) {
+        this.id = id;
+    }
+
     // ///////////////////////////////////////////////////
     // ///////////// API Implementation///////////////////
     // ///////////////////////////////////////////////////

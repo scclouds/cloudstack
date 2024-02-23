@@ -54,16 +54,16 @@ public class CreateFirewallRuleCmd extends BaseAsyncCreateCmd implements Firewal
     // ///////////////////////////////////////////////////
 
     @Parameter(name = ApiConstants.IP_ADDRESS_ID,
-               type = CommandType.UUID,
-               entityType = IPAddressResponse.class,
-               required = true,
-               description = "the IP address id of the port forwarding rule")
+            type = CommandType.UUID,
+            entityType = IPAddressResponse.class,
+            required = true,
+            description = "the IP address id of the port forwarding rule")
     private Long ipAddressId;
 
     @Parameter(name = ApiConstants.PROTOCOL,
-               type = CommandType.STRING,
-               required = true,
-               description = "the protocol for the firewall rule. Valid values are TCP/UDP/ICMP.")
+            type = CommandType.STRING,
+            required = true,
+            description = "the protocol for the firewall rule. Valid values are TCP/UDP/ICMP.")
     private String protocol;
 
     @Parameter(name = ApiConstants.START_PORT, type = CommandType.INTEGER, description = "the starting port of firewall rule")
@@ -92,13 +92,25 @@ public class CreateFirewallRuleCmd extends BaseAsyncCreateCmd implements Firewal
     // ///////////////////////////////////////////////////
 
 
+    // ///////////////////////////////////////////////////
+    // ///////////// API Implementation///////////////////
+    // ///////////////////////////////////////////////////
+
     public Long getIpAddressId() {
         return ipAddressId;
+    }
+
+    public void setIpAddressId(Long ipAddressId) {
+        this.ipAddressId = ipAddressId;
     }
 
     @Override
     public String getProtocol() {
         return protocol.trim();
+    }
+
+    public void setProtocol(String protocol) {
+        this.protocol = protocol;
     }
 
     @Override
@@ -112,10 +124,6 @@ public class CreateFirewallRuleCmd extends BaseAsyncCreateCmd implements Firewal
         }
 
     }
-
-    // ///////////////////////////////////////////////////
-    // ///////////// API Implementation///////////////////
-    // ///////////////////////////////////////////////////
 
     public void setSourceCidrList(List<String> cidrs) {
         cidrlist = cidrs;
@@ -176,6 +184,10 @@ public class CreateFirewallRuleCmd extends BaseAsyncCreateCmd implements Firewal
         return null;
     }
 
+    public void setPublicStartPort(Integer publicStartPort) {
+        this.publicStartPort = publicStartPort;
+    }
+
     @Override
     public Integer getSourcePortEnd() {
         if (publicEndPort == null) {
@@ -187,6 +199,10 @@ public class CreateFirewallRuleCmd extends BaseAsyncCreateCmd implements Firewal
         }
 
         return null;
+    }
+
+    public void setPublicEndPort(Integer publicEndPort) {
+        this.publicEndPort = publicEndPort;
     }
 
     @Override
@@ -298,12 +314,16 @@ public class CreateFirewallRuleCmd extends BaseAsyncCreateCmd implements Firewal
         return null;
     }
 
+    public void setIcmpCode(Integer icmpCode) {
+        this.icmpCode = icmpCode;
+    }
+
     @Override
     public Integer getIcmpType() {
         if (icmpType != null) {
             return icmpType;
         } else if (protocol.equalsIgnoreCase(NetUtils.ICMP_PROTO)) {
-                return -1;
+            return -1;
 
         }
         return null;
@@ -343,7 +363,7 @@ public class CreateFirewallRuleCmd extends BaseAsyncCreateCmd implements Firewal
     }
 
     @Override
-    public List<String> getDestinationCidrList(){
+    public List<String> getDestinationCidrList() {
         return null;
     }
 

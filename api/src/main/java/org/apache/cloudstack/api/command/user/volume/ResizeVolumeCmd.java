@@ -15,6 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 package org.apache.cloudstack.api.command.user.volume;
+
 import org.apache.cloudstack.api.BaseAsyncCmd;
 import org.apache.log4j.Logger;
 
@@ -69,17 +70,17 @@ public class ResizeVolumeCmd extends BaseAsyncCmd implements UserCmd {
     private boolean shrinkOk;
 
     @Parameter(name = ApiConstants.DISK_OFFERING_ID,
-               entityType = DiskOfferingResponse.class,
-               type = CommandType.UUID,
-               required = false,
-               description = "new disk offering id")
+            entityType = DiskOfferingResponse.class,
+            type = CommandType.UUID,
+            required = false,
+            description = "new disk offering id")
     private Long newDiskOfferingId;
 
     /////////////////////////////////////////////////////
     /////////////////// Accessors ///////////////////////
     /////////////////////////////////////////////////////
-
-    public ResizeVolumeCmd() {}
+    public ResizeVolumeCmd() {
+    }
 
     public ResizeVolumeCmd(Long id, Long minIops, Long maxIops) {
         this.id = id;
@@ -146,21 +147,28 @@ public class ResizeVolumeCmd extends BaseAsyncCmd implements UserCmd {
         return "volume";
     }
 
-   @Override
+    public void setId(Long id) {
+        this.id = id;
+    }
+
+    public void setSize(Long size) {
+        this.size = size;
+    }
+
+    @Override
     public long getEntityOwnerId() {
 
         Volume volume = _entityMgr.findById(Volume.class, getEntityId());
         if (volume == null) {
-                throw new InvalidParameterValueException("Unable to find volume by id=" + id);
+            throw new InvalidParameterValueException("Unable to find volume by id=" + id);
         }
 
         Account account = _accountService.getAccount(volume.getAccountId());
         //Can resize volumes for enabled projects/accounts only
         if (account.getType() == Account.Type.PROJECT) {
-                Project project = _projectService.findByProjectAccountId(volume.getAccountId());
+            Project project = _projectService.findByProjectAccountId(volume.getAccountId());
             if (project.getState() != Project.State.Active) {
-                throw new PermissionDeniedException("Can't add resources to  project id=" + project.getId() + " in state=" + project.getState() +
-                    " as it's no longer active");
+                throw new PermissionDeniedException(String.format("Can't add resources to project id %s in state %s as it's no longer active.", project.getId(), project.getState()));
             }
         } else if (account.getState() == Account.State.DISABLED) {
             throw new PermissionDeniedException("The owner of volume " + id + "  is disabled: " + account);
