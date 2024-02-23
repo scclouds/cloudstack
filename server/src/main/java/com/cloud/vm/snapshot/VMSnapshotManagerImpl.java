@@ -27,6 +27,8 @@ import java.util.Map;
 import javax.inject.Inject;
 import javax.naming.ConfigurationException;
 
+import com.cloud.configuration.Resource;
+import com.cloud.user.ResourceLimitService;
 import org.apache.cloudstack.annotation.AnnotationService;
 import org.apache.cloudstack.annotation.dao.AnnotationDao;
 import org.apache.cloudstack.api.ApiConstants;
@@ -173,6 +175,8 @@ public class VMSnapshotManagerImpl extends MutualExclusiveIdsManagerBase impleme
     PrimaryDataStoreDao _storagePoolDao;
     @Inject
     private AnnotationDao annotationDao;
+    @Inject
+    ResourceLimitService resourceLimitMgr;
 
     VmWorkJobHandlerProxy _jobHandlerProxy = new VmWorkJobHandlerProxy(this);
 
@@ -419,6 +423,8 @@ public class VMSnapshotManagerImpl extends MutualExclusiveIdsManagerBase impleme
             throw new CloudRuntimeException("There is other active vm snapshot tasks on the instance, please try again later");
         }
 
+        resourceLimitMgr.checkResourceLimit(caller, Resource.ResourceType.vm_snapshot);
+
         VMSnapshot.Type vmSnapshotType = VMSnapshot.Type.Disk;
         if (snapshotMemory && userVmVo.getState() == VirtualMachine.State.Running)
             vmSnapshotType = VMSnapshot.Type.DiskAndMemory;
@@ -428,8 +434,10 @@ public class VMSnapshotManagerImpl extends MutualExclusiveIdsManagerBase impleme
         }
 
         try {
+            resourceLimitMgr.incrementResourceCount(caller.getAccountId(), Resource.ResourceType.vm_snapshot);
             return createAndPersistVMSnapshot(userVmVo, vsDescription, vmSnapshotName, vsDisplayName, vmSnapshotType);
         } catch (Exception e) {
+            resourceLimitMgr.decrementResourceCount(caller.getAccountId(), Resource.ResourceType.vm_snapshot);
             String msg = e.getMessage();
             s_logger.error("Create vm snapshot record failed for vm: " + vmId + " due to: " + msg);
         }
@@ -607,6 +615,8 @@ public class VMSnapshotManagerImpl extends MutualExclusiveIdsManagerBase impleme
     @Override
     @ActionEvent(eventType = EventTypes.EVENT_VM_SNAPSHOT_DELETE, eventDescription = "delete vm snapshots", async = true)
     public boolean deleteVMSnapshot(Long vmSnapshotId) {
+        boolean success = false;
+
         Account caller = getCaller();
 
         VMSnapshotVO vmSnapshot = _vmSnapshotDao.findById(vmSnapshotId);
@@ -637,7 +647,7 @@ public class VMSnapshotManagerImpl extends MutualExclusiveIdsManagerBase impleme
             VmWorkJobVO placeHolder = null;
             placeHolder = createPlaceHolderWork(vmSnapshot.getVmId());
             try {
-                return orchestrateDeleteVMSnapshot(vmSnapshotId);
+                success = orchestrateDeleteVMSnapshot(vmSnapshotId);
             } finally {
                 _workJobDao.expunge(placeHolder.getId());
             }
@@ -664,10 +674,13 @@ public class VMSnapshotManagerImpl extends MutualExclusiveIdsManagerBase impleme
             }
 
             if (jobResult instanceof Boolean)
-                return ((Boolean)jobResult).booleanValue();
-
-            return false;
+                success = ((Boolean)jobResult).booleanValue();
         }
+
+        if (success) {
+            resourceLimitMgr.decrementResourceCount(caller.getAccountId(), Resource.ResourceType.vm_snapshot);
+        }
+        return success;
     }
 
     private boolean orchestrateDeleteVMSnapshot(Long vmSnapshotId) {

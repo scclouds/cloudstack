@@ -33,6 +33,8 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import com.cloud.configuration.Resource;
+import com.cloud.user.ResourceLimitService;
 import org.apache.cloudstack.acl.ControlledEntity;
 import org.apache.cloudstack.acl.SecurityChecker.AccessType;
 import org.apache.cloudstack.api.ResourceDetail;
@@ -45,6 +47,7 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.Captor;
 import org.mockito.Matchers;
 import org.mockito.Mock;
+import org.mockito.Mockito;
 import org.mockito.MockitoAnnotations;
 import org.mockito.Spy;
 
@@ -136,6 +139,8 @@ public class VMSnapshotManagerTest {
     VMSnapshotDetailsDao _vmSnapshotDetailsDao;
     @Mock
     UserVmManager _userVmManager;
+    @Mock
+    ResourceLimitService resourceLimitService;
     int _vmSnapshotMax = 10;
 
     private static final long TEST_VM_ID = 3L;
@@ -189,6 +194,7 @@ public class VMSnapshotManagerTest {
         _vmSnapshotMgr._guestOSDao = _guestOSDao;
         _vmSnapshotMgr._hypervisorCapabilitiesDao = _hypervisorCapabilitiesDao;
         _vmSnapshotMgr._serviceOfferingDetailsDao = _serviceOfferingDetailsDao;
+        _vmSnapshotMgr.resourceLimitMgr = resourceLimitService;
 
         doNothing().when(_accountMgr).checkAccess(any(Account.class), any(AccessType.class), any(Boolean.class), any(ControlledEntity.class));
 
@@ -301,6 +307,7 @@ public class VMSnapshotManagerTest {
     @Test
     public void testCreateVMSnapshot() throws AgentUnavailableException, OperationTimedoutException, ResourceAllocationException, NoTransitionException {
         when(vmMock.getState()).thenReturn(State.Running);
+        doNothing().when(resourceLimitService).checkResourceLimit(Mockito.eq(admin), Mockito.eq(Resource.ResourceType.vm_snapshot));
         _vmSnapshotMgr.allocVMSnapshot(TEST_VM_ID, "", "", true);
     }
 

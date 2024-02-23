@@ -31,6 +31,7 @@ import javax.inject.Inject;
 import javax.naming.ConfigurationException;
 
 import com.cloud.utils.Pair;
+import com.cloud.vm.snapshot.dao.VMSnapshotDao;
 import org.apache.cloudstack.acl.SecurityChecker.AccessType;
 import org.apache.cloudstack.context.CallContext;
 import org.apache.cloudstack.engine.subsystem.api.storage.ObjectInDataStoreStateMachine;
@@ -165,6 +166,8 @@ public class ResourceLimitManagerImpl extends ManagerBase implements ResourceLim
     private VpcDao _vpcDao;
     @Inject
     private VlanDao _vlanDao;
+    @Inject
+    private VMSnapshotDao vmSnapshotDao;
 
     protected GenericSearchBuilder<TemplateDataStoreVO, SumCount> templateSizeSearch;
     protected GenericSearchBuilder<SnapshotDataStoreVO, SumCount> snapshotSizeSearch;
@@ -233,6 +236,7 @@ public class ResourceLimitManagerImpl extends ManagerBase implements ResourceLim
             projectResourceLimitMap.put(Resource.ResourceType.memory, Long.parseLong(_configDao.getValue(Config.DefaultMaxProjectMemory.key())));
             projectResourceLimitMap.put(Resource.ResourceType.primary_storage, Long.parseLong(_configDao.getValue(Config.DefaultMaxProjectPrimaryStorage.key())));
             projectResourceLimitMap.put(Resource.ResourceType.secondary_storage, MaxProjectSecondaryStorage.value());
+            projectResourceLimitMap.put(Resource.ResourceType.vm_snapshot, MaxProjectVmSnapshot.value());
 
             accountResourceLimitMap.put(Resource.ResourceType.public_ip, Long.parseLong(_configDao.getValue(Config.DefaultMaxAccountPublicIPs.key())));
             accountResourceLimitMap.put(Resource.ResourceType.snapshot, Long.parseLong(_configDao.getValue(Config.DefaultMaxAccountSnapshots.key())));
@@ -245,6 +249,7 @@ public class ResourceLimitManagerImpl extends ManagerBase implements ResourceLim
             accountResourceLimitMap.put(Resource.ResourceType.memory, Long.parseLong(_configDao.getValue(Config.DefaultMaxAccountMemory.key())));
             accountResourceLimitMap.put(Resource.ResourceType.primary_storage, Long.parseLong(_configDao.getValue(Config.DefaultMaxAccountPrimaryStorage.key())));
             accountResourceLimitMap.put(Resource.ResourceType.secondary_storage, MaxAccountSecondaryStorage.value());
+            accountResourceLimitMap.put(Resource.ResourceType.vm_snapshot, MaxAccountVmSnapshot.value());
 
             domainResourceLimitMap.put(Resource.ResourceType.public_ip, Long.parseLong(_configDao.getValue(Config.DefaultMaxDomainPublicIPs.key())));
             domainResourceLimitMap.put(Resource.ResourceType.snapshot, Long.parseLong(_configDao.getValue(Config.DefaultMaxDomainSnapshots.key())));
@@ -257,6 +262,7 @@ public class ResourceLimitManagerImpl extends ManagerBase implements ResourceLim
             domainResourceLimitMap.put(Resource.ResourceType.memory, Long.parseLong(_configDao.getValue(Config.DefaultMaxDomainMemory.key())));
             domainResourceLimitMap.put(Resource.ResourceType.primary_storage, Long.parseLong(_configDao.getValue(Config.DefaultMaxDomainPrimaryStorage.key())));
             domainResourceLimitMap.put(Resource.ResourceType.secondary_storage, Long.parseLong(_configDao.getValue(Config.DefaultMaxDomainSecondaryStorage.key())));
+            domainResourceLimitMap.put(Resource.ResourceType.vm_snapshot, MaxDomainVmSnapshot.value());
         } catch (NumberFormatException e) {
             s_logger.error("NumberFormatException during configuration", e);
             throw new ConfigurationException("Configuration failed due to NumberFormatException, see log for the stacktrace");
@@ -973,34 +979,51 @@ public class ResourceLimitManagerImpl extends ManagerBase implements ResourceLim
         long accountId = account.getId();
 
         Long newCount = null;
-        if (type == Resource.ResourceType.user_vm) {
-            newCount = _userVmDao.countAllocatedVMsForAccount(accountId, VirtualMachineManager.ResourceCountRunningVMsonly.value());
-        } else if (type == Resource.ResourceType.volume) {
-            long virtualRouterCount = _vmDao.findIdsOfAllocatedVirtualRoutersForAccount(accountId).size();
-            newCount = _volumeDao.countAllocatedVolumesForAccount(accountId) - virtualRouterCount;
-        } else if (type == Resource.ResourceType.snapshot) {
-            newCount = _snapshotDao.countSnapshotsForAccount(accountId);
-        } else if (type == Resource.ResourceType.public_ip) {
-            newCount = calculatePublicIpForAccount(accountId);
-        } else if (type == Resource.ResourceType.template) {
-            newCount = _vmTemplateDao.countTemplatesForAccount(accountId);
-        } else if (type == Resource.ResourceType.project) {
-            newCount = _projectAccountDao.countByAccountIdAndRole(accountId, Role.Admin);
-        } else if (type == Resource.ResourceType.network) {
-            newCount = _networkDao.countNetworksUserCanCreate(accountId);
-        } else if (type == Resource.ResourceType.vpc) {
-            newCount = _vpcDao.countByAccountId(accountId);
-        } else if (type == Resource.ResourceType.cpu) {
-            newCount = getCpuAndMemoryCountForAccount(accountId).first();
-        } else if (type == Resource.ResourceType.memory) {
-            newCount = getCpuAndMemoryCountForAccount(accountId).second();
-        } else if (type == Resource.ResourceType.primary_storage) {
-            List<Long> virtualRouters = _vmDao.findIdsOfAllocatedVirtualRoutersForAccount(accountId);
-            newCount = _volumeDao.primaryStorageUsedForAccount(accountId, virtualRouters);
-        } else if (type == Resource.ResourceType.secondary_storage) {
-            newCount = calculateSecondaryStorageForAccount(accountId);
+        switch (type) {
+            case user_vm:
+                newCount = _userVmDao.countAllocatedVMsForAccount(accountId, VirtualMachineManager.ResourceCountRunningVMsonly.value());
+                break;
+            case volume:
+                long virtualRouterCount = _vmDao.findIdsOfAllocatedVirtualRoutersForAccount(accountId).size();
+                newCount = _volumeDao.countAllocatedVolumesForAccount(accountId) - virtualRouterCount;
+                break;
+            case snapshot:
+                newCount = _snapshotDao.countSnapshotsForAccount(accountId);
+                break;
+            case public_ip:
+                newCount = calculatePublicIpForAccount(accountId);
+                break;
+            case template:
+                newCount = _vmTemplateDao.countTemplatesForAccount(accountId);
+                break;
+            case project:
+                newCount = _projectAccountDao.countByAccountIdAndRole(accountId, Role.Admin);
+                break;
+            case network:
+                newCount = _networkDao.countNetworksUserCanCreate(accountId);
+                break;
+            case vpc:
+                newCount = _vpcDao.countByAccountId(accountId);
+                break;
+            case cpu:
+                newCount = getCpuAndMemoryCountForAccount(accountId).first();
+                break;
+            case memory:
+                newCount = getCpuAndMemoryCountForAccount(accountId).second();
+                break;
+            case primary_storage:
+                List<Long> virtualRouters = _vmDao.findIdsOfAllocatedVirtualRoutersForAccount(accountId);
+                newCount = _volumeDao.primaryStorageUsedForAccount(accountId, virtualRouters);
+                break;
+            case secondary_storage:
+                newCount = calculateSecondaryStorageForAccount(accountId);
+                break;
+            case vm_snapshot:
+                newCount = (long) getAmountOfVmSnapshotsForAccount(accountId);
+                break;
+            default:
+                break;
         }
-
         s_logger.debug(String.format("New resource count of resource type [%s] for %s is [%s].", type, account, newCount));
 
         long oldCount = 0;
@@ -1033,6 +1056,9 @@ public class ResourceLimitManagerImpl extends ManagerBase implements ResourceLim
         return newCount == null ? 0 : newCount;
     }
 
+    private int getAmountOfVmSnapshotsForAccount(long accountId) {
+        return CollectionUtils.size(vmSnapshotDao.listByAccountId(accountId));
+    }
 
     /**
      * Counts CPU and memory used by account.
@@ -1169,7 +1195,8 @@ public class ResourceLimitManagerImpl extends ManagerBase implements ResourceLim
 
     @Override
     public ConfigKey<?>[] getConfigKeys() {
-        return new ConfigKey<?>[] {ResourceCountCheckInterval, MaxAccountSecondaryStorage, MaxProjectSecondaryStorage};
+        return new ConfigKey<?>[] {ResourceCountCheckInterval, MaxAccountSecondaryStorage, MaxProjectSecondaryStorage,
+                MaxDomainVmSnapshot, MaxAccountVmSnapshot, MaxProjectVmSnapshot};
     }
 
     protected class ResourceCountCheckTask extends ManagedContextRunnable {
