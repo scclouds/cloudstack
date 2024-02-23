@@ -1216,6 +1216,7 @@
 "label.maxsecondarystorage": "Max. secondary storage (GiB)",
 "label.maxsize": "Maximum size",
 "label.maxsnapshot": "Max. snapshots",
+"label.maxvmsnapshot": "Max. VM snapshots",
 "label.maxtemplate": "Max. templates",
 "label.maxuservm": "Max. user VMs",
 "label.maxvolume": "Max. volumes",

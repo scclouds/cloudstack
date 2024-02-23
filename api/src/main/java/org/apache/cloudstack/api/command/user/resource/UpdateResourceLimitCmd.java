@@ -69,7 +69,8 @@ public class UpdateResourceLimitCmd extends BaseCmd {
                    + "8 - CPU. Total number of CPU cores a user can use. "
                    + "9 - Memory. Total Memory (in MB) a user can use. "
                    + "10 - PrimaryStorage. Total primary storage space (in GiB) a user can use. "
-                   + "11 - SecondaryStorage. Total secondary storage space (in GiB) a user can use. ")
+                   + "11 - SecondaryStorage. Total secondary storage space (in GiB) a user can use. "
+                   + "12 - VMSnapshot. Number of VM snapshots a user can create.")
     private Integer resourceType;
 
     /////////////////////////////////////////////////////
