@@ -288,6 +288,11 @@ public class StatsCollector extends ManagerBase implements ComponentMethodInterc
     protected static ConfigKey<Boolean> vmStatsCollectUserVMOnly = new ConfigKey<>("Advanced", Boolean.class, "vm.stats.user.vm.only", "false",
             "When set to 'false' stats for system VMs will be collected otherwise stats collection will be done only for user VMs", true);
 
+    protected static ConfigKey<Long> vmStatsEntriesLimitPerDeleteQuery = new ConfigKey<>("Advanced", Long.class, "vm.stats.entries.limit.per.delete.query", "0", "Indicates the" +
+            " limit applied to delete vm_stats entries while running the clean-up task. With this, ACS will run the delete query, applying the limit, as many times as necessary" +
+            " to delete all entries older than the value defined in vm.stats.max.retention.time. This is advised when retaining several days of records, which can lead to slowness" +
+            " on the delete query. Zero (0) means that no limit will be applied, therefore, the query will run once and without limit, keeping the default behavior.", true);
+
     protected static ConfigKey<Boolean> vmDiskStatsRetentionEnabled = new ConfigKey<>("Advanced", Boolean.class, "vm.disk.stats.retention.enabled", "false",
             "When set to 'true' stats for VM disks will be stored in the database otherwise disk stats will not be stored", true);
 
@@ -1940,7 +1945,7 @@ public class StatsCollector extends ManagerBase implements ComponentMethodInterc
         LOGGER.trace("Removing older VM stats records.");
         Date now = new Date();
         Date limit = DateUtils.addMinutes(now, -maxRetentionTime);
-        vmStatsDao.removeAllByTimestampLessThan(limit);
+        vmStatsDao.removeAllByTimestampLessThan(limit, vmStatsEntriesLimitPerDeleteQuery.value());
     }
 
     /**
@@ -2115,7 +2120,7 @@ public class StatsCollector extends ManagerBase implements ComponentMethodInterc
     @Override
     public ConfigKey<?>[] getConfigKeys() {
         return new ConfigKey<?>[] {vmDiskStatsInterval, vmDiskStatsIntervalMin, vmNetworkStatsInterval, vmNetworkStatsIntervalMin, StatsTimeout, statsOutputUri,
-            vmStatsIncrementMetrics, vmStatsMaxRetentionTime, vmStatsCollectUserVMOnly, vmDiskStatsRetentionEnabled, vmDiskStatsMaxRetentionTime,
+            vmStatsIncrementMetrics, vmStatsMaxRetentionTime, vmStatsCollectUserVMOnly, vmDiskStatsRetentionEnabled, vmDiskStatsMaxRetentionTime, vmStatsEntriesLimitPerDeleteQuery,
                 VM_STATS_INCREMENT_METRICS_IN_MEMORY,
                 MANAGEMENT_SERVER_STATUS_COLLECTION_INTERVAL,
                 DATABASE_SERVER_STATUS_COLLECTION_INTERVAL,
