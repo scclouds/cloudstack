@@ -154,6 +154,7 @@ public class KubernetesClusterDestroyWorker extends KubernetesClusterResourceMod
         } catch (ResourceUnavailableException e) {
             throw new ManagementServerException(String.format("Failed to KubernetesCluster load balancing rule for network : %s", network.getName()));
         }
+
         FirewallRule firewallRule = removeApiFirewallRule(publicIp);
         if (firewallRule == null) {
             logMessage(Level.WARN, "Firewall rule for API access can't be removed", null);

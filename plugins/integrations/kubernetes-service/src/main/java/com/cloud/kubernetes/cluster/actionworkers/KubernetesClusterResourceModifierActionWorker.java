@@ -29,6 +29,7 @@ import com.cloud.exception.InsufficientServerCapacityException;
 import com.cloud.exception.ManagementServerException;
 import com.cloud.exception.NetworkRuleConflictException;
 import com.cloud.exception.OperationTimedoutException;
+import com.cloud.exception.ResourceAllocationException;
 import com.cloud.exception.ResourceUnavailableException;
 import com.cloud.host.Host;
 import com.cloud.host.HostVO;
@@ -76,7 +77,6 @@ import com.cloud.vm.UserVmManager;
 import com.cloud.vm.VirtualMachine;
 import com.cloud.vm.VmDetailConstants;
 import com.cloud.vm.dao.VMInstanceDao;
-
 import org.apache.cloudstack.api.ApiConstants;
 import org.apache.cloudstack.api.BaseCmd;
 import org.apache.cloudstack.api.command.user.firewall.CreateFirewallRuleCmd;
@@ -90,7 +90,6 @@ import org.apache.log4j.Level;
 import javax.inject.Inject;
 import java.io.File;
 import java.io.IOException;
-import java.lang.reflect.Field;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -203,7 +202,7 @@ public class KubernetesClusterResourceModifierActionWorker extends KubernetesClu
 
             final String usernamePasswordKey = registryUsername + ":" + registryPassword;
             String base64Auth = Base64.encodeBase64String(usernamePasswordKey.getBytes(com.cloud.utils.StringUtils.getPreferredCharset()));
-            k8sConfig = k8sConfig.replace(registryUrlKey,   registryUrl);
+            k8sConfig = k8sConfig.replace(registryUrlKey, registryUrl);
             k8sConfig = k8sConfig.replace(registryUrlEpKey, registryEp);
             k8sConfig = k8sConfig.replace(registryUname, registryUsername);
             k8sConfig = k8sConfig.replace(registryPsswd, registryPassword);
@@ -211,6 +210,7 @@ public class KubernetesClusterResourceModifierActionWorker extends KubernetesClu
         }
         return k8sConfig;
     }
+
     protected DeployDestination plan(final long nodesCount, final DataCenter zone, final ServiceOffering offering) throws InsufficientServerCapacityException {
         final int cpu_requested = offering.getCpu() * offering.getSpeed();
         final long ram_requested = offering.getRamSize() * 1024L * 1024L;
@@ -239,30 +239,30 @@ public class KubernetesClusterResourceModifierActionWorker extends KubernetesClu
                 ClusterDetailsVO cluster_detail_ram = clusterDetailsDao.findDetail(cluster.getId(), "memoryOvercommitRatio");
                 Float cpuOvercommitRatio = Float.parseFloat(cluster_detail_cpu.getValue());
                 Float memoryOvercommitRatio = Float.parseFloat(cluster_detail_ram.getValue());
-                if (LOGGER.isDebugEnabled()) {
-                    LOGGER.debug(String.format("Checking host : %s for capacity already reserved %d", h.getName(), reserved));
-                }
+
+                LOGGER.debug(String.format("Checking host : %s for capacity already reserved %d", h.getName(), reserved));
+
                 if (capacityManager.checkIfHostHasCapacity(h.getId(), cpu_requested * reserved, ram_requested * reserved, false, cpuOvercommitRatio, memoryOvercommitRatio, true)) {
-                    if (LOGGER.isDebugEnabled()) {
-                        LOGGER.debug(String.format("Found host : %s for with enough capacity, CPU=%d RAM=%s", h.getName(), cpu_requested * reserved, toHumanReadableSize(ram_requested * reserved)));
-                    }
+
+                    LOGGER.debug(String.format("Found host : %s for with enough capacity, CPU=%d RAM=%s", h.getName(), cpu_requested * reserved, toHumanReadableSize(ram_requested * reserved)));
+
                     hostEntry.setValue(new Pair<HostVO, Integer>(h, reserved));
                     suitable_host_found = true;
                     break;
                 }
             }
             if (!suitable_host_found) {
-                if (LOGGER.isInfoEnabled()) {
-                    LOGGER.info(String.format("Suitable hosts not found in datacenter : %s for node %d, with offering : %s and hypervisor: %s",
+
+                LOGGER.info(String.format("Suitable hosts not found in datacenter : %s for node %d, with offering : %s and hypervisor: %s",
                         zone.getName(), i, offering.getName(), clusterTemplate.getHypervisorType().toString()));
-                }
+
                 break;
             }
         }
         if (suitable_host_found) {
-            if (LOGGER.isInfoEnabled()) {
-                LOGGER.info(String.format("Suitable hosts found in datacenter : %s, creating deployment destination", zone.getName()));
-            }
+
+            LOGGER.info(String.format("Suitable hosts found in datacenter : %s, creating deployment destination", zone.getName()));
+
             return new DeployDestination(zone, null, null, null);
         }
         String msg = String.format("Cannot find enough capacity for Kubernetes cluster(requested cpu=%d memory=%s) with offering : %s and hypervisor: %s",
@@ -275,9 +275,9 @@ public class KubernetesClusterResourceModifierActionWorker extends KubernetesClu
     protected DeployDestination plan() throws InsufficientServerCapacityException {
         ServiceOffering offering = serviceOfferingDao.findById(kubernetesCluster.getServiceOfferingId());
         DataCenter zone = dataCenterDao.findById(kubernetesCluster.getZoneId());
-        if (LOGGER.isDebugEnabled()) {
-            LOGGER.debug(String.format("Checking deployment destination for Kubernetes cluster : %s in zone : %s", kubernetesCluster.getName(), zone.getName()));
-        }
+
+        LOGGER.debug(String.format("Checking deployment destination for Kubernetes cluster : %s in zone : %s", kubernetesCluster.getName(), zone.getName()));
+
         return plan(kubernetesCluster.getTotalNodeCount(), zone, offering);
     }
 
@@ -289,17 +289,13 @@ public class KubernetesClusterResourceModifierActionWorker extends KubernetesClu
                     if (volumeVO.getVolumeType() == Volume.Type.ROOT) {
                         ResizeVolumeCmd resizeVolumeCmd = new ResizeVolumeCmd();
                         resizeVolumeCmd = ComponentContext.inject(resizeVolumeCmd);
-                        Field f = resizeVolumeCmd.getClass().getDeclaredField("size");
-                        Field f1 = resizeVolumeCmd.getClass().getDeclaredField("id");
-                        f.setAccessible(true);
-                        f1.setAccessible(true);
-                        f1.set(resizeVolumeCmd, volumeVO.getId());
-                        f.set(resizeVolumeCmd, kubernetesCluster.getNodeRootDiskSize());
+                        resizeVolumeCmd.setId(volumeVO.getId());
+                        resizeVolumeCmd.setSize(kubernetesCluster.getNodeRootDiskSize());
                         volumeService.resizeVolume(resizeVolumeCmd);
                     }
                 }
             }
-        } catch (IllegalAccessException | NoSuchFieldException e) {
+        } catch (ResourceAllocationException e) {
             throw new ManagementServerException(String.format("Failed to resize volume of  VM in the Kubernetes cluster : %s", kubernetesCluster.getName()), e);
         }
     }
@@ -308,14 +304,12 @@ public class KubernetesClusterResourceModifierActionWorker extends KubernetesClu
         try {
             StartVMCmd startVm = new StartVMCmd();
             startVm = ComponentContext.inject(startVm);
-            Field f = startVm.getClass().getDeclaredField("id");
-            f.setAccessible(true);
-            f.set(startVm, vm.getId());
+            startVm.setId(vm.getId());
             itMgr.advanceStart(vm.getUuid(), null, null);
-            if (LOGGER.isInfoEnabled()) {
-                LOGGER.info(String.format("Started VM : %s in the Kubernetes cluster : %s", vm.getDisplayName(), kubernetesCluster.getName()));
-            }
-        } catch (IllegalAccessException | NoSuchFieldException | OperationTimedoutException | ResourceUnavailableException | InsufficientCapacityException ex) {
+
+            LOGGER.info(String.format("Started VM : %s in the Kubernetes cluster : %s", vm.getDisplayName(), kubernetesCluster.getName()));
+
+        } catch (OperationTimedoutException | ResourceUnavailableException | InsufficientCapacityException ex) {
             throw new ManagementServerException(String.format("Failed to start VM in the Kubernetes cluster : %s", kubernetesCluster.getName()), ex);
         }
 
@@ -337,12 +331,12 @@ public class KubernetesClusterResourceModifierActionWorker extends KubernetesClu
             startKubernetesVM(vm);
             vm = userVmDao.findById(vm.getId());
             if (vm == null) {
-                throw new ManagementServerException(String.format("Failed to provision worker VM for Kubernetes cluster : %s" , kubernetesCluster.getName()));
+                throw new ManagementServerException(String.format("Failed to provision worker VM for Kubernetes cluster : %s", kubernetesCluster.getName()));
             }
             nodes.add(vm);
-            if (LOGGER.isInfoEnabled()) {
-                LOGGER.info(String.format("Provisioned node VM : %s in to the Kubernetes cluster : %s", vm.getDisplayName(), kubernetesCluster.getName()));
-            }
+
+            LOGGER.info(String.format("Provisioned node VM : %s in to the Kubernetes cluster : %s", vm.getDisplayName(), kubernetesCluster.getName()));
+
         }
         return nodes;
     }
@@ -387,7 +381,7 @@ public class KubernetesClusterResourceModifierActionWorker extends KubernetesClu
             List<Long> securityGroupIds = new ArrayList<>();
             securityGroupIds.add(kubernetesCluster.getSecurityGroupId());
             nodeVm = userVmService.createAdvancedSecurityGroupVirtualMachine(zone, serviceOffering, clusterTemplate, networkIds, securityGroupIds, owner,
-                    hostName, hostName, null, null, null, Hypervisor.HypervisorType.None, BaseCmd.HTTPMethod.POST,base64UserData, null, null, keypairs,
+                    hostName, hostName, null, null, null, Hypervisor.HypervisorType.None, BaseCmd.HTTPMethod.POST, base64UserData, null, null, keypairs,
                     null, addrs, null, null, null, customParameterMap, null, null, null,
                     null, true, null, UserVmManager.CKS_NODE);
         } else {
@@ -396,23 +390,18 @@ public class KubernetesClusterResourceModifierActionWorker extends KubernetesClu
                     Hypervisor.HypervisorType.None, BaseCmd.HTTPMethod.POST, base64UserData, null, null, keypairs,
                     null, addrs, null, null, null, customParameterMap, null, null, null, null, true, UserVmManager.CKS_NODE, null);
         }
-        if (LOGGER.isInfoEnabled()) {
-            LOGGER.info(String.format("Created node VM : %s, %s in the Kubernetes cluster : %s", hostName, nodeVm.getUuid(), kubernetesCluster.getName()));
-        }
+
+        LOGGER.info(String.format("Created node VM : %s, %s in the Kubernetes cluster : %s", hostName, nodeVm.getUuid(), kubernetesCluster.getName()));
+
         return nodeVm;
     }
 
     protected IpAddress getSourceNatIp(Network network) {
-        List<? extends IpAddress> addresses = networkModel.listPublicIpsAssignedToGuestNtwk(network.getId(), true);
-        if (CollectionUtils.isEmpty(addresses)) {
+        List<? extends IpAddress> ipAddresses = networkModel.listPublicIpsAssignedToGuestNtwk(network.getId(), true);
+        if (CollectionUtils.isEmpty(ipAddresses)) {
             return null;
         }
-        for (IpAddress address : addresses) {
-            if (address.isSourceNat()) {
-                return address;
-            }
-        }
-        return null;
+        return ipAddresses.stream().filter(IpAddress::isSourceNat).findFirst().orElse(null);
     }
 
     protected void provisionFirewallRules(final IpAddress publicIp, final Account account, int startPort, int endPort) throws NoSuchFieldException,
@@ -420,46 +409,40 @@ public class KubernetesClusterResourceModifierActionWorker extends KubernetesClu
         List<String> sourceCidrList = new ArrayList<String>();
         sourceCidrList.add("0.0.0.0/0");
 
-        CreateFirewallRuleCmd rule = new CreateFirewallRuleCmd();
-        rule = ComponentContext.inject(rule);
+        CreateFirewallRuleCmd firewallRule = new CreateFirewallRuleCmd();
 
-        Field addressField = rule.getClass().getDeclaredField("ipAddressId");
-        addressField.setAccessible(true);
-        addressField.set(rule, publicIp.getId());
+        firewallRule = ComponentContext.inject(firewallRule);
 
-        Field protocolField = rule.getClass().getDeclaredField("protocol");
-        protocolField.setAccessible(true);
-        protocolField.set(rule, "TCP");
+        firewallRule.setIpAddressId(publicIp.getId());
 
-        Field startPortField = rule.getClass().getDeclaredField("publicStartPort");
-        startPortField.setAccessible(true);
-        startPortField.set(rule, startPort);
+        firewallRule.setProtocol("TCP");
 
-        Field endPortField = rule.getClass().getDeclaredField("publicEndPort");
-        endPortField.setAccessible(true);
-        endPortField.set(rule, endPort);
+        firewallRule.setPublicStartPort(startPort);
 
-        Field cidrField = rule.getClass().getDeclaredField("cidrlist");
-        cidrField.setAccessible(true);
-        cidrField.set(rule, sourceCidrList);
+        firewallRule.setPublicEndPort(endPort);
 
-        firewallService.createIngressFirewallRule(rule);
+        firewallRule.setSourceCidrList(sourceCidrList);
+
+
+        firewallService.createIngressFirewallRule(firewallRule);
         firewallService.applyIngressFwRules(publicIp.getId(), account);
     }
 
     /**
      * To provision SSH port forwarding rules for the given Kubernetes cluster
      * for its given virtual machines
+     *
      * @param publicIp
      * @param network
      * @param account
      * @param List<Long> clusterVMIds (when empty then method must be called while
-     *                  down-scaling of the KubernetesCluster therefore no new rules
-     *                  to be added)
+     *                   down-scaling of the KubernetesCluster therefore no new rules
+     *                   to be added)
      * @param firewallRuleSourcePortStart
      * @throws ResourceUnavailableException
      * @throws NetworkRuleConflictException
      */
+
     protected void provisionSshPortForwardingRules(IpAddress publicIp, Network network, Account account,
                                                    List<Long> clusterVMIds, int firewallRuleSourcePortStart) throws ResourceUnavailableException,
             NetworkRuleConflictException {
@@ -490,9 +473,8 @@ public class KubernetesClusterResourceModifierActionWorker extends KubernetesClu
                     }
                 });
                 rulesService.applyPortForwardingRules(publicIp.getId(), account);
-                if (LOGGER.isInfoEnabled()) {
-                    LOGGER.info(String.format("Provisioned SSH port forwarding rule from port %d to 22 on %s to the VM IP : %s in Kubernetes cluster : %s", srcPortFinal, publicIp.getAddress().addr(), vmIp.toString(), kubernetesCluster.getName()));
-                }
+
+                LOGGER.info(String.format("Provisioned SSH port forwarding rule from port %d to 22 on %s to the VM IP : %s in Kubernetes cluster : %s", srcPortFinal, publicIp.getAddress().addr(), vmIp.toString(), kubernetesCluster.getName()));
             }
         }
     }
@@ -505,6 +487,7 @@ public class KubernetesClusterResourceModifierActionWorker extends KubernetesClu
                     firewallRule.getSourcePortEnd() == CLUSTER_API_PORT) {
                 rule = firewallRule;
                 firewallService.revokeIngressFwRule(firewallRule.getId(), true);
+                LOGGER.debug(String.format("The API firewall rule [%s] with the id [%s] was revoked", firewallRule.getName(), firewallRule.getId()));
                 break;
             }
         }
@@ -518,6 +501,7 @@ public class KubernetesClusterResourceModifierActionWorker extends KubernetesClu
             if (firewallRule.getSourcePortStart() == CLUSTER_NODES_DEFAULT_START_SSH_PORT) {
                 rule = firewallRule;
                 firewallService.revokeIngressFwRule(firewallRule.getId(), true);
+                LOGGER.debug(String.format("The SSH firewall rule [%s] with the id [%s] was revoked", firewallRule.getName(), firewallRule.getId()));
                 break;
             }
         }
@@ -531,6 +515,7 @@ public class KubernetesClusterResourceModifierActionWorker extends KubernetesClu
                 for (PortForwardingRuleVO pfRule : pfRules) {
                     if (pfRule.getVirtualMachineId() == vmId) {
                         portForwardingRulesDao.remove(pfRule.getId());
+                        LOGGER.debug(String.format("The Port forwarding rule [%s] with the id [%s] was removed.", pfRule.getName(), pfRule.getId()));
                         break;
                     }
                 }
@@ -539,12 +524,13 @@ public class KubernetesClusterResourceModifierActionWorker extends KubernetesClu
         }
     }
 
-    protected void removePortForwardingRules(final IpAddress publicIp, final Network network, final Account account, int startPort, int endPort)
-        throws ResourceUnavailableException {
+    protected void removeSshPortForwardingRules(final IpAddress publicIp, final Network network, final Account account, int startPort, int endPort)
+            throws ResourceUnavailableException {
         List<PortForwardingRuleVO> pfRules = portForwardingRulesDao.listByNetwork(network.getId());
         for (PortForwardingRuleVO pfRule : pfRules) {
             if (startPort <= pfRule.getSourcePortStart() && pfRule.getSourcePortStart() <= endPort) {
                 portForwardingRulesDao.remove(pfRule.getId());
+                LOGGER.debug(String.format("The Port forwarding rule [%s] with the id [%s] was removed.", pfRule.getName(), pfRule.getId()));
             }
         }
         rulesService.applyPortForwardingRules(publicIp.getId(), account);
@@ -552,13 +538,14 @@ public class KubernetesClusterResourceModifierActionWorker extends KubernetesClu
 
     protected void removeLoadBalancingRule(final IpAddress publicIp, final Network network,
                                            final Account account, final int port) throws ResourceUnavailableException {
-        List<LoadBalancerVO> rules = loadBalancerDao.listByIpAddress(publicIp.getId());
-        for (LoadBalancerVO rule : rules) {
+        List<LoadBalancerVO> lbRules = loadBalancerDao.listByIpAddress(publicIp.getId());
+        for (LoadBalancerVO rule : lbRules) {
             if (rule.getNetworkId() == network.getId() &&
                     rule.getAccountId() == account.getId() &&
                     rule.getSourcePortStart() == port &&
                     rule.getSourcePortEnd() == port) {
                 lbService.deleteLoadBalancerRule(rule.getId(), true);
+                LOGGER.debug(String.format("The Load balancer rule [%s] with the id [%s] was removed. ", rule.getName(), rule.getId()));
                 break;
             }
         }
@@ -568,7 +555,7 @@ public class KubernetesClusterResourceModifierActionWorker extends KubernetesClu
         String prefix = kubernetesCluster.getName();
         if (!NetUtils.verifyDomainNameLabel(prefix, true)) {
             prefix = prefix.replaceAll("[^a-zA-Z0-9-]", "");
-            if (prefix.length() == 0) {
+            if (prefix.isEmpty()) {
                 prefix = kubernetesCluster.getUuid();
             }
             prefix = "k8s-" + prefix;
@@ -580,30 +567,28 @@ public class KubernetesClusterResourceModifierActionWorker extends KubernetesClu
     }
 
     protected KubernetesClusterVO updateKubernetesClusterEntry(final Long cores, final Long memory,
-        final Long size, final Long serviceOfferingId, final Boolean autoscaleEnabled, final Long minSize, final Long maxSize) {
-        return Transaction.execute(new TransactionCallback<KubernetesClusterVO>() {
-                @Override
-                public KubernetesClusterVO doInTransaction(TransactionStatus status) {
-                KubernetesClusterVO updatedCluster = kubernetesClusterDao.createForUpdate(kubernetesCluster.getId());
-                if (cores != null) {
-                    updatedCluster.setCores(cores);
-                }
-                if (memory != null) {
-                    updatedCluster.setMemory(memory);
-                }
-                if (size != null) {
-                    updatedCluster.setNodeCount(size);
-                }
-                if (serviceOfferingId != null) {
-                    updatedCluster.setServiceOfferingId(serviceOfferingId);
-                }
-                if (autoscaleEnabled != null) {
-                    updatedCluster.setAutoscalingEnabled(autoscaleEnabled.booleanValue());
-                }
-                updatedCluster.setMinSize(minSize);
-                updatedCluster.setMaxSize(maxSize);
-                return kubernetesClusterDao.persist(updatedCluster);
+                                                               final Long size, final Long serviceOfferingId, final Boolean autoscaleEnabled, final Long minSize, final Long maxSize) {
+        return Transaction.execute((TransactionCallback<KubernetesClusterVO>) status -> {
+            KubernetesClusterVO updatedCluster = kubernetesClusterDao.createForUpdate(kubernetesCluster.getId());
+
+            if (cores != null) {
+                updatedCluster.setCores(cores);
             }
+            if (memory != null) {
+                updatedCluster.setMemory(memory);
+            }
+            if (size != null) {
+                updatedCluster.setNodeCount(size);
+            }
+            if (serviceOfferingId != null) {
+                updatedCluster.setServiceOfferingId(serviceOfferingId);
+            }
+            if (autoscaleEnabled != null) {
+                updatedCluster.setAutoscalingEnabled(autoscaleEnabled.booleanValue());
+            }
+            updatedCluster.setMinSize(minSize);
+            updatedCluster.setMaxSize(maxSize);
+            return kubernetesClusterDao.persist(updatedCluster);
         });
     }
 
@@ -629,9 +614,9 @@ public class KubernetesClusterResourceModifierActionWorker extends KubernetesClu
         try {
             if (enable) {
                 String command = String.format("sudo /opt/bin/autoscale-kube-cluster -i %s -e -M %d -m %d",
-                    kubernetesCluster.getUuid(), maxSize, minSize);
+                        kubernetesCluster.getUuid(), maxSize, minSize);
                 Pair<Boolean, String> result = SshHelper.sshExecute(publicIpAddress, sshPort, getControlNodeLoginUser(),
-                    pkFile, null, command, 10000, 10000, 60000);
+                        pkFile, null, command, 10000, 10000, 60000);
 
                 // Maybe the file isn't present. Try and copy it
                 if (!result.first()) {
@@ -641,12 +626,12 @@ public class KubernetesClusterResourceModifierActionWorker extends KubernetesClu
 
                     if (!createCloudStackSecret(keys)) {
                         logTransitStateAndThrow(Level.ERROR, String.format("Failed to setup keys for Kubernetes cluster %s",
-                            kubernetesCluster.getName()), kubernetesCluster.getId(), KubernetesCluster.Event.OperationFailed);
+                                kubernetesCluster.getName()), kubernetesCluster.getId(), KubernetesCluster.Event.OperationFailed);
                     }
 
                     // If at first you don't succeed ...
                     result = SshHelper.sshExecute(publicIpAddress, sshPort, getControlNodeLoginUser(),
-                        pkFile, null, command, 10000, 10000, 60000);
+                            pkFile, null, command, 10000, 10000, 60000);
                     if (!result.first()) {
                         throw new CloudRuntimeException(result.second());
                     }
@@ -654,7 +639,7 @@ public class KubernetesClusterResourceModifierActionWorker extends KubernetesClu
                 updateKubernetesClusterEntry(true, minSize, maxSize);
             } else {
                 Pair<Boolean, String> result = SshHelper.sshExecute(publicIpAddress, sshPort, getControlNodeLoginUser(),
-                    pkFile, null, String.format("sudo /opt/bin/autoscale-kube-cluster -d"),
+                        pkFile, null, String.format("sudo /opt/bin/autoscale-kube-cluster -d"),
                         10000, 10000, 60000);
                 if (!result.first()) {
                     throw new CloudRuntimeException(result.second());
