@@ -44,6 +44,8 @@ import java.util.concurrent.TimeUnit;
 
 import javax.inject.Inject;
 
+import com.cloud.configuration.Resource;
+import com.cloud.utils.DateUtil;
 import org.apache.cloudstack.engine.subsystem.api.storage.DataStore;
 import org.apache.cloudstack.engine.subsystem.api.storage.DataStoreManager;
 import org.apache.cloudstack.engine.subsystem.api.storage.DataStoreProvider;
@@ -1942,10 +1944,8 @@ public class StatsCollector extends ManagerBase implements ComponentMethodInterc
                     vmStatsMaxRetentionTime.scope(), vmStatsMaxRetentionTime.toString()));
             return;
         }
-        LOGGER.trace("Removing older VM stats records.");
-        Date now = new Date();
-        Date limit = DateUtils.addMinutes(now, -maxRetentionTime);
-        vmStatsDao.removeAllByTimestampLessThan(limit, vmStatsEntriesLimitPerDeleteQuery.value());
+
+        removeStats(Resource.ResourceType.user_vm.toString(), getDateLimit(maxRetentionTime));
     }
 
     /**
@@ -1955,18 +1955,34 @@ public class StatsCollector extends ManagerBase implements ComponentMethodInterc
     protected void cleanUpVolumeStats() {
         Integer maxRetentionTime = vmDiskStatsMaxRetentionTime.value();
         if (maxRetentionTime <= 0) {
-            if (LOGGER.isDebugEnabled()) {
-                LOGGER.debug(String.format("Skipping Volume stats cleanup. The [%s] parameter [%s] is set to 0 or less than 0.",
-                        vmDiskStatsMaxRetentionTime.scope(), vmDiskStatsMaxRetentionTime.toString()));
-            }
+            LOGGER.debug(String.format("Skipping Volume stats cleanup. The [%s] parameter [%s] is set to 0 or less than 0.",
+                    vmDiskStatsMaxRetentionTime.scope(), vmDiskStatsMaxRetentionTime.toString()));
             return;
         }
-        LOGGER.trace("Removing older Volume stats records.");
-        Date now = new Date();
-        Date limit = DateUtils.addMinutes(now, -maxRetentionTime);
-        volumeStatsDao.removeAllByTimestampLessThan(limit);
+        removeStats(Resource.ResourceType.volume.toString(), getDateLimit(maxRetentionTime));
     }
 
+    protected void removeStats(String resourceType, Date dateLimit) {
+        checkIfResourceTypeIsValid(resourceType);
+
+        String dateOfVmStatsRemoval = DateUtil.displayDateInTimezone(DateUtil.GMT_TIMEZONE, dateLimit);
+
+        LOGGER.debug(String.format("Removing %s stats records older than [%s]", resourceType, dateOfVmStatsRemoval));
+
+        Integer numOfStatsRemoved = resourceType.equals(Resource.ResourceType.user_vm.toString()) ? vmStatsDao.removeAllByTimestampLessThan(dateLimit,vmStatsEntriesLimitPerDeleteQuery.value()) : volumeStatsDao.removeAllByTimestampLessThan(dateLimit);
+
+        LOGGER.debug(String.format("Removed [%s] %s stats records older than [%s] for reaching their maximum retention time.", numOfStatsRemoved, resourceType, dateOfVmStatsRemoval));
+    }
+
+    protected void checkIfResourceTypeIsValid(String resourceType) {
+        if (!resourceType.equals(Resource.ResourceType.user_vm.toString()) && !resourceType.equals(Resource.ResourceType.volume.toString())) {
+            throw new CloudRuntimeException(String.format("The resource type [%s] is not valid. It must be either 'user_vm' or 'volume'.", resourceType));
+        }
+    }
+
+    protected Date getDateLimit(Integer maxRetentionTime) {
+        return DateUtils.addMinutes(new Date(), -maxRetentionTime);
+    }
     /**
      * Sends host metrics to a configured InfluxDB host. The metrics respects the following specification.</br>
      * <b>Tags:</b>vm_id, uuid, instance_name, data_center_id, host_id</br>
@@ -2120,7 +2136,7 @@ public class StatsCollector extends ManagerBase implements ComponentMethodInterc
     @Override
     public ConfigKey<?>[] getConfigKeys() {
         return new ConfigKey<?>[] {vmDiskStatsInterval, vmDiskStatsIntervalMin, vmNetworkStatsInterval, vmNetworkStatsIntervalMin, StatsTimeout, statsOutputUri,
-            vmStatsIncrementMetrics, vmStatsMaxRetentionTime, vmStatsCollectUserVMOnly, vmDiskStatsRetentionEnabled, vmDiskStatsMaxRetentionTime, vmStatsEntriesLimitPerDeleteQuery,
+            vmStatsIncrementMetrics, vmStatsMaxRetentionTime, vmStatsCollectUserVMOnly, vmDiskStatsRetentionEnabled, vmDiskStatsMaxRetentionTime,
                 VM_STATS_INCREMENT_METRICS_IN_MEMORY,
                 MANAGEMENT_SERVER_STATUS_COLLECTION_INTERVAL,
                 DATABASE_SERVER_STATUS_COLLECTION_INTERVAL,

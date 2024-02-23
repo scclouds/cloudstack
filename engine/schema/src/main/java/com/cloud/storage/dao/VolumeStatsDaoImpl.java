@@ -116,9 +116,9 @@ public class VolumeStatsDaoImpl extends GenericDaoBase<VolumeStatsVO, Long> impl
     }
 
     @Override
-    public void removeAllByTimestampLessThan(Date limit) {
+    public Integer removeAllByTimestampLessThan(Date limit) {
         SearchCriteria<VolumeStatsVO> sc = timestampSearch.create();
         sc.setParameters(TIMESTAMP, limit);
-        expunge(sc);
+        return expunge(sc);
     }
 }

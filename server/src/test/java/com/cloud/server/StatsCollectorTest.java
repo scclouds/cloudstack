@@ -18,42 +18,9 @@
 //
 package com.cloud.server;
 
-import static org.mockito.Mockito.when;
-
-import java.net.URI;
-import java.net.URISyntaxException;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Date;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Properties;
-import java.util.concurrent.TimeUnit;
-
-import org.apache.cloudstack.framework.config.ConfigKey;
-import org.apache.commons.collections.CollectionUtils;
-import org.influxdb.InfluxDB;
-import org.influxdb.InfluxDBFactory;
-import org.influxdb.dto.BatchPoints;
-import org.influxdb.dto.BatchPoints.Builder;
-import org.influxdb.dto.Point;
-import org.junit.Assert;
-import org.junit.Test;
-import org.junit.runner.RunWith;
-import org.mockito.ArgumentCaptor;
-import org.mockito.Captor;
-import org.mockito.InjectMocks;
-import org.mockito.Mock;
-import org.mockito.Mockito;
-import org.mockito.stubbing.Answer;
-import org.powermock.api.mockito.PowerMockito;
-import org.powermock.core.classloader.annotations.PrepareForTest;
-import org.powermock.modules.junit4.PowerMockRunner;
-import org.powermock.modules.junit4.PowerMockRunnerDelegate;
-
 import com.cloud.agent.api.VmDiskStatsEntry;
 import com.cloud.agent.api.VmStatsEntry;
+import com.cloud.configuration.Resource;
 import com.cloud.hypervisor.Hypervisor;
 import com.cloud.server.StatsCollector.ExternalStatsProtocol;
 import com.cloud.storage.VolumeStatsVO;
@@ -66,6 +33,44 @@ import com.cloud.vm.dao.VmStatsDao;
 import com.google.gson.Gson;
 import com.tngtech.java.junit.dataprovider.DataProvider;
 import com.tngtech.java.junit.dataprovider.DataProviderRunner;
+import org.apache.cloudstack.framework.config.ConfigKey;
+import org.apache.commons.collections.CollectionUtils;
+import org.influxdb.InfluxDB;
+import org.influxdb.InfluxDBFactory;
+import org.influxdb.dto.BatchPoints;
+import org.influxdb.dto.BatchPoints.Builder;
+import org.influxdb.dto.Point;
+import org.junit.Assert;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+
+import org.mockito.ArgumentCaptor;
+import org.mockito.Captor;
+import org.mockito.InjectMocks;
+import org.mockito.Mock;
+import org.mockito.Mockito;
+import org.mockito.stubbing.Answer;
+import org.powermock.api.mockito.PowerMockito;
+import org.powermock.core.classloader.annotations.PrepareForTest;
+import org.powermock.modules.junit4.PowerMockRunner;
+import org.powermock.modules.junit4.PowerMockRunnerDelegate;
+
+import java.net.URI;
+import java.net.URISyntaxException;
+
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Date;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Properties;
+import java.util.concurrent.TimeUnit;
+
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
+
 
 @RunWith(PowerMockRunner.class)
 @PowerMockRunnerDelegate(DataProviderRunner.class)
@@ -85,6 +90,7 @@ public class StatsCollectorTest {
     @Mock
     VmStatsDao vmStatsDaoMock;
 
+
     @Mock
     VmStatsEntry statsForCurrentIterationMock;
 
@@ -99,14 +105,17 @@ public class StatsCollectorTest {
 
     @Mock
     VmStatsVO vmStatsVoMock1, vmStatsVoMock2;
+    @Mock
+    VolumeStatsVO volumeStatsVoMock1;
 
     @Mock
     VmStatsEntry vmStatsEntryMock;
 
     @Mock
-    VolumeStatsDao volumeStatsDao;
+    VolumeStatsDao volumeStatsDaoMock;
 
     private static Gson gson = new Gson();
+
 
     @Test
     public void createInfluxDbConnectionTest() {
@@ -151,7 +160,7 @@ public class StatsCollectorTest {
 
         statsCollector.writeBatches(influxDbConnection, DEFAULT_DATABASE_NAME, points);
 
-        Mockito.verify(influxDbConnection).write(batchPoints);
+        verify(influxDbConnection).write(batchPoints);
     }
 
     @Test
@@ -284,7 +293,7 @@ public class StatsCollectorTest {
 
         statsCollector.cleanUpVirtualMachineStats();
 
-        Mockito.verify(vmStatsDaoMock, Mockito.never()).removeAllByTimestampLessThan(Mockito.any(), Mockito.any());
+        verify(vmStatsDaoMock, never()).removeAllByTimestampLessThan(Mockito.any(),Mockito.any());
     }
 
     @Test
@@ -293,8 +302,59 @@ public class StatsCollectorTest {
 
         statsCollector.cleanUpVirtualMachineStats();
 
-        Mockito.verify(vmStatsDaoMock).removeAllByTimestampLessThan(Mockito.any(), Mockito.any());
+        verify(vmStatsDaoMock).removeAllByTimestampLessThan(Mockito.any(),Mockito.any());
     }
+
+    @Test
+    public void removeStatsTestRemoveStatsCallsVmStatsDao() {
+        Date now = new Date();
+        statsCollector.removeStats(Resource.ResourceType.user_vm.toString(), now);
+
+        verify(vmStatsDaoMock).removeAllByTimestampLessThan(now,StatsCollector.vmStatsEntriesLimitPerDeleteQuery.value());
+    }
+
+    @Test
+    public void removeStatsTestRemoveStatsDoesNotCallVmStatsDao() {
+        Date now = new Date();
+        statsCollector.removeStats(Resource.ResourceType.volume.toString(), now);
+
+        verify(vmStatsDaoMock, never()).removeAllByTimestampLessThan(now,StatsCollector.vmStatsEntriesLimitPerDeleteQuery.value());
+    }
+
+    @Test
+    public void removeStatsTestRemoveStatsCallsVolumeStatsDao() {
+        Date now = new Date();
+        statsCollector.removeStats(Resource.ResourceType.volume.toString(), now);
+
+        verify(volumeStatsDaoMock).removeAllByTimestampLessThan(now);
+    }
+
+    @Test
+    public void removeStatsTestRemoveStatsDoesNotCallVolumeStatsDao() {
+        Date now = new Date();
+
+        statsCollector.removeStats(Resource.ResourceType.user_vm.toString(), now);
+
+        verify(volumeStatsDaoMock, never()).removeAllByTimestampLessThan(now);
+    }
+
+    @Test(expected = CloudRuntimeException.class)
+    public void removeStatsTestThrowsCloudRuntimeExceptionIfResourceTypeIsNotValid() {
+        statsCollector.removeStats("sahusah", new Date());
+    }
+
+    @Test(expected = CloudRuntimeException.class)
+    public void checkIfResourceTypeIsValidTestThrowsCloudRuntimeExceptionIfResourceTypeIsNotValid() {
+        statsCollector.checkIfResourceTypeIsValid("RandomString");
+    }
+
+    @Test
+    public void getDateLimitReturnsDateSuccessfully() {
+        Integer maxRetentionTime = 1;
+        Date dateLimit = statsCollector.getDateLimit(maxRetentionTime);
+        Assert.assertNotNull(dateLimit);
+    }
+
 
     @Test
     public void persistVirtualMachineStatsTestPersistsSuccessfully() {
@@ -307,7 +367,7 @@ public class StatsCollectorTest {
 
         statsCollector.persistVirtualMachineStats(statsForCurrentIteration, timestamp);
 
-        Mockito.verify(vmStatsDaoMock).persist(vmStatsVOCaptor.capture());
+        verify(vmStatsDaoMock).persist(vmStatsVOCaptor.capture());
         VmStatsVO actual = vmStatsVOCaptor.getAllValues().get(0);
         Assert.assertEquals(Long.valueOf(2L), actual.getVmId());
         Assert.assertEquals(Long.valueOf(1L), actual.getMgmtServerId());
@@ -323,7 +383,7 @@ public class StatsCollectorTest {
 
         VmStats result = statsCollector.getVmStats(1L, accumulateMock);
 
-        Mockito.verify(statsCollector).getLatestOrAccumulatedVmMetricsStats(Mockito.anyList(), booleanCaptor.capture());
+        verify(statsCollector).getLatestOrAccumulatedVmMetricsStats(Mockito.anyList(), booleanCaptor.capture());
         boolean actualArg = booleanCaptor.getValue().booleanValue();
         Assert.assertEquals(false, actualArg);
         Assert.assertEquals(vmStatsEntryMock, result);
@@ -337,7 +397,7 @@ public class StatsCollectorTest {
 
         VmStats result = statsCollector.getVmStats(1L, null);
 
-        Mockito.verify(statsCollector).getLatestOrAccumulatedVmMetricsStats(Mockito.anyList(), booleanCaptor.capture());
+        verify(statsCollector).getLatestOrAccumulatedVmMetricsStats(Mockito.anyList(), booleanCaptor.capture());
         boolean actualArg = booleanCaptor.getValue().booleanValue();
         Assert.assertEquals(true, actualArg);
         Assert.assertEquals(vmStatsEntryMock, result);
@@ -349,14 +409,14 @@ public class StatsCollectorTest {
 
         statsCollector.getLatestOrAccumulatedVmMetricsStats(Arrays.asList(vmStatsVoMock1), true);
 
-        Mockito.verify(statsCollector).accumulateVmMetricsStats(Mockito.anyList());
+        verify(statsCollector).accumulateVmMetricsStats(Mockito.anyList());
     }
 
     @Test
     public void getLatestOrAccumulatedVmMetricsStatsTestLatest() {
         statsCollector.getLatestOrAccumulatedVmMetricsStats(Arrays.asList(vmStatsVoMock1), false);
 
-        Mockito.verify(statsCollector, Mockito.never()).accumulateVmMetricsStats(Mockito.anyList());
+        verify(statsCollector, never()).accumulateVmMetricsStats(Mockito.anyList());
     }
 
     @Test
@@ -461,7 +521,7 @@ public class StatsCollectorTest {
                     readDiff);
         }
         List<VolumeStatsVO> persistedStats = new ArrayList<>();
-        Mockito.when(volumeStatsDao.persist(Mockito.any(VolumeStatsVO.class))).thenAnswer((Answer<VolumeStatsVO>) invocation -> {
+        when(volumeStatsDaoMock.persist(Mockito.any(VolumeStatsVO.class))).thenAnswer((Answer<VolumeStatsVO>) invocation -> {
             VolumeStatsVO statsVO = (VolumeStatsVO)invocation.getArguments()[0];
             persistedStats.add(statsVO);
             return statsVO;
