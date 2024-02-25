@@ -28,15 +28,32 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Date;
 import java.util.GregorianCalendar;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Random;
+import java.util.Set;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 import javax.annotation.Nonnull;
 import javax.xml.datatype.DatatypeConfigurationException;
 import javax.xml.datatype.DatatypeFactory;
 import javax.xml.datatype.XMLGregorianCalendar;
 
+import com.cloud.agent.api.to.DiskTO;
+import com.cloud.storage.DiskControllerMapping;
+import com.cloud.storage.DiskControllerMappingVO;
+import com.cloud.storage.Volume;
+import com.cloud.utils.exception.CloudRuntimeException;
+import com.vmware.vim25.ParaVirtualSCSIController;
+import com.vmware.vim25.VirtualController;
+import com.vmware.vim25.VirtualDeviceConfigSpec;
+import com.vmware.vim25.VirtualDeviceConfigSpecOperation;
+import com.vmware.vim25.VirtualIDEController;
+import com.vmware.vim25.VirtualLsiLogicController;
+import com.vmware.vim25.VirtualSCSIController;
+import com.vmware.vim25.VirtualSCSISharing;
+import org.apache.commons.lang3.ObjectUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.log4j.Logger;
 
@@ -91,13 +108,16 @@ import com.vmware.vim25.VirtualVmxnet3;
 public class VmwareHelper {
     private static final Logger s_logger = Logger.getLogger(VmwareHelper.class);
 
-    public static final int MAX_SCSI_CONTROLLER_COUNT = 4;
-    public static final int MAX_IDE_CONTROLLER_COUNT = 2;
-    public static final int MAX_ALLOWED_DEVICES_IDE_CONTROLLER = 2;
-    public static final int MAX_ALLOWED_DEVICES_SCSI_CONTROLLER = 16;
+    public static final int MAX_SCSI_CONTROLLER_COUNT = 4; //
+    public static final int MAX_ALLOWED_DEVICES_SCSI_CONTROLLER = 16; //
     public static final int MAX_SUPPORTED_DEVICES_SCSI_CONTROLLER = MAX_ALLOWED_DEVICES_SCSI_CONTROLLER - 1; // One device node is unavailable for hard disks or SCSI devices
-    public static final int MAX_USABLE_SCSI_CONTROLLERS = 2;
     public static final String MIN_VERSION_UEFI_LEGACY = "5.5";
+
+    private static List<DiskControllerMappingVO> diskControllerMappings;
+
+    public static void setDiskControllerMappings(List<DiskControllerMappingVO> mappings) {
+        diskControllerMappings = mappings;
+    }
 
     public static boolean isReservedScsiDeviceNumber(int deviceNumber) {
         // The SCSI controller is assigned to virtual device node (z:7), so that device node is unavailable for hard disks or SCSI devices.
@@ -234,6 +254,7 @@ public class VmwareHelper {
             backingInfo.setDiskMode(VirtualDiskMode.PERSISTENT.value());
             disk.setBacking(backingInfo);
 
+            // TODO: isso tem q adaptar? talvez tirar e ja mando pra ca aas keys
             int ideControllerKey = vmMo.getIDEDeviceControllerKey();
             if (controllerKey < 0)
                 controllerKey = ideControllerKey;
@@ -713,13 +734,11 @@ public class VmwareHelper {
     }
 
     public static String getRecommendedDiskControllerFromDescriptor(GuestOsDescriptor guestOsDescriptor) throws Exception {
-        String recommendedController;
-
-        recommendedController = guestOsDescriptor.getRecommendedDiskController();
+        String recommendedController = guestOsDescriptor.getRecommendedDiskController();
 
         // By-pass auto detected PVSCSI controller to use LsiLogic Parallel instead
-        if (DiskControllerType.getType(recommendedController) == DiskControllerType.pvscsi) {
-            recommendedController = DiskControllerType.lsilogic.toString();
+        if (recommendedController.equals(ParaVirtualSCSIController.class.getSimpleName())) {
+            return VirtualLsiLogicController.class.getSimpleName();
         }
 
         return recommendedController;
@@ -736,8 +755,8 @@ public class VmwareHelper {
         return name;
     }
 
-    public static boolean isControllerOsRecommended(String dataDiskController) {
-        return DiskControllerType.getType(dataDiskController) == DiskControllerType.osdefault;
+    public static boolean isControllerOsRecommended(DiskControllerMapping diskControllerMapping) {
+        return DiskControllerType.osdefault.toString().equals(diskControllerMapping.getName());
     }
 
     public static XMLGregorianCalendar getXMLGregorianCalendar(final Date date, final int offsetSeconds) throws DatatypeConfigurationException {
@@ -761,5 +780,125 @@ public class VmwareHelper {
             }
         }
         return host;
+    }
+
+    public static DiskControllerMappingVO getDiskControllerMapping(String name, String controllerReference) {
+        for (DiskControllerMappingVO mapping : diskControllerMappings) {
+            if (mapping.getName().equals(name) || mapping.getControllerReference().equals(controllerReference)) {
+                return mapping;
+            }
+        }
+        s_logger.debug(String.format("No corresponding disk controller mapping found for name [%s] and controller reference [%s].", name, controllerReference));
+        throw new CloudRuntimeException("Specified disk controller is invalid.");
+    }
+
+    public static List<DiskControllerMappingVO> getAllDiskControllerMappingsExceptOsdefault() {
+        return diskControllerMappings.stream()
+                .filter(c -> !VmwareHelper.isControllerOsRecommended(c))
+                .collect(Collectors.toList());
+    }
+
+    public static Set<DiskControllerMappingVO> getRequiredDiskControllers(Pair<DiskControllerMappingVO, DiskControllerMappingVO> controllerInfo,
+                                                                      boolean isSystemVM) {
+        Set<DiskControllerMappingVO> requiredDiskControllers = new HashSet<>();
+        requiredDiskControllers.add(controllerInfo.first());
+        if (!isSystemVM) {
+            requiredDiskControllers.add(controllerInfo.second());
+        }
+        return requiredDiskControllers;
+    }
+
+    public static Pair<DiskControllerMappingVO, DiskControllerMappingVO> convertRecommendedDiskControllers(Pair<DiskControllerMappingVO, DiskControllerMappingVO> controllerInfo,
+                                                                                                           VirtualMachineMO vmMo,
+                                                                                                           VmwareHypervisorHost host,
+                                                                                                           String guestOsIdentifier) throws Exception {
+        if (VmwareHelper.isControllerOsRecommended(controllerInfo.first()) && VmwareHelper.isControllerOsRecommended(controllerInfo.second())) {
+            String recommendedDiskControllerClassName = vmMo != null ? vmMo.getRecommendedDiskController(null) : host.getRecommendedDiskController(guestOsIdentifier);
+            DiskControllerMappingVO recommendedDiskController = getAllDiskControllerMappingsExceptOsdefault().stream()
+                    .filter(c -> c.getControllerReference().contains(recommendedDiskControllerClassName))
+                    .findFirst()
+                    .orElseThrow(() -> new CloudRuntimeException("Unable to find the recommended disk controller."));
+            return new Pair<>(recommendedDiskController, recommendedDiskController);
+        }
+        return controllerInfo;
+    }
+
+    public static void addDiskControllersToVmConfigSpec(VirtualMachineConfigSpec vmConfigSpec, Set<DiskControllerMappingVO> requiredDiskControllers,
+                                                        boolean isSystemVm) throws Exception {
+        int currentKey = -1;
+
+        for (DiskControllerMappingVO diskController : requiredDiskControllers) {
+            Class<?> controllerClass = Class.forName(diskController.getControllerReference());
+            if (controllerClass == VirtualIDEController.class) {
+                continue;
+            }
+            for (int bus = 0; bus < diskController.getMaxControllerCount(); bus++) {
+                VirtualController controller = (VirtualController) controllerClass.newInstance();
+                controller.setBusNumber(bus);
+                controller.setKey(currentKey);
+                currentKey--;
+
+                if (controller instanceof VirtualSCSIController) {
+                    ((VirtualSCSIController) controller).setSharedBus(VirtualSCSISharing.NO_SHARING);
+                }
+
+                VirtualDeviceConfigSpec controllerConfigSpec = new VirtualDeviceConfigSpec();
+                controllerConfigSpec.setDevice(controller);
+                controllerConfigSpec.setOperation(VirtualDeviceConfigSpecOperation.ADD);
+                vmConfigSpec.getDeviceChange().add(controllerConfigSpec);
+
+                if (isSystemVm) {
+                    break;
+                }
+            }
+        }
+    }
+
+    public static Pair<DiskControllerMappingVO, DiskControllerMappingVO> getDiskControllersFromVmSettings(String rootDiskControllerDetail,
+                                                                                                          String dataDiskControllerDetail,
+                                                                                                          boolean isSystemVm) {
+        String updatedRootDiskControllerDetail = isSystemVm ? "lsilogic" : ObjectUtils.defaultIfNull(rootDiskControllerDetail, "osdefault");
+        String updatedDataDiskControllerDetail = ObjectUtils.defaultIfNull(dataDiskControllerDetail, updatedRootDiskControllerDetail);
+
+        DiskControllerMappingVO specifiedRootDiskController = getDiskControllerMapping(updatedRootDiskControllerDetail, null);
+        DiskControllerMappingVO specifiedDataDiskController = getDiskControllerMapping(updatedDataDiskControllerDetail, null);
+
+        return chooseRequiredDiskControllers(specifiedRootDiskController, specifiedDataDiskController);
+    }
+
+    protected static Pair<DiskControllerMappingVO, DiskControllerMappingVO> chooseRequiredDiskControllers(DiskControllerMappingVO rootDiskController, DiskControllerMappingVO dataDiskController) {
+        if (isControllerOsRecommended(rootDiskController) && isControllerOsRecommended(dataDiskController)) {
+            s_logger.debug("Choosing 'osrecommended' for both disk controllers.");
+            return new Pair<>(rootDiskController, dataDiskController);
+        }
+        if (isControllerOsRecommended(rootDiskController)) {
+            s_logger.debug(String.format("Root disk controller is 'osrecommended', but data disk controller is [%s]; therefore, we will only use the controllers specified for the data disk.",
+                    dataDiskController.getName()));
+            return new Pair<>(dataDiskController, dataDiskController);
+        }
+        if (isControllerOsRecommended(dataDiskController)) {
+            s_logger.debug(String.format("Data disk controller is 'osrecommended', but root disk controller is [%s]; therefore, we will only use the controllers specified for the root disk.",
+                    rootDiskController.getName()));
+            return new Pair<>(rootDiskController, rootDiskController);
+        }
+
+        if (rootDiskController.getBusName().equals(dataDiskController.getBusName())) {
+            s_logger.debug("Root and data disk controllers share the same bus type; therefore, we will only use the controllers specified for the root disk.");
+            return new Pair<>(rootDiskController, rootDiskController);
+        }
+        s_logger.debug("Root and data disk controllers do not share the same bus type; therefore, we will use both of them on the virtual machine.");
+        return new Pair<>(rootDiskController, dataDiskController);
+    }
+
+    public static DiskControllerMappingVO getControllerBasedOnDiskType(Pair<DiskControllerMappingVO, DiskControllerMappingVO> controllerInfo,
+                                                    DiskTO disk) {
+        if (disk.getType() == Volume.Type.ROOT || disk.getDiskSeq() == 0) {
+            s_logger.debug("Chose disk controller for vol " + disk.getType() + " -> " + controllerInfo.first()
+                    + ", based on root disk controller settings at global configuration setting.");
+            return controllerInfo.first();
+        }
+        s_logger.debug("Chose disk controller for vol " + disk.getType() + " -> " + controllerInfo.second()
+                + ", based on default data disk controller setting i.e. Operating system recommended."); // Need to bring in global configuration setting & template level setting.
+        return controllerInfo.second();
     }
 }

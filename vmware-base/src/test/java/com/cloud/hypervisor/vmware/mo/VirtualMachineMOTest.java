@@ -22,7 +22,6 @@ import com.cloud.hypervisor.vmware.util.VmwareContext;
 import com.cloud.utils.exception.CloudRuntimeException;
 import com.vmware.vim25.ManagedObjectReference;
 import com.vmware.vim25.VirtualDevice;
-import com.vmware.vim25.VirtualLsiLogicController;
 import com.vmware.vim25.VirtualLsiLogicSASController;
 import com.vmware.vim25.VirtualSCSIController;
 import com.vmware.vim25.VirtualSCSISharing;
@@ -106,18 +105,6 @@ public class VirtualMachineMOTest {
         catch (Exception e) {
             fail("Received exception when success expected: " + e.getMessage());
         }
-    }
-
-    @Test
-    public void TestEnsureLsiLogicDeviceControllers() {
-        try {
-            when(client.getDynamicProperty(any(ManagedObjectReference.class), any(String.class))).thenReturn(getVirtualScSiDeviceList(VirtualLsiLogicController.class));
-            vmMo.ensureLsiLogicDeviceControllers(1, 0);
-        }
-        catch (Exception e) {
-            fail("Received exception when success expected: " + e.getMessage());
-        }
-
     }
 
     @Test

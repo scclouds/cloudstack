@@ -17,6 +17,7 @@
 package com.cloud.hypervisor.vmware.mo;
 
 public enum DiskControllerType {
+    // verificar os usos das string "ide", "scsi", "lsilogic", "none" e "osdefault"-> só deixar esses
     ide,
     scsi,
     osdefault,
