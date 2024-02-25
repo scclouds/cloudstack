@@ -24,7 +24,6 @@ import com.cloud.host.HostVO;
 import com.cloud.host.dao.HostDao;
 import com.cloud.hypervisor.Hypervisor;
 import com.cloud.hypervisor.vmware.manager.VmwareManager;
-import com.cloud.hypervisor.vmware.mo.DiskControllerType;
 import com.cloud.hypervisor.vmware.mo.VirtualEthernetCardType;
 import com.cloud.network.Network;
 import com.cloud.network.NetworkModel;
@@ -314,7 +313,7 @@ class VmwareVmImplementer {
         String diskController = details.get(VmDetailConstants.DATA_DISK_CONTROLLER);
         if (userVm) {
             if (diskController == null) {
-                details.put(VmDetailConstants.DATA_DISK_CONTROLLER, DiskControllerType.lsilogic.toString());
+                details.put(VmDetailConstants.DATA_DISK_CONTROLLER, "lsilogic");
             }
         }
 

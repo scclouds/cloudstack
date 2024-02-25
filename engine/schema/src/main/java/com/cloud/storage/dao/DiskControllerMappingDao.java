@@ -14,25 +14,16 @@
 // KIND, either express or implied.  See the License for the
 // specific language governing permissions and limitations
 // under the License.
-package com.cloud.hypervisor.vmware.mo;
+package com.cloud.storage.dao;
 
-public enum VmdkAdapterType {
-    ide,
-    lsilogic,
-    buslogic,
-    none;
+import com.cloud.hypervisor.Hypervisor.HypervisorType;
+import com.cloud.storage.DiskControllerMappingVO;
+import com.cloud.utils.db.GenericDao;
 
-    public static VmdkAdapterType getType(String vmdkAdapterType) {
-        if (vmdkAdapterType == null)
-            return VmdkAdapterType.none;
-        if (vmdkAdapterType.equalsIgnoreCase("ide")) {
-            return VmdkAdapterType.ide;
-        } else if (vmdkAdapterType.equalsIgnoreCase("lsilogic")) {
-            return VmdkAdapterType.lsilogic;
-        } else if (vmdkAdapterType.equalsIgnoreCase("buslogic")) {
-            return VmdkAdapterType.buslogic;
-        } else {
-            return VmdkAdapterType.none;
-        }
-    }
+import java.util.List;
+
+public interface DiskControllerMappingDao extends GenericDao<DiskControllerMappingVO, Long> {
+    DiskControllerMappingVO findDiskControllerMapping(String name, String classReference, HypervisorType hypervisor);
+
+    List<DiskControllerMappingVO> listForHypervisor(HypervisorType hypervisor);
 }

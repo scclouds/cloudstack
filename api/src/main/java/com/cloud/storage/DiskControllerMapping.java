@@ -14,25 +14,32 @@
 // KIND, either express or implied.  See the License for the
 // specific language governing permissions and limitations
 // under the License.
-package com.cloud.hypervisor.vmware.mo;
+package com.cloud.storage;
 
-public enum VmdkAdapterType {
-    ide,
-    lsilogic,
-    buslogic,
-    none;
+import com.cloud.hypervisor.Hypervisor.HypervisorType;
+import org.apache.cloudstack.api.Identity;
+import org.apache.cloudstack.api.InternalIdentity;
 
-    public static VmdkAdapterType getType(String vmdkAdapterType) {
-        if (vmdkAdapterType == null)
-            return VmdkAdapterType.none;
-        if (vmdkAdapterType.equalsIgnoreCase("ide")) {
-            return VmdkAdapterType.ide;
-        } else if (vmdkAdapterType.equalsIgnoreCase("lsilogic")) {
-            return VmdkAdapterType.lsilogic;
-        } else if (vmdkAdapterType.equalsIgnoreCase("buslogic")) {
-            return VmdkAdapterType.buslogic;
-        } else {
-            return VmdkAdapterType.none;
-        }
-    }
+import java.util.Date;
+
+public interface DiskControllerMapping extends InternalIdentity, Identity {
+    String getName();
+
+    String getControllerReference();
+
+    String getBusName();
+
+    HypervisorType getHypervisor();
+
+    Integer getMaxDeviceCount();
+
+    Integer getMaxControllerCount();
+
+    String getVmdkAdapterType();
+
+    String getMinHardwareVersion();
+
+    Date getRemoved();
+
+    Date getCreated();
 }

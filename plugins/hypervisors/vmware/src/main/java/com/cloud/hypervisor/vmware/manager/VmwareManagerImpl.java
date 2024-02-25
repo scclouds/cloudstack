@@ -42,6 +42,8 @@ import java.util.stream.Collectors;
 import javax.inject.Inject;
 import javax.naming.ConfigurationException;
 
+import com.cloud.storage.DiskControllerMappingVO;
+import com.cloud.storage.dao.DiskControllerMappingDao;
 import org.apache.cloudstack.api.command.admin.zone.AddVmwareDcCmd;
 import org.apache.cloudstack.api.command.admin.zone.ImportVsphereStoragePoliciesCmd;
 import org.apache.cloudstack.api.command.admin.zone.ListVmwareDcsCmd;
@@ -229,6 +231,8 @@ public class VmwareManagerImpl extends ManagerBase implements VmwareManager, Vmw
     @Inject
     private VMInstanceDao vmInstanceDao;
     @Inject
+    private DiskControllerMappingDao diskControllerMappingDao;
+    @Inject
     private UserVmCloneSettingDao cloneSettingDao;
     @Inject
     private TemplateManager templateManager;
@@ -385,6 +389,8 @@ public class VmwareManagerImpl extends ManagerBase implements VmwareManager, Vmw
         ((VmwareStorageManagerImpl)_storageMgr).configure(params);
 
         _agentMgr.registerForHostEvents(this, true, true, true);
+
+        configureDiskControllerMappingsInVmwareBaseModule();
 
         s_logger.info("VmwareManagerImpl has been successfully configured");
         return true;
@@ -1622,5 +1628,26 @@ public class VmwareManagerImpl extends ManagerBase implements VmwareManager, Vmw
                 vmInstanceDao,
                 cloneSettingDao,
                 templateManager);
+    }
+
+    protected void configureDiskControllerMappingsInVmwareBaseModule() {
+        List<DiskControllerMappingVO> mappingsInDatabase = diskControllerMappingDao.listForHypervisor(HypervisorType.VMware);
+        List<DiskControllerMappingVO> validMappings = new ArrayList<>();
+
+        for (DiskControllerMappingVO mapping : mappingsInDatabase) {
+            try {
+                Class.forName(mapping.getControllerReference());
+                s_logger.debug(String.format("Adding disk controller mapping with name [%s] and controller reference [%s] to the list of available disk controllers.",
+                        mapping.getName(), mapping.getControllerReference()));
+                validMappings.add(mapping);
+            } catch (ClassNotFoundException e) {
+                s_logger.debug(String.format("Disk controller reference with name [%s] and controller reference [%s] is invalid; ignoring it.",
+                        mapping.getName(), mapping.getControllerReference()));
+            }
+        }
+
+        VmwareHelper.setDiskControllerMappings(validMappings);
+        s_logger.info("Configured the available disk controller mappings on the 'vmware-base' module. To add support for a new controller, " +
+                "it is necessary to restart the management servers.");
     }
 }

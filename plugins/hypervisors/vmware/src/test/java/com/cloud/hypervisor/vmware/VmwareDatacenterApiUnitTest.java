@@ -53,6 +53,7 @@ import com.cloud.secstorage.CommandExecLogDao;
 import com.cloud.server.ConfigurationServer;
 import com.cloud.storage.ImageStoreDetailsUtil;
 import com.cloud.storage.StorageManager;
+import com.cloud.storage.dao.DiskControllerMappingDao;
 import com.cloud.storage.dao.VMTemplatePoolDao;
 import com.cloud.template.TemplateManager;
 import com.cloud.user.Account;
@@ -492,6 +493,11 @@ public class VmwareDatacenterApiUnitTest {
         @Bean
         public VsphereStoragePolicyDao vsphereStoragePolicyDao() {
             return Mockito.mock(VsphereStoragePolicyDao.class);
+        }
+
+        @Bean
+        public DiskControllerMappingDao diskControllerMappingDao() {
+            return Mockito.mock(DiskControllerMappingDao.class);
         }
 
         @Bean
