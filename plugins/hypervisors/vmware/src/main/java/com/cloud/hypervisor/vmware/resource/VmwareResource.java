@@ -2855,7 +2855,7 @@ public class VmwareResource extends ServerResourceBase implements StoragePoolRes
 
     private void ensureDiskControllersInternal(VirtualMachineMO vmMo, Boolean systemVm, Pair<DiskControllerMappingVO, DiskControllerMappingVO> controllerInfo,
                                                boolean deployAsIs) throws Exception {
-        if (systemVm | !deployAsIs) {
+        if (systemVm || !deployAsIs) {
             ensureDiskControllers(vmMo, controllerInfo, systemVm);
         }
     }

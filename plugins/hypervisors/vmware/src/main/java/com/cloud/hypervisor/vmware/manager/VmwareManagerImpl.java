@@ -1636,6 +1636,13 @@ public class VmwareManagerImpl extends ManagerBase implements VmwareManager, Vmw
 
         for (DiskControllerMappingVO mapping : mappingsInDatabase) {
             try {
+                if ("osdefault".equals(mapping.getName())) {
+                    s_logger.debug(String.format("Adding disk controller mapping with name [%s] to the list of available disk controllers.",
+                            mapping.getName()));
+                    validMappings.add(mapping);
+                    continue;
+                }
+
                 Class.forName(mapping.getControllerReference());
                 s_logger.debug(String.format("Adding disk controller mapping with name [%s] and controller reference [%s] to the list of available disk controllers.",
                         mapping.getName(), mapping.getControllerReference()));
