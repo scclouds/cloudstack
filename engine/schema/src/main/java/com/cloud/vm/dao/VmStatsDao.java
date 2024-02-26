@@ -75,8 +75,9 @@ public interface VmStatsDao extends GenericDao<VmStatsVO, Long> {
     /**
      * Removes (expunges) all VM stats with {@code timestamp} less than
      * a given Date.
+     *
      * @param limit the maximum date to keep stored. Records that exceed this limit will be removed.
      */
-    Integer removeAllByTimestampLessThan(Date limit, Long limitPerQuery);
+    long removeAllByTimestampLessThan(Date limit, Long limitPerQuery);
 
 }
