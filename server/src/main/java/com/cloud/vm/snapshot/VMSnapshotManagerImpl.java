@@ -335,6 +335,7 @@ public class VMSnapshotManagerImpl extends MutualExclusiveIdsManagerBase impleme
             throw new InvalidParameterValueException("Creating VM snapshot failed due to VM:" + vmId + " is a system VM or does not exist");
         }
 
+        Account owner = _accountMgr.getAccount(userVmVo.getAccountId());
         // VM snapshot with memory is not supported for VGPU Vms
         if (snapshotMemory && _serviceOfferingDetailsDao.findDetail(userVmVo.getServiceOfferingId(), GPU.Keys.vgpuType.toString()) != null) {
             throw new InvalidParameterValueException("VM snapshot with MEMORY is not supported for vGPU enabled VMs.");
@@ -423,7 +424,7 @@ public class VMSnapshotManagerImpl extends MutualExclusiveIdsManagerBase impleme
             throw new CloudRuntimeException("There is other active vm snapshot tasks on the instance, please try again later");
         }
 
-        resourceLimitMgr.checkResourceLimit(caller, Resource.ResourceType.vm_snapshot);
+        resourceLimitMgr.checkResourceLimit(owner, Resource.ResourceType.vm_snapshot);
 
         VMSnapshot.Type vmSnapshotType = VMSnapshot.Type.Disk;
         if (snapshotMemory && userVmVo.getState() == VirtualMachine.State.Running)
