@@ -290,7 +290,7 @@ public class StatsCollector extends ManagerBase implements ComponentMethodInterc
     protected static ConfigKey<Boolean> vmStatsCollectUserVMOnly = new ConfigKey<>("Advanced", Boolean.class, "vm.stats.user.vm.only", "false",
             "When set to 'false' stats for system VMs will be collected otherwise stats collection will be done only for user VMs", true);
 
-    protected static ConfigKey<Long> vmStatsEntriesLimitPerDeleteQuery = new ConfigKey<>("Advanced", Long.class, "vm.stats.entries.limit.per.delete.query", "0", "Indicates the" +
+    protected static ConfigKey<Long> vmStatsRemoveBatchSize = new ConfigKey<>("Advanced", Long.class, "vm.stats.remove.batch.size", "0", "Indicates the" +
             " limit applied to delete vm_stats entries while running the clean-up task. With this, ACS will run the delete query, applying the limit, as many times as necessary" +
             " to delete all entries older than the value defined in vm.stats.max.retention.time. This is advised when retaining several days of records, which can lead to slowness" +
             " on the delete query. Zero (0) means that no limit will be applied, therefore, the query will run once and without limit, keeping the default behavior.", true);
@@ -1969,7 +1969,7 @@ public class StatsCollector extends ManagerBase implements ComponentMethodInterc
 
         LOGGER.debug(String.format("Removing %s stats records older than [%s]", resourceType, dateOfVmStatsRemoval));
 
-        Integer numOfStatsRemoved = resourceType.equals(Resource.ResourceType.user_vm.toString()) ? vmStatsDao.removeAllByTimestampLessThan(dateLimit,vmStatsEntriesLimitPerDeleteQuery.value()) : volumeStatsDao.removeAllByTimestampLessThan(dateLimit);
+        long numOfStatsRemoved = resourceType.equals(Resource.ResourceType.user_vm.toString()) ? vmStatsDao.removeAllByTimestampLessThan(dateLimit, vmStatsRemoveBatchSize.value()) : volumeStatsDao.removeAllByTimestampLessThan(dateLimit);
 
         LOGGER.debug(String.format("Removed [%s] %s stats records older than [%s] for reaching their maximum retention time.", numOfStatsRemoved, resourceType, dateOfVmStatsRemoval));
     }
@@ -2136,7 +2136,7 @@ public class StatsCollector extends ManagerBase implements ComponentMethodInterc
     @Override
     public ConfigKey<?>[] getConfigKeys() {
         return new ConfigKey<?>[] {vmDiskStatsInterval, vmDiskStatsIntervalMin, vmNetworkStatsInterval, vmNetworkStatsIntervalMin, StatsTimeout, statsOutputUri,
-            vmStatsIncrementMetrics, vmStatsMaxRetentionTime, vmStatsCollectUserVMOnly, vmDiskStatsRetentionEnabled, vmDiskStatsMaxRetentionTime,
+            vmStatsIncrementMetrics, vmStatsMaxRetentionTime, vmStatsCollectUserVMOnly, vmDiskStatsRetentionEnabled, vmDiskStatsMaxRetentionTime, vmStatsRemoveBatchSize,
                 VM_STATS_INCREMENT_METRICS_IN_MEMORY,
                 MANAGEMENT_SERVER_STATUS_COLLECTION_INTERVAL,
                 DATABASE_SERVER_STATUS_COLLECTION_INTERVAL,

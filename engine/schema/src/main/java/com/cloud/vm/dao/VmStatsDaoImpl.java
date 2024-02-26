@@ -115,7 +115,7 @@ public class VmStatsDaoImpl extends GenericDaoBase<VmStatsVO, Long> implements V
     }
 
     @Override
-    public Integer removeAllByTimestampLessThan(Date limit, Long limitPerQuery) {
+    public long removeAllByTimestampLessThan(Date limit, Long limitPerQuery) {
         SearchCriteria<VmStatsVO> sc = timestampSearch.create();
         sc.setParameters("timestamp", limit);
 
@@ -132,7 +132,7 @@ public class VmStatsDaoImpl extends GenericDaoBase<VmStatsVO, Long> implements V
 
         logger.info(String.format("Removed a total of [%s] vm_stats rows older than [%s].", totalRemoved, limit));
 
-        return expunge(sc);
+        return totalRemoved;
     }
 
 }

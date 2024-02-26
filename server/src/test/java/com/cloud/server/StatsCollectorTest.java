@@ -310,7 +310,7 @@ public class StatsCollectorTest {
         Date now = new Date();
         statsCollector.removeStats(Resource.ResourceType.user_vm.toString(), now);
 
-        verify(vmStatsDaoMock).removeAllByTimestampLessThan(now,StatsCollector.vmStatsEntriesLimitPerDeleteQuery.value());
+        verify(vmStatsDaoMock).removeAllByTimestampLessThan(now,StatsCollector.vmStatsRemoveBatchSize.value());
     }
 
     @Test
@@ -318,7 +318,7 @@ public class StatsCollectorTest {
         Date now = new Date();
         statsCollector.removeStats(Resource.ResourceType.volume.toString(), now);
 
-        verify(vmStatsDaoMock, never()).removeAllByTimestampLessThan(now,StatsCollector.vmStatsEntriesLimitPerDeleteQuery.value());
+        verify(vmStatsDaoMock, never()).removeAllByTimestampLessThan(now,StatsCollector.vmStatsRemoveBatchSize.value());
     }
 
     @Test
