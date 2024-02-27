@@ -20,9 +20,11 @@
 package org.apache.cloudstack.storage.command;
 
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 import com.cloud.agent.api.to.DataTO;
+import com.cloud.storage.DiskControllerMappingVO;
 
 public class CopyCommand extends StorageSubSystemCommand {
     private DataTO srcTO;
@@ -31,6 +33,16 @@ public class CopyCommand extends StorageSubSystemCommand {
     private boolean executeInSequence = false;
     private Map<String, String> options = new HashMap<>();
     private Map<String, String> options2 = new HashMap<>();
+
+    private static List<DiskControllerMappingVO> diskControllerMappings;
+
+    public static List<DiskControllerMappingVO> getDiskControllerMappings() {
+        return diskControllerMappings;
+    }
+
+    public static void setDiskControllerMappings(List<DiskControllerMappingVO> mappings) {
+        diskControllerMappings = mappings;
+    }
 
     public CopyCommand(final DataTO srcData, final DataTO destData, final int timeout, final boolean executeInSequence) {
         super();
