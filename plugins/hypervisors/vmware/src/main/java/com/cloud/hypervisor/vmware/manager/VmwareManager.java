@@ -20,6 +20,7 @@ import java.io.File;
 import java.util.List;
 import java.util.Map;
 
+import com.cloud.storage.DiskControllerMappingVO;
 import org.apache.cloudstack.framework.config.ConfigKey;
 
 import com.cloud.hypervisor.Hypervisor.HypervisorType;
@@ -111,4 +112,6 @@ public interface VmwareManager {
 
     public String getDataDiskController();
     boolean hasNexusVSM(Long clusterId);
+
+    public List<DiskControllerMappingVO> getDiskControllersWithValidMapping();
 }

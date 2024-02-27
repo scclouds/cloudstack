@@ -18,6 +18,7 @@ package com.cloud.storage;
 
 import com.cloud.hypervisor.Hypervisor.HypervisorType;
 import com.cloud.utils.db.GenericDao;
+import org.apache.cloudstack.utils.reflectiontostringbuilderutils.ReflectionToStringBuilderUtils;
 
 import javax.persistence.Column;
 import javax.persistence.Entity;
@@ -170,5 +171,30 @@ public class DiskControllerMappingVO implements DiskControllerMapping {
         }
         DiskControllerMappingVO that = (DiskControllerMappingVO) obj;
         return controllerReference.equals(that.getControllerReference());
+    }
+
+    @Override
+    public String toString() {
+        return ReflectionToStringBuilderUtils.reflectOnlySelectedFields(this, "name", "controllerReference", "busName", "uuid");
+    }
+
+    public void setControllerReference(String controllerReference) {
+        this.controllerReference = controllerReference;
+    }
+
+    public void setBusName(String busName) {
+        this.busName = busName;
+    }
+
+    public void setMaxDeviceCount(Integer maxDeviceCount) {
+        this.maxDeviceCount = maxDeviceCount;
+    }
+
+    public void setMaxControllerCount(Integer maxControllerCount) {
+        this.maxControllerCount = maxControllerCount;
+    }
+
+    public void setVmdkAdapterType(String vmdkAdapterType) {
+        this.vmdkAdapterType = vmdkAdapterType;
     }
 }

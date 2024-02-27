@@ -53,7 +53,7 @@ import com.vmware.vim25.VirtualIDEController;
 import com.vmware.vim25.VirtualLsiLogicController;
 import com.vmware.vim25.VirtualSCSIController;
 import com.vmware.vim25.VirtualSCSISharing;
-import org.apache.cloudstack.storage.command.CopyCommand;
+import org.apache.commons.collections.CollectionUtils;
 import org.apache.commons.lang3.ObjectUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.log4j.Logger;
@@ -784,7 +784,12 @@ public class VmwareHelper {
     }
 
     public static DiskControllerMappingVO getDiskControllerMapping(String name, String controllerReference) {
-        for (DiskControllerMappingVO mapping : diskControllerMappings) {
+        return  getDiskControllerMapping(name, controllerReference, null);
+    }
+
+    public static DiskControllerMappingVO getDiskControllerMapping(String name, String controllerReference, List<DiskControllerMappingVO> diskControllerMappingFromCommand) {
+        List<DiskControllerMappingVO> mapToIterate = CollectionUtils.isEmpty(diskControllerMappingFromCommand) ? diskControllerMappings : diskControllerMappingFromCommand;
+        for (DiskControllerMappingVO mapping : mapToIterate) {
             if (mapping.getName().equals(name) || mapping.getControllerReference().equals(controllerReference)) {
                 return mapping;
             }
@@ -793,9 +798,13 @@ public class VmwareHelper {
         throw new CloudRuntimeException("Specified disk controller is invalid.");
     }
 
-    public static List<DiskControllerMappingVO> getAllDiskControllerMappingsExceptOsdefault() {
-        List<DiskControllerMappingVO> mappings = ObjectUtils.isEmpty(diskControllerMappings) ? CopyCommand.getDiskControllerMappings() : diskControllerMappings;
-        return mappings.stream()
+    public static List<DiskControllerMappingVO> getAllDiskControllerMappingsExceptOsDefault() {
+        return getAllDiskControllerMappingsExceptOsDefault(null);
+    }
+
+    public static List<DiskControllerMappingVO> getAllDiskControllerMappingsExceptOsDefault(List<DiskControllerMappingVO> diskControllerMappingsFromCommand) {
+        List<DiskControllerMappingVO> validMapping = CollectionUtils.isNotEmpty(diskControllerMappingsFromCommand) ? diskControllerMappingsFromCommand : diskControllerMappings;
+        return validMapping.stream()
                 .filter(c -> !VmwareHelper.isControllerOsRecommended(c))
                 .collect(Collectors.toList());
     }
@@ -816,7 +825,7 @@ public class VmwareHelper {
                                                                                                            String guestOsIdentifier) throws Exception {
         if (VmwareHelper.isControllerOsRecommended(controllerInfo.first()) && VmwareHelper.isControllerOsRecommended(controllerInfo.second())) {
             String recommendedDiskControllerClassName = vmMo != null ? vmMo.getRecommendedDiskController(null) : host.getRecommendedDiskController(guestOsIdentifier);
-            DiskControllerMappingVO recommendedDiskController = getAllDiskControllerMappingsExceptOsdefault().stream()
+            DiskControllerMappingVO recommendedDiskController = getAllDiskControllerMappingsExceptOsDefault().stream()
                     .filter(c -> c.getControllerReference().contains(recommendedDiskControllerClassName))
                     .findFirst()
                     .orElseThrow(() -> new CloudRuntimeException("Unable to find the recommended disk controller."));

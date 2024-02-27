@@ -59,7 +59,6 @@ import org.apache.cloudstack.framework.config.dao.ConfigurationDao;
 import org.apache.cloudstack.framework.jobs.impl.AsyncJobManagerImpl;
 import org.apache.cloudstack.management.ManagementServerHost;
 import org.apache.cloudstack.storage.command.CheckDataStoreStoragePolicyComplainceCommand;
-import org.apache.cloudstack.storage.command.CopyCommand;
 import org.apache.cloudstack.storage.datastore.db.PrimaryDataStoreDao;
 import org.apache.cloudstack.storage.datastore.db.StoragePoolVO;
 import org.apache.cloudstack.utils.identity.ManagementServerNode;
@@ -1631,7 +1630,8 @@ public class VmwareManagerImpl extends ManagerBase implements VmwareManager, Vmw
                 templateManager);
     }
 
-    protected void configureDiskControllerMappingsInVmwareBaseModule() {
+    @Override
+    public List<DiskControllerMappingVO> getDiskControllersWithValidMapping() {
         List<DiskControllerMappingVO> mappingsInDatabase = diskControllerMappingDao.listForHypervisor(HypervisorType.VMware);
         List<DiskControllerMappingVO> validMappings = new ArrayList<>();
 
@@ -1654,8 +1654,11 @@ public class VmwareManagerImpl extends ManagerBase implements VmwareManager, Vmw
             }
         }
 
-        VmwareHelper.setDiskControllerMappings(validMappings);
-        CopyCommand.setDiskControllerMappings(validMappings);
+        return validMappings;
+    }
+
+    protected void configureDiskControllerMappingsInVmwareBaseModule() {
+        VmwareHelper.setDiskControllerMappings(getDiskControllersWithValidMapping());
         s_logger.info("Configured the available disk controller mappings on the 'vmware-base' module. To add support for a new controller, " +
                 "it is necessary to restart the management servers.");
     }
