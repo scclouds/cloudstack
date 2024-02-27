@@ -3271,6 +3271,26 @@ public class VirtualMachineMO extends BaseMO {
         return controllers;
     }
 
+    public Set<DiskControllerMappingVO> getMappingsForExistingDiskControllers() throws Exception {
+        Set<DiskControllerMappingVO> mappingsForExistingControllers = new HashSet<>();
+
+        List<VirtualDevice> devices = _context.getVimClient().getDynamicProperty(_mor, "config.hardware.device");
+        for (VirtualDevice device : devices) {
+            if (!(device instanceof VirtualController)) {
+                continue;
+            }
+            String classpath = device.getClass().getName();
+            try {
+                DiskControllerMappingVO mapping = VmwareHelper.getDiskControllerMapping(null, classpath);
+                mappingsForExistingControllers.add(mapping);
+            } catch (CloudRuntimeException e) {
+                s_logger.debug(String.format("No disk controller mapping found for existing controller [%s]; ignoring it.", classpath));
+            }
+        }
+
+        return mappingsForExistingControllers;
+    }
+
     public DiskControllerMappingVO getAnyExistingAvailableDiskController() throws Exception {
         Set<String> validDiskControllerClasspaths = VmwareHelper.getAllDiskControllerMappingsExceptOsdefault().stream()
                 .map(DiskControllerMappingVO::getControllerReference)
@@ -3311,7 +3331,7 @@ public class VirtualMachineMO extends BaseMO {
                 continue;
             }
             VirtualController controller = (VirtualController) device;
-            if (controller.getBusNumber() >= mapping.getMaxControllerCount() - 1) {
+            if (controller.getBusNumber() >= mapping.getMaxControllerCount()) {
                 continue;
             }
             int nextAvailableDeviceNumber = getNextAvailableDeviceNumberForController(controller, mapping);

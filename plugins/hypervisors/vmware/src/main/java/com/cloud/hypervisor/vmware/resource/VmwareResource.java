@@ -2044,7 +2044,7 @@ public class VmwareResource extends ServerResourceBase implements StoragePoolRes
         VirtualCdrom cdrom = (VirtualCdrom) vmMo.getIsoDevice();
 
         if (rootDiskController == dataDiskController) {
-            int maxDevicesInBus = rootDiskController.getMaxControllerCount() * rootDiskController.getMaxDeviceCount();
+            int maxDevicesInBus = getMaxSupportedDevicesInBus(rootDiskController);
             int devicesInBus = disks.size();
 
             if (cdrom != null && Class.forName(rootDiskController.getControllerReference()) == VirtualIDEController.class) {
@@ -2058,15 +2058,15 @@ public class VmwareResource extends ServerResourceBase implements StoragePoolRes
             return;
         }
 
-        int maxDevicesInRootDiskBus = rootDiskController.getMaxControllerCount() * rootDiskController.getMaxDeviceCount();
-        int maxDevicesInDataDiskBus = dataDiskController.getMaxControllerCount() * dataDiskController.getMaxDeviceCount();
+        int maxDevicesInRootDiskBus = getMaxSupportedDevicesInBus(rootDiskController);
+        int maxDevicesInDataDiskBus = getMaxSupportedDevicesInBus(dataDiskController);
         int devicesInRootDiskBus = 1;
         int devicesInDataDiskBus = disks.size() - 1;
 
         if (cdrom != null) {
             if (Class.forName(rootDiskController.getControllerReference()) == VirtualIDEController.class) {
                 devicesInRootDiskBus++;
-            } else if (Class.forName(rootDiskController.getControllerReference()) == VirtualIDEController.class) {
+            } else if (Class.forName(dataDiskController.getControllerReference()) == VirtualIDEController.class) {
                 devicesInDataDiskBus++;
             }
         }
@@ -2076,6 +2076,14 @@ public class VmwareResource extends ServerResourceBase implements StoragePoolRes
                     "but these buses only support [%s] and [%s] devices.", vmMo.getName(), devicesInRootDiskBus, devicesInDataDiskBus,
                     maxDevicesInRootDiskBus, maxDevicesInDataDiskBus));
         }
+    }
+
+    protected int getMaxSupportedDevicesInBus(DiskControllerMappingVO mapping) {
+        int devicesPerController = mapping.getMaxDeviceCount();
+        if ("scsi".equals(mapping.getBusName())) {
+            devicesPerController--;
+        }
+        return devicesPerController * mapping.getMaxControllerCount();
     }
 
     protected void teardownAllDiskControllers(VirtualMachineMO vmMo) throws Exception {
@@ -2420,15 +2428,13 @@ public class VmwareResource extends ServerResourceBase implements StoragePoolRes
                 }
 
                 VirtualMachineDiskInfo matchingExistingDisk = getMatchingExistingDisk(diskInfoBuilder, vol, hyperHost, context);
-                DiskControllerMappingVO diskController = getControllerForDisk(vmMo, matchingExistingDisk, vol, updatedControllerInfo,
-                        diskControllerCurrentUnitNumbers, deployAsIs);
+                DiskControllerMappingVO diskController = getControllerForDisk(vmMo, matchingExistingDisk, vol, updatedControllerInfo, deployAsIs);
                 int unitNumber = diskControllerCurrentUnitNumbers.get(diskController.getControllerReference());
 
                 if (!hasSnapshot) {
                     int diskControllerNumber = unitNumber / diskController.getMaxDeviceCount();
                     VirtualController diskControllerDevice = (VirtualController) vmMo.getNthDevice(diskController.getControllerReference(), diskControllerNumber);
                     vmMo.validateDiskControllerIsAvailable(diskControllerDevice, diskController); // This may be unnecessary, as a validation of whether the controllers support all disks was already performed.
-                    // TODO: tlalvez aqui botar a validação no getnthdevice? pq antigamente se n achava nada valido pra scsi, retornava a key -1
                     int deviceNumber = unitNumber % diskController.getMaxDeviceCount();
 
                     deviceConfigSpecArray[i] = new VirtualDeviceConfigSpec();
@@ -3610,15 +3616,14 @@ public class VmwareResource extends ServerResourceBase implements StoragePoolRes
         }
     }
 
-    private DiskControllerMappingVO getControllerForDisk(VirtualMachineMO vmMo, VirtualMachineDiskInfo matchingExistingDisk, DiskTO vol,
-                                                         Pair<DiskControllerMappingVO, DiskControllerMappingVO> controllerInfo, Map<String, Integer> diskControllerCurrentUnitNumbers,
+    private DiskControllerMappingVO getControllerForDisk(VirtualMachineMO vmMo, VirtualMachineDiskInfo matchingExistingDisk,
+                                                         DiskTO vol, Pair<DiskControllerMappingVO, DiskControllerMappingVO> controllerInfo,
                                                          boolean deployAsIs) throws Exception {
         if (deployAsIs && matchingExistingDisk != null) {
-            List<DiskControllerMappingVO> allDiskControllerMappings = VmwareHelper.getAllDiskControllerMappingsExceptOsdefault();
-
             String currentBusName = matchingExistingDisk.getDiskDeviceBusName();
             if (currentBusName != null) {
-                for (DiskControllerMappingVO mapping : allDiskControllerMappings) {
+                Set<DiskControllerMappingVO> mappingsForExistingDiskControllers = vmMo.getMappingsForExistingDiskControllers();
+                for (DiskControllerMappingVO mapping : mappingsForExistingDiskControllers) {
                     if (currentBusName.startsWith(mapping.getBusName())) {
                         s_logger.debug(String.format("Choosing disk controller [%s] for virtual machine [%s] based on current bus name [%s].",
                                 mapping.getName(), vmMo, currentBusName));
@@ -3626,7 +3631,6 @@ public class VmwareResource extends ServerResourceBase implements StoragePoolRes
                     }
                 }
             }
-
             return vmMo.getAnyExistingAvailableDiskController();
         }
 

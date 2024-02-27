@@ -53,6 +53,7 @@ import com.vmware.vim25.VirtualIDEController;
 import com.vmware.vim25.VirtualLsiLogicController;
 import com.vmware.vim25.VirtualSCSIController;
 import com.vmware.vim25.VirtualSCSISharing;
+import org.apache.cloudstack.storage.command.CopyCommand;
 import org.apache.commons.lang3.ObjectUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.log4j.Logger;
@@ -793,7 +794,8 @@ public class VmwareHelper {
     }
 
     public static List<DiskControllerMappingVO> getAllDiskControllerMappingsExceptOsdefault() {
-        return diskControllerMappings.stream()
+        List<DiskControllerMappingVO> mappings = ObjectUtils.isEmpty(diskControllerMappings) ? CopyCommand.getDiskControllerMappings() : diskControllerMappings;
+        return mappings.stream()
                 .filter(c -> !VmwareHelper.isControllerOsRecommended(c))
                 .collect(Collectors.toList());
     }
