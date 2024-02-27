@@ -2087,7 +2087,7 @@ public class VmwareResource extends ServerResourceBase implements StoragePoolRes
     }
 
     protected void teardownAllDiskControllers(VirtualMachineMO vmMo) throws Exception {
-        List<DiskControllerMappingVO> allMappings = VmwareHelper.getAllDiskControllerMappingsExceptOsdefault();
+        List<DiskControllerMappingVO> allMappings = VmwareHelper.getAllDiskControllerMappingsExceptOsDefault();
         Set<Class<?>> classesToTeardown = new HashSet<>();
 
         for (DiskControllerMappingVO mapping : allMappings) {

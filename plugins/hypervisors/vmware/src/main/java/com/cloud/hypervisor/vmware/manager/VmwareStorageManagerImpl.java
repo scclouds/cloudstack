@@ -28,6 +28,7 @@ import java.util.Map;
 import java.util.Properties;
 import java.util.UUID;
 
+import com.cloud.storage.DiskControllerMappingVO;
 import org.apache.cloudstack.storage.to.PrimaryDataStoreTO;
 import org.apache.cloudstack.storage.to.TemplateObjectTO;
 import org.apache.cloudstack.storage.to.VolumeObjectTO;
@@ -358,8 +359,9 @@ public class VmwareStorageManagerImpl implements VmwareStorageManager {
                     throw new Exception("Failed to take snapshot " + cmd.getSnapshotName() + " on vm: " + cmd.getVmName());
                 }
 
+                List<DiskControllerMappingVO> diskControllerMappingsFromCommand = VmwareStorageProcessor.getDiskControllerMappingFromCommand(cmd);
                 snapshotBackupUuid = backupSnapshotToSecondaryStorage(vmMo, accountId, volumeId, cmd.getVolumePath(), snapshotUuid, secondaryStorageUrl, prevSnapshotUuid,
-                        prevBackupUuid, hostService.getWorkerName(context, cmd, 1, dsMo), cmd.getNfsVersion());
+                        prevBackupUuid, hostService.getWorkerName(context, cmd, 1, dsMo), cmd.getNfsVersion(), diskControllerMappingsFromCommand);
 
                 success = (snapshotBackupUuid != null);
                 if (success) {
@@ -415,8 +417,9 @@ public class VmwareStorageManagerImpl implements VmwareStorageManager {
                 }
             }
 
+            List<DiskControllerMappingVO> diskControllerMappingsFromCommand = VmwareStorageProcessor.getDiskControllerMappingFromCommand(cmd);
             Ternary<String, Long, Long> result = createTemplateFromVolume(vmMo, accountId, templateId, cmd.getUniqueName(), secondaryStoragePoolURL, volumePath,
-                    hostService.getWorkerName(context, cmd, 0, null), cmd.getNfsVersion());
+                    hostService.getWorkerName(context, cmd, 0, null), cmd.getNfsVersion(), diskControllerMappingsFromCommand);
 
             return new CreatePrivateTemplateAnswer(cmd, true, null, result.first(), result.third(), result.second(), cmd.getUniqueName(), ImageFormat.OVA);
 
@@ -576,7 +579,7 @@ public class VmwareStorageManagerImpl implements VmwareStorageManager {
     }
 
     private Ternary<String, Long, Long> createTemplateFromVolume(VirtualMachineMO vmMo, long accountId, long templateId, String templateUniqueName, String secStorageUrl,
-                                                                 String volumePath, String workerVmName, String nfsVersion) throws Exception {
+                                                                 String volumePath, String workerVmName, String nfsVersion, List<DiskControllerMappingVO> diskControllerMappingsFromCommand) throws Exception {
 
         String secondaryMountPoint = _mountService.getMountPoint(secStorageUrl, nfsVersion);
         String installPath = getTemplateRelativeDirInSecStorage(accountId, templateId);
@@ -596,7 +599,7 @@ public class VmwareStorageManagerImpl implements VmwareStorageManager {
 
         VirtualMachineMO clonedVm = null;
         try {
-            Pair<VirtualDisk, String> volumeDeviceInfo = vmMo.getDiskDevice(volumePath);
+            Pair<VirtualDisk, String> volumeDeviceInfo = vmMo.getDiskDevice(volumePath, diskControllerMappingsFromCommand);
             if (volumeDeviceInfo == null) {
                 String msg = "Unable to find related disk device for volume. volume path: " + volumePath;
                 s_logger.error(msg);
@@ -891,15 +894,15 @@ public class VmwareStorageManagerImpl implements VmwareStorageManager {
     }
 
     private String backupSnapshotToSecondaryStorage(VirtualMachineMO vmMo, long accountId, long volumeId, String volumePath, String snapshotUuid, String secStorageUrl,
-                                                    String prevSnapshotUuid, String prevBackupUuid, String workerVmName, String nfsVersion) throws Exception {
+                                                    String prevSnapshotUuid, String prevBackupUuid, String workerVmName, String nfsVersion, List<DiskControllerMappingVO> diskControllerMappingsFromCommand) throws Exception {
 
         String backupUuid = UUID.randomUUID().toString();
-        exportVolumeToSecondaryStorage(vmMo, volumePath, secStorageUrl, getSnapshotRelativeDirInSecStorage(accountId, volumeId), backupUuid, workerVmName, nfsVersion, true);
+        exportVolumeToSecondaryStorage(vmMo, volumePath, secStorageUrl, getSnapshotRelativeDirInSecStorage(accountId, volumeId), backupUuid, workerVmName, nfsVersion, true, diskControllerMappingsFromCommand);
         return backupUuid + "/" + backupUuid;
     }
 
     private void exportVolumeToSecondaryStorage(VirtualMachineMO vmMo, String volumePath, String secStorageUrl, String secStorageDir, String exportName, String workerVmName,
-                                                String nfsVersion, boolean clonedWorkerVMNeeded) throws Exception {
+                                                String nfsVersion, boolean clonedWorkerVMNeeded, List<DiskControllerMappingVO> diskControllerMappingsFromCommand) throws Exception {
 
         String secondaryMountPoint = _mountService.getMountPoint(secStorageUrl, nfsVersion);
         String exportPath = secondaryMountPoint + "/" + secStorageDir + "/" + exportName;
@@ -922,7 +925,7 @@ public class VmwareStorageManagerImpl implements VmwareStorageManager {
         VirtualMachineMO clonedVm = null;
         try {
 
-            Pair<VirtualDisk, String> volumeDeviceInfo = vmMo.getDiskDevice(volumePath);
+            Pair<VirtualDisk, String> volumeDeviceInfo = vmMo.getDiskDevice(volumePath, diskControllerMappingsFromCommand);
             if (volumeDeviceInfo == null) {
                 String msg = "Unable to find related disk device for volume. volume path: " + volumePath;
                 s_logger.error(msg);
@@ -969,6 +972,7 @@ public class VmwareStorageManagerImpl implements VmwareStorageManager {
                 throw new Exception(msg);
             }
 
+            List<DiskControllerMappingVO> diskControllerMappingsFromCommand = VmwareStorageProcessor.getDiskControllerMappingFromCommand(cmd);
             boolean clonedWorkerVMNeeded = true;
             vmMo = hyperHost.findVmOnHyperHost(vmName);
             if (vmMo == null) {
@@ -984,7 +988,7 @@ public class VmwareStorageManagerImpl implements VmwareStorageManager {
 
                 //attach volume to worker VM
                 String datastoreVolumePath = getVolumePathInDatastore(dsMo, volumePath + ".vmdk", searchExcludedFolders);
-                workerVm.attachDisk(new String[] {datastoreVolumePath}, morDs);
+                workerVm.attachDisk(new String[] {datastoreVolumePath}, morDs, null, null, null, diskControllerMappingsFromCommand);
                 vmMo = workerVm;
                 clonedWorkerVMNeeded = false;
             } else {
@@ -992,7 +996,7 @@ public class VmwareStorageManagerImpl implements VmwareStorageManager {
             }
 
             exportVolumeToSecondaryStorage(vmMo, volumePath, secStorageUrl, "volumes/" + volumeFolder, exportName, hostService.getWorkerName(hyperHost.getContext(), cmd, 1, null),
-                    nfsVersion, clonedWorkerVMNeeded);
+                    nfsVersion, clonedWorkerVMNeeded, diskControllerMappingsFromCommand);
             return new Pair<String, String>(volumeFolder, exportName);
 
         } finally {

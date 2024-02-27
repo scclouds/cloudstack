@@ -24,6 +24,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 import com.cloud.agent.api.CleanupVMCommand;
 import com.cloud.storage.VolumeApiService;
@@ -309,7 +310,17 @@ public class VMwareGuru extends HypervisorGuruBase implements HypervisorGuru, Co
                 // FIXME: Fix                    long checkPointId = _checkPointMgr.pushCheckPoint(new VmwareCleanupMaid(hostDetails.get("guid"), workerName));
                 cmd.setContextParam("worker", workerName);
                 cmd.setContextParam("checkpoint", String.valueOf(checkPointId));
-
+                cmd.setContextParam("supportedDiskControllers", _vmwareMgr.getDiskControllersWithValidMapping()
+                                                                            .stream()
+                                                                            .filter(diskControllerMappingVO -> !"osdefault".equals(diskControllerMappingVO.getName()))
+                                                                            .map(diskControllerMappingVO ->
+                                                                                String.format("%s:%s:%s:%s:%s:%s", diskControllerMappingVO.getControllerReference(),
+                                                                                                             diskControllerMappingVO.getBusName(),
+                                                                                                             diskControllerMappingVO.getMaxControllerCount(),
+                                                                                                             diskControllerMappingVO.getMaxDeviceCount(),
+                                                                                                             diskControllerMappingVO.getName(),
+                                                                                                             diskControllerMappingVO.getVmdkAdapterType()))
+                                                                            .collect(Collectors.joining(";")));
                 // some commands use 2 workers
                 String workerName2 = _vmwareMgr.composeWorkerName();
                 long checkPointId2 = 1;

@@ -1070,7 +1070,7 @@ public class VmwareStorageProcessor implements StorageProcessor {
     }
 
     private Pair<String, String> copyVolumeToSecStorage(VmwareHostService hostService, VmwareHypervisorHost hyperHost, CopyCommand cmd, String vmName, String poolId,
-                                                        String volumePath, String destVolumePath, String secStorageUrl, String workerVmName) throws Exception {
+                                                        String volumePath, String destVolumePath, String secStorageUrl, String workerVmName, List<DiskControllerMappingVO> diskControllerMappingsFromCommand) throws Exception {
         VirtualMachineMO workerVm = null;
         VirtualMachineMO vmMo = null;
         String exportName = UUID.randomUUID().toString().replace("-", "");
@@ -1100,12 +1100,12 @@ public class VmwareStorageProcessor implements StorageProcessor {
 
                 // attach volume to worker VM
                 String datastoreVolumePath = getVolumePathInDatastore(dsMo, volumePath + ".vmdk", searchExcludedFolders);
-                workerVm.attachDisk(new String[] {datastoreVolumePath}, morDs);
+                workerVm.attachDisk(new String[] {datastoreVolumePath}, morDs, null, null, null, diskControllerMappingsFromCommand);
                 vmMo = workerVm;
                 clonedWorkerVMNeeded = false;
             }
 
-            exportVolumeToSecondaryStorage(hyperHost.getContext(), vmMo, hyperHost, volumePath, secStorageUrl, destVolumePath, exportName, hostService.getWorkerName(hyperHost.getContext(), cmd, 1, null), _nfsVersion, clonedWorkerVMNeeded);
+            exportVolumeToSecondaryStorage(hyperHost.getContext(), vmMo, hyperHost, volumePath, secStorageUrl, destVolumePath, exportName, hostService.getWorkerName(hyperHost.getContext(), cmd, 1, null), _nfsVersion, clonedWorkerVMNeeded, diskControllerMappingsFromCommand);
             return new Pair<>(destVolumePath, exportName);
 
         } finally {
@@ -1132,9 +1132,11 @@ public class VmwareStorageProcessor implements StorageProcessor {
 
             Pair<String, String> result;
 
+            List<DiskControllerMappingVO> diskControllerMappingsFromCommand = getDiskControllerMappingFromCommand(cmd);
+
             result =
                     copyVolumeToSecStorage(hostService, hyperHost, cmd, vmName, primaryStorage.getUuid(), srcVolume.getPath(), destVolume.getPath(), destStore.getUrl(),
-                            hostService.getWorkerName(context, cmd, 0, null));
+                            hostService.getWorkerName(context, cmd, 0, null), diskControllerMappingsFromCommand);
             VolumeObjectTO newVolume = new VolumeObjectTO();
             newVolume.setPath(result.first() + File.separator + result.second());
             return new CopyCmdAnswer(newVolume);
@@ -1183,7 +1185,7 @@ public class VmwareStorageProcessor implements StorageProcessor {
     }
 
     private Ternary<String, Long, Long> createTemplateFromVolume(VmwareContext context, VirtualMachineMO vmMo, VmwareHypervisorHost hyperHost, String installPath, long templateId, String templateUniqueName,
-                                                                 String secStorageUrl, String volumePath, String workerVmName, String nfsVersion) throws Exception {
+                                                                 String secStorageUrl, String volumePath, String workerVmName, String nfsVersion, List<DiskControllerMappingVO> diskControllerMappingsFromCommand) throws Exception {
 
         String secondaryMountPoint = mountService.getMountPoint(secStorageUrl, nfsVersion);
         String installFullPath = secondaryMountPoint + "/" + installPath;
@@ -1202,7 +1204,7 @@ public class VmwareStorageProcessor implements StorageProcessor {
 
         VirtualMachineMO clonedVm = null;
         try {
-            Pair<VirtualDisk, String> volumeDeviceInfo = vmMo.getDiskDevice(volumePath);
+            Pair<VirtualDisk, String> volumeDeviceInfo = vmMo.getDiskDevice(volumePath, diskControllerMappingsFromCommand);
             if (volumeDeviceInfo == null) {
                 String msg = "Unable to find related disk device for volume. volume path: " + volumePath;
                 s_logger.error(msg);
@@ -1212,7 +1214,7 @@ public class VmwareStorageProcessor implements StorageProcessor {
             DatacenterMO dcMo = new DatacenterMO(context, hyperHost.getHyperHostDatacenter());
             ManagedObjectReference morPool = hyperHost.getHyperHostOwnerResourcePool();
             VirtualDisk requiredDisk = volumeDeviceInfo.first();
-            clonedVm = vmMo.createFullCloneWithSpecificDisk(templateUniqueName, dcMo.getVmFolder(), morPool, requiredDisk);
+            clonedVm = vmMo.createFullCloneWithSpecificDisk(templateUniqueName, dcMo.getVmFolder(), morPool, requiredDisk, diskControllerMappingsFromCommand);
             if (clonedVm == null) {
                 throw new Exception(String.format("Failed to clone VM with name %s during create template from volume operation", templateUniqueName));
             }
@@ -1305,9 +1307,10 @@ public class VmwareStorageProcessor implements StorageProcessor {
                 }
             }
 
+            List<DiskControllerMappingVO> diskControllerMappingsFromCommand = getDiskControllerMappingFromCommand(cmd);
             Ternary<String, Long, Long> result =
                     createTemplateFromVolume(context, vmMo, hyperHost, template.getPath(), template.getId(), template.getName(), secondaryStoragePoolURL, volumePath,
-                            hostService.getWorkerName(context, cmd, 0, null), _nfsVersion);
+                            hostService.getWorkerName(context, cmd, 0, null), _nfsVersion, diskControllerMappingsFromCommand);
             TemplateObjectTO newTemplate = new TemplateObjectTO();
             newTemplate.setPath(result.first());
             newTemplate.setFormat(ImageFormat.OVA);
@@ -1750,7 +1753,7 @@ public class VmwareStorageProcessor implements StorageProcessor {
 
     // return Pair<String(divice bus name), String[](disk chain)>
     private Pair<String, String[]> exportVolumeToSecondaryStorage(VmwareContext context, VirtualMachineMO vmMo, VmwareHypervisorHost hyperHost, String volumePath, String secStorageUrl, String secStorageDir,
-                                                                  String exportName, String workerVmName, String nfsVersion, boolean clonedWorkerVMNeeded) throws Exception {
+                                                                  String exportName, String workerVmName, String nfsVersion, boolean clonedWorkerVMNeeded, List<DiskControllerMappingVO> diskControllerMappingsFromCommand) throws Exception {
 
         String secondaryMountPoint = mountService.getMountPoint(secStorageUrl, nfsVersion);
         String exportPath = secondaryMountPoint + "/" + secStorageDir + "/" + exportName;
@@ -1772,7 +1775,7 @@ public class VmwareStorageProcessor implements StorageProcessor {
         VirtualMachineMO clonedVm = null;
         try {
 
-            Pair<VirtualDisk, String> volumeDeviceInfo = vmMo.getDiskDevice(volumePath);
+            Pair<VirtualDisk, String> volumeDeviceInfo = vmMo.getDiskDevice(volumePath, diskControllerMappingsFromCommand);
             if (volumeDeviceInfo == null) {
                 String msg = "Unable to find related disk device for volume. volume path: " + volumePath;
                 s_logger.error(msg);
@@ -1788,7 +1791,7 @@ public class VmwareStorageProcessor implements StorageProcessor {
                 DatacenterMO dcMo = new DatacenterMO(context, hyperHost.getHyperHostDatacenter());
                 ManagedObjectReference morPool = hyperHost.getHyperHostOwnerResourcePool();
                 VirtualDisk requiredDisk = volumeDeviceInfo.first();
-                clonedVm = vmMo.createFullCloneWithSpecificDisk(exportName, dcMo.getVmFolder(), morPool, requiredDisk);
+                clonedVm = vmMo.createFullCloneWithSpecificDisk(exportName, dcMo.getVmFolder(), morPool, requiredDisk, diskControllerMappingsFromCommand);
                 if (clonedVm == null) {
                     throw new Exception(String.format("Failed to clone VM with name %s during export volume operation", exportName));
                 }
@@ -1808,10 +1811,10 @@ public class VmwareStorageProcessor implements StorageProcessor {
     // Ternary<String(backup uuid in secondary storage), String(device bus name), String[](original disk chain in the snapshot)>
     private Ternary<String, String, String[]> backupSnapshotToSecondaryStorage(VmwareContext context, VirtualMachineMO vmMo, VmwareHypervisorHost hypervisorHost, String installPath, String volumePath, String snapshotUuid,
                                                                                String secStorageUrl, String prevSnapshotUuid, String prevBackupUuid, String workerVmName,
-                                                                               String nfsVersion) throws Exception {
+                                                                               String nfsVersion, List<DiskControllerMappingVO> diskControllerMappingsFromCommand) throws Exception {
 
         String backupUuid = UUID.randomUUID().toString();
-        Pair<String, String[]> snapshotInfo = exportVolumeToSecondaryStorage(context, vmMo, hypervisorHost, volumePath, secStorageUrl, installPath, backupUuid, workerVmName, nfsVersion, true);
+        Pair<String, String[]> snapshotInfo = exportVolumeToSecondaryStorage(context, vmMo, hypervisorHost, volumePath, secStorageUrl, installPath, backupUuid, workerVmName, nfsVersion, true, diskControllerMappingsFromCommand);
         return new Ternary<>(backupUuid, snapshotInfo.first(), snapshotInfo.second());
     }
 
@@ -1849,6 +1852,9 @@ public class VmwareStorageProcessor implements StorageProcessor {
         VirtualMachineMO vmMo = null;
         String vmName = srcSnapshot.getVmName();
         try {
+
+            List<DiskControllerMappingVO> diskControllerMappingsFromCommand = getDiskControllerMappingFromCommand(cmd);
+
             VmwareHypervisorHost hyperHost = hostService.getHyperHost(context, cmd);
             morDs = HypervisorHostHelper.findDatastoreWithBackwardsCompatibility(hyperHost, primaryStore.getUuid());
 
@@ -1874,7 +1880,7 @@ public class VmwareStorageProcessor implements StorageProcessor {
                     workerVm = vmMo;
                     // attach volume to worker VM
                     String datastoreVolumePath = VmwareStorageLayoutHelper.getLegacyDatastorePathFromVmdkFileName(dsMo, volumePath + ".vmdk");
-                    vmMo.attachDisk(new String[] { datastoreVolumePath }, morDs);
+                    vmMo.attachDisk(new String[] { datastoreVolumePath }, morDs, null, null, null, diskControllerMappingsFromCommand);
                 } else {
                     s_logger.info("Using owner VM " + vmName + " for snapshot operation");
                     hasOwnerVm = true;
@@ -1883,7 +1889,7 @@ public class VmwareStorageProcessor implements StorageProcessor {
                 s_logger.debug(String.format("Executing backup snapshot with UUID [%s] to secondary storage.", snapshotUuid));
                 backupResult =
                         backupSnapshotToSecondaryStorage(context, vmMo, hyperHost, destSnapshot.getPath(), srcSnapshot.getVolume().getPath(), snapshotUuid, secondaryStorageUrl,
-                                prevSnapshotUuid, prevBackupUuid, hostService.getWorkerName(context, cmd, 1, null), _nfsVersion);
+                                prevSnapshotUuid, prevBackupUuid, hostService.getWorkerName(context, cmd, 1, null), _nfsVersion, diskControllerMappingsFromCommand);
                 snapshotBackupUuid = backupResult.first();
 
                 success = (snapshotBackupUuid != null);
@@ -1931,7 +1937,7 @@ public class VmwareStorageProcessor implements StorageProcessor {
                             for (String vmdkDsFilePath : backupResult.third()) {
                                 s_logger.info("Validate disk chain file:" + vmdkDsFilePath);
 
-                                if (vmMo.getDiskDevice(vmdkDsFilePath) == null) {
+                                if (vmMo.getDiskDevice(vmdkDsFilePath, diskControllerMappingsFromCommand) == null) {
                                     s_logger.info("" + vmdkDsFilePath + " no longer exists, consolidation detected");
                                     chainConsolidated = true;
                                     break;
@@ -1943,7 +1949,7 @@ public class VmwareStorageProcessor implements StorageProcessor {
                             if (chainConsolidated) {
                                 String topVmdkFilePath = null;
                                 try {
-                                    topVmdkFilePath = vmMo.getDiskCurrentTopBackingFileInChain(backupResult.second());
+                                    topVmdkFilePath = vmMo.getDiskCurrentTopBackingFileInChain(backupResult.second(), diskControllerMappingsFromCommand);
                                 } catch (Exception e) {
                                     s_logger.error("Unexpected exception", e);
                                 }
@@ -1980,6 +1986,35 @@ public class VmwareStorageProcessor implements StorageProcessor {
         } catch (Throwable e) {
             return new CopyCmdAnswer(hostService.createLogMessageException(e, cmd));
         }
+    }
+
+    public static List<DiskControllerMappingVO> getDiskControllerMappingFromCommand(Command cmd) {
+        String supportedDiskControllers = cmd.getContextParam("supportedDiskControllers");
+
+        if (StringUtils.isBlank(supportedDiskControllers)) {
+            return new ArrayList<>();
+        }
+
+        s_logger.debug(String.format("Disk controllers found on context param [supportedDiskControllers]: %s.", supportedDiskControllers));
+
+        String[] supportedDiskControllersArray = supportedDiskControllers.split(";");
+
+        List<DiskControllerMappingVO> diskControllerMappingsFromCommand = new ArrayList<>();
+        for (String supportedDiskController : supportedDiskControllersArray) {
+            String[] supportedDiskControllerSplit = supportedDiskController.split(":");
+
+            DiskControllerMappingVO diskControllerMappingVO = new DiskControllerMappingVO();
+            diskControllerMappingVO.setControllerReference(supportedDiskControllerSplit[0]);
+            diskControllerMappingVO.setBusName(supportedDiskControllerSplit[1]);
+            diskControllerMappingVO.setMaxControllerCount(Integer.valueOf(supportedDiskControllerSplit[2]));
+            diskControllerMappingVO.setMaxDeviceCount(Integer.valueOf(supportedDiskControllerSplit[3]));
+            diskControllerMappingVO.setName(supportedDiskControllerSplit[4]);
+            diskControllerMappingVO.setVmdkAdapterType(supportedDiskControllerSplit[5]);
+
+            diskControllerMappingsFromCommand.add(diskControllerMappingVO);
+        }
+
+        return diskControllerMappingsFromCommand;
     }
 
     @Override
@@ -2125,7 +2160,7 @@ public class VmwareStorageProcessor implements StorageProcessor {
                 Pair<DiskControllerMappingVO, DiskControllerMappingVO> finalDiskControllers = VmwareHelper.convertRecommendedDiskControllers(specifiedDiskControllers, vmMo, null, null);
                 DiskControllerMappingVO diskController = VmwareHelper.getControllerBasedOnDiskType(finalDiskControllers, disk);
 
-                vmMo.attachDisk(new String[] { datastoreVolumePath }, morDs, diskController, storagePolicyId, volumeTO.getIopsReadRate() + volumeTO.getIopsWriteRate());
+                vmMo.attachDisk(new String[] { datastoreVolumePath }, morDs, diskController, storagePolicyId, volumeTO.getIopsReadRate() + volumeTO.getIopsWriteRate(), null);
                 VirtualMachineDiskInfoBuilder diskInfoBuilder = vmMo.getDiskInfoBuilder();
                 VirtualMachineDiskInfo diskInfo = diskInfoBuilder.getDiskInfoByBackingFileBaseName(volumePath, dsMo.getName());
                 chainInfo = _gson.toJson(diskInfo);

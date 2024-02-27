@@ -755,7 +755,7 @@ public class VirtualMachineMO extends BaseMO {
         return false;
     }
 
-    public VirtualMachineMO createFullCloneWithSpecificDisk(String cloneName, ManagedObjectReference morFolder, ManagedObjectReference morResourcePool, VirtualDisk requiredDisk)
+    public VirtualMachineMO createFullCloneWithSpecificDisk(String cloneName, ManagedObjectReference morFolder, ManagedObjectReference morResourcePool, VirtualDisk requiredDisk, List<DiskControllerMappingVO> diskControllerMappingsFromCommand)
             throws Exception {
 
         assert (morFolder != null);
@@ -800,7 +800,7 @@ public class VirtualMachineMO extends BaseMO {
             }
             s_logger.debug(String.format("Cloned VM: %s as %s", getName(), cloneName));
             clonedVm.tagAsWorkerVM();
-            makeSureVMHasOnlyRequiredDisk(clonedVm, requiredDisk, dsMo, dcMo);
+            makeSureVMHasOnlyRequiredDisk(clonedVm, requiredDisk, dsMo, dcMo, diskControllerMappingsFromCommand);
             return clonedVm;
         } else {
             s_logger.error("VMware cloneVM_Task failed due to " + TaskMO.getTaskFailureInfo(_context, morTask));
@@ -808,7 +808,7 @@ public class VirtualMachineMO extends BaseMO {
         }
     }
 
-    private void makeSureVMHasOnlyRequiredDisk(VirtualMachineMO clonedVm, VirtualDisk requiredDisk, DatastoreMO dsMo, DatacenterMO dcMo) throws Exception {
+    private void makeSureVMHasOnlyRequiredDisk(VirtualMachineMO clonedVm, VirtualDisk requiredDisk, DatastoreMO dsMo, DatacenterMO dcMo, List<DiskControllerMappingVO> diskControllerMappingsFromCommand) throws Exception {
 
         String vmName = clonedVm.getName();
         VirtualDisk[] vmDisks = clonedVm.getAllDiskDevice();
@@ -832,7 +832,7 @@ public class VirtualMachineMO extends BaseMO {
 
         String baseName = VmwareHelper.getDiskDeviceFileName(requiredCloneDisk);
         s_logger.debug(String.format("Detaching all disks for the VM: %s except disk with base name: %s, key=%d", vmName, baseName, requiredCloneDisk.getKey()));
-        List<String> detachedDisks = clonedVm.detachAllDisksExcept(baseName, null);
+        List<String> detachedDisks = clonedVm.detachAllDisksExcept(baseName, null, diskControllerMappingsFromCommand);
         for (String diskPath : detachedDisks) {
             dsMo.deleteFile(diskPath, dcMo.getMor(), true, null);
         }
@@ -1397,18 +1397,18 @@ public class VirtualMachineMO extends BaseMO {
 
     public void attachDisk(String[] vmdkDatastorePathChain, ManagedObjectReference morDs, DiskControllerMappingVO diskController,
                            String vSphereStoragePolicyId) throws Exception {
-        attachDisk(vmdkDatastorePathChain, morDs, diskController, vSphereStoragePolicyId, null);
+        attachDisk(vmdkDatastorePathChain, morDs, diskController, vSphereStoragePolicyId, null, null);
     }
 
     public void attachDisk(String[] vmdkDatastorePathChain, ManagedObjectReference morDs, DiskControllerMappingVO diskController,
-                           String vSphereStoragePolicyId, Long maxIops) throws Exception {
+                           String vSphereStoragePolicyId, Long maxIops, List<DiskControllerMappingVO> diskControllerMappingFromCommand) throws Exception {
         if(s_logger.isTraceEnabled())
             s_logger.trace("vCenter API trace - attachDisk(). target MOR: " + _mor.getValue() + ", vmdkDatastorePath: "
                             + GSON.toJson(vmdkDatastorePathChain) + ", datastore: " + morDs.getValue());
 
         if (diskController == null) {
             s_logger.debug("Provided disk controller is null; therefore, we will choose any existing disk controller to use.");
-            diskController = getAnyExistingAvailableDiskController();
+            diskController = getAnyExistingAvailableDiskController(diskControllerMappingFromCommand);
         }
 
         if (VirtualIDEController.class.getName().equals(diskController.getControllerReference())) {
@@ -2311,8 +2311,12 @@ public class VirtualMachineMO extends BaseMO {
         return true;
     }
 
-    // return pair of VirtualDisk and disk device bus name(ide0:0, etc)
     public Pair<VirtualDisk, String> getDiskDevice(String vmdkDatastorePath) throws Exception {
+        return getDiskDevice(vmdkDatastorePath, null);
+    }
+
+    // return pair of VirtualDisk and disk device bus name(ide0:0, etc)
+    public Pair<VirtualDisk, String> getDiskDevice(String vmdkDatastorePath, List<DiskControllerMappingVO> diskControllerMappingsFromCommand) throws Exception {
         final String zeroLengthString = "";
 
         List<VirtualDevice> devices = _context.getVimClient().getDynamicProperty(_mor, "config.hardware.device");
@@ -2352,14 +2356,14 @@ public class VirtualMachineMO extends BaseMO {
                                 String backingBaseName = dsBackingFile.getFileBaseName();
 
                                 if (backingBaseName.equalsIgnoreCase(srcBaseName)) {
-                                    String deviceNumbering = getDeviceBusName(devices, device);
+                                    String deviceNumbering = getDeviceBusName(devices, device, diskControllerMappingsFromCommand);
 
                                     s_logger.info(String.format("Disk backing [%s] matches device bus name [%s].", diskBackingInfo.getFileName(), deviceNumbering));
                                     return new Pair<>((VirtualDisk)device, deviceNumbering);
                                 }
 
                                 if (backingBaseName.contains(trimmedSrcBaseName)) {
-                                    String deviceNumbering = getDeviceBusName(devices, device);
+                                    String deviceNumbering = getDeviceBusName(devices, device, diskControllerMappingsFromCommand);
 
                                     partialMatchingDiskDevices.add(new Pair<>((VirtualDisk)device, deviceNumbering));
                                 }
@@ -2449,7 +2453,7 @@ public class VirtualMachineMO extends BaseMO {
         return null;
     }
 
-    public String getDiskCurrentTopBackingFileInChain(String deviceBusName) throws Exception {
+    public String getDiskCurrentTopBackingFileInChain(String deviceBusName, List<DiskControllerMappingVO> diskControllerMappingsFromCommand) throws Exception {
         List<VirtualDevice> devices = _context.getVimClient().getDynamicProperty(_mor, "config.hardware.device");
         if (devices != null && devices.size() > 0) {
             for (VirtualDevice device : devices) {
@@ -2460,7 +2464,7 @@ public class VirtualMachineMO extends BaseMO {
                     if (backingInfo instanceof VirtualDiskFlatVer2BackingInfo) {
                         VirtualDiskFlatVer2BackingInfo diskBackingInfo = (VirtualDiskFlatVer2BackingInfo)backingInfo;
 
-                        String deviceNumbering = getDeviceBusName(devices, device);
+                        String deviceNumbering = getDeviceBusName(devices, device, diskControllerMappingsFromCommand);
                         if (deviceNumbering.equals(deviceBusName))
                             return diskBackingInfo.getFileName();
                     }
@@ -2592,11 +2596,15 @@ public class VirtualMachineMO extends BaseMO {
     }
 
     public String getDeviceBusName(List<VirtualDevice> allDevices, VirtualDevice theDevice) throws Exception {
+        return getDeviceBusName(allDevices, theDevice, null);
+    }
+
+    public String getDeviceBusName(List<VirtualDevice> allDevices, VirtualDevice theDevice, List<DiskControllerMappingVO> diskControllerMappingsFromCommand) throws Exception {
         for (VirtualDevice device : allDevices) {
             if (device.getKey() != theDevice.getControllerKey()) {
                 continue;
             }
-            String busNamePrefix = getBusNameForControllerClasspath(device.getClass().getName());
+            String busNamePrefix = getBusNameForControllerClasspath(device.getClass().getName(), diskControllerMappingsFromCommand);
             if (busNamePrefix != null) {
                 return String.format("%s%d:%d", busNamePrefix, ((VirtualController) device).getBusNumber(),
                         theDevice.getUnitNumber());
@@ -2606,8 +2614,8 @@ public class VirtualMachineMO extends BaseMO {
         throw new Exception("Unable to find device controller");
     }
 
-    protected String getBusNameForControllerClasspath(String classpath) {
-        List<DiskControllerMappingVO> availableMappings = VmwareHelper.getAllDiskControllerMappingsExceptOsdefault();
+    protected String getBusNameForControllerClasspath(String classpath, List<DiskControllerMappingVO> diskControllerMappingsFromCommand) {
+        List<DiskControllerMappingVO> availableMappings = VmwareHelper.getAllDiskControllerMappingsExceptOsDefault(diskControllerMappingsFromCommand);
         for (DiskControllerMappingVO mapping : availableMappings) {
             if (mapping.getControllerReference().equals(classpath)) {
                 return mapping.getBusName();
@@ -2645,6 +2653,10 @@ public class VirtualMachineMO extends BaseMO {
     }
 
     public List<String> detachAllDisksExcept(String vmdkBaseName, String deviceBusName) throws Exception {
+        return detachAllDisksExcept(vmdkBaseName, deviceBusName, null);
+
+    }
+    public List<String> detachAllDisksExcept(String vmdkBaseName, String deviceBusName, List<DiskControllerMappingVO> diskControllerMappingsFromCommand) throws Exception {
         List<VirtualDevice> devices = _context.getVimClient().getDynamicProperty(_mor, "config.hardware.device");
 
         VirtualMachineConfigSpec reConfigSpec = new VirtualMachineConfigSpec();
@@ -2658,7 +2670,7 @@ public class VirtualMachineMO extends BaseMO {
 
                 DatastoreFile dsBackingFile = new DatastoreFile(diskBackingInfo.getFileName());
                 String backingBaseName = dsBackingFile.getFileBaseName();
-                String deviceNumbering = getDeviceBusName(devices, device);
+                String deviceNumbering = getDeviceBusName(devices, device, diskControllerMappingsFromCommand);
                 if (backingBaseName.equalsIgnoreCase(vmdkBaseName) || (deviceBusName != null && deviceBusName.equals(deviceNumbering))) {
                     continue;
                 } else {
@@ -3292,7 +3304,11 @@ public class VirtualMachineMO extends BaseMO {
     }
 
     public DiskControllerMappingVO getAnyExistingAvailableDiskController() throws Exception {
-        Set<String> validDiskControllerClasspaths = VmwareHelper.getAllDiskControllerMappingsExceptOsdefault().stream()
+        return getAnyExistingAvailableDiskController(null);
+    }
+
+    public DiskControllerMappingVO getAnyExistingAvailableDiskController(List<DiskControllerMappingVO> diskControllerMappingsFromCommand) throws Exception {
+        Set<String> validDiskControllerClasspaths = VmwareHelper.getAllDiskControllerMappingsExceptOsDefault(diskControllerMappingsFromCommand).stream()
                 .map(DiskControllerMappingVO::getControllerReference)
                 .collect(Collectors.toSet());
         Set<String> unavailableControllerClasspaths = new HashSet<>();
@@ -3307,7 +3323,7 @@ public class VirtualMachineMO extends BaseMO {
             if (!validDiskControllerClasspaths.contains(deviceClasspath) || unavailableControllerClasspaths.contains(deviceClasspath)) {
                 continue;
             }
-            DiskControllerMappingVO diskController = VmwareHelper.getDiskControllerMapping(null, deviceClasspath);
+            DiskControllerMappingVO diskController = VmwareHelper.getDiskControllerMapping(null, deviceClasspath, diskControllerMappingsFromCommand);
             Pair<Integer, Integer> nextAvailableControllerKeyAndUnitNumber = getNextAvailableControllerKeyAndDeviceNumberForType(diskController);
             if (nextAvailableControllerKeyAndUnitNumber != null) {
                 return diskController;
@@ -3315,7 +3331,7 @@ public class VirtualMachineMO extends BaseMO {
             unavailableControllerClasspaths.add(deviceClasspath);
         }
 
-        DiskControllerMappingVO ideMapping = VmwareHelper.getDiskControllerMapping(null, VirtualIDEController.class.getName());
+        DiskControllerMappingVO ideMapping = VmwareHelper.getDiskControllerMapping(null, VirtualIDEController.class.getName(), diskControllerMappingsFromCommand);
         Pair<Integer, Integer> nextAvailableControllerKeyAndUnitNumber = getNextAvailableControllerKeyAndDeviceNumberForType(ideMapping);
         if (nextAvailableControllerKeyAndUnitNumber != null) {
             return ideMapping;
