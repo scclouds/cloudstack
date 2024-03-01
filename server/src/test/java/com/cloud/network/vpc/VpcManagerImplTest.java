@@ -510,4 +510,4 @@ public class VpcManagerImplTest {
         Assert.assertThrows(InvalidParameterValueException.class, () -> manager.validateVpcPrivateGatewayAclId(vpcId, differentVpcAclId));
     }
 
- }
+}
