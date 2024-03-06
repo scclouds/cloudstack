@@ -41,6 +41,7 @@ import com.cloud.upgrade.dao.Upgrade41805to41806;
 import com.cloud.upgrade.dao.Upgrade41806to41807;
 import com.cloud.upgrade.dao.Upgrade41807to41808;
 import com.cloud.upgrade.dao.Upgrade41808to41809;
+import com.cloud.upgrade.dao.Upgrade41809to418010;
 import org.apache.cloudstack.utils.CloudStackVersion;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.log4j.Logger;
@@ -235,6 +236,7 @@ public class DatabaseUpgradeChecker implements SystemIntegrityChecker {
                 .next("4.18.0.6", new Upgrade41806to41807())
                 .next("4.18.0.7", new Upgrade41807to41808())
                 .next("4.18.0.8", new Upgrade41808to41809())
+                .next("4.18.0.9", new Upgrade41809to418010())
                 .build();
     }
 
