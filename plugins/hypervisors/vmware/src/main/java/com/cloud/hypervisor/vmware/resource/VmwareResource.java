@@ -1984,8 +1984,7 @@ public class VmwareResource extends ServerResourceBase implements StoragePoolRes
 
     protected void ensureDiskControllers(VirtualMachineMO vmMo, Pair<DiskControllerMappingVO, DiskControllerMappingVO> controllerInfo, boolean isSystemVM) throws Exception {
         Pair<DiskControllerMappingVO, DiskControllerMappingVO> updatedDiskControllers = VmwareHelper.convertRecommendedDiskControllers(controllerInfo, vmMo, null, null);
-
-        Set<DiskControllerMappingVO> requiredDiskControllers = VmwareHelper.getRequiredDiskControllers(controllerInfo, isSystemVM);
+        Set<DiskControllerMappingVO> requiredDiskControllers = VmwareHelper.getRequiredDiskControllers(updatedDiskControllers, isSystemVM);
 
         if (vmHasRequiredControllers(vmMo, requiredDiskControllers)) {
             return;
