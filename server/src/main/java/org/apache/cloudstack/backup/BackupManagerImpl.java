@@ -866,6 +866,7 @@ public class BackupManagerImpl extends ManagerBase implements BackupManager {
         try {
             return guru.attachRestoredVolumeToVirtualMachine(zoneId, restoredVolumeLocation, volumeInfo, vm, pool.getId(), backup);
         } catch (Exception e) {
+            updateVmState(vm, VirtualMachine.Event.RestoringFailed, VirtualMachine.State.Stopped);
             String errorMsg = String.format("Failed to attach restored volume [%s] to VM [%s] due to [%s].", volumeData, vmData, e.getMessage());
             LOG.error(errorMsg, e);
             throw new CloudRuntimeException(errorMsg);
