@@ -1226,7 +1226,9 @@ public class VirtualMachineManagerImpl extends ManagerBase implements VirtualMac
 
                     vmGuru.finalizeDeployment(cmds, vmProfile, dest, ctx);
 
-                    addExtraConfig(vmTO);
+                    if (vmProfile.getHypervisorType() != HypervisorType.KVM) {
+                        addExtraConfig(vmTO);
+                    }
 
                     work = _workDao.findById(work.getId());
                     if (work == null || work.getStep() != Step.Prepare) {
