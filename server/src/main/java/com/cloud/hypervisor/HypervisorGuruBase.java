@@ -262,10 +262,14 @@ public abstract class HypervisorGuruBase extends AdapterBase implements Hypervis
         Map<String, String> detailsInVm = _userVmDetailsDao.listDetailsKeyPairs(vm.getId());
         if (detailsInVm != null) {
             to.setDetails(detailsInVm);
-            addExtraConfig(detailsInVm, to);
+            if (vmProfile.getHypervisorType() != Hypervisor.HypervisorType.KVM) {
+                addExtraConfig(detailsInVm, to);
+            }
         }
 
-        addServiceOfferingExtraConfiguration(offering, to);
+        if (vmProfile.getHypervisorType() != Hypervisor.HypervisorType.KVM) {
+            addServiceOfferingExtraConfiguration(offering, to);
+        }
 
         // Set GPU details
         ServiceOfferingDetailsVO offeringDetail = _serviceOfferingDetailsDao.findDetail(offering.getId(), GPU.Keys.vgpuType.toString());
