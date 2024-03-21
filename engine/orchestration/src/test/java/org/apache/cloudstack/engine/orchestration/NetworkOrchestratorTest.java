@@ -852,13 +852,13 @@ public class NetworkOrchestratorTest extends TestCase {
 
     @Test
     public void getVirtualMachineMaxNicsValueTestVirtualMachineDeployedReturnsVirtualMachineClusterMaxNics() {
-        VirtualMachineProfile virtualMachineProfileMock = Mockito.mock(VirtualMachineProfile.class);
-        Mockito.doReturn(44).when(testOrchastrator).getVirtualMachineMaxNicsValueFromCluster(virtualMachineProfileMock);
+        VirtualMachine virtualMachineMock = Mockito.mock(VirtualMachine.class);
+        Mockito.doReturn(44).when(testOrchastrator).getVirtualMachineMaxNicsValueFromCluster(virtualMachineMock);
 
-        Integer virtualMachineMaxNicsValue = testOrchastrator.getVirtualMachineMaxNicsValue(virtualMachineProfileMock);
+        int virtualMachineMaxNicsValue = testOrchastrator.getVirtualMachineMaxNicsValue(virtualMachineMock);
 
         Mockito.verify(testOrchastrator, Mockito.times(1)).getVirtualMachineMaxNicsValueFromCluster(Mockito.any());
-        Assert.assertEquals((Integer) 44, virtualMachineMaxNicsValue);
+        Assert.assertEquals(44, virtualMachineMaxNicsValue);
     }
 
     @Test
@@ -870,7 +870,7 @@ public class NetworkOrchestratorTest extends TestCase {
         ConfigKey virtualMachineMaxNicsXenserverMock = Mockito.mock(ConfigKey.class);
         Mockito.doReturn(virtualMachineMock).when(virtualMachineProfileMock).getVirtualMachine();
         Mockito.doReturn(null).when(virtualMachineMock).getHypervisorType();
-        Mockito.doReturn(null).when(testOrchastrator).getVirtualMachineMaxNicsValueFromCluster(virtualMachineProfileMock);
+        Mockito.doReturn(null).when(testOrchastrator).getVirtualMachineMaxNicsValueFromCluster(virtualMachineMock);
         Mockito.doReturn(23).when(virtualMachineMaxNicsKvmMock).value();
         Mockito.doReturn(10).when(virtualMachineMaxNicsVmwareMock).value();
         Mockito.doReturn(7).when(virtualMachineMaxNicsXenserverMock).value();
@@ -878,9 +878,9 @@ public class NetworkOrchestratorTest extends TestCase {
         updateFinalStaticField(testOrchastrator.getClass().getField("VirtualMachineMaxNicsVmware"), virtualMachineMaxNicsVmwareMock);
         updateFinalStaticField(testOrchastrator.getClass().getField("VirtualMachineMaxNicsXenserver"), virtualMachineMaxNicsXenserverMock);
 
-        Integer virtualMachineMaxNicsValue = testOrchastrator.getVirtualMachineMaxNicsValue(virtualMachineProfileMock);
+        int virtualMachineMaxNicsValue = testOrchastrator.getVirtualMachineMaxNicsValue(virtualMachineMock);
 
-        Assert.assertEquals((Integer) 7, virtualMachineMaxNicsValue);
+        Assert.assertEquals(7, virtualMachineMaxNicsValue);
     }
 
     @Test
@@ -889,47 +889,47 @@ public class NetworkOrchestratorTest extends TestCase {
         VirtualMachine virtualMachineMock = Mockito.mock(VirtualMachine.class);
         Mockito.doReturn(virtualMachineMock).when(virtualMachineProfileMock).getVirtualMachine();
         Mockito.doReturn(Hypervisor.HypervisorType.KVM).when(virtualMachineMock).getHypervisorType();
-        Mockito.doReturn(null).when(testOrchastrator).getVirtualMachineMaxNicsValueFromCluster(virtualMachineProfileMock);
-        Mockito.doReturn(33).when(testOrchastrator).getVirtualMachineMaxNicsValueFromVmHypervisorType(virtualMachineProfileMock);
+        Mockito.doReturn(null).when(testOrchastrator).getVirtualMachineMaxNicsValueFromCluster(virtualMachineMock);
+        Mockito.doReturn(33).when(testOrchastrator).getVirtualMachineMaxNicsValueFromVmHypervisorType(virtualMachineMock);
 
-        Integer virtualMachineMaxNicsValue = testOrchastrator.getVirtualMachineMaxNicsValue(virtualMachineProfileMock);
+        int virtualMachineMaxNicsValue = testOrchastrator.getVirtualMachineMaxNicsValue(virtualMachineMock);
 
         Mockito.verify(testOrchastrator, Mockito.times(1)).getVirtualMachineMaxNicsValueFromVmHypervisorType(Mockito.any());
-        Assert.assertEquals((Integer) 33, virtualMachineMaxNicsValue);
+        Assert.assertEquals(33, virtualMachineMaxNicsValue);
     }
 
     @Test
     public void getVirtualMachineMaxNicsValueFromClusterTestHostDoesNotExistReturnsNull() {
-        VirtualMachineProfile virtualMachineProfileMock = Mockito.mock(VirtualMachineProfile.class);
-        Mockito.doReturn(100L).when(virtualMachineProfileMock).getHostId();
+        VirtualMachine virtualMachineMock = Mockito.mock(VirtualMachine.class);
+        Mockito.doReturn(100L).when(virtualMachineMock).getHostId();
         Mockito.doReturn(null).when(testOrchastrator._hostDao).findById(100L);
 
-        Integer virtualMachineMaxNicsValue = testOrchastrator.getVirtualMachineMaxNicsValueFromCluster(virtualMachineProfileMock);
+        Integer virtualMachineMaxNicsValue = testOrchastrator.getVirtualMachineMaxNicsValueFromCluster(virtualMachineMock);
 
         Assert.assertNull(virtualMachineMaxNicsValue);
     }
 
     @Test
     public void getVirtualMachineMaxNicsValueFromClusterTestClusterDoesNotExistReturnsNull() {
-        VirtualMachineProfile virtualMachineProfileMock = Mockito.mock(VirtualMachineProfile.class);
+        VirtualMachine virtualMachineMock = Mockito.mock(VirtualMachine.class);
         HostVO hostVoMock = Mockito.mock(HostVO.class);
-        Mockito.doReturn(1L).when(virtualMachineProfileMock).getHostId();
+        Mockito.doReturn(1L).when(virtualMachineMock).getHostId();
         Mockito.doReturn(hostVoMock).when(testOrchastrator._hostDao).findById(1L);
         Mockito.doReturn(100L).when(hostVoMock).getClusterId();
         Mockito.doReturn(null).when(testOrchastrator.clusterDao).findById(100L);
 
-        Integer virtualMachineMaxNicsValue = testOrchastrator.getVirtualMachineMaxNicsValueFromCluster(virtualMachineProfileMock);
+        Integer virtualMachineMaxNicsValue = testOrchastrator.getVirtualMachineMaxNicsValueFromCluster(virtualMachineMock);
 
         Assert.assertNull(virtualMachineMaxNicsValue);
     }
 
     @Test
     public void getVirtualMachineMaxNicsValueFromClusterTestKvmClusterReturnsVirtualMachineMaxNicsKvmClusterValue() throws NoSuchFieldException, IllegalAccessException {
-        VirtualMachineProfile virtualMachineProfileMock = Mockito.mock(VirtualMachineProfile.class);
+        VirtualMachine virtualMachineMock = Mockito.mock(VirtualMachine.class);
         HostVO hostVoMock = Mockito.mock(HostVO.class);
         ClusterVO clusterVoMock = Mockito.mock(ClusterVO.class);
         ConfigKey virtualMachineMaxNicsKvmMock = Mockito.mock(ConfigKey.class);
-        Mockito.doReturn(1L).when(virtualMachineProfileMock).getHostId();
+        Mockito.doReturn(1L).when(virtualMachineMock).getHostId();
         Mockito.doReturn(hostVoMock).when(testOrchastrator._hostDao).findById(1L);
         Mockito.doReturn(1L).when(hostVoMock).getClusterId();
         Mockito.doReturn(clusterVoMock).when(testOrchastrator.clusterDao).findById(1L);
@@ -938,18 +938,18 @@ public class NetworkOrchestratorTest extends TestCase {
         Mockito.doReturn(33).when(virtualMachineMaxNicsKvmMock).valueIn(1L);
         updateFinalStaticField(testOrchastrator.getClass().getField("VirtualMachineMaxNicsKvm"), virtualMachineMaxNicsKvmMock);
 
-        Integer virtualMachineMaxNicsValue = testOrchastrator.getVirtualMachineMaxNicsValueFromCluster(virtualMachineProfileMock);
+        int virtualMachineMaxNicsValue = testOrchastrator.getVirtualMachineMaxNicsValueFromCluster(virtualMachineMock);
 
-        Assert.assertEquals((Integer) 33, virtualMachineMaxNicsValue);
+        Assert.assertEquals(33, virtualMachineMaxNicsValue);
     }
 
     @Test
     public void getVirtualMachineMaxNicsValueFromClusterTestVmwareClusterReturnsVirtualMachineMaxNicsVmwareClusterValue() throws NoSuchFieldException, IllegalAccessException {
-        VirtualMachineProfile virtualMachineProfileMock = Mockito.mock(VirtualMachineProfile.class);
+        VirtualMachine virtualMachineMock = Mockito.mock(VirtualMachine.class);
         HostVO hostVoMock = Mockito.mock(HostVO.class);
         ClusterVO clusterVoMock = Mockito.mock(ClusterVO.class);
         ConfigKey virtualMachineMaxNicsVmwareMock = Mockito.mock(ConfigKey.class);
-        Mockito.doReturn(1L).when(virtualMachineProfileMock).getHostId();
+        Mockito.doReturn(1L).when(virtualMachineMock).getHostId();
         Mockito.doReturn(hostVoMock).when(testOrchastrator._hostDao).findById(1L);
         Mockito.doReturn(1L).when(hostVoMock).getClusterId();
         Mockito.doReturn(clusterVoMock).when(testOrchastrator.clusterDao).findById(1L);
@@ -958,18 +958,18 @@ public class NetworkOrchestratorTest extends TestCase {
         Mockito.doReturn(22).when(virtualMachineMaxNicsVmwareMock).valueIn(1L);
         updateFinalStaticField(testOrchastrator.getClass().getField("VirtualMachineMaxNicsVmware"), virtualMachineMaxNicsVmwareMock);
 
-        Integer virtualMachineMaxNicsValue = testOrchastrator.getVirtualMachineMaxNicsValueFromCluster(virtualMachineProfileMock);
+        int virtualMachineMaxNicsValue = testOrchastrator.getVirtualMachineMaxNicsValueFromCluster(virtualMachineMock);
 
-        Assert.assertEquals((Integer) 22, virtualMachineMaxNicsValue);
+        Assert.assertEquals(22, virtualMachineMaxNicsValue);
     }
 
     @Test
     public void getVirtualMachineMaxNicsValueFromClusterTestXenserverClusterReturnsVirtualMachineMaxNicsXenserverClusterValue() throws NoSuchFieldException, IllegalAccessException {
-        VirtualMachineProfile virtualMachineProfileMock = Mockito.mock(VirtualMachineProfile.class);
+        VirtualMachine virtualMachineMock = Mockito.mock(VirtualMachine.class);
         HostVO hostVoMock = Mockito.mock(HostVO.class);
         ClusterVO clusterVoMock = Mockito.mock(ClusterVO.class);
         ConfigKey virtualMachineMaxNicsXenserverMock = Mockito.mock(ConfigKey.class);
-        Mockito.doReturn(1L).when(virtualMachineProfileMock).getHostId();
+        Mockito.doReturn(1L).when(virtualMachineMock).getHostId();
         Mockito.doReturn(hostVoMock).when(testOrchastrator._hostDao).findById(1L);
         Mockito.doReturn(1L).when(hostVoMock).getClusterId();
         Mockito.doReturn(clusterVoMock).when(testOrchastrator.clusterDao).findById(1L);
@@ -978,54 +978,48 @@ public class NetworkOrchestratorTest extends TestCase {
         Mockito.doReturn(11).when(virtualMachineMaxNicsXenserverMock).valueIn(1L);
         updateFinalStaticField(testOrchastrator.getClass().getField("VirtualMachineMaxNicsXenserver"), virtualMachineMaxNicsXenserverMock);
 
-        Integer virtualMachineMaxNicsValue = testOrchastrator.getVirtualMachineMaxNicsValueFromCluster(virtualMachineProfileMock);
+        int virtualMachineMaxNicsValue = testOrchastrator.getVirtualMachineMaxNicsValueFromCluster(virtualMachineMock);
 
-        Assert.assertEquals((Integer) 11, virtualMachineMaxNicsValue);
+        Assert.assertEquals(11, virtualMachineMaxNicsValue);
     }
 
     @Test
     public void getVirtualMachineMaxNicsValueFromVmHypervisorTypeTestKvmHypervisorReturnsVirtualMachineMaxNicsKvmGlobalValue() throws NoSuchFieldException, IllegalAccessException {
-        VirtualMachineProfile virtualMachineProfileMock = Mockito.mock(VirtualMachineProfile.class);
         VirtualMachine virtualMachineMock = Mockito.mock(VirtualMachine.class);
         ConfigKey virtualMachineMaxNicsKvmMock = Mockito.mock(ConfigKey.class);
-        Mockito.doReturn(virtualMachineMock).when(virtualMachineProfileMock).getVirtualMachine();
         Mockito.doReturn(Hypervisor.HypervisorType.KVM).when(virtualMachineMock).getHypervisorType();
         Mockito.doReturn(23).when(virtualMachineMaxNicsKvmMock).value();
         updateFinalStaticField(testOrchastrator.getClass().getField("VirtualMachineMaxNicsKvm"), virtualMachineMaxNicsKvmMock);
 
-        Integer virtualMachineMaxNicsValue = testOrchastrator.getVirtualMachineMaxNicsValueFromVmHypervisorType(virtualMachineProfileMock);
+        int virtualMachineMaxNicsValue = testOrchastrator.getVirtualMachineMaxNicsValueFromVmHypervisorType(virtualMachineMock);
 
-        Assert.assertEquals((Integer) 23, virtualMachineMaxNicsValue);
+        Assert.assertEquals(23, virtualMachineMaxNicsValue);
     }
 
     @Test
     public void getVirtualMachineMaxNicsValueFromVmHypervisorTypeTestVmwareHypervisorReturnsVirtualMachineMaxNicsVmwareGlobalValue() throws NoSuchFieldException, IllegalAccessException {
-        VirtualMachineProfile virtualMachineProfileMock = Mockito.mock(VirtualMachineProfile.class);
         VirtualMachine virtualMachineMock = Mockito.mock(VirtualMachine.class);
         ConfigKey virtualMachineMaxNicsVmwareMock = Mockito.mock(ConfigKey.class);
-        Mockito.doReturn(virtualMachineMock).when(virtualMachineProfileMock).getVirtualMachine();
         Mockito.doReturn(Hypervisor.HypervisorType.VMware).when(virtualMachineMock).getHypervisorType();
         Mockito.doReturn(10).when(virtualMachineMaxNicsVmwareMock).value();
         updateFinalStaticField(testOrchastrator.getClass().getField("VirtualMachineMaxNicsVmware"), virtualMachineMaxNicsVmwareMock);
 
-        Integer virtualMachineMaxNicsValue = testOrchastrator.getVirtualMachineMaxNicsValueFromVmHypervisorType(virtualMachineProfileMock);
+        int virtualMachineMaxNicsValue = testOrchastrator.getVirtualMachineMaxNicsValueFromVmHypervisorType(virtualMachineMock);
 
-        Assert.assertEquals((Integer) 10, virtualMachineMaxNicsValue);
+        Assert.assertEquals(10, virtualMachineMaxNicsValue);
     }
 
     @Test
     public void getVirtualMachineMaxNicsValueFromVmHypervisorTypeTestXenserverHypervisorReturnsVirtualMachineMaxNicsXenserverGlobalValue() throws NoSuchFieldException, IllegalAccessException {
-        VirtualMachineProfile virtualMachineProfileMock = Mockito.mock(VirtualMachineProfile.class);
         VirtualMachine virtualMachineMock = Mockito.mock(VirtualMachine.class);
         ConfigKey virtualMachineMaxNicsXenserverMock = Mockito.mock(ConfigKey.class);
-        Mockito.doReturn(virtualMachineMock).when(virtualMachineProfileMock).getVirtualMachine();
         Mockito.doReturn(Hypervisor.HypervisorType.XenServer).when(virtualMachineMock).getHypervisorType();
         Mockito.doReturn(7).when(virtualMachineMaxNicsXenserverMock).value();
         updateFinalStaticField(testOrchastrator.getClass().getField("VirtualMachineMaxNicsXenserver"), virtualMachineMaxNicsXenserverMock);
 
-        Integer virtualMachineMaxNicsValue = testOrchastrator.getVirtualMachineMaxNicsValueFromVmHypervisorType(virtualMachineProfileMock);
+        int virtualMachineMaxNicsValue = testOrchastrator.getVirtualMachineMaxNicsValueFromVmHypervisorType(virtualMachineMock);
 
-        Assert.assertEquals((Integer) 7, virtualMachineMaxNicsValue);
+        Assert.assertEquals(7, virtualMachineMaxNicsValue);
     }
 
     void updateFinalStaticField(Field field, Object newValue) throws IllegalArgumentException, IllegalAccessException, NoSuchFieldException, SecurityException {
