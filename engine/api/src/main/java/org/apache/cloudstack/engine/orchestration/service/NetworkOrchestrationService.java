@@ -113,6 +113,9 @@ public interface NetworkOrchestrationService {
     ConfigKey<Integer> VirtualMachineMaxNicsXenserver = new ConfigKey<>("Advanced", Integer.class, "virtual.machine.max.nics.xenserver", "7",
             "The maximum number of NICs supported by the XenServer hypervsior.", true, Scope.Cluster);
 
+    static final ConfigKey<Boolean> NSX_ENABLED = new ConfigKey<>(Boolean.class, "nsx.plugin.enable", "Advanced", "false",
+            "Indicates whether to enable the NSX plugin", false, ConfigKey.Scope.Zone, null);
+
     List<? extends Network> setupNetwork(Account owner, NetworkOffering offering, DeploymentPlan plan, String name, String displayText, boolean isDefault)
         throws ConcurrentOperationException;
 
