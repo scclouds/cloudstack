@@ -366,9 +366,6 @@ public class VpcManagerImplTest {
         Mockito.when(networkOfferingServiceMapDao.listByNetworkOfferingId(anyLong())).thenReturn(serviceMap);
         Mockito.when(vpcMock.getCidr()).thenReturn("10.0.0.0/8");
         Mockito.when(vpcMock.getNetworkDomain()).thenReturn("cs1cloud.internal");
-        Mockito.when(routerDao.listByVpcId(VPC_ID)).thenReturn(List.of(domainRouter1VOMock));
-        Mockito.when(networkOrchestrationServiceMock.getVirtualMachineMaxNicsValue(domainRouter1VOMock)).thenReturn(3);
-        Mockito.when(networkDao.countVpcNetworks(VPC_ID)).thenReturn(1L);
         Mockito.when(manager.existsVpcDomainRouterWithSufficientNicCapacity(VPC_ID)).thenReturn(true);
 
         manager.validateNewVpcGuestNetwork("10.10.10.0/24", "10.10.10.1", accountMock, vpcMock, "cs1cloud.internal");
@@ -525,7 +522,7 @@ public class VpcManagerImplTest {
     @Test
     public void existsVpcDomainRouterWithSufficientNicCapacityTestUnavailableRoutersReturnsFalse() {
         Mockito.when(networkDao.countVpcNetworks(vpcId)).thenReturn(8L);
-        Mockito.when(routerDao.listByVpcId(vpcId)).thenReturn(List.of(domainRouter1VOMock, domainRouter2VOMock));
+        Mockito.when(routerDao.listNoRedundantRouterByVpcId(vpcId)).thenReturn(List.of(domainRouter1VOMock, domainRouter2VOMock));
         Mockito.when(networkOrchestrationServiceMock.getVirtualMachineMaxNicsValue(domainRouter1VOMock)).thenReturn(6);
         Mockito.when(networkOrchestrationServiceMock.getVirtualMachineMaxNicsValue(domainRouter2VOMock)).thenReturn(6);
 
@@ -537,7 +534,7 @@ public class VpcManagerImplTest {
     @Test
     public void existsVpcDomainRouterWithSufficientNicCapacityTestAvailableRouterReturnsTrue() {
         Mockito.when(networkDao.countVpcNetworks(vpcId)).thenReturn(7L);
-        Mockito.when(routerDao.listByVpcId(vpcId)).thenReturn(List.of(domainRouter1VOMock, domainRouter2VOMock));
+        Mockito.when(routerDao.listNoRedundantRouterByVpcId(vpcId)).thenReturn(List.of(domainRouter1VOMock, domainRouter2VOMock));
         Mockito.when(networkOrchestrationServiceMock.getVirtualMachineMaxNicsValue(domainRouter1VOMock)).thenReturn(6);
         Mockito.when(networkOrchestrationServiceMock.getVirtualMachineMaxNicsValue(domainRouter2VOMock)).thenReturn(6);
 
