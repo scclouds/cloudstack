@@ -645,9 +645,7 @@ public class AlertManagerImpl extends ManagerBase implements AlertManager, Confi
         }
 
         try {
-            if (logger.isDebugEnabled()) {
-                logger.debug(String.format("Sending alert with subject [%s] and content [%s].", msgSubject, msgContent));
-            }
+            logger.debug("Sending alert with subject [{}] and content [{}].", msgSubject, msgContent);
             sendAlert(alertType, dc.getId(), podId, clusterId, msgSubject, msgContent);
         } catch (Exception ex) {
             logger.error("Exception in CapacityChecker", ex);
