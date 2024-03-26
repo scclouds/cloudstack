@@ -1998,12 +1998,13 @@ public class VpcManagerImpl extends ManagerBase implements VpcManager, VpcProvis
     protected boolean existsVpcDomainRouterWithSufficientNicCapacity(long vpcId) {
         int countRouterDefaultNics = 2;
         long countVpcNetworks = _ntwkDao.countVpcNetworks(vpcId);
-        List<DomainRouterVO> vpcDomainRoutersVO = routerDao.listDistinctRouterByVpcId(vpcId);
-        int totalNicsAvailable = 0;
+        DomainRouterVO vpcDomainRouter = routerDao.findOneByVpcId(vpcId);
 
-        for (DomainRouterVO domainRouter : vpcDomainRoutersVO) {
-            totalNicsAvailable += networkOrchestrationService.getVirtualMachineMaxNicsValue(domainRouter) - countRouterDefaultNics;
+        if (vpcDomainRouter == null) {
+            return false;
         }
+
+        int totalNicsAvailable = networkOrchestrationService.getVirtualMachineMaxNicsValue(vpcDomainRouter) - countRouterDefaultNics;
 
         return totalNicsAvailable > countVpcNetworks;
     }
