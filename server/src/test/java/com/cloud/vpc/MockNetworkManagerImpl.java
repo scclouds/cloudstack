@@ -1051,7 +1051,7 @@ public class MockNetworkManagerImpl extends ManagerBase implements NetworkOrches
     }
 
     @Override
-    public int getVirtualMachineMaxNicsValue(VirtualMachine virtualMachine) {
+    public Integer getVirtualMachineMaxNicsValue(VirtualMachine virtualMachine) {
         return 0;
     }
 

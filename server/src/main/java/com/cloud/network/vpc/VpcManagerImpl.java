@@ -1976,7 +1976,13 @@ public class VpcManagerImpl extends ManagerBase implements VpcManager, VpcProvis
         int countRouterDefaultNetworks = domainRouterJoinDao.countDefaultNetworksById(vpcDomainRouter.getId());
         long countVpcNetworks = _ntwkDao.countVpcNetworks(vpcId);
 
-        int totalNicsAvailable = networkOrchestrationService.getVirtualMachineMaxNicsValue(vpcDomainRouter) - countRouterDefaultNetworks;
+        Integer routerMaxNicsValue = networkOrchestrationService.getVirtualMachineMaxNicsValue(vpcDomainRouter);
+
+        if (routerMaxNicsValue == null) {
+            return true;
+        }
+
+        int totalNicsAvailable = routerMaxNicsValue - countRouterDefaultNetworks;
 
         return totalNicsAvailable > countVpcNetworks;
     }
