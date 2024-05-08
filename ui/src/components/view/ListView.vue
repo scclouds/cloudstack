@@ -88,6 +88,7 @@
           </span>
           <span v-else>
             <router-link :to="{ path: $route.path + '/' + record.id }" v-if="record.id">{{ text }}</router-link>
+            <router-link :to="{ path: $route.path + '/' + record.uuid }" v-else-if="record.uuid">{{ text }}</router-link>
             <router-link :to="{ path: $route.path + '/' + record.name }" v-else>{{ text }}</router-link>
           </span>
         </span>

@@ -197,7 +197,12 @@ export default {
           icon: 'delete-outlined',
           label: 'label.action.quota.tariff.remove',
           message: 'message.action.quota.tariff.remove',
-          dataView: true
+          dataView: true,
+          mapping: {
+            id: {
+              value: (record) => { return record.uuid }
+            }
+          }
           // show: true
           // show: (record) => !record.removed
         }
