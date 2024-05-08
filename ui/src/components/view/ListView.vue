@@ -364,12 +364,13 @@
         <status :text="record.enabled ? record.enabled.toString() : 'false'" />
         {{ record.enabled ? 'Enabled' : 'Disabled' }}
       </template>
-      <template v-if="['created', 'sent'].includes(column.key)">
-        {{ $toLocaleDate(text) }}
+      <template v-if="['created', 'sent', 'endDate', 'effectiveDate'].includes(column.key)">
+        {{ text ? $toLocaleDate(text) : '' }}
       </template>
       <template v-if="['startdate', 'enddate'].includes(column.key) && ['vm', 'vnfapp'].includes($route.path.split('/')[1])">
         {{ getDateAtTimeZone(text, record.timezone) }}
       </template>
+
       <template v-if="column.key === 'order'">
         <div class="shift-btns">
           <a-tooltip :name="text" placement="top">
@@ -446,15 +447,15 @@
           icon="reload-outlined"
           :disabled="!('updateConfiguration' in $store.getters.apis)" />
       </template>
-      <template v-if="column.key === 'tariffActions'">
-        <tooltip-button
-          :tooltip="$t('label.edit')"
-          v-if="editableValueKey !== record.key"
-          :disabled="!('quotaTariffUpdate' in $store.getters.apis)"
-          icon="edit-outlined"
-          @onClick="editTariffValue(record)" />
-        <slot></slot>
-      </template>
+<!--      <template v-if="column.key === 'tariffActions'">-->
+<!--        <tooltip-button-->
+<!--          :tooltip="$t('label.edit')"-->
+<!--          v-if="editableValueKey !== record.key"-->
+<!--          :disabled="!('quotaTariffUpdate' in $store.getters.apis)"-->
+<!--          icon="edit-outlined"-->
+<!--          @onClick="editTariffValue(record)" />-->
+<!--        <slot></slot>-->
+<!--      </template>-->
       <template v-if="column.key === 'vmScheduleActions'">
         <tooltip-button
           :tooltip="$t('label.edit')"
@@ -598,7 +599,7 @@ export default {
         '/project', '/account', 'buckets', 'objectstore',
         '/zone', '/pod', '/cluster', '/host', '/storagepool', '/imagestore', '/systemvm', '/router', '/ilbvm', '/annotation',
         '/computeoffering', '/systemoffering', '/diskoffering', '/backupoffering', '/networkoffering', '/vpcoffering',
-        '/tungstenfabric', '/oauthsetting', '/guestos', '/guestoshypervisormapping'].join('|'))
+        '/tungstenfabric', '/oauthsetting', '/guestos', '/guestoshypervisormapping', '/quotatariff'].join('|'))
         .test(this.$route.path)
     },
     enableGroupAction () {
@@ -772,9 +773,6 @@ export default {
       data.push(data.splice(index, 1)[0])
       this.updateOrder(data)
     },
-    editTariffValue (record) {
-      this.$emit('edit-tariff-action', true, record)
-    },
     updateVMSchedule (record) {
       this.$emit('update-vm-schedule', record)
     },
@@ -889,6 +887,7 @@ export default {
       return name
     },
     updateSelectedColumns (name) {
+      // this.$emit('update-selected-columns', this.getColumnKey(name))
       this.$emit('update-selected-columns', name)
     },
     getVmRouteUsingType (record) {
