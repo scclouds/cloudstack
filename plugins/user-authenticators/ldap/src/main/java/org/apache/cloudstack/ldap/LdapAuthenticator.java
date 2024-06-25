@@ -149,7 +149,7 @@ public class LdapAuthenticator extends AdapterBase implements UserAuthenticator 
                 if (userAccount == null) {
                     // new user that is in ldap; authenticate and create
                     User user = _accountManager.createUser(username, "", ldapUser.getFirstname(), ldapUser.getLastname(), ldapUser.getEmail(), null, accountName,
-                            domainId, UUID.randomUUID().toString(), User.Source.LDAP);
+                            domainId, UUID.randomUUID().toString(), null, User.Source.LDAP);
                     /* expected error conditions:
                      *
                      * caught in APIServlet: CloudRuntimeException("The domain " + domainId + " does not exist; unable to create user");

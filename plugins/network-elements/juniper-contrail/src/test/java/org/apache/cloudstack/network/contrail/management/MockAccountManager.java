@@ -130,13 +130,13 @@ public class MockAccountManager extends ManagerBase implements AccountManager {
     }
 
     @Override
-    public User createUser(String arg0, String arg1, String arg2, String arg3, String arg4, String arg5, String arg6, Long arg7, String arg8) {
+    public User createUser(String arg0, String arg1, String arg2, String arg3, String arg4, String arg5, String arg6, Long arg7, String arg8, String arg9) {
         // TODO Auto-generated method stub
         return null;
     }
 
     @Override public User createUser(String userName, String password, String firstName, String lastName, String email, String timeZone, String accountName, Long domainId,
-                                     String userUUID, User.Source source) {
+                                     String userUUID, String defaultProjectUuid, User.Source source) {
         // TODO Auto-generated method stub
         return null;
     }

@@ -1275,7 +1275,7 @@ public class AccountManagerImpl extends ManagerBase implements AccountManager, M
                 checkRoleEscalation(getCurrentCallingAccount(), account);
 
                 // create the first user for the account
-                UserVO user = createUser(accountId, userName, password, firstName, lastName, email, timezone, userUUID, source);
+                UserVO user = createUser(accountId, userName, password, firstName, lastName, email, timezone, userUUID, null, source);
 
                 if (accountType == Account.Type.RESOURCE_DOMAIN_ADMIN) {
                     // set registration token
@@ -1394,7 +1394,7 @@ public class AccountManagerImpl extends ManagerBase implements AccountManager, M
     @Override
     @ActionEvent(eventType = EventTypes.EVENT_USER_CREATE, eventDescription = "creating User")
     public UserVO createUser(String userName, String password, String firstName, String lastName, String email, String timeZone, String accountName, Long domainId, String userUUID,
-            User.Source source) {
+            String defaultProjectUuid, User.Source source) {
         // default domain to ROOT if not specified
         if (domainId == null) {
             domainId = Domain.ROOT_DOMAIN;
@@ -1422,15 +1422,16 @@ public class AccountManagerImpl extends ManagerBase implements AccountManager, M
             throw new CloudRuntimeException("The user " + userName + " already exists in domain " + domainId);
         }
         UserVO user = null;
-        user = createUser(account.getId(), userName, password, firstName, lastName, email, timeZone, userUUID, source);
+        user = createUser(account.getId(), userName, password, firstName, lastName, email, timeZone, userUUID, defaultProjectUuid, source);
         return user;
     }
 
     @Override
     @ActionEvent(eventType = EventTypes.EVENT_USER_CREATE, eventDescription = "creating User")
-    public UserVO createUser(String userName, String password, String firstName, String lastName, String email, String timeZone, String accountName, Long domainId, String userUUID) {
+    public UserVO createUser(String userName, String password, String firstName, String lastName, String email, String timeZone, String accountName, Long domainId,
+                             String defaultProjectUuid, String userUUID) {
 
-        return createUser(userName, password, firstName, lastName, email, timeZone, accountName, domainId, userUUID, User.Source.UNKNOWN);
+        return createUser(userName, password, firstName, lastName, email, timeZone, accountName, domainId, userUUID, defaultProjectUuid, User.Source.UNKNOWN);
     }
 
     @Override
@@ -2021,6 +2022,38 @@ public class AccountManagerImpl extends ManagerBase implements AccountManager, M
         }
     }
 
+    /**
+     * Validates 'defaultProjectUuid' if provided. Account must have access to defaultProject.
+     * <ul>
+     *  <li> If 'defaultProjectUuid' is not provided, does nothing.
+     *  <li> If 'defaultProjectUuid' is blank, set account's as null.
+     *  <li> If 'defaultProjectUuid' is neither and the project exists, set account's.
+     *  <li> If 'defaultProjectUuid' is neither and the project doesn't exist, throws an {@link InvalidParameterValueException}.
+     * </ul>
+     */
+    protected void validateAndUpdateAccountDefaultProjectId(String defaultProjectUuid, AccountVO account) {
+        String errorMessage = "Account does not have access to project or the project doesn't exist.";
+        if (defaultProjectUuid == null) {
+            return;
+        }
+        if (defaultProjectUuid.isBlank()) {
+            account.setDefaultProjectId(null);
+            return;
+        }
+        ProjectVO projectVO = _projectDao.findByUuid(defaultProjectUuid);
+        if (projectVO == null) {
+            logger.error("The project [{}] doesn't exist.", defaultProjectUuid);
+            throw new InvalidParameterValueException(errorMessage);
+        }
+        long defaultProjectId = projectVO.getId();
+        if (_projectMgr.canAccountAccessProject(account.getId(), defaultProjectId)) {
+            account.setDefaultProjectId(defaultProjectId);
+            return;
+        }
+        logger.error("Account [{}] does not have access to project [{}].", account, projectVO);
+        throw new InvalidParameterValueException(errorMessage);
+    }
+
     @Override
     @DB
     @ActionEvent(eventType = EventTypes.EVENT_ACCOUNT_UPDATE, eventDescription = "updating account", async = true)
@@ -2028,6 +2061,7 @@ public class AccountManagerImpl extends ManagerBase implements AccountManager, M
         Long accountId = cmd.getId();
         Long domainId = cmd.getDomainId();
         Long roleId = cmd.getRoleId();
+        String defaultProjectUuid = cmd.getDefaultProjectUuid();
         String accountName = cmd.getAccountName();
         String newAccountName = cmd.getNewName();
         String networkDomain = cmd.getNetworkDomain();
@@ -2109,6 +2143,8 @@ public class AccountManagerImpl extends ManagerBase implements AccountManager, M
                 acctForUpdate.setNetworkDomain(networkDomain);
             }
         }
+
+        validateAndUpdateAccountDefaultProjectId(defaultProjectUuid, acctForUpdate);
 
         final Account accountFinal = account;
         success = Transaction.execute((TransactionCallback<Boolean>) status -> {
@@ -2519,7 +2555,8 @@ public class AccountManagerImpl extends ManagerBase implements AccountManager, M
         });
     }
 
-    protected UserVO createUser(long accountId, String userName, String password, String firstName, String lastName, String email, String timezone, String userUUID, User.Source source) {
+    protected UserVO createUser(long accountId, String userName, String password, String firstName, String lastName, String email, String timezone, String userUUID,
+                                String defaultProjectUuid, User.Source source) {
         if (logger.isDebugEnabled()) {
             logger.debug("Creating user: " + userName + ", accountId: " + accountId + " timezone:" + timezone);
         }
@@ -2541,7 +2578,9 @@ public class AccountManagerImpl extends ManagerBase implements AccountManager, M
             userUUID = UUID.randomUUID().toString();
         }
 
-        UserVO user = _userDao.persist(new UserVO(accountId, userName, encodedPassword, firstName, lastName, email, timezone, userUUID, source));
+        UserVO user = new UserVO(accountId, userName, encodedPassword, firstName, lastName, email, timezone, userUUID, source);
+        validateAndUpdateUserDefaultProjectId(defaultProjectUuid, user);
+        user = _userDao.persist(user);
         CallContext.current().putContextParameter(User.class, user.getUuid());
         return user;
     }
