@@ -55,6 +55,8 @@ import javax.naming.ConfigurationException;
 import javax.servlet.http.HttpServletResponse;
 import javax.servlet.http.HttpSession;
 
+import com.cloud.projects.Project;
+import com.cloud.projects.ProjectManager;
 import org.apache.cloudstack.acl.APIChecker;
 import org.apache.cloudstack.api.APICommand;
 import org.apache.cloudstack.api.ApiConstants;
@@ -155,7 +157,6 @@ import com.cloud.exception.RequestLimitException;
 import com.cloud.exception.ResourceAllocationException;
 import com.cloud.exception.ResourceUnavailableException;
 import com.cloud.exception.UnavailableCommandException;
-import com.cloud.projects.dao.ProjectDao;
 import com.cloud.storage.VolumeApiService;
 import com.cloud.user.Account;
 import com.cloud.user.AccountManager;
@@ -211,7 +212,7 @@ public class ApiServer extends ManagerBase implements HttpRequestHandler, ApiSer
     @Inject
     private EntityManager entityMgr;
     @Inject
-    private ProjectDao projectDao;
+    private ProjectManager projectManager;
     @Inject
     private UUIDManager uuidMgr;
 
@@ -1090,6 +1091,9 @@ public class ApiServer extends ManagerBase implements HttpRequestHandler, ApiSer
                 if (ApiConstants.TIMEZONE.equalsIgnoreCase(attrName)) {
                     response.setTimeZone(attrObj.toString());
                 }
+                if (ApiConstants.DEFAULT_PROJECT_ID.equalsIgnoreCase(attrName)) {
+                    response.setDefaultProjectId(attrObj.toString());
+                }
                 if (ApiConstants.TIMEZONEOFFSET.equalsIgnoreCase(attrName)) {
                     response.setTimeZoneOffset(attrObj.toString());
                 }
@@ -1115,6 +1119,34 @@ public class ApiServer extends ManagerBase implements HttpRequestHandler, ApiSer
         }
         response.setResponseName("loginresponse");
         return response;
+    }
+
+    protected void setAttributeDefaultProject(HttpSession session, User user, Account account) {
+        if (user.getDefaultProjectId() != null) {
+            Project project = projectManager.getProject(user.getDefaultProjectId());
+            if (project != null && projectManager.canUserAccessProject(user.getId(), user.getAccountId(), project.getId())) {
+                logger.debug("Setting defaultprojectid of session as [{}], since user [{}] default project is [{}].", project, user, user.getDefaultProjectId());
+                session.setAttribute("defaultprojectid", project.getUuid());
+                return;
+            }
+            logger.warn("Not setting session's defaultprojectid [{}] as user [{}] default project [{}] doesn't exist or is not accessible.",
+                    user.getDefaultProjectId(), user, project);
+        }
+
+        if (account.getDefaultProjectId() != null) {
+            Project project = projectManager.getProject(account.getDefaultProjectId());
+            if (project != null && projectManager.canAccountAccessProject(account.getId(), project.getId())) {
+                logger.debug("Setting defaultprojectid of session as [{}], since account [{}] default project is [{}] and user [{}] default project is [{}].",
+                        project, account, account.getDefaultProjectId(), user, user.getDefaultProjectId());
+                session.setAttribute("defaultprojectid", project.getUuid());
+                return;
+            }
+            logger.warn("Not setting session's defaultprojectid [{}] as account [{}] default project [{}] doesn't exist or is not accessible.",
+                    user.getDefaultProjectId(), account, project);
+        }
+
+        logger.debug("Session's defaultprojectid not set, as account's default project is [{}] and user's default project is [{}].",
+                account.getDefaultProjectId(), user.getDefaultProjectId());
     }
 
     @Override
@@ -1152,6 +1184,7 @@ public class ApiServer extends ManagerBase implements HttpRequestHandler, ApiSer
             if (user.getUuid() != null) {
                 session.setAttribute("user_UUID", user.getUuid());
             }
+            setAttributeDefaultProject(session, user, account);
 
             session.setAttribute("username", userAcct.getUsername());
             session.setAttribute("firstname", userAcct.getFirstname());
