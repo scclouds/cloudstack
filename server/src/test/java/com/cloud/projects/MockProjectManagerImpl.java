@@ -101,6 +101,12 @@ public class MockProjectManagerImpl extends ManagerBase implements ProjectManage
     }
 
     @Override
+    public boolean canAccountAccessProject(long accountId, long projectId) {
+        // TODO Auto-generated method stub
+        return false;
+    }
+
+    @Override
     public boolean deleteAccountFromProject(long projectId, String accountName) {
         // TODO Auto-generated method stub
         return false;

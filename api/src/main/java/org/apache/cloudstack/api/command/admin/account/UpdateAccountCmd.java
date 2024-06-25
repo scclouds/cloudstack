@@ -70,6 +70,10 @@ public class UpdateAccountCmd extends BaseCmd {
     @Parameter(name = ApiConstants.ACCOUNT_DETAILS, type = CommandType.MAP, description = "Details for the account used to store specific parameters")
     private Map details;
 
+    @Parameter(name = ApiConstants.DEFAULT_PROJECT_ID, type = CommandType.STRING, description = "The default project to be first shown when logging in. " +
+            "Overwritten by the user's default project. If neither is provided, only then is standard account view shown.", since = "4.20")
+    private String defaultProjectUuid;
+
     @Inject
     RegionService _regionService;
 
@@ -107,6 +111,10 @@ public class UpdateAccountCmd extends BaseCmd {
         Collection paramsCollection = details.values();
         Map params = (Map)(paramsCollection.toArray())[0];
         return params;
+    }
+
+    public String getDefaultProjectUuid() {
+        return defaultProjectUuid;
     }
 
     /////////////////////////////////////////////////////

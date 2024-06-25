@@ -663,6 +663,22 @@ public class ProjectManagerImpl extends ManagerBase implements ProjectManager, C
     }
 
     @Override
+    public boolean canAccountAccessProject(long accountId, long projectId) {
+        Account account = _accountMgr.getActiveAccountById(accountId);
+        Project project = getProject(projectId);
+        if (account == null) {
+            return false;
+        }
+        if (_accountMgr.isRootAdmin(accountId)) {
+            return true;
+        }
+        if (_accountMgr.isDomainAdmin(accountId) && _domainMgr.isChildDomain(account.getDomainId(), project.getDomainId())) {
+            return true;
+        }
+        return _projectAccountDao.findByProjectIdAccountIdNullUserId(projectId, accountId) != null;
+    }
+
+    @Override
     @DB
     @ActionEvent(eventType = EventTypes.EVENT_PROJECT_UPDATE, eventDescription = "updating project", async = true)
     public Project updateProject(final long projectId, String name, final String displayText, final String newOwnerName) throws ResourceAllocationException {

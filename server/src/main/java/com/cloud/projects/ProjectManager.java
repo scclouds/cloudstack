@@ -47,6 +47,8 @@ public interface ProjectManager extends ProjectService {
 
     long getInvitationTimeout();
 
+    boolean canAccountAccessProject(long accountId, long projectId);
+
     public static final String MESSAGE_CREATE_TUNGSTEN_PROJECT_EVENT = "Message.CreateTungstenProject.Event";
     public static final String MESSAGE_DELETE_TUNGSTEN_PROJECT_EVENT = "Message.DeleteTungstenProject.Event";
 

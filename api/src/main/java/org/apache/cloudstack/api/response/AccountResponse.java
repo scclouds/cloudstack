@@ -159,6 +159,14 @@ public class AccountResponse extends BaseResponse implements ResourceLimitAndCou
     @Param(description = "the total number of projects available for administration by this account", since = "3.0.1")
     private String projectAvailable;
 
+    @SerializedName(ApiConstants.DEFAULT_PROJECT_ID)
+    @Param(description = "uuid of project view shown when first logging in")
+    private String defaultProjectId;
+
+    @SerializedName(ApiConstants.DEFAULT_PROJECT)
+    @Param(description = "name of project view shown when first logging in")
+    private String defaultProject;
+
     @SerializedName("networklimit")
     @Param(description = "the total number of networks the account can own", since = "3.0.1")
     private String networkLimit;
@@ -441,6 +449,14 @@ public class AccountResponse extends BaseResponse implements ResourceLimitAndCou
 
     public void setProjectAvailable(String projectAvailable) {
         this.projectAvailable = projectAvailable;
+    }
+
+    public void setDefaultProjectId(String defaultProjectId) {
+        this.defaultProjectId = defaultProjectId;
+    }
+
+    public void setDefaultProject(String defaultProject) {
+        this.defaultProject = defaultProject;
     }
 
     @Override

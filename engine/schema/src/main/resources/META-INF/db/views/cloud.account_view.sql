@@ -31,6 +31,7 @@ select
     `account`.`cleanup_needed` AS `cleanup_needed`,
     `account`.`network_domain` AS `network_domain` ,
     `account`.`default` AS `default`,
+    `account`.`default_project_id` AS `default_project_id`,
     `domain`.`id` AS `domain_id`,
     `domain`.`uuid` AS `domain_uuid`,
     `domain`.`name` AS `domain_name`,

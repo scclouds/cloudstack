@@ -77,6 +77,9 @@ public class AccountVO implements Account {
     @Column(name = "default")
     boolean isDefault;
 
+    @Column(name = "default_project_id")
+    private Long defaultProjectId = null;
+
     public AccountVO() {
         uuid = UUID.randomUUID().toString();
     }
@@ -224,6 +227,16 @@ public class AccountVO implements Account {
     @Override
     public String getName() {
         return accountName;
+    }
+
+    @Override
+    public Long getDefaultProjectId() {
+        return defaultProjectId;
+    }
+
+    @Override
+    public void setDefaultProjectId(Long defaultProjectId) {
+        this.defaultProjectId = defaultProjectId;
     }
 
     public String reflectionToString() {

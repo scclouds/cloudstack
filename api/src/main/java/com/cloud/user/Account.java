@@ -93,4 +93,8 @@ public interface Account extends ControlledEntity, InternalIdentity, Identity {
 
     boolean isDefault();
 
+    public Long getDefaultProjectId();
+
+    public void setDefaultProjectId(Long defaultProjectId);
+
 }

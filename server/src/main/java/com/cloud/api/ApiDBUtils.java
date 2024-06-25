@@ -30,6 +30,7 @@ import java.util.stream.Collectors;
 import javax.annotation.PostConstruct;
 import javax.inject.Inject;
 
+import com.cloud.projects.ProjectManager;
 import org.apache.cloudstack.acl.Role;
 import org.apache.cloudstack.acl.RoleService;
 import org.apache.cloudstack.affinity.AffinityGroup;
@@ -264,7 +265,6 @@ import com.cloud.offerings.dao.NetworkOfferingDao;
 import com.cloud.projects.Project;
 import com.cloud.projects.ProjectAccount;
 import com.cloud.projects.ProjectInvitation;
-import com.cloud.projects.ProjectService;
 import com.cloud.region.ha.GlobalLoadBalancingRulesService;
 import com.cloud.resource.ResourceManager;
 import com.cloud.resource.icon.ResourceIconVO;
@@ -421,7 +421,7 @@ public class ApiDBUtils {
     static FirewallRulesDcidrsDao s_firewallDcidrsDao;
     static VMInstanceDao s_vmDao;
     static ResourceLimitService s_resourceLimitMgr;
-    static ProjectService s_projectMgr;
+    static ProjectManager s_projectMgr;
     static ResourceManager s_resourceMgr;
     static DomainDetailsDao s_domainDetailsDao;
     static AccountDetailsDao s_accountDetailsDao;
@@ -616,7 +616,7 @@ public class ApiDBUtils {
     @Inject
     private ResourceLimitService resourceLimitMgr;
     @Inject
-    private ProjectService projectMgr;
+    private ProjectManager projectMgr;
     @Inject
     private ResourceManager resourceMgr;
     @Inject
@@ -2076,6 +2076,15 @@ public class ApiDBUtils {
                 response.setRoleName(role.getName());
             }
         }
+
+        if (ve.getDefaultProjectId() != null) {
+            Project project = s_projectMgr.getProject(ve.getDefaultProjectId());
+            if (project != null && s_projectMgr.canAccountAccessProject(ve.getId(), project.getId())) {
+                response.setDefaultProjectId(project.getUuid());
+                response.setDefaultProject(project.getName());
+            }
+        }
+
         return response;
     }
 

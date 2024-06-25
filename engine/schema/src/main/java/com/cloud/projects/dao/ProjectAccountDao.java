@@ -29,6 +29,8 @@ public interface ProjectAccountDao extends GenericDao<ProjectAccountVO, Long> {
 
     List<ProjectAccountVO> listByProjectId(long projectId);
 
+    ProjectAccountVO findByProjectIdAccountIdNullUserId(long projectId, long accountId);
+
     ProjectAccountVO findByProjectIdAccountId(long projectId, long accountId);
 
     ProjectAccountVO findByProjectIdUserId(long projectId, long accountId, long userId);

@@ -189,6 +189,9 @@ public class AccountJoinVO extends BaseViewVO implements InternalIdentity, Ident
     @Column(name = "default")
     boolean isDefault;
 
+    @Column(name = "default_project_id")
+    private Long defaultProjectId;
+
     public AccountJoinVO() {
     }
 
@@ -392,5 +395,9 @@ public class AccountJoinVO extends BaseViewVO implements InternalIdentity, Ident
 
     public boolean isDefault() {
         return isDefault;
+    }
+
+    public Long getDefaultProjectId() {
+        return defaultProjectId;
     }
 }
