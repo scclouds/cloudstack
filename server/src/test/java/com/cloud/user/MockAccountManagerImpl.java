@@ -386,13 +386,13 @@ public class MockAccountManagerImpl extends ManagerBase implements Manager, Acco
     @Override
     public User createUser(String userName, String password, String firstName,
             String lastName, String email, String timeZone, String accountName,
-            Long domainId, String userUUID) {
+            Long domainId, String defaultProjectUuid, String userUUID) {
         // TODO Auto-generated method stub
         return null;
     }
 
     @Override public User createUser(String userName, String password, String firstName, String lastName, String email, String timeZone, String accountName, Long domainId,
-                                     String userUUID, User.Source source) {
+                                     String userUUID, String defaultProjectUuid, User.Source source) {
         // TODO Auto-generated method stub
         return null;
     }
