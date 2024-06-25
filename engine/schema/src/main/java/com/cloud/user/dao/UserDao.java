@@ -37,6 +37,8 @@ public interface UserDao extends GenericDao<UserVO, Long> {
 
     List<UserVO> listByAccount(long accountId);
 
+    List<UserVO> findUsersByDefaultProject(Long defaultProjectId);
+
     /**
      * Finds a user based on the secret key provided.
      * @param secretKey

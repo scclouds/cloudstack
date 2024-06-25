@@ -64,6 +64,19 @@ public class MockAccountManagerImpl extends ManagerBase implements Manager, Acco
     }
 
     @Override
+    public boolean cleanupAccountDefaultProject(AccountVO account) {
+        // TODO Auto-generated method stub
+        return false;
+    }
+
+    @Override
+    public boolean cleanupUserDefaultProject(UserVO user) {
+        // TODO Auto-generated method stub
+        return false;
+    }
+
+
+    @Override
     public UserAccount disableUser(long userId) {
         // TODO Auto-generated method stub
         return null;

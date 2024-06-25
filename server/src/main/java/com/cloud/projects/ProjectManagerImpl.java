@@ -103,6 +103,7 @@ import com.cloud.utils.db.TransactionCallbackNoReturn;
 import com.cloud.utils.db.TransactionCallbackWithExceptionNoReturn;
 import com.cloud.utils.db.TransactionStatus;
 import com.cloud.utils.exception.CloudRuntimeException;
+import com.cloud.user.UserVO;
 import com.cloud.vm.UserVmVO;
 import com.cloud.vm.dao.UserVmDao;
 import com.cloud.vm.snapshot.VMSnapshotVO;
@@ -413,7 +414,7 @@ public class ProjectManagerImpl extends ManagerBase implements ProjectManager, C
         boolean result = true;
         //Delete project's account
         AccountVO account = _accountDao.findById(project.getProjectAccountId());
-        logger.debug("Deleting projects " + project + " internal account id=" + account.getId() + " as a part of project cleanup...");
+        logger.debug("Deleting project [{}] internal account [{}] as part of project cleanup.", project, account);
 
         result = result && _accountMgr.deleteAccount(account, callerUserId, caller);
 
@@ -422,23 +423,37 @@ public class ProjectManagerImpl extends ManagerBase implements ProjectManager, C
             result = Transaction.execute(new TransactionCallback<Boolean>() {
                 @Override
                 public Boolean doInTransaction(TransactionStatus status) {
-                    boolean result = true;
-            logger.debug("Unassigning all accounts from project " + project + " as a part of project cleanup...");
-            List<? extends ProjectAccount> projectAccounts = _projectAccountDao.listByProjectId(project.getId());
-            for (ProjectAccount projectAccount : projectAccounts) {
-                result = result && unassignAccountFromProject(projectAccount.getProjectId(), projectAccount.getAccountId());
-            }
+                    boolean projectAccountResult = true;
+                    List<? extends ProjectAccount> projectAccounts = _projectAccountDao.listByProjectId(project.getId());
+                    for (ProjectAccount projectAccount : projectAccounts) {
+                        projectAccountResult = projectAccountResult && unassignAccountFromProject(projectAccount.getProjectId(), projectAccount.getAccountId());
+                    }
+                    logger.debug("Unassigning all accounts from project [{}] as a part of project cleanup. Result: [{}].", project, projectAccountResult ? "SUCCESS" : "FAILED" );
 
-            logger.debug("Removing all invitations for the project " + project + " as a part of project cleanup...");
-            _projectInvitationDao.cleanupInvitations(project.getId());
-                    return result;
+                    boolean accountDefaultProjectResult = true;
+                    List<AccountVO> accountsWithDefaultProject = _accountDao.findAccountsByDefaultProject(project.getId());
+                    for (AccountVO account : accountsWithDefaultProject) {
+                        accountDefaultProjectResult = accountDefaultProjectResult && _accountMgr.cleanupAccountDefaultProject(account);
+                    }
+                    logger.debug("Updating accounts with the default project [{}] as a part of project cleanup. Result: [{}].", project, accountDefaultProjectResult ? "SUCCESS" : "FAILED" );
+
+                    boolean userDefaultProjectResult = true;
+                    List<UserVO> usersWithDefaultProject = userDao.findUsersByDefaultProject(project.getId());
+                    for (UserVO user : usersWithDefaultProject) {
+                        userDefaultProjectResult = userDefaultProjectResult && _accountMgr.cleanupUserDefaultProject(user);
+                    }
+                    logger.debug("Updating users with the default project [{}] as a part of project cleanup. Result: [{}].", project, userDefaultProjectResult ? "SUCCESS" : "FAILED" );
+
+                    _projectInvitationDao.cleanupInvitations(project.getId());
+                    logger.debug("Removing all invitations for the project [{}] as a part of project cleanup.", project);
+                    return projectAccountResult && accountDefaultProjectResult && userDefaultProjectResult;
                 }
             });
             if (result) {
-                logger.debug("Accounts are unassign successfully from project " + project + " as a part of project cleanup...");
+                logger.debug("Related accounts, users and invitations were successfully cleaned up during cleanup of project [{}].", project);
             }
         } else {
-            logger.warn("Failed to cleanup project's internal account");
+            logger.warn("Cleanup of project [{}] failed.", project);
         }
 
         return result;

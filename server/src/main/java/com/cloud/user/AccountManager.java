@@ -201,4 +201,8 @@ public interface AccountManager extends AccountService, Configurable {
     List<String> getApiNameList();
 
     void checkApiAccess(Account caller, String command);
+
+    boolean cleanupAccountDefaultProject(AccountVO account);
+
+    boolean cleanupUserDefaultProject(UserVO user);
 }

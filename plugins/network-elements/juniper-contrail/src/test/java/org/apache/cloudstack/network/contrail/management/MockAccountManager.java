@@ -519,4 +519,14 @@ public class MockAccountManager extends ManagerBase implements AccountManager {
     public void checkApiAccess(Account account, String command) throws PermissionDeniedException {
 
     }
+
+    @Override
+    public boolean cleanupAccountDefaultProject(AccountVO account) {
+        return false;
+    }
+
+    @Override
+    public boolean cleanupUserDefaultProject(UserVO user) {
+        return false;
+    }
 }

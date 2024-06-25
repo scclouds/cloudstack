@@ -1674,6 +1674,18 @@ public class AccountManagerImpl extends ManagerBase implements AccountManager, M
         return user;
     }
 
+    @Override
+    public boolean cleanupAccountDefaultProject(AccountVO account) {
+        account.setDefaultProjectId(null);
+        return _accountDao.update(account.getId(), account);
+    }
+
+    @Override
+    public boolean cleanupUserDefaultProject(UserVO user) {
+        user.setDefaultProjectId(null);
+        return _userDao.update(user.getId(), user);
+    }
+
     /**
      * Validates 'defaultProjectUuid' if provided. User must have access to defaultProject.
      * <ul>
