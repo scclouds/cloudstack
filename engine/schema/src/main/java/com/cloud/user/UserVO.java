@@ -115,6 +115,9 @@ public class UserVO implements User, Identity, InternalIdentity {
     @Column(name = "key_for_2fa")
     private String keyFor2fa;
 
+    @Column(name = "default_project_id")
+    private Long defaultProjectId = null;
+
     public UserVO() {
         this.uuid = UUID.randomUUID().toString();
     }
@@ -350,4 +353,13 @@ public class UserVO implements User, Identity, InternalIdentity {
         this.user2faProvider = user2faProvider;
     }
 
+    @Override
+    public Long getDefaultProjectId() {
+        return defaultProjectId;
+    }
+
+    @Override
+    public void setDefaultProjectId(Long defaultProjectId) {
+        this.defaultProjectId = defaultProjectId;
+    }
 }

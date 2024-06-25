@@ -81,6 +81,10 @@ public class UpdateUserCmd extends BaseCmd {
             "This parameter is only used to mandate 2FA, not to disable 2FA", since = "4.18.0.0")
     private Boolean mandate2FA;
 
+    @Parameter(name = ApiConstants.DEFAULT_PROJECT_ID, type = CommandType.STRING, description = "The default project to be first shown when logging in. " +
+            "Overwrites the account's default project. If neither is provided, only then is standard account view shown.", since = "4.20")
+    private String defaultProjectUuid;
+
     @Inject
     private RegionService _regionService;
 
@@ -130,6 +134,10 @@ public class UpdateUserCmd extends BaseCmd {
 
     public Boolean getMandate2FA() {
         return mandate2FA;
+    }
+
+    public String getDefaultProjectUuid() {
+        return defaultProjectUuid;
     }
 
     /////////////////////////////////////////////////////

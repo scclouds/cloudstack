@@ -1952,6 +1952,15 @@ public class ApiDBUtils {
                 response.setRoleName(role.getName());
             }
         }
+
+        if (usr.getDefaultProjectId() != null) {
+            Project project = s_projectMgr.getProject(usr.getDefaultProjectId());
+            if (project != null && s_projectMgr.canUserAccessProject(usr.getId(), usr.getAccountId(), project.getId())) {
+                response.setDefaultProjectId(project.getUuid());
+                response.setDefaultProject(project.getName());
+            }
+        }
+
         if (domainId != null && usr.getDomainId() != domainId)
             response.setIsCallerChildDomain(true);
         else

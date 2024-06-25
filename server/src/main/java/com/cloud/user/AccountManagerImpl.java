@@ -1446,6 +1446,8 @@ public class AccountManagerImpl extends ManagerBase implements AccountManager, M
         validateAndUpdateLastNameIfNeeded(updateUserCmd, user);
         validateAndUpdateUsernameIfNeeded(updateUserCmd, user, account);
 
+        validateAndUpdateUserDefaultProjectId(updateUserCmd.getDefaultProjectUuid(), user);
+
         validateUserPasswordAndUpdateIfNeeded(updateUserCmd.getPassword(), user, updateUserCmd.getCurrentPassword());
         String email = updateUserCmd.getEmail();
         if (StringUtils.isNotBlank(email)) {
@@ -1669,6 +1671,38 @@ public class AccountManagerImpl extends ManagerBase implements AccountManager, M
             throw new InvalidParameterValueException("Unable to find user with id: " + userId);
         }
         return user;
+    }
+
+    /**
+     * Validates 'defaultProjectUuid' if provided. User must have access to defaultProject.
+     * <ul>
+     *  <li> If 'defaultProjectUuid' is not provided, does nothing.
+     *  <li> If 'defaultProjectUuid' is blank, set user's as null.
+     *  <li> If 'defaultProjectUuid' is neither and the project exists, set user's.
+     *  <li> If 'defaultProjectUuid' is neither and the project doesn't exist, throws an {@link InvalidParameterValueException}.
+     * </ul>
+     */
+    protected void validateAndUpdateUserDefaultProjectId(String defaultProjectUuid, UserVO user) {
+        String errorMessage = "User and its account do not have access to project or the project doesn't exist.";
+        if (defaultProjectUuid == null) {
+            return;
+        }
+        if (defaultProjectUuid.isBlank()) {
+            user.setDefaultProjectId(null);
+            return;
+        }
+        ProjectVO projectVO = _projectDao.findByUuid(defaultProjectUuid);
+        if (projectVO == null) {
+            logger.error("The project [{}] doesn't exist.", defaultProjectUuid);
+            throw new InvalidParameterValueException(errorMessage);
+        }
+        long defaultProjectId = projectVO.getId();
+        if (_projectMgr.canUserAccessProject(user.getId(), user.getAccountId(), defaultProjectId)) {
+            user.setDefaultProjectId(defaultProjectId);
+            return;
+        }
+        logger.error("User [{}] and its account do not have access to project [{}].", user, projectVO);
+        throw new InvalidParameterValueException(errorMessage);
     }
 
     @Override

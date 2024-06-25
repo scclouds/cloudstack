@@ -28,6 +28,7 @@ select
     user.firstname,
     user.lastname,
     user.email,
+    user.default_project_id,
     user.state,
     user.api_key,
     user.secret_key,

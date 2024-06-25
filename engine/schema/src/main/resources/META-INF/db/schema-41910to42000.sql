@@ -235,4 +235,6 @@ CALL `cloud`.`IDEMPOTENT_MODIFY_COLUMN_CHAR_SET`('vpc_offerings', 'display_text'
 CALL `cloud`.`IDEMPOTENT_ADD_COLUMN`('cloud.roles','state', 'varchar(10) NOT NULL default "enabled" COMMENT "role state"');
 
 -- Add default_project_id to account table
+-- Add default_project_id to account and user tables;
 CALL `cloud`.`IDEMPOTENT_ADD_COLUMN`('cloud.account','default_project_id', 'bigint(20) unsigned DEFAULT NULL');
+CALL `cloud`.`IDEMPOTENT_ADD_COLUMN`('cloud.user','default_project_id', 'bigint(20) unsigned DEFAULT NULL');

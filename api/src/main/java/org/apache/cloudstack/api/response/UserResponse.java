@@ -108,6 +108,14 @@ public class UserResponse extends BaseResponse implements SetResourceIconRespons
     @Param(description = "the account ID of the user")
     private String accountId;
 
+    @SerializedName(ApiConstants.DEFAULT_PROJECT_ID)
+    @Param(description = "uuid of project view shown when first logging in")
+    private String defaultProjectId;
+
+    @SerializedName(ApiConstants.DEFAULT_PROJECT)
+    @Param(description = "name of project view shown when first logging in")
+    private String defaultProject;
+
     @SerializedName("iscallerchilddomain")
     @Param(description = "the boolean value representing if the updating target is in caller's child domain")
     private boolean isCallerChildDomain;
@@ -264,6 +272,14 @@ public class UserResponse extends BaseResponse implements SetResourceIconRespons
 
     public void setAccountId(String accountId) {
         this.accountId = accountId;
+    }
+
+    public void setDefaultProjectId(String defaultProjectId) {
+        this.defaultProjectId = defaultProjectId;
+    }
+
+    public void setDefaultProject(String defaultProject) {
+        this.defaultProject = defaultProject;
     }
 
     public boolean getIsCallerSubdomain() {

@@ -49,6 +49,8 @@ public interface ProjectManager extends ProjectService {
 
     boolean canAccountAccessProject(long accountId, long projectId);
 
+    boolean canUserAccessProject(long userId, long accountId, long projectId);
+
     public static final String MESSAGE_CREATE_TUNGSTEN_PROJECT_EVENT = "Message.CreateTungstenProject.Event";
     public static final String MESSAGE_DELETE_TUNGSTEN_PROJECT_EVENT = "Message.DeleteTungstenProject.Event";
 
