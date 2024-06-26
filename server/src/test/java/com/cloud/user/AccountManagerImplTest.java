@@ -26,6 +26,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import com.cloud.projects.ProjectVO;
 import org.apache.cloudstack.acl.SecurityChecker.AccessType;
 import org.apache.cloudstack.api.command.admin.user.DeleteUserCmd;
 
@@ -58,7 +59,6 @@ import com.cloud.exception.ConcurrentOperationException;
 import com.cloud.exception.InvalidParameterValueException;
 import com.cloud.exception.PermissionDeniedException;
 import com.cloud.exception.ResourceUnavailableException;
-import com.cloud.projects.Project;
 import com.cloud.projects.ProjectAccountVO;
 import com.cloud.user.Account.State;
 import com.cloud.utils.Pair;
@@ -100,6 +100,9 @@ public class AccountManagerImplTest extends AccountManagetImplTestBase {
     private Account accountMock;
 
     @Mock
+    private AccountVO accountVOMock;
+
+    @Mock
     private DomainVO domainVoMock;
 
     @Mock
@@ -108,7 +111,7 @@ public class AccountManagerImplTest extends AccountManagetImplTestBase {
     @Mock
     private ProjectAccountVO projectAccountVO;
     @Mock
-    private Project project;
+    private ProjectVO projectVOMock;
 
     @Mock
     PasswordPolicyImpl passwordPolicyMock;
@@ -124,6 +127,7 @@ public class AccountManagerImplTest extends AccountManagetImplTestBase {
 
     @Before
     public void beforeTest() {
+        Mockito.doReturn(accountMockId).when(accountVOMock).getId();
         Mockito.doReturn(accountMockId).when(accountMock).getId();
         Mockito.doReturn(accountMock).when(accountManagerImpl).getCurrentCallingAccount();
 
@@ -401,10 +405,12 @@ public class AccountManagerImplTest extends AccountManagetImplTestBase {
         Mockito.doReturn(userVoMock).when(accountManagerImpl).retrieveAndValidateUser(UpdateUserCmdMock);
         Mockito.doNothing().when(accountManagerImpl).validateAndUpdateApiAndSecretKeyIfNeeded(UpdateUserCmdMock, userVoMock);
         Mockito.doReturn(accountMock).when(accountManagerImpl).retrieveAndValidateAccount(userVoMock);
+        Mockito.doReturn("uuid").when(UpdateUserCmdMock).getDefaultProjectUuid();
 
         Mockito.doNothing().when(accountManagerImpl).validateAndUpdateFirstNameIfNeeded(UpdateUserCmdMock, userVoMock);
         Mockito.doNothing().when(accountManagerImpl).validateAndUpdateLastNameIfNeeded(UpdateUserCmdMock, userVoMock);
         Mockito.doNothing().when(accountManagerImpl).validateAndUpdateUsernameIfNeeded(UpdateUserCmdMock, userVoMock, accountMock);
+        Mockito.doNothing().when(accountManagerImpl).validateAndUpdateUserDefaultProjectId("uuid", userVoMock);;
         Mockito.doNothing().when(accountManagerImpl).validateUserPasswordAndUpdateIfNeeded(Mockito.anyString(), Mockito.eq(userVoMock), Mockito.anyString());
 
         Mockito.doReturn(true).when(userDaoMock).update(Mockito.anyLong(), Mockito.eq(userVoMock));
@@ -421,6 +427,7 @@ public class AccountManagerImplTest extends AccountManagetImplTestBase {
         inOrder.verify(accountManagerImpl).validateAndUpdateFirstNameIfNeeded(UpdateUserCmdMock, userVoMock);
         inOrder.verify(accountManagerImpl).validateAndUpdateLastNameIfNeeded(UpdateUserCmdMock, userVoMock);
         inOrder.verify(accountManagerImpl).validateAndUpdateUsernameIfNeeded(UpdateUserCmdMock, userVoMock, accountMock);
+        inOrder.verify(accountManagerImpl).validateAndUpdateUserDefaultProjectId("uuid", userVoMock);
         inOrder.verify(accountManagerImpl).validateUserPasswordAndUpdateIfNeeded(UpdateUserCmdMock.getPassword(), userVoMock, UpdateUserCmdMock.getCurrentPassword());
 
         inOrder.verify(userVoMock, Mockito.times(numberOfExpectedCallsForSetEmailAndSetTimeZone)).setEmail(Mockito.anyString());
@@ -703,6 +710,104 @@ public class AccountManagerImplTest extends AccountManagetImplTestBase {
         accountManagerImpl.validateAndUpdateUsernameIfNeeded(UpdateUserCmdMock, userVoMock, accountMock);
 
         Mockito.verify(userVoMock).setUsername(userName);
+    }
+
+    @Test
+    public void validateAndUpdateUserDefaultProjectIdTestNullDefaultProjectUuid() {
+        String defaultProjectUuid = null;
+
+        accountManagerImpl.validateAndUpdateUserDefaultProjectId(defaultProjectUuid, userVoMock);
+        Mockito.verify(userVoMock, Mockito.never()).setDefaultProjectId(Mockito.any());
+    }
+
+    @Test
+    public void validateAndUpdateUserDefaultProjectIdTestBlankDefaultProjectUuid() {
+        String defaultProjectUuid = "";
+
+        accountManagerImpl.validateAndUpdateUserDefaultProjectId(defaultProjectUuid, userVoMock);
+        Mockito.verify(userVoMock).setDefaultProjectId(null);
+    }
+
+    @Test(expected = InvalidParameterValueException.class)
+    public void validateAndUpdateUserDefaultProjectIdTestProjectNotFound() {
+        String defaultProjectUuid = "uuid";
+        Mockito.doReturn(null).when(_projectDao).findByUuid(defaultProjectUuid);
+
+        accountManagerImpl.validateAndUpdateUserDefaultProjectId(defaultProjectUuid, userVoMock);
+        Mockito.verify(userVoMock, Mockito.never()).setDefaultProjectId(Mockito.any());
+    }
+
+    @Test(expected = InvalidParameterValueException.class)
+    public void validateAndUpdateUserDefaultProjectIdTestCantAccessProject() {
+        String defaultProjectUuid = "uuid";
+        long defaultProjectId = 1L;
+        Mockito.doReturn(projectVOMock).when(_projectDao).findByUuid(defaultProjectUuid);
+        Mockito.doReturn(defaultProjectId).when(projectVOMock).getId();
+        Mockito.doReturn(false).when(_projectMgr).canUserAccessProject(userVoIdMock, accountMockId, defaultProjectId);
+
+        accountManagerImpl.validateAndUpdateUserDefaultProjectId(defaultProjectUuid, userVoMock);
+        Mockito.verify(userVoMock, Mockito.never()).setDefaultProjectId(Mockito.any());
+    }
+
+    @Test
+    public void validateAndUpdateUserDefaultProjectIdTestCanAccessProject() {
+        String defaultProjectUuid = "uuid";
+        long defaultProjectId = 1L;
+        Mockito.doReturn(projectVOMock).when(_projectDao).findByUuid(defaultProjectUuid);
+        Mockito.doReturn(defaultProjectId).when(projectVOMock).getId();
+        Mockito.doReturn(true).when(_projectMgr).canUserAccessProject(userVoIdMock, accountMockId, defaultProjectId);
+
+        accountManagerImpl.validateAndUpdateUserDefaultProjectId(defaultProjectUuid, userVoMock);
+        Mockito.verify(userVoMock).setDefaultProjectId(defaultProjectId);
+    }
+
+    @Test
+    public void validateAndUpdateAccountDefaultProjectIdTestNullDefaultProjectUuid() {
+        String defaultProjectUuid = null;
+
+        accountManagerImpl.validateAndUpdateAccountDefaultProjectId(defaultProjectUuid, accountVOMock);
+        Mockito.verify(userVoMock, Mockito.never()).setDefaultProjectId(Mockito.any());
+    }
+
+    @Test
+    public void validateAndUpdateAccountDefaultProjectIdTestBlankDefaultProjectUuid() {
+        String defaultProjectUuid = "";
+
+        accountManagerImpl.validateAndUpdateAccountDefaultProjectId(defaultProjectUuid, accountVOMock);
+        Mockito.verify(accountVOMock).setDefaultProjectId(null);
+    }
+
+    @Test(expected = InvalidParameterValueException.class)
+    public void validateAndUpdateAccountDefaultProjectIdTestProjectNotFound() {
+        String defaultProjectUuid = "uuid";
+        Mockito.doReturn(null).when(_projectDao).findByUuid(defaultProjectUuid);
+
+        accountManagerImpl.validateAndUpdateAccountDefaultProjectId(defaultProjectUuid, accountVOMock);
+        Mockito.verify(accountVOMock, Mockito.never()).setDefaultProjectId(Mockito.any());
+    }
+
+    @Test(expected = InvalidParameterValueException.class)
+    public void validateAndUpdateUAccountDefaultProjectIdTestCantAccessProject() {
+        String defaultProjectUuid = "uuid";
+        long defaultProjectId = 1L;
+        Mockito.doReturn(projectVOMock).when(_projectDao).findByUuid(defaultProjectUuid);
+        Mockito.doReturn(defaultProjectId).when(projectVOMock).getId();
+        Mockito.doReturn(false).when(_projectMgr).canAccountAccessProject(accountMockId, defaultProjectId);
+
+        accountManagerImpl.validateAndUpdateAccountDefaultProjectId(defaultProjectUuid, accountVOMock);
+        Mockito.verify(accountVOMock, Mockito.never()).setDefaultProjectId(Mockito.any());
+    }
+
+    @Test
+    public void validateAndUpdateAccountDefaultProjectIdTestCanAccessProject() {
+        String defaultProjectUuid = "uuid";
+        long defaultProjectId = 1L;
+        Mockito.doReturn(projectVOMock).when(_projectDao).findByUuid(defaultProjectUuid);
+        Mockito.doReturn(defaultProjectId).when(projectVOMock).getId();
+        Mockito.doReturn(true).when(_projectMgr).canAccountAccessProject(accountMockId, defaultProjectId);
+
+        accountManagerImpl.validateAndUpdateAccountDefaultProjectId(defaultProjectUuid, accountVOMock);
+        Mockito.verify(accountVOMock).setDefaultProjectId(defaultProjectId);
     }
 
     @Test

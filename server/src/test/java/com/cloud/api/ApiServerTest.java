@@ -19,19 +19,55 @@ package com.cloud.api;
 import java.util.ArrayList;
 import java.util.List;
 
+import com.cloud.projects.Project;
+import com.cloud.projects.ProjectManager;
+import com.cloud.user.Account;
+import com.cloud.user.User;
 import org.junit.Assert;
+import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.mockito.InjectMocks;
+import org.mockito.Mock;
 import org.mockito.MockedConstruction;
 import org.mockito.Mockito;
 import org.mockito.junit.MockitoJUnitRunner;
 
+import javax.servlet.http.HttpSession;
+
 @RunWith(MockitoJUnitRunner.class)
 public class ApiServerTest {
 
+    @Mock
+    private HttpSession httpSessionMock;
+    @Mock
+    private User userMock;
+    @Mock
+    private Account accountMock;
+    @Mock
+    private Project projectMock;
+    @Mock
+    private ProjectManager projectManagerMock;
+
     @InjectMocks
     ApiServer apiServer = new ApiServer();
+
+    private static final long ACCOUNT_ID = 1L;
+    private static final long USER_ID = 2L;
+    private static final long PROJECT_ID = 3L;
+    private static final String PROJECT_UUID = "projectuuid";
+
+    @Before
+    public void setup() {
+        Mockito.doReturn(ACCOUNT_ID).when(accountMock).getId();
+        Mockito.doReturn(ACCOUNT_ID).when(userMock).getAccountId();
+
+        Mockito.doReturn(USER_ID).when(userMock).getId();
+
+        Mockito.doReturn(PROJECT_ID).when(projectMock).getId();
+        Mockito.doReturn(PROJECT_UUID).when(projectMock).getUuid();
+
+    }
 
     private void runTestSetupIntegrationPortListenerInvalidPorts(Integer port) {
         try (MockedConstruction<ApiServer.ListenerThread> mocked =
@@ -60,5 +96,99 @@ public class ApiServerTest {
             ApiServer.ListenerThread listenerThread = mocked.constructed().get(0);
             Mockito.verify(listenerThread).start();
         }
+    }
+
+    private void setupSetAttributeDefaultProjectTests() {
+        Mockito.doReturn(PROJECT_ID).when(userMock).getDefaultProjectId();
+        Mockito.doReturn(projectMock).when(projectManagerMock).getProject(PROJECT_ID);
+        Mockito.doReturn(true).when(projectManagerMock).canUserAccessProject(USER_ID, ACCOUNT_ID, PROJECT_ID);
+
+        Mockito.doReturn(PROJECT_ID).when(accountMock).getDefaultProjectId();
+        Mockito.doReturn(true).when(projectManagerMock).canAccountAccessProject(ACCOUNT_ID, PROJECT_ID);
+    }
+    @Test
+    public void setAttributeDefaultProjectTestUserDefaultProjectExistsAndAccessible() {
+        setupSetAttributeDefaultProjectTests();
+
+        apiServer.setAttributeDefaultProject(httpSessionMock, userMock, accountMock);
+
+        Mockito.verify(httpSessionMock).setAttribute("defaultprojectid", PROJECT_UUID);
+    }
+    @Test
+    public void setAttributeDefaultProjectTestUserDefaultProjectNotExistsAccountDefaultProjectNull() {
+        setupSetAttributeDefaultProjectTests();
+        Mockito.doReturn(null).when(projectManagerMock).getProject(PROJECT_ID);
+        Mockito.doReturn(null).when(accountMock).getDefaultProjectId();
+
+        apiServer.setAttributeDefaultProject(httpSessionMock, userMock, accountMock);
+
+        Mockito.verify(httpSessionMock, Mockito.never()).setAttribute("defaultprojectid", PROJECT_UUID);
+    }
+    @Test
+    public void setAttributeDefaultProjectTestUserDefaultProjectNotExistsAccountDefaultProjectExistsAndAcessible() {
+        setupSetAttributeDefaultProjectTests();
+        Mockito.doReturn(null).doReturn(projectMock).when(projectManagerMock).getProject(PROJECT_ID);
+
+        apiServer.setAttributeDefaultProject(httpSessionMock, userMock, accountMock);
+
+        Mockito.verify(httpSessionMock).setAttribute("defaultprojectid", PROJECT_UUID);
+    }
+    @Test
+    public void setAttributeDefaultProjectTestUserDefaultProjectExistsNotAccessibleAccountDefaultProjectNull() {
+        setupSetAttributeDefaultProjectTests();
+        Mockito.doReturn(false).when(projectManagerMock).canUserAccessProject(USER_ID, ACCOUNT_ID, PROJECT_ID);
+        Mockito.doReturn(projectMock).doReturn(null).when(projectManagerMock).getProject(PROJECT_ID);
+
+        apiServer.setAttributeDefaultProject(httpSessionMock, userMock, accountMock);
+
+        Mockito.verify(httpSessionMock, Mockito.never()).setAttribute("defaultprojectid", PROJECT_UUID);
+    }
+    @Test
+    public void setAttributeDefaultProjectTestUserDefaultProjectExistsNotAccessibleAccountDefaultProjectExistsAndAccessible() {
+        setupSetAttributeDefaultProjectTests();
+        Mockito.doReturn(false).when(projectManagerMock).canUserAccessProject(USER_ID, ACCOUNT_ID, PROJECT_ID);
+
+        apiServer.setAttributeDefaultProject(httpSessionMock, userMock, accountMock);
+
+        Mockito.verify(httpSessionMock).setAttribute("defaultprojectid", PROJECT_UUID);
+    }
+    @Test
+    public void setAttributeDefaultProjectTestUserDefaultProjectNullAccountDefaultProjectNull() {
+        setupSetAttributeDefaultProjectTests();
+        Mockito.doReturn(null).when(userMock).getDefaultProjectId();
+        Mockito.doReturn(null).when(accountMock).getDefaultProjectId();
+
+        apiServer.setAttributeDefaultProject(httpSessionMock, userMock, accountMock);
+
+        Mockito.verify(httpSessionMock, Mockito.never()).setAttribute("defaultprojectid", PROJECT_UUID);
+    }
+    @Test
+    public void setAttributeDefaultProjectTestUserDefaultProjectNullAccountDefaultProjectNotExists() {
+        setupSetAttributeDefaultProjectTests();
+        Mockito.doReturn(null).when(userMock).getDefaultProjectId();
+        Mockito.doReturn(null).when(projectManagerMock).getProject(PROJECT_ID);
+
+        apiServer.setAttributeDefaultProject(httpSessionMock, userMock, accountMock);
+
+        Mockito.verify(httpSessionMock, Mockito.never()).setAttribute("defaultprojectid", PROJECT_UUID);
+    }
+    @Test
+    public void setAttributeDefaultProjectTestUserDefaultProjectNullAccountDefaultProjectExistsNotAccessible() {
+        setupSetAttributeDefaultProjectTests();
+        Mockito.doReturn(null).when(userMock).getDefaultProjectId();
+        Mockito.doReturn(false).when(projectManagerMock).canAccountAccessProject(ACCOUNT_ID, PROJECT_ID);
+
+        apiServer.setAttributeDefaultProject(httpSessionMock, userMock, accountMock);
+
+        Mockito.verify(httpSessionMock, Mockito.never()).setAttribute("defaultprojectid", PROJECT_UUID);
+    }
+    @Test
+    public void setAttributeDefaultProjectTestUserDefaultProjectNullAccountDefaultProjectExistsAccessible() {
+        setupSetAttributeDefaultProjectTests();
+        Mockito.doReturn(null).when(userMock).getDefaultProjectId();
+
+        apiServer.setAttributeDefaultProject(httpSessionMock, userMock, accountMock);
+
+        Mockito.verify(httpSessionMock).setAttribute("defaultprojectid", PROJECT_UUID);
     }
 }

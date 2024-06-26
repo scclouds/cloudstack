@@ -19,6 +19,10 @@ package com.cloud.projects;
 import java.util.ArrayList;
 import java.util.List;
 
+import com.cloud.projects.dao.ProjectAccountDao;
+import com.cloud.user.Account;
+import com.cloud.user.AccountManager;
+import com.cloud.user.DomainManager;
 import org.apache.cloudstack.acl.ControlledEntity;
 import org.apache.cloudstack.webhook.WebhookHelper;
 import org.apache.commons.collections.CollectionUtils;
@@ -42,6 +46,17 @@ import com.cloud.utils.component.ComponentContext;
 @RunWith(MockitoJUnitRunner.class)
 public class ProjectManagerImplTest {
 
+    @Mock
+    private Account accountMock;
+    @Mock
+    private ProjectVO projectMock;
+    @Mock
+    private AccountManager accountManagerMock;
+    @Mock
+    private DomainManager domainManagerMock;
+    @Mock
+    private ProjectAccountDao projectAccountDaoMock;
+
     @Spy
     @InjectMocks
     ProjectManagerImpl projectManager;
@@ -51,6 +66,12 @@ public class ProjectManagerImplTest {
 
     List<ProjectVO> updateProjects;
 
+    private static final long ACCOUNT_ID = 1L;
+    private static final long USER_ID = 2L;
+    private static final long PROJECT_ID = 3L;
+    private static final long ACCOUNT_DOMAIN_ID = 4L;
+    private static final long PROJECT_DOMAIN_ID = 5L;
+
     @Before
     public void setUp() throws Exception {
         updateProjects = new ArrayList<>();
@@ -59,6 +80,9 @@ public class ProjectManagerImplTest {
             updateProjects.add(project);
             return true;
         });
+
+        Mockito.doReturn(ACCOUNT_DOMAIN_ID).when(accountMock).getDomainId();
+        Mockito.doReturn(PROJECT_DOMAIN_ID).when(projectMock).getDomainId();
     }
 
     private void runUpdateProjectNameAndDisplayTextTest(boolean nonNullName, boolean nonNullDisplayText) {
@@ -127,5 +151,89 @@ public class ProjectManagerImplTest {
                     projectManager.listWebhooksForProject(Mockito.mock(Project.class));
             Assert.assertTrue(CollectionUtils.isEmpty(result));
         }
+    }
+
+    private void setAccessProjectTests() {
+        Mockito.lenient().doReturn(accountMock).when(accountManagerMock).getActiveAccountById(ACCOUNT_ID);
+        Mockito.lenient().doReturn(projectMock).when(projectManager).getProject(PROJECT_ID);
+
+        Mockito.lenient().doReturn(false).when(accountManagerMock).isRootAdmin(ACCOUNT_ID);
+        Mockito.lenient().doReturn(false).when(accountManagerMock).isDomainAdmin(ACCOUNT_ID);
+        Mockito.lenient().doReturn(false).when(domainManagerMock).isChildDomain(ACCOUNT_DOMAIN_ID, PROJECT_DOMAIN_ID);
+
+        Mockito.lenient().doReturn(null).when(projectAccountDaoMock).findByProjectIdAccountIdNullUserId(PROJECT_ID, ACCOUNT_ID);
+    }
+
+    @Test
+    public void canAccountAccessProjectTestAccountNotExists() {
+        setAccessProjectTests();
+        Mockito.doReturn(null).when(accountManagerMock).getActiveAccountById(ACCOUNT_ID);
+
+        Assert.assertFalse(projectManager.canAccountAccessProject(ACCOUNT_ID, PROJECT_ID));
+    }
+    @Test
+    public void canAccountAccessProjectTestAccountIsRootAdmin() {
+        setAccessProjectTests();
+        Mockito.doReturn(true).when(accountManagerMock).isRootAdmin(ACCOUNT_ID);
+
+        Assert.assertTrue(projectManager.canAccountAccessProject(ACCOUNT_ID, PROJECT_ID));
+    }
+    @Test
+    public void canAccountAccessProjectTestAccountIsDomainAdminProjectInChildDomain() {
+        setAccessProjectTests();
+        Mockito.doReturn(true).when(accountManagerMock).isDomainAdmin(ACCOUNT_ID);
+        Mockito.doReturn(true).when(domainManagerMock).isChildDomain(ACCOUNT_DOMAIN_ID, PROJECT_DOMAIN_ID);
+
+        Assert.assertTrue(projectManager.canAccountAccessProject(ACCOUNT_ID, PROJECT_ID));
+    }
+    @Test
+    public void canAccountAccessProjectTestAccountIsDomainAdminProjectNotInChildDomain() {
+        setAccessProjectTests();
+        Mockito.doReturn(true).when(accountManagerMock).isDomainAdmin(ACCOUNT_ID);
+
+        Assert.assertFalse(projectManager.canAccountAccessProject(ACCOUNT_ID, PROJECT_ID));
+    }
+    @Test
+    public void canAccountAccessProjectTestAccountIsNotDomainAdminProjectInChildDomain() {
+        setAccessProjectTests();
+        Mockito.lenient().doReturn(true).when(domainManagerMock).isChildDomain(ACCOUNT_DOMAIN_ID, PROJECT_DOMAIN_ID);
+
+        Assert.assertFalse(projectManager.canAccountAccessProject(ACCOUNT_ID, PROJECT_ID));
+    }
+    @Test
+    public void canAccountAccessProjectTestAccountAddedToProject() {
+        setAccessProjectTests();
+        Mockito.doReturn(Mockito.mock(ProjectAccountVO.class)).when(projectAccountDaoMock).findByProjectIdAccountIdNullUserId(PROJECT_ID, ACCOUNT_ID);
+
+        Assert.assertTrue(projectManager.canAccountAccessProject(ACCOUNT_ID, PROJECT_ID));
+    }
+    @Test
+    public void canAccountAccessProjectTestAccountNotAddedToProject() {
+        setAccessProjectTests();
+
+        Assert.assertFalse(projectManager.canAccountAccessProject(ACCOUNT_ID, PROJECT_ID));
+    }
+
+    @Test
+    public void canUserAccessProjectTestAccountCanAccessProject() {
+        Mockito.doReturn(true).when(projectManager).canAccountAccessProject(ACCOUNT_ID, PROJECT_ID);
+
+        Assert.assertTrue(projectManager.canUserAccessProject(USER_ID, ACCOUNT_ID, PROJECT_ID));
+    }
+
+    @Test
+    public void canUserAccessProjectTestAccountCantAccessProjectAndUserAddedToProject() {
+        Mockito.doReturn(false).when(projectManager).canAccountAccessProject(ACCOUNT_ID, PROJECT_ID);
+        Mockito.doReturn(Mockito.mock(ProjectAccountVO.class)).when(projectAccountDaoMock).findByProjectIdUserId(PROJECT_ID, ACCOUNT_ID, USER_ID);
+
+        Assert.assertTrue(projectManager.canUserAccessProject(USER_ID, ACCOUNT_ID, PROJECT_ID));
+    }
+
+    @Test
+    public void canUserAccessProjectTestAccountCantAccessProjectAndUserNotAddedToProject() {
+        Mockito.doReturn(false).when(projectManager).canAccountAccessProject(ACCOUNT_ID, PROJECT_ID);
+        Mockito.doReturn(null).when(projectAccountDaoMock).findByProjectIdUserId(PROJECT_ID, ACCOUNT_ID, USER_ID);
+
+        Assert.assertFalse(projectManager.canUserAccessProject(USER_ID, ACCOUNT_ID, PROJECT_ID));
     }
 }
