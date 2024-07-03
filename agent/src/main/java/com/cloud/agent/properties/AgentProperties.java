@@ -810,6 +810,13 @@ public class AgentProperties{
      */
     public static final Property<String> HOST_TAGS = new Property<>("host.tags", null, String.class);
 
+    /**
+     * If set to true, creates VMs as full clones. Creates as linked clones otherwise. Only affects THIN storage provisioning scope on KVM hypervisor. <br>
+     * Data type: Boolean. <br>
+     * Default value: <code>false</code>
+     */
+    public static final Property<Boolean> KVM_CREATE_FULL_CLONE = new Property<>("kvm.create.full.clone", false);
+
     public static class Property <T>{
         private String name;
         private T defaultValue;
