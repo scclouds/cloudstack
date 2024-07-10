@@ -1004,6 +1004,12 @@ public class ApiResponseHelper implements ResponseGenerator {
         if (!isAdmin) {
             return;
         }
+        try {
+            nic.getInstanceId();
+        } catch (NullPointerException ex) {
+            return;
+        }
+
         VirtualMachine vm = ApiDBUtils.findVMInstanceById(nic.getInstanceId());
         if (vm == null) {
             return;
@@ -1446,7 +1452,7 @@ public class ApiResponseHelper implements ResponseGenerator {
     @Override
     public StoragePoolResponse createStoragePoolResponse(StoragePool pool) {
         List<StoragePoolJoinVO> viewPools = ApiDBUtils.newStoragePoolView(pool);
-        List<StoragePoolResponse> listPools = ViewResponseHelper.createStoragePoolResponse(viewPools.toArray(new StoragePoolJoinVO[viewPools.size()]));
+        List<StoragePoolResponse> listPools = ViewResponseHelper.createStoragePoolResponse(false, viewPools.toArray(new StoragePoolJoinVO[viewPools.size()]));
         assert listPools != null && listPools.size() == 1 : "There should be one storage pool returned";
         return listPools.get(0);
     }
@@ -4374,10 +4380,10 @@ public class ApiResponseHelper implements ResponseGenerator {
         }
 
         if (usageRecord.getStartDate() != null) {
-            usageRecResponse.setStartDate(getDateStringInternal(usageRecord.getStartDate()));
+            usageRecResponse.setStartDate(usageRecord.getStartDate());
         }
         if (usageRecord.getEndDate() != null) {
-            usageRecResponse.setEndDate(getDateStringInternal(usageRecord.getEndDate()));
+            usageRecResponse.setEndDate(usageRecord.getEndDate());
         }
 
         return usageRecResponse;
@@ -4853,12 +4859,7 @@ public class ApiResponseHelper implements ResponseGenerator {
     @Override
     public UserDataResponse createUserDataResponse(UserData userData) {
         UserDataResponse response = new UserDataResponse(userData.getUuid(), userData.getName(), userData.getUserData(), userData.getParams());
-        Account account = ApiDBUtils.findAccountById(userData.getAccountId());
-        response.setAccountId(account.getUuid());
-        response.setAccountName(account.getAccountName());
-        Domain domain = ApiDBUtils.findDomainById(userData.getDomainId());
-        response.setDomainId(domain.getUuid());
-        response.setDomainName(domain.getName());
+        populateOwner(response, userData);
         response.setHasAnnotation(annotationDao.hasAnnotations(userData.getUuid(), AnnotationService.EntityType.USER_DATA.name(),
                 _accountMgr.isRootAdmin(CallContext.current().getCallingAccount().getId())));
         return response;
@@ -5161,7 +5162,7 @@ public class ApiResponseHelper implements ResponseGenerator {
         } else if (instance.getHostName() != null) {
             response.setHostName(instance.getHostName());
         }
-        response.setPowerState(instance.getPowerState().toString());
+        response.setPowerState((instance.getPowerState() != null)? instance.getPowerState().toString() : UnmanagedInstanceTO.PowerState.PowerUnknown.toString());
         response.setCpuCores(instance.getCpuCores());
         response.setCpuSpeed(instance.getCpuSpeed());
         response.setCpuCoresPerSocket(instance.getCpuCoresPerSocket());

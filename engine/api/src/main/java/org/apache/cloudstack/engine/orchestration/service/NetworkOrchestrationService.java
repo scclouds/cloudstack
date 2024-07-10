@@ -367,4 +367,6 @@ public interface NetworkOrchestrationService {
      * @return The maximum number of NICs that the virtual machine can have.
      */
     Integer getVirtualMachineMaxNicsValue(VirtualMachine virtualMachine);
+
+    void expungeLbVmRefs(List<Long> vmIds, Long batchSize);
 }
