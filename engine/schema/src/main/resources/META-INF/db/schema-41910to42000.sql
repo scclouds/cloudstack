@@ -155,8 +155,8 @@ WHERE
 -- Quota inject tariff result into subsequent ones
 CALL `cloud_usage`.`IDEMPOTENT_ADD_COLUMN`('cloud_usage.quota_tariff', 'position', 'bigint(20) NOT NULL DEFAULT 1 COMMENT "Position in the execution sequence for tariffs of the same type"');
 
-
-CREATE TABLE IF NOT EXISTS `cloud_usage`.`usage_backup_object` (
+DROP TABLE IF EXISTS `cloud_usage`.`usage_backup_object`;
+CREATE TABLE `cloud_usage`.`usage_backup_object` (
   `id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
   `backup_id` bigint(20) unsigned NOT NULL,
   `backup_offering_id` bigint(20) unsigned NOT NULL,

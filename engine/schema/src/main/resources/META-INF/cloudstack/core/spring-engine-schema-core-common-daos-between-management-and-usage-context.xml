@@ -72,7 +72,6 @@
 	<bean id="volumeDaoImpl" class="com.cloud.storage.dao.VolumeDaoImpl" />
   	<bean id="reservationDao" class="org.apache.cloudstack.reservation.dao.ReservationDaoImpl" />
     <bean id="backupOfferingDaoImpl" class="org.apache.cloudstack.backup.dao.BackupOfferingDaoImpl" />
-	<bean id="backupOfferingDaoImpl" class="org.apache.cloudstack.backup.dao.BackupOfferingDaoImpl" />
 	<bean id="backupDaoImpl" class="org.apache.cloudstack.backup.dao.BackupDaoImpl" />
 
 </beans>
