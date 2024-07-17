@@ -2516,7 +2516,7 @@
 "message.action.delete.volume": "Please confirm that you want to delete this volume. Note: this will not delete any Snapshots of this volume.",
 "message.action.delete.vpn.user": "Please confirm that you want to delete the VPN user.",
 "message.action.delete.zone": "Please confirm that you want to delete this zone.",
-"message.action.destroy.instance": "Please confirm that you want to destroy the Instance.",
+"message.action.destroy.instance": "Please confirm that you want to destroy the Instance \"{name}\".",
 "message.action.destroy.instance.with.backups": "Please confirm that you want to destroy the Instance. There may be backups associated with the Instance which will not be deleted.",
 "message.action.destroy.systemvm": "Please confirm that you want to destroy the System VM.",
 "message.action.destroy.volume": "Please confirm that you want to destroy the volume.",

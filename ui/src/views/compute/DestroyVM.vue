@@ -20,7 +20,7 @@
     <div v-if="selectedRowKeys.length === 0">
       <a-alert type="warning">
         <template #message>
-          <span v-html="resource.backupofferingid ? $t('message.action.destroy.instance.with.backups') : $t('message.action.destroy.instance')"></span>
+          <span v-html="resource.backupofferingid ? $t('message.action.destroy.instance.with.backups') : $t('message.action.destroy.instance', {name: resource.name})"></span>
         </template>
       </a-alert>
       <br/>
