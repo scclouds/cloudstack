@@ -161,10 +161,10 @@ public class AccountDaoImpl extends GenericDaoBase<AccountVO, Long> implements A
                 account.setState(State.getValueOf(rs.getString(10)));
 
                 ApiKeyPairVO keyPair = new ApiKeyPairVO(rs.getLong(11));
-                keyPair.setStartDate(rs.getDate(12));
-                keyPair.setEndDate(rs.getDate(13));
+                keyPair.setStartDate(rs.getTimestamp(12));
+                keyPair.setEndDate(rs.getTimestamp(13));
                 keyPair.setSecretKey(DBEncryptionUtil.decrypt(rs.getString(14)));
-                keyPair.setRemoved(rs.getDate(15));
+                keyPair.setRemoved(rs.getTimestamp(15));
 
                 userAcctTernary = new Ternary<User, Account, ApiKeyPair>(user, account, keyPair);
             }

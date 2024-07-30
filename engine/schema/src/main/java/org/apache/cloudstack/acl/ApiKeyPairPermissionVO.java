@@ -16,7 +16,6 @@
 // under the License.
 package org.apache.cloudstack.acl;
 
-import org.apache.cloudstack.acl.RolePermissionBaseVO;
 import org.apache.cloudstack.acl.apikeypair.ApiKeyPairPermission;
 
 import javax.persistence.Column;

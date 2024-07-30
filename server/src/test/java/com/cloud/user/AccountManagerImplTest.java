@@ -37,7 +37,6 @@ import org.apache.cloudstack.acl.RolePermissionEntity;
 import org.apache.cloudstack.acl.RolePermissionVO;
 import org.apache.cloudstack.acl.RoleService;
 import org.apache.cloudstack.acl.RoleVO;
-import org.apache.cloudstack.acl.SecurityChecker;
 import org.apache.cloudstack.acl.SecurityChecker.AccessType;
 import org.apache.cloudstack.acl.apikeypair.ApiKeyPair;
 import org.apache.cloudstack.acl.apikeypair.ApiKeyPairService;
@@ -177,7 +176,6 @@ public class AccountManagerImplTest extends AccountManagetImplTestBase {
             keyPair.setId(1L);
             return keyPair;
         });
-
     }
 
     @Test
@@ -326,10 +324,9 @@ public class AccountManagerImplTest extends AccountManagetImplTestBase {
     @Test(expected = PermissionDeniedException.class)
     public void testgetUserCmd() {
         CallContext.register(callingUser, callingAccount); // Calling account is user account i.e normal account
-        Mockito.when(listUserKeysCmd.getKeyId()).thenReturn(null);
-        Mockito.when(listUserKeysCmd.getUserId()).thenReturn(1L);
-        Mockito.doThrow(new PermissionDeniedException("PDE")).when(apiKeyPairService).validateCallingUserHasAccessToDesiredUser(Mockito.anyLong());
-        Mockito.lenient().when(accountManagerImpl.getAccount(Mockito.anyLong())).thenReturn(accountMock); // Queried account - admin account
+        Mockito.when(_getkeyscmd.getID()).thenReturn(1L);
+        Mockito.when(accountManagerImpl.getActiveUser(1L)).thenReturn(userVoMock);
+        Mockito.when(userAccountDaoMock.findById(1L)).thenReturn(userAccountVO);
 
         Mockito.lenient().when(callingUser.getAccountId()).thenReturn(1L);
         Mockito.lenient().when(_accountDao.findById(1L)).thenReturn(callingAccount);
@@ -337,7 +334,7 @@ public class AccountManagerImplTest extends AccountManagetImplTestBase {
         Mockito.lenient().when(accountService.isNormalUser(Mockito.anyLong())).thenReturn(Boolean.TRUE);
         Mockito.lenient().when(accountMock.getAccountId()).thenReturn(2L);
 
-        accountManagerImpl.getKeys(listUserKeysCmd);
+        accountManagerImpl.getKeys(_getkeyscmd);
     }
 
     @Test

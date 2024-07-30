@@ -33,7 +33,6 @@ import javax.persistence.Transient;
 
 import org.apache.cloudstack.api.InternalIdentity;
 
-import com.cloud.utils.db.Encrypt;
 import com.cloud.utils.db.GenericDao;
 import org.apache.commons.lang3.StringUtils;
 

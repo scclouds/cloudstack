@@ -1034,6 +1034,8 @@ public class ApiServer extends ManagerBase implements HttpRequestHandler, ApiSer
             }
         } catch (final ServerApiException ex) {
             throw ex;
+        } catch (PermissionDeniedException ex) {
+            logger.error(String.format("Permission denied for keypair, reason: %s", ex.getMessage()));
         } catch (final Exception ex) {
             logger.error("unable to verify request signature");
         }

@@ -77,8 +77,10 @@ public class UserAccountJoinDaoImpl extends GenericDaoBase<UserAccountJoinVO, Lo
         userResponse.set2FAmandated(is2FAmandated);
 
         ApiKeyPairVO lastKeyPair = ApiDBUtils.searchForLatestUserKeyPair(usr.getId());
-        userResponse.setApiKey(lastKeyPair.getApiKey());
-        userResponse.setSecretKey(lastKeyPair.getSecretKey());
+        if (lastKeyPair != null) {
+            userResponse.setApiKey(lastKeyPair.getApiKey());
+            userResponse.setSecretKey(lastKeyPair.getSecretKey());
+        }
 
         // set async job
         if (usr.getJobId() != null) {
