@@ -22,6 +22,7 @@ import java.util.Map;
 
 import com.cloud.api.auth.SetupUserTwoFactorAuthenticationCmd;
 import org.apache.cloudstack.acl.ControlledEntity;
+import org.apache.cloudstack.acl.apikeypair.ApiKeyPair;
 import org.apache.cloudstack.api.command.admin.account.UpdateAccountCmd;
 import org.apache.cloudstack.api.command.admin.user.DeleteUserCmd;
 import org.apache.cloudstack.api.command.admin.user.MoveUserCmd;
@@ -85,7 +86,7 @@ public interface AccountManager extends AccountService, Configurable {
      *            that was created for a particular user
      * @return the user/account pair if one exact match was found, null otherwise
      */
-    Pair<User, Account> findUserByApiKey(String apiKey);
+    public Ternary<User, Account, ApiKeyPair> findUserByApiKey(String apiKey);
 
     boolean enableAccount(long accountId);
 

@@ -28,14 +28,6 @@ import java.util.List;
 @Component
 public class UserAccountDaoImpl extends GenericDaoBase<UserAccountVO, Long> implements UserAccountDao {
 
-    protected final SearchBuilder<UserAccountVO> userAccountSearch;
-
-    public UserAccountDaoImpl() {
-        userAccountSearch = createSearchBuilder();
-        userAccountSearch.and("apiKey", userAccountSearch.entity().getApiKey(), SearchCriteria.Op.EQ);
-        userAccountSearch.done();
-    }
-
     @Override
     public List<UserAccountVO> getAllUsersByNameAndEntity(String username, String entity) {
         if (username == null) {
@@ -79,12 +71,4 @@ public class UserAccountDaoImpl extends GenericDaoBase<UserAccountVO, Long> impl
         }
         return false;
     }
-
-    @Override
-    public UserAccount getUserByApiKey(String apiKey) {
-        SearchCriteria<UserAccountVO> sc = userAccountSearch.create();
-        sc.setParameters("apiKey", apiKey);
-        return findOneBy(sc);
-    }
-
 }

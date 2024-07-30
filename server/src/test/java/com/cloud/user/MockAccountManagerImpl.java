@@ -37,13 +37,17 @@ import com.cloud.utils.db.SearchCriteria;
 import org.apache.cloudstack.acl.ControlledEntity;
 import org.apache.cloudstack.acl.RoleType;
 import org.apache.cloudstack.acl.SecurityChecker.AccessType;
+import org.apache.cloudstack.acl.apikeypair.ApiKeyPair;
 import org.apache.cloudstack.api.command.admin.account.CreateAccountCmd;
 import org.apache.cloudstack.api.command.admin.account.UpdateAccountCmd;
 import org.apache.cloudstack.api.command.admin.user.DeleteUserCmd;
 import org.apache.cloudstack.api.command.admin.user.GetUserKeysCmd;
+import org.apache.cloudstack.api.command.admin.user.ListUserKeysCmd;
 import org.apache.cloudstack.api.command.admin.user.MoveUserCmd;
 import org.apache.cloudstack.api.command.admin.user.RegisterCmd;
 import org.apache.cloudstack.api.command.admin.user.UpdateUserCmd;
+import org.apache.cloudstack.api.response.ApiKeyPairResponse;
+import org.apache.cloudstack.api.response.ListResponse;
 import org.apache.cloudstack.api.response.UserTwoFactorAuthenticationSetupResponse;
 import org.apache.cloudstack.auth.UserTwoFactorAuthenticator;
 import org.apache.cloudstack.framework.config.ConfigKey;
@@ -306,12 +310,12 @@ public class MockAccountManagerImpl extends ManagerBase implements Manager, Acco
     }
 
     @Override
-    public Pair<User, Account> findUserByApiKey(String apiKey) {
+    public Ternary<User, Account, ApiKeyPair> findUserByApiKey(String apiKey) {
         return null;
     }
 
     @Override
-    public String[] createApiKeyAndSecretKey(RegisterCmd cmd) {
+    public ApiKeyPair createApiKeyAndSecretKey(RegisterCmd cmd) {
         return null;
     }
 
@@ -450,7 +454,7 @@ public class MockAccountManagerImpl extends ManagerBase implements Manager, Acco
     }
 
     @Override
-    public Map<String, String> getKeys(Long userId) {
+    public ListResponse<ApiKeyPairResponse> getKeys(ListUserKeysCmd cmd) {
         return null;
     }
 
@@ -461,6 +465,16 @@ public class MockAccountManagerImpl extends ManagerBase implements Manager, Acco
 
     @Override
     public UserTwoFactorAuthenticator getUserTwoFactorAuthenticationProvider(Long domainId) {
+        return null;
+    }
+
+    @Override
+    public ApiKeyPair getLatestUserKeyPair(Long userId) {
+        return null;
+    }
+
+    @Override
+    public ApiKeyPair getKeyPairById(Long id) {
         return null;
     }
 
