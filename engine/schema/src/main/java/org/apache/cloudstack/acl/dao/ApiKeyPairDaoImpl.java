@@ -57,12 +57,12 @@ public class ApiKeyPairDaoImpl extends GenericDaoBase<ApiKeyPairVO, Long> implem
         return findOneBy(sc);
     }
 
-    public Pair<List<ApiKeyPairVO>, Integer> listApiKeysByUserOrId(Long userId, Long id) {
+    public Pair<List<ApiKeyPairVO>, Integer> listApiKeysByUserOrApiKeyId(Long userId, Long apiKeyId) {
         SearchCriteria<ApiKeyPairVO> sc = keyPairSearch.create();
         if (userId != null) {
             sc.setParametersIfNotNull("userId", String.valueOf(userId));
         }
-        sc.setParametersIfNotNull("id", id);
+        sc.setParametersIfNotNull("id", apiKeyId);
         final Filter searchFilter = new Filter(100);
         return searchAndCount(sc, searchFilter);
     }

@@ -30,7 +30,7 @@ public interface ApiKeyPairDao extends GenericDao<ApiKeyPairVO, Long> {
 
     ApiKeyPairVO findByUuid(String uuid);
 
-    Pair<List<ApiKeyPairVO>, Integer> listApiKeysByUserOrId(Long userId, Long id);
+    Pair<List<ApiKeyPairVO>, Integer> listApiKeysByUserOrApiKeyId(Long userId, Long apiKeyId);
 
     ApiKeyPairVO getLastApiKeyCreatedByUser(Long userId);
 

@@ -882,6 +882,10 @@ public class AccountManagerImpl extends ManagerBase implements AccountManager, M
             // cleanup the users from the account
             List<UserVO> users = _userDao.listByAccount(accountId);
             for (UserVO user : users) {
+                // remove apikeys
+                List<ApiKeyPairVO> apiKeyPairs = apiKeyPairDao.listApiKeysByUserOrApiKeyId(user.getId(), null).first();
+                apiKeyPairs.stream().forEach(keyPair -> apiKeyPairService.deleteApiKey(keyPair));
+
                 if (!_userDao.remove(user.getId())) {
                     logger.error("Unable to delete user: " + user + " as a part of account " + account + " cleanup");
                     accountCleanupNeeded = true;
@@ -2135,6 +2139,10 @@ public class AccountManagerImpl extends ManagerBase implements AccountManager, M
 
         // don't allow to delete the user from the account of type Project
         checkAccountAndAccess(user, account);
+        // remove apikeys
+        List<ApiKeyPairVO> apiKeyPairs = apiKeyPairDao.listApiKeysByUserOrApiKeyId(id, null).first();
+        apiKeyPairs.stream().forEach(keyPair -> apiKeyPairService.deleteApiKey(keyPair));
+
         return _userDao.remove(id);
     }
 
@@ -2837,6 +2845,9 @@ public class AccountManagerImpl extends ManagerBase implements AccountManager, M
         } else {
             keyPair = _accountService.getLatestUserKeyPair(CallContext.current().getCallingUser().getId());
         }
+        if (keyPair == null) {
+            throw new InvalidParameterValueException("No api key was found with the parameters specified");
+        }
         apiKeyPairService.validateCallingUserHasAccessToDesiredUser(keyPair.getUserId());
         addKeypairResponse(keyPair, responses, cmd);
     }
@@ -2848,7 +2859,7 @@ public class AccountManagerImpl extends ManagerBase implements AccountManager, M
             users = List.of(cmd.getUserId());
         } else {
             User callerUser = CallContext.current().getCallingUser();
-            users = isRootAdmin(callerUser.getAccountId()) ? queryService.searchForAccessableUsers() : List.of(callerUser.getId());
+            users = isAdmin(callerUser.getAccountId()) ? queryService.searchForAccessableUsers() : List.of(callerUser.getId());
         }
 
         Pair<List<ApiKeyPairVO>,  Integer> keyPairs = apiKeyPairDao.listByUserIdsPaginated(users, cmd);
