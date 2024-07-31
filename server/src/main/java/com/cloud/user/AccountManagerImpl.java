@@ -3059,10 +3059,6 @@ public class AccountManagerImpl extends ManagerBase implements AccountManager, M
      */
     @DB
     private ApiKeyPairVO validateAndPersistKeyPairAndPermissions(Account account, ApiKeyPairVO newApiKeyPair, List<Map<String, Object>> rules, Boolean accessedByApiKey, String apiKey) {
-        if (newApiKeyPair.getName() == null) {
-            User user = _userDao.findById(newApiKeyPair.getUserId());
-            newApiKeyPair.setName(user.getUsername() + " - API Keypair");
-        }
         final ApiKeyPairVO savedApiKeyPair = apiKeyPairDao.persist(newApiKeyPair);
 
         final Role accountRole = roleService.findRole(account.getRoleId());

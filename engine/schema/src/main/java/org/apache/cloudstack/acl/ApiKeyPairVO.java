@@ -101,7 +101,11 @@ public class ApiKeyPairVO implements ApiKeyPair {
     }
 
     public ApiKeyPairVO(String name, Long userId, String description, Date startDate, Date endDate, Account account) {
-        this.name = name;
+        if (name == null) {
+            this.name = userId + " - API Keypair";
+        } else {
+            this.name = name;
+        }
         this.userId = userId;
         this.description = description;
         this.startDate = startDate;
