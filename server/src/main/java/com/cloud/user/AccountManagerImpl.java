@@ -1680,17 +1680,29 @@ public class AccountManagerImpl extends ManagerBase implements AccountManager, M
         if (isApiKeyBlank && isSecretKeyBlank) {
             return null;
         }
+
         Ternary<User, Account, ApiKeyPair> keyPairTernary = _accountDao.findUserAccountByApiKey(apiKey);
-        if (keyPairTernary != null) {
-            User userThatHasTheProvidedApiKey = keyPairTernary.first();
-            if (userThatHasTheProvidedApiKey.getId() != user.getId()) {
-                throw new InvalidParameterValueException(String.format("The API key [%s] already exists in the system. Please provide a unique key.", apiKey));
-            }
+
+        if (keyPairTernary == null) {
+            throw new InvalidParameterValueException(String.format("The API key [%s] does not exist in the system. Please provide a valid key.", apiKey));
         }
+
+        User userThatHasTheProvidedApiKey = keyPairTernary.first();
+        if (userThatHasTheProvidedApiKey.getId() != user.getId()) {
+            throw new InvalidParameterValueException(String.format("The API key [%s] already exists in the system. Please provide a unique key.", apiKey));
+        }
+
         ApiKeyPairVO keyPair = (ApiKeyPairVO) keyPairTernary.third();
+
+        Account account = _accountDao.findById(user.getAccountId());
         keyPair.setApiKey(apiKey);
         keyPair.setSecretKey(secretKey);
+        keyPair.setDomainId(account.getDomainId());
+        keyPair.setUserId(user.getId());
+        keyPair.setAccountId(account.getId());
+        keyPair.setName(keyPair.getUuid());
         return keyPair;
+
     }
 
     /**

@@ -95,7 +95,6 @@ public class ApiKeyPairDaoImpl extends GenericDaoBase<ApiKeyPairVO, Long> implem
         return apiKeyPairVOList;
     }
 
-
         @Override
     public boolean update(Long id, ApiKeyPairVO apiKeyPair) {
         ApiKeyPairVO ub = createForUpdate();
