@@ -155,7 +155,6 @@ public class AccountManagerImplTest extends AccountManagetImplTestBase {
     @Mock
     RegisterCmd registerCmdMock;
 
-
     @Before
     public void setUp() throws Exception {
         enableUserTwoFactorAuthenticationMock = Mockito.mock(ConfigKey.class);
@@ -176,6 +175,9 @@ public class AccountManagerImplTest extends AccountManagetImplTestBase {
             keyPair.setId(1L);
             return keyPair;
         });
+
+        Pair<List<ApiKeyPairVO>, Integer> pair = new Pair(List.of(), 0);
+        Mockito.when(keyPairDaoMock.listApiKeysByUserOrApiKeyId(Mockito.any(), Mockito.any())).thenReturn(pair);
     }
 
     @Test
@@ -454,6 +456,7 @@ public class AccountManagerImplTest extends AccountManagetImplTestBase {
         Ternary<User, Account, ApiKeyPair> pairUserAccountMock = new Ternary<>(otherUserMock, Mockito.mock(Account.class), apiKeyPairVOMock);
         Mockito.doReturn(pairUserAccountMock).when(_accountDao).findUserAccountByApiKey(apiKey);
 
+        Mockito.when(_accountDao.findById(Mockito.anyLong())).thenReturn(accountVoMock);
         accountManagerImpl.validateAndUpdateApiAndSecretKeyIfNeeded(UpdateUserCmdMock, userVoMock);
 
         Mockito.verify(_accountDao).findUserAccountByApiKey(apiKey);
