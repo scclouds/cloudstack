@@ -344,7 +344,7 @@ public class AccountManagerImplTest extends AccountManagetImplTestBase {
     @Test(expected = PermissionDeniedException.class)
     public void testGetUserKeysCmdDomainAdminRootAdminUser() {
         CallContext.register(callingUser, callingAccount);
-        Mockito.when(_listkeyscmd.getID()).thenReturn(2L);
+        Mockito.when(_getkeyscmd.getID()).thenReturn(2L);
         Mockito.when(accountManagerImpl.getActiveUser(2L)).thenReturn(userVoMock);
         Mockito.when(userAccountDaoMock.findById(2L)).thenReturn(userAccountVO);
         Mockito.when(userAccountVO.getAccountId()).thenReturn(2L);
@@ -368,7 +368,7 @@ public class AccountManagerImplTest extends AccountManagetImplTestBase {
         Mockito.lenient().when(accountService.isDomainAdmin(Mockito.anyLong())).thenReturn(Boolean.TRUE);
         Mockito.lenient().when(accountMock.getAccountId()).thenReturn(2L);
 
-        accountManagerImpl.getKeys(_listkeyscmd);
+        accountManagerImpl.getKeys(_getkeyscmd);
     }
 
     @Test
