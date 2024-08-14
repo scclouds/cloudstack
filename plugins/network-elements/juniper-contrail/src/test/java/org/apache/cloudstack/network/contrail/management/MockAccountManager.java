@@ -118,7 +118,7 @@ public class MockAccountManager extends ManagerBase implements AccountManager {
     }
 
     @Override
-    public String[] createApiKeyAndSecretKey(RegisterCmd arg0) {
+    public ApiKeyPair createApiKeyAndSecretKey(RegisterCmd cmd) {
         // TODO Auto-generated method stub
         return null;
     }
@@ -394,7 +394,7 @@ public class MockAccountManager extends ManagerBase implements AccountManager {
     }
 
     @Override
-    public Pair<User, Account> findUserByApiKey(String arg0) {
+    public Ternary<User, Account, ApiKeyPair> findUserByApiKey(String arg0) {
         // TODO Auto-generated method stub
         return null;
     }
@@ -486,7 +486,7 @@ public class MockAccountManager extends ManagerBase implements AccountManager {
     }
 
     @Override
-    public Map<String, String> getKeys(Long userId) {
+    public ListResponse<ApiKeyPairResponse> getKeys(ListUserKeysCmd cmd) {
         return null;
     }
 

@@ -85,7 +85,7 @@ public interface AccountManager extends AccountService, Configurable {
      *            that was created for a particular user
      * @return the user/account pair if one exact match was found, null otherwise
      */
-    public Ternary<User, Account, ApiKeyPair> findUserByApiKey(String apiKey);
+    Ternary<User, Account, ApiKeyPair> findUserByApiKey(String apiKey);
 
     boolean enableAccount(long accountId);
 
