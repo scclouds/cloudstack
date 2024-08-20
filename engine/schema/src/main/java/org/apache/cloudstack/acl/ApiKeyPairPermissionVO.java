@@ -51,4 +51,3 @@ public class ApiKeyPairPermissionVO extends RolePermissionBaseVO implements ApiK
         return sortOrder;
     }
 }
-
