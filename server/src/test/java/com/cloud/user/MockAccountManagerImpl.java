@@ -477,6 +477,9 @@ public class MockAccountManagerImpl extends ManagerBase implements Manager, Acco
         return null;
     }
 
+    public void checkApiAccess(Account account, String command) throws PermissionDeniedException {
+
+    }
     @Override
     public void checkAccess(User user, ControlledEntity entity)
         throws PermissionDeniedException {
