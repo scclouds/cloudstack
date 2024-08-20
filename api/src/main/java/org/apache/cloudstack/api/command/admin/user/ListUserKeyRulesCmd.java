@@ -40,7 +40,7 @@ import org.apache.cloudstack.api.response.ListResponse;
         responseObject = BaseRolePermissionResponse.class,
         requestHasSensitiveInfo = false,
         responseHasSensitiveInfo = false,
-        since = "4.18.0.11-scclouds")
+        since = "4.20.0")
 
 public class ListUserKeyRulesCmd extends BaseCmd {
 

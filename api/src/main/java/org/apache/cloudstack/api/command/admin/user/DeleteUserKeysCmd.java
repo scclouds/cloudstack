@@ -30,7 +30,7 @@ import org.apache.cloudstack.api.response.ApiKeyPairResponse;
 import org.apache.cloudstack.api.response.SuccessResponse;
 
 @APICommand(name = "deleteUserKeys", description = "Deletes a keypair from a user", responseObject = SuccessResponse.class,
-        since = "4.18.0.11-scclouds", requestHasSensitiveInfo = false, responseHasSensitiveInfo = false)
+        since = "4.20.0", requestHasSensitiveInfo = false, responseHasSensitiveInfo = false)
 public class DeleteUserKeysCmd extends BaseAsyncCmd {
 
     @ACL

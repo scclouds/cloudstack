@@ -40,7 +40,7 @@ import org.apache.logging.log4j.Logger;
         requestHasSensitiveInfo = false,
         responseHasSensitiveInfo = true,
         authorized = {RoleType.User, RoleType.Admin, RoleType.DomainAdmin, RoleType.ResourceAdmin},
-        since = "4.10.0")
+        since = "4.20.0")
 
 public class ListUserKeysCmd extends BaseListDomainResourcesCmd {
 
