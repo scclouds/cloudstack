@@ -32,8 +32,12 @@ import org.apache.cloudstack.api.response.UserTwoFactorAuthenticationSetupRespon
 import org.apache.cloudstack.auth.UserTwoFactorAuthenticator;
 import org.apache.cloudstack.framework.config.ConfigKey;
 
+import org.apache.cloudstack.acl.apikeypair.ApiKeyPair;
 import org.apache.cloudstack.acl.ControlledEntity;
 import org.apache.cloudstack.acl.RoleType;
+import org.apache.cloudstack.api.command.admin.user.ListUserKeysCmd;
+import org.apache.cloudstack.api.response.ApiKeyPairResponse;
+import org.apache.cloudstack.api.response.ListResponse;
 import org.apache.cloudstack.acl.SecurityChecker.AccessType;
 import org.apache.cloudstack.api.command.admin.account.UpdateAccountCmd;
 import org.apache.cloudstack.api.command.admin.user.DeleteUserCmd;
@@ -486,6 +490,16 @@ public class MockAccountManager extends ManagerBase implements AccountManager {
 
     @Override
     public ListResponse<ApiKeyPairResponse> getKeys(ListUserKeysCmd cmd) {
+        return null;
+    }
+
+    @Override
+    public ApiKeyPair getKeyPairById(Long id) {
+        return null;
+    }
+
+    @Override
+    public ApiKeyPair getLatestUserKeyPair(Long id) {
         return null;
     }
 
