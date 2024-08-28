@@ -26,7 +26,7 @@ import org.apache.cloudstack.acl.apikeypair.ApiKeyPair;
 import org.apache.cloudstack.api.command.admin.account.CreateAccountCmd;
 import org.apache.cloudstack.api.command.admin.user.GetUserKeysCmd;
 import org.apache.cloudstack.api.command.admin.user.ListUserKeysCmd;
-import org.apache.cloudstack.api.command.admin.user.RegisterCmd;
+import org.apache.cloudstack.api.command.admin.user.RegisterUserKeysCmd;
 import org.apache.cloudstack.api.command.admin.user.UpdateUserCmd;
 
 import com.cloud.dc.DataCenter;
@@ -96,7 +96,7 @@ public interface AccountService {
 
     void markUserRegistered(long userId);
 
-    public ApiKeyPair createApiKeyAndSecretKey(RegisterCmd cmd);
+    public ApiKeyPair createApiKeyAndSecretKey(RegisterUserKeysCmd cmd);
 
     public String[] createApiKeyAndSecretKey(final long userId);
 

@@ -71,7 +71,7 @@ import org.apache.cloudstack.api.command.admin.user.DeleteUserCmd;
 import org.apache.cloudstack.api.command.admin.user.GetUserKeysCmd;
 import org.apache.cloudstack.api.command.admin.user.ListUserKeysCmd;
 import org.apache.cloudstack.api.command.admin.user.MoveUserCmd;
-import org.apache.cloudstack.api.command.admin.user.RegisterCmd;
+import org.apache.cloudstack.api.command.admin.user.RegisterUserKeysCmd;
 import org.apache.cloudstack.api.command.admin.user.UpdateUserCmd;
 import org.apache.cloudstack.api.response.ApiKeyPairResponse;
 import org.apache.cloudstack.api.response.ListResponse;
@@ -2940,7 +2940,7 @@ public class AccountManagerImpl extends ManagerBase implements AccountManager, M
     @Override
     @DB
     @ActionEvent(eventType = EventTypes.EVENT_REGISTER_FOR_SECRET_API_KEY, eventDescription = "register for the developer API keys")
-    public ApiKeyPair createApiKeyAndSecretKey(RegisterCmd cmd) {
+    public ApiKeyPair createApiKeyAndSecretKey(RegisterUserKeysCmd cmd) {
         Account caller = getCurrentCallingAccount();
         User user = _userDao.findById(cmd.getUserId());
         if (user == null) {

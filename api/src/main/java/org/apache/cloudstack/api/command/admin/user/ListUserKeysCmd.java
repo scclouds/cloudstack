@@ -45,7 +45,7 @@ import org.apache.logging.log4j.Logger;
 public class ListUserKeysCmd extends BaseListDomainResourcesCmd {
 
     @ACL
-    @Parameter(name=ApiConstants.USER_ID, type = CommandType.UUID, entityType = UserResponse.class, description = "ID of the user that owns the keys.")
+    @Parameter(name=ApiConstants.ID, type = CommandType.UUID, entityType = UserResponse.class, description = "ID of the user that owns the keys.")
     private Long userId;
 
     @ACL

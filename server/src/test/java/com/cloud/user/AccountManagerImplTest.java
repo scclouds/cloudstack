@@ -48,7 +48,7 @@ import org.apache.cloudstack.api.command.admin.user.DeleteUserCmd;
 import org.apache.cloudstack.acl.ControlledEntity;
 import org.apache.cloudstack.api.command.admin.user.GetUserKeysCmd;
 import org.apache.cloudstack.api.command.admin.user.ListUserKeysCmd;
-import org.apache.cloudstack.api.command.admin.user.RegisterCmd;
+import org.apache.cloudstack.api.command.admin.user.RegisterUserKeysCmd;
 import org.apache.cloudstack.api.command.admin.user.UpdateUserCmd;
 import org.apache.cloudstack.api.response.UserTwoFactorAuthenticationSetupResponse;
 import org.apache.cloudstack.auth.UserAuthenticator;
@@ -155,7 +155,7 @@ public class AccountManagerImplTest extends AccountManagetImplTestBase {
     RoleService roleServiceMock;
 
     @Mock
-    RegisterCmd registerCmdMock;
+    RegisterUserKeysCmd registerUserKeysCmdMock;
 
     @Before
     public void setUp() throws Exception {
@@ -1173,8 +1173,8 @@ public class AccountManagerImplTest extends AccountManagetImplTestBase {
         Mockito.lenient().when(callingUser.getId()).thenReturn(111L);
         long userId = 111L;
 
-        Mockito.when(registerCmdMock.getRules()).thenReturn(List.of());
-        Mockito.when(registerCmdMock.getUserId()).thenReturn(userId);
+        Mockito.when(registerUserKeysCmdMock.getRules()).thenReturn(List.of());
+        Mockito.when(registerUserKeysCmdMock.getUserId()).thenReturn(userId);
 
         Mockito.when(userDaoMock.findById(any())).thenReturn(userVoMock);
         Mockito.when(_accountDao.findById(Mockito.anyLong())).thenReturn(accountVoMock);
@@ -1185,7 +1185,7 @@ public class AccountManagerImplTest extends AccountManagetImplTestBase {
         ));
         Mockito.when(roleServiceMock.findRole(Mockito.anyLong())).thenReturn(new RoleVO());
 
-        accountManagerImpl.createApiKeyAndSecretKey(registerCmdMock);
+        accountManagerImpl.createApiKeyAndSecretKey(registerUserKeysCmdMock);
         Mockito.verify(keyPairDaoMock, Mockito.times(0)).remove(Mockito.anyLong());
         Mockito.verify(keyPairPermissionsDaoMock, Mockito.times(1)).persist(Mockito.any(ApiKeyPairPermissionVO.class));
     }
@@ -1202,8 +1202,8 @@ public class AccountManagerImplTest extends AccountManagetImplTestBase {
                 ApiConstants.PERMISSION, RolePermission.Permission.ALLOW,
                 ApiConstants.DESCRIPTION, "description"
         ));
-        Mockito.when(registerCmdMock.getRules()).thenReturn(rules);
-        Mockito.when(registerCmdMock.getUserId()).thenReturn(userId);
+        Mockito.when(registerUserKeysCmdMock.getRules()).thenReturn(rules);
+        Mockito.when(registerUserKeysCmdMock.getUserId()).thenReturn(userId);
 
         ApiKeyPairVO apiKeyPairVO = new ApiKeyPairVO();
         apiKeyPairVO.setUserId(userId);
@@ -1217,7 +1217,7 @@ public class AccountManagerImplTest extends AccountManagetImplTestBase {
         ));
         Mockito.when(roleServiceMock.findRole(Mockito.anyLong())).thenReturn(new RoleVO());
 
-        accountManagerImpl.createApiKeyAndSecretKey(registerCmdMock);
+        accountManagerImpl.createApiKeyAndSecretKey(registerUserKeysCmdMock);
         Mockito.verify(keyPairDaoMock, Mockito.times(1)).remove(Mockito.anyLong());
         Mockito.verify(keyPairPermissionsDaoMock, Mockito.times(0)).persist(Mockito.any(ApiKeyPairPermissionVO.class));
     }
@@ -1234,8 +1234,8 @@ public class AccountManagerImplTest extends AccountManagetImplTestBase {
                 ApiConstants.PERMISSION, RolePermission.Permission.ALLOW,
                 ApiConstants.DESCRIPTION, "description"
         ));
-        Mockito.when(registerCmdMock.getRules()).thenReturn(rules);
-        Mockito.when(registerCmdMock.getUserId()).thenReturn(userId);
+        Mockito.when(registerUserKeysCmdMock.getRules()).thenReturn(rules);
+        Mockito.when(registerUserKeysCmdMock.getUserId()).thenReturn(userId);
 
         ApiKeyPairVO apiKeyPairVO = new ApiKeyPairVO();
         apiKeyPairVO.setUserId(userId);
@@ -1250,7 +1250,7 @@ public class AccountManagerImplTest extends AccountManagetImplTestBase {
         ));
         Mockito.when(roleServiceMock.findRole(Mockito.anyLong())).thenReturn(new RoleVO());
 
-        accountManagerImpl.createApiKeyAndSecretKey(registerCmdMock);
+        accountManagerImpl.createApiKeyAndSecretKey(registerUserKeysCmdMock);
         Mockito.verify(keyPairDaoMock, Mockito.times(1)).remove(Mockito.anyLong());
         Mockito.verify(keyPairPermissionsDaoMock, Mockito.times(0)).persist(Mockito.any(ApiKeyPairPermissionVO.class));
     }
@@ -1267,8 +1267,8 @@ public class AccountManagerImplTest extends AccountManagetImplTestBase {
                 ApiConstants.PERMISSION, RolePermission.Permission.ALLOW,
                 ApiConstants.DESCRIPTION, "description"
         ));
-        Mockito.when(registerCmdMock.getRules()).thenReturn(rules);
-        Mockito.when(registerCmdMock.getUserId()).thenReturn(userId);
+        Mockito.when(registerUserKeysCmdMock.getRules()).thenReturn(rules);
+        Mockito.when(registerUserKeysCmdMock.getUserId()).thenReturn(userId);
 
 
         UserVO mockUser = new UserVO(userId);
@@ -1287,7 +1287,7 @@ public class AccountManagerImplTest extends AccountManagetImplTestBase {
         ));
         Mockito.when(roleServiceMock.findRole(Mockito.anyLong())).thenReturn(new RoleVO());
 
-        Assert.assertEquals((long) accountManagerImpl.createApiKeyAndSecretKey(registerCmdMock).getUserId(), userId);
+        Assert.assertEquals((long) accountManagerImpl.createApiKeyAndSecretKey(registerUserKeysCmdMock).getUserId(), userId);
         Mockito.verify(keyPairPermissionsDaoMock, Mockito.times(1)).persist(Mockito.any(ApiKeyPairPermissionVO.class));
     }
 
@@ -1303,8 +1303,8 @@ public class AccountManagerImplTest extends AccountManagetImplTestBase {
                 ApiConstants.PERMISSION, RolePermission.Permission.ALLOW,
                 ApiConstants.DESCRIPTION, "description"
         ));
-        Mockito.when(registerCmdMock.getRules()).thenReturn(rules);
-        Mockito.when(registerCmdMock.getUserId()).thenReturn(userId);
+        Mockito.when(registerUserKeysCmdMock.getRules()).thenReturn(rules);
+        Mockito.when(registerUserKeysCmdMock.getUserId()).thenReturn(userId);
 
         UserVO mockUser = new UserVO(userId);
         ApiKeyPairPermissionVO permissionVO = new ApiKeyPairPermissionVO();
@@ -1322,7 +1322,7 @@ public class AccountManagerImplTest extends AccountManagetImplTestBase {
         ));
         Mockito.when(roleServiceMock.findRole(Mockito.anyLong())).thenReturn(new RoleVO());
 
-        ApiKeyPair keyPairVO = accountManagerImpl.createApiKeyAndSecretKey(registerCmdMock);
+        ApiKeyPair keyPairVO = accountManagerImpl.createApiKeyAndSecretKey(registerUserKeysCmdMock);
 
         Assert.assertEquals((long) keyPairVO.getUserId(), userId);
     }
@@ -1341,11 +1341,11 @@ public class AccountManagerImplTest extends AccountManagetImplTestBase {
                 ApiConstants.PERMISSION, RolePermission.Permission.ALLOW,
                 ApiConstants.DESCRIPTION, "description"
         ));
-        Mockito.when(registerCmdMock.getRules()).thenReturn(rules);
-        Mockito.when(registerCmdMock.getUserId()).thenReturn(userId);
-        Mockito.when(registerCmdMock.getStartDate()).thenReturn(startDate);
-        Mockito.when(registerCmdMock.getEndDate()).thenReturn(endDate);
-        Mockito.when(registerCmdMock.getDescription()).thenReturn("key description");
+        Mockito.when(registerUserKeysCmdMock.getRules()).thenReturn(rules);
+        Mockito.when(registerUserKeysCmdMock.getUserId()).thenReturn(userId);
+        Mockito.when(registerUserKeysCmdMock.getStartDate()).thenReturn(startDate);
+        Mockito.when(registerUserKeysCmdMock.getEndDate()).thenReturn(endDate);
+        Mockito.when(registerUserKeysCmdMock.getDescription()).thenReturn("key description");
 
         UserVO mockUser = new UserVO(userId);
         ApiKeyPairPermissionVO permissionVO = new ApiKeyPairPermissionVO();
@@ -1363,7 +1363,7 @@ public class AccountManagerImplTest extends AccountManagetImplTestBase {
         ));
         Mockito.when(roleServiceMock.findRole(Mockito.anyLong())).thenReturn(new RoleVO());
 
-        ApiKeyPair response = accountManagerImpl.createApiKeyAndSecretKey(registerCmdMock);
+        ApiKeyPair response = accountManagerImpl.createApiKeyAndSecretKey(registerUserKeysCmdMock);
         Mockito.verify(keyPairDaoMock, Mockito.times(1)).persist(Mockito.any(ApiKeyPairVO.class));
         Assert.assertEquals((long) response.getUserId(), userId);
         Assert.assertEquals(response.getStartDate(), startDate);
@@ -1386,11 +1386,11 @@ public class AccountManagerImplTest extends AccountManagetImplTestBase {
                 ApiConstants.PERMISSION, RolePermission.Permission.ALLOW,
                 ApiConstants.DESCRIPTION, "description"
         ));
-        Mockito.when(registerCmdMock.getRules()).thenReturn(rules);
-        Mockito.when(registerCmdMock.getUserId()).thenReturn(userId);
-        Mockito.when(registerCmdMock.getStartDate()).thenReturn(startDate);
-        Mockito.when(registerCmdMock.getEndDate()).thenReturn(endDate);
-        Mockito.when(registerCmdMock.getDescription()).thenReturn("key description");
+        Mockito.when(registerUserKeysCmdMock.getRules()).thenReturn(rules);
+        Mockito.when(registerUserKeysCmdMock.getUserId()).thenReturn(userId);
+        Mockito.when(registerUserKeysCmdMock.getStartDate()).thenReturn(startDate);
+        Mockito.when(registerUserKeysCmdMock.getEndDate()).thenReturn(endDate);
+        Mockito.when(registerUserKeysCmdMock.getDescription()).thenReturn("key description");
 
         UserVO mockUser = new UserVO(userId);
         ApiKeyPairPermissionVO permissionVO = new ApiKeyPairPermissionVO();
@@ -1402,7 +1402,7 @@ public class AccountManagerImplTest extends AccountManagetImplTestBase {
         Mockito.when(_accountDao.findById(Mockito.anyLong())).thenReturn(accountVoMock);
         Mockito.doNothing().when(accountManagerImpl).checkAccess(Mockito.any(Account.class), Mockito.isNull(), Mockito.anyBoolean(), Mockito.any(Account.class));
 
-        ApiKeyPair response = accountManagerImpl.createApiKeyAndSecretKey(registerCmdMock);
+        ApiKeyPair response = accountManagerImpl.createApiKeyAndSecretKey(registerUserKeysCmdMock);
         Assert.assertEquals((long) response.getUserId(), userId);
         Assert.assertEquals(response.getStartDate(), startDate);
         Assert.assertEquals(response.getEndDate(), endDate);
@@ -1424,11 +1424,11 @@ public class AccountManagerImplTest extends AccountManagetImplTestBase {
                 ApiConstants.PERMISSION, RolePermission.Permission.ALLOW,
                 ApiConstants.DESCRIPTION, "description"
         ));
-        Mockito.when(registerCmdMock.getRules()).thenReturn(rules);
-        Mockito.when(registerCmdMock.getUserId()).thenReturn(userId);
-        Mockito.when(registerCmdMock.getStartDate()).thenReturn(startDate);
-        Mockito.when(registerCmdMock.getEndDate()).thenReturn(endDate);
-        Mockito.when(registerCmdMock.getDescription()).thenReturn("key description");
+        Mockito.when(registerUserKeysCmdMock.getRules()).thenReturn(rules);
+        Mockito.when(registerUserKeysCmdMock.getUserId()).thenReturn(userId);
+        Mockito.when(registerUserKeysCmdMock.getStartDate()).thenReturn(startDate);
+        Mockito.when(registerUserKeysCmdMock.getEndDate()).thenReturn(endDate);
+        Mockito.when(registerUserKeysCmdMock.getDescription()).thenReturn("key description");
 
         UserVO mockUser = new UserVO(userId);
         ApiKeyPairPermissionVO permissionVO = new ApiKeyPairPermissionVO();
@@ -1440,7 +1440,7 @@ public class AccountManagerImplTest extends AccountManagetImplTestBase {
         Mockito.when(_accountDao.findById(Mockito.anyLong())).thenReturn(accountVoMock);
         Mockito.doNothing().when(accountManagerImpl).checkAccess(Mockito.any(Account.class), Mockito.isNull(), Mockito.anyBoolean(), Mockito.any(Account.class));
 
-        ApiKeyPair response = accountManagerImpl.createApiKeyAndSecretKey(registerCmdMock);
+        ApiKeyPair response = accountManagerImpl.createApiKeyAndSecretKey(registerUserKeysCmdMock);
         Assert.assertEquals((long) response.getUserId(), userId);
         Assert.assertEquals(response.getStartDate(), startDate);
         Assert.assertEquals(response.getEndDate(), endDate);
@@ -1464,8 +1464,8 @@ public class AccountManagerImplTest extends AccountManagetImplTestBase {
                 ApiConstants.PERMISSION, RolePermission.Permission.ALLOW,
                 ApiConstants.DESCRIPTION, "description"
         ));
-        Mockito.when(registerCmdMock.getRules()).thenReturn(rules);
-        Mockito.when(registerCmdMock.getUserId()).thenReturn(userId);
+        Mockito.when(registerUserKeysCmdMock.getRules()).thenReturn(rules);
+        Mockito.when(registerUserKeysCmdMock.getUserId()).thenReturn(userId);
 
         UserVO mockUser = new UserVO(userId);
         ApiKeyPairPermissionVO permissionVO = new ApiKeyPairPermissionVO();
@@ -1484,7 +1484,7 @@ public class AccountManagerImplTest extends AccountManagetImplTestBase {
         ));
         Mockito.when(roleServiceMock.findRole(Mockito.anyLong())).thenReturn(new RoleVO());
 
-        accountManagerImpl.createApiKeyAndSecretKey(registerCmdMock);
+        accountManagerImpl.createApiKeyAndSecretKey(registerUserKeysCmdMock);
         Mockito.verify(keyPairDaoMock, Mockito.times(0)).remove(Mockito.anyLong());
         Mockito.verify(keyPairPermissionsDaoMock, Mockito.times(2)).persist(Mockito.any(ApiKeyPairPermissionVO.class));
     }
@@ -1511,8 +1511,8 @@ public class AccountManagerImplTest extends AccountManagetImplTestBase {
                 ApiConstants.PERMISSION, RolePermission.Permission.ALLOW,
                 ApiConstants.DESCRIPTION, "description"
         ));
-        Mockito.when(registerCmdMock.getRules()).thenReturn(rules);
-        Mockito.when(registerCmdMock.getUserId()).thenReturn(userId);
+        Mockito.when(registerUserKeysCmdMock.getRules()).thenReturn(rules);
+        Mockito.when(registerUserKeysCmdMock.getUserId()).thenReturn(userId);
 
         UserVO mockUser = new UserVO(userId);
         ApiKeyPairVO apiKeyPairVO = new ApiKeyPairVO();
@@ -1530,7 +1530,7 @@ public class AccountManagerImplTest extends AccountManagetImplTestBase {
         ));
         Mockito.when(roleServiceMock.findRole(Mockito.anyLong())).thenReturn(new RoleVO());
 
-        accountManagerImpl.createApiKeyAndSecretKey(registerCmdMock);
+        accountManagerImpl.createApiKeyAndSecretKey(registerUserKeysCmdMock);
         Mockito.verify(keyPairDaoMock, Mockito.times(1)).remove(Mockito.anyLong());
         Mockito.verify(keyPairPermissionsDaoMock, Mockito.times(0)).persist(Mockito.any(ApiKeyPairPermissionVO.class));
     }
@@ -1557,8 +1557,8 @@ public class AccountManagerImplTest extends AccountManagetImplTestBase {
                 ApiConstants.PERMISSION, RolePermission.Permission.DENY,
                 ApiConstants.DESCRIPTION, "description"
         ));
-        Mockito.when(registerCmdMock.getRules()).thenReturn(rules);
-        Mockito.when(registerCmdMock.getUserId()).thenReturn(userId);
+        Mockito.when(registerUserKeysCmdMock.getRules()).thenReturn(rules);
+        Mockito.when(registerUserKeysCmdMock.getUserId()).thenReturn(userId);
 
         ApiKeyPairVO apiKeyPairVO = new ApiKeyPairVO();
         apiKeyPairVO.setUserId(userId);
@@ -1574,7 +1574,7 @@ public class AccountManagerImplTest extends AccountManagetImplTestBase {
         ));
         Mockito.when(roleServiceMock.findRole(Mockito.anyLong())).thenReturn(new RoleVO());
 
-        accountManagerImpl.createApiKeyAndSecretKey(registerCmdMock);
+        accountManagerImpl.createApiKeyAndSecretKey(registerUserKeysCmdMock);
         Mockito.verify(keyPairDaoMock, Mockito.times(0)).remove(Mockito.anyLong());
         Mockito.verify(keyPairPermissionsDaoMock, Mockito.times(0)).persist(Mockito.any(ApiKeyPairPermissionVO.class));
     }
