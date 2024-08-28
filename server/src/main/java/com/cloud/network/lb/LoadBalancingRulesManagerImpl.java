@@ -16,7 +16,6 @@
 // under the License.
 package com.cloud.network.lb;
 
-import java.security.InvalidParameterException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
@@ -736,7 +735,7 @@ public class LoadBalancingRulesManagerImpl<Type> extends ManagerBase implements 
 
         LoadBalancerVO loadBalancer = _lbDao.findById(cmd.getLbRuleId());
         if (loadBalancer == null) {
-            throw new InvalidParameterException("Invalid Load balancer Id:" + cmd.getLbRuleId());
+            throw new InvalidParameterValueException("Invalid Load balancer Id:" + cmd.getLbRuleId());
         }
 
         _accountMgr.checkAccess(CallContext.current().getCallingAccount(), null, true, loadBalancer);
@@ -793,7 +792,7 @@ public class LoadBalancingRulesManagerImpl<Type> extends ManagerBase implements 
 
         LoadBalancerVO loadBalancer = _lbDao.findById(cmd.getLbRuleId());
         if (loadBalancer == null) {
-            throw new InvalidParameterException("Invalid Load balancer Id:" + cmd.getLbRuleId());
+            throw new InvalidParameterValueException("Invalid Load balancer Id:" + cmd.getLbRuleId());
         }
         _accountMgr.checkAccess(CallContext.current().getCallingAccount(), null, true, loadBalancer);
         FirewallRule.State backupState = loadBalancer.getState();
@@ -823,11 +822,11 @@ public class LoadBalancingRulesManagerImpl<Type> extends ManagerBase implements 
         LBStickinessPolicyVO stickinessPolicy = _lb2stickinesspoliciesDao.findById(stickinessPolicyId);
 
         if (stickinessPolicy == null) {
-            throw new InvalidParameterException("Invalid Stickiness policy id value: " + stickinessPolicyId);
+            throw new InvalidParameterValueException("Invalid Stickiness policy id value: " + stickinessPolicyId);
         }
         LoadBalancerVO loadBalancer = _lbDao.findById(Long.valueOf(stickinessPolicy.getLoadBalancerId()));
         if (loadBalancer == null) {
-            throw new InvalidParameterException("Invalid Load balancer : " + stickinessPolicy.getLoadBalancerId() + " for Stickiness policy id: " + stickinessPolicyId);
+            throw new InvalidParameterValueException("Invalid Load balancer : " + stickinessPolicy.getLoadBalancerId() + " for Stickiness policy id: " + stickinessPolicyId);
         }
         long loadBalancerId = loadBalancer.getId();
         FirewallRule.State backupState = loadBalancer.getState();
@@ -876,11 +875,11 @@ public class LoadBalancingRulesManagerImpl<Type> extends ManagerBase implements 
         LBHealthCheckPolicyVO healthCheckPolicy = _lb2healthcheckDao.findById(healthCheckPolicyId);
 
         if (healthCheckPolicy == null) {
-            throw new InvalidParameterException("Invalid HealthCheck policy id value: " + healthCheckPolicyId);
+            throw new InvalidParameterValueException("Invalid HealthCheck policy id value: " + healthCheckPolicyId);
         }
         LoadBalancerVO loadBalancer = _lbDao.findById(Long.valueOf(healthCheckPolicy.getLoadBalancerId()));
         if (loadBalancer == null) {
-            throw new InvalidParameterException("Invalid Load balancer : " + healthCheckPolicy.getLoadBalancerId() + " for HealthCheck policy id: " + healthCheckPolicyId);
+            throw new InvalidParameterValueException("Invalid Load balancer : " + healthCheckPolicy.getLoadBalancerId() + " for HealthCheck policy id: " + healthCheckPolicyId);
         }
         final long loadBalancerId = loadBalancer.getId();
         FirewallRule.State backupState = loadBalancer.getState();
@@ -1271,12 +1270,12 @@ public class LoadBalancingRulesManagerImpl<Type> extends ManagerBase implements 
 
         LoadBalancerVO loadBalancer = _lbDao.findById(Long.valueOf(lbRuleId));
         if (loadBalancer == null) {
-            throw new InvalidParameterException("Invalid load balancer id: " + lbRuleId);
+            throw new InvalidParameterValueException("Invalid load balancer id: " + lbRuleId);
         }
 
         SslCertVO certVO = _entityMgr.findById(SslCertVO.class, certId);
         if (certVO == null) {
-            throw new InvalidParameterException("Invalid certificate id: " + certId);
+            throw new InvalidParameterValueException("Invalid certificate id: " + certId);
         }
 
         _accountMgr.checkAccess(caller.getCallingAccount(), null, true, loadBalancer);
@@ -1335,11 +1334,11 @@ public class LoadBalancingRulesManagerImpl<Type> extends ManagerBase implements 
         LoadBalancerCertMapVO lbCertMap = _lbCertMapDao.findByLbRuleId(lbRuleId);
 
         if (loadBalancer == null) {
-            throw new InvalidParameterException("Invalid load balancer value: " + lbRuleId);
+            throw new InvalidParameterValueException("Invalid load balancer value: " + lbRuleId);
         }
 
         if (lbCertMap == null) {
-            throw new InvalidParameterException("No certificate is bound to lb with id: " + lbRuleId);
+            throw new InvalidParameterValueException("No certificate is bound to lb with id: " + lbRuleId);
         }
 
         _accountMgr.checkAccess(caller.getCallingAccount(), null, true, loadBalancer);
@@ -1383,7 +1382,7 @@ public class LoadBalancingRulesManagerImpl<Type> extends ManagerBase implements 
 
         LoadBalancerVO loadBalancer = _lbDao.findById(Long.valueOf(loadBalancerId));
         if (loadBalancer == null) {
-            throw new InvalidParameterException("Invalid load balancer value: " + loadBalancerId);
+            throw new InvalidParameterValueException("Invalid load balancer value: " + loadBalancerId);
         }
 
         _accountMgr.checkAccess(caller.getCallingAccount(), null, true, loadBalancer);
@@ -2695,7 +2694,7 @@ public class LoadBalancingRulesManagerImpl<Type> extends ManagerBase implements 
 
         LoadBalancerVO loadBalancer = _lbDao.findById(Long.valueOf(policy.getLoadBalancerId()));
         if (loadBalancer == null) {
-            throw new InvalidParameterException("Invalid Load balancer : " + policy.getLoadBalancerId() + " for Stickiness policy id: " + id);
+            throw new InvalidParameterValueException("Invalid Load balancer : " + policy.getLoadBalancerId() + " for Stickiness policy id: " + id);
         }
 
         _accountMgr.checkAccess(CallContext.current().getCallingAccount(), null, true, loadBalancer);
@@ -2722,7 +2721,7 @@ public class LoadBalancingRulesManagerImpl<Type> extends ManagerBase implements 
 
         LoadBalancerVO loadBalancer = _lbDao.findById(Long.valueOf(policy.getLoadBalancerId()));
         if (loadBalancer == null) {
-            throw new InvalidParameterException("Invalid Load balancer : " + policy.getLoadBalancerId() + " for Stickiness policy id: " + id);
+            throw new InvalidParameterValueException("Invalid Load balancer : " + policy.getLoadBalancerId() + " for Stickiness policy id: " + id);
         }
 
         _accountMgr.checkAccess(CallContext.current().getCallingAccount(), null, true, loadBalancer);
