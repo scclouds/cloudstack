@@ -41,7 +41,7 @@ import org.apache.cloudstack.api.response.ListResponse;
 import org.apache.cloudstack.acl.SecurityChecker.AccessType;
 import org.apache.cloudstack.api.command.admin.account.UpdateAccountCmd;
 import org.apache.cloudstack.api.command.admin.user.DeleteUserCmd;
-import org.apache.cloudstack.api.command.admin.user.RegisterCmd;
+import org.apache.cloudstack.api.command.admin.user.RegisterUserKeysCmd;
 import org.apache.cloudstack.api.command.admin.user.UpdateUserCmd;
 import org.apache.cloudstack.context.CallContext;
 
@@ -121,7 +121,7 @@ public class MockAccountManager extends ManagerBase implements AccountManager {
     }
 
     @Override
-    public ApiKeyPair createApiKeyAndSecretKey(RegisterCmd cmd) {
+    public ApiKeyPair createApiKeyAndSecretKey(RegisterUserKeysCmd cmd) {
         // TODO Auto-generated method stub
         return null;
     }
