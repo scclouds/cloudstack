@@ -31,6 +31,7 @@ import java.util.regex.Pattern;
 
 import javax.inject.Inject;
 
+import com.cloud.bgp.BGPService;
 import org.apache.cloudstack.acl.ProjectRoleService;
 import org.apache.cloudstack.acl.RoleService;
 import org.apache.cloudstack.acl.RoleType;
@@ -39,6 +40,7 @@ import org.apache.cloudstack.affinity.AffinityGroupService;
 import org.apache.cloudstack.alert.AlertService;
 import org.apache.cloudstack.annotation.AnnotationService;
 import org.apache.cloudstack.context.CallContext;
+import org.apache.cloudstack.network.RoutedIpv4Manager;
 import org.apache.cloudstack.network.lb.ApplicationLoadBalancerService;
 import org.apache.cloudstack.network.lb.InternalLoadBalancerVMService;
 import org.apache.cloudstack.query.QueryService;
@@ -220,7 +222,11 @@ public abstract class BaseCmd {
     public BucketApiService _bucketService;
     @Inject
     public ApiKeyPairService apiKeyPairService;
+    @Inject
+    public BGPService bgpService;
 
+    @Inject
+    public RoutedIpv4Manager routedIpv4Manager;
 
     public abstract void execute() throws ResourceUnavailableException, InsufficientCapacityException, ServerApiException, ConcurrentOperationException,
         ResourceAllocationException, NetworkRuleConflictException;
