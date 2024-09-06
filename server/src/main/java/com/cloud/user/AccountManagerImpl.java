@@ -2839,9 +2839,10 @@ public class AccountManagerImpl extends ManagerBase implements AccountManager, M
         Map<String, String> keys = new HashMap<String, String>();
 
         ApiKeyPair keyPair = getLatestUserKeyPair(cmd.getID());
-        keys.put("apikey", keyPair.getApiKey());
-        keys.put("secretkey", keyPair.getSecretKey());
-
+        if (keyPair != null) {
+            keys.put("apikey", keyPair.getApiKey());
+            keys.put("secretkey", keyPair.getSecretKey());
+        }
         return keys;
     }
 
