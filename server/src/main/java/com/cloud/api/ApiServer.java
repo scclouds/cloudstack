@@ -56,6 +56,13 @@ import javax.servlet.http.HttpServletResponse;
 import javax.servlet.http.HttpSession;
 
 import com.cloud.utils.Ternary;
+import com.cloud.user.Account;
+import com.cloud.user.AccountManager;
+import com.cloud.user.AccountManagerImpl;
+import com.cloud.user.DomainManager;
+import com.cloud.user.User;
+import com.cloud.user.UserAccount;
+import com.cloud.user.UserVO;
 import org.apache.cloudstack.acl.APIChecker;
 import org.apache.cloudstack.acl.ApiKeyPairManagerImpl;
 import org.apache.cloudstack.acl.apikeypair.ApiKeyPair;
@@ -107,7 +114,9 @@ import org.apache.cloudstack.framework.messagebus.MessageBus;
 import org.apache.cloudstack.framework.messagebus.MessageDispatcher;
 import org.apache.cloudstack.framework.messagebus.MessageHandler;
 import org.apache.cloudstack.managed.context.ManagedContextRunnable;
+import org.apache.cloudstack.user.UserPasswordResetManager;
 import org.apache.commons.codec.binary.Base64;
+import org.apache.commons.lang3.EnumUtils;
 import org.apache.http.ConnectionClosedException;
 import org.apache.http.HttpException;
 import org.apache.http.HttpRequest;
@@ -161,13 +170,6 @@ import com.cloud.exception.ResourceUnavailableException;
 import com.cloud.exception.UnavailableCommandException;
 import com.cloud.projects.dao.ProjectDao;
 import com.cloud.storage.VolumeApiService;
-import com.cloud.user.Account;
-import com.cloud.user.AccountManager;
-import com.cloud.user.AccountManagerImpl;
-import com.cloud.user.DomainManager;
-import com.cloud.user.User;
-import com.cloud.user.UserAccount;
-import com.cloud.user.UserVO;
 import com.cloud.utils.ConstantTimeComparator;
 import com.cloud.utils.DateUtil;
 import com.cloud.utils.HttpUtils;
@@ -185,6 +187,8 @@ import com.cloud.utils.exception.CloudRuntimeException;
 import com.cloud.utils.exception.ExceptionProxyObject;
 import com.cloud.utils.net.NetUtils;
 import com.google.gson.reflect.TypeToken;
+
+import static org.apache.cloudstack.user.UserPasswordResetManager.UserPasswordResetEnabled;
 
 @Component
 public class ApiServer extends ManagerBase implements HttpRequestHandler, ApiServerService, Configurable {
@@ -218,6 +222,8 @@ public class ApiServer extends ManagerBase implements HttpRequestHandler, ApiSer
     private ProjectDao projectDao;
     @Inject
     private UUIDManager uuidMgr;
+    @Inject
+    private UserPasswordResetManager userPasswordResetManager;
 
     private List<PluggableService> pluggableServices;
 
@@ -1242,6 +1248,57 @@ public class ApiServer extends ManagerBase implements HttpRequestHandler, ApiSer
             return false;
         }
         return true;
+    }
+
+    @Override
+    public boolean forgotPassword(UserAccount userAccount, Domain domain) {
+        if (!UserPasswordResetEnabled.value()) {
+            String errorMessage = String.format("%s is false. Password reset for the user is not allowed.",
+                    UserPasswordResetEnabled.key());
+            logger.error(errorMessage);
+            throw new CloudRuntimeException(errorMessage);
+        }
+        if (StringUtils.isBlank(userAccount.getEmail())) {
+            logger.error(String.format(
+                    "Email is not set. username: %s account id: %d domain id: %d",
+                    userAccount.getUsername(), userAccount.getAccountId(), userAccount.getDomainId()));
+            throw new CloudRuntimeException("Email is not set for the user.");
+        }
+
+        if (!EnumUtils.getEnumIgnoreCase(Account.State.class, userAccount.getState()).equals(Account.State.ENABLED)) {
+            logger.error(String.format(
+                    "User is not enabled. username: %s account id: %d domain id: %s",
+                    userAccount.getUsername(), userAccount.getAccountId(), domain.getUuid()));
+            throw new CloudRuntimeException("User is not enabled.");
+        }
+
+        if (!EnumUtils.getEnumIgnoreCase(Account.State.class, userAccount.getAccountState()).equals(Account.State.ENABLED)) {
+            logger.error(String.format(
+                    "Account is not enabled. username: %s account id: %d domain id: %s",
+                    userAccount.getUsername(), userAccount.getAccountId(), domain.getUuid()));
+            throw new CloudRuntimeException("Account is not enabled.");
+        }
+
+        if (!domain.getState().equals(Domain.State.Active)) {
+            logger.error(String.format(
+                    "Domain is not active. username: %s account id: %d domain id: %s",
+                    userAccount.getUsername(), userAccount.getAccountId(), domain.getUuid()));
+            throw new CloudRuntimeException("Domain is not active.");
+        }
+
+        userPasswordResetManager.setResetTokenAndSend(userAccount);
+        return true;
+    }
+
+    @Override
+    public boolean resetPassword(UserAccount userAccount, String token, String password) {
+        if (!UserPasswordResetEnabled.value()) {
+            String errorMessage = String.format("%s is false. Password reset for the user is not allowed.",
+                    UserPasswordResetEnabled.key());
+            logger.error(errorMessage);
+            throw new CloudRuntimeException(errorMessage);
+        }
+        return userPasswordResetManager.validateAndResetPassword(userAccount, token, password);
     }
 
     private void checkCommandAvailable(final User user, final String commandName, final InetAddress remoteAddress, ApiKeyPairPermission ... apiKeyPairPermissions)
