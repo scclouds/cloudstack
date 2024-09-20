@@ -96,9 +96,5 @@ public class ApiKeyPairManagerImpl extends ManagerBase implements ApiKeyPairServ
             throw new InvalidParameterValueException(String.format("Could not perform operation because calling user has less permissions " +
                     "than the informed user [%s].", desiredUser.getId()));
         }
-        User callerUser = CallContext.current().getCallingUser();
-        if (!accountManager.isAdmin(callerUser.getAccountId()) && callerUser.getId() != userId) {
-            throw new PermissionDeniedException("Only admins can operate on API keys owned by other users");
-        }
     }
 }
