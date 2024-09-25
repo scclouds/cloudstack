@@ -27,7 +27,6 @@ import org.apache.cloudstack.acl.apikeypair.ApiKeyPairPermission;
 import org.apache.cloudstack.acl.apikeypair.ApiKeyPairService;
 import org.apache.cloudstack.acl.dao.ApiKeyPairDao;
 import org.apache.cloudstack.acl.dao.ApiKeyPairPermissionsDao;
-import org.apache.cloudstack.context.CallContext;
 import org.apache.cloudstack.query.QueryService;
 import org.apache.cloudstack.utils.baremetal.BaremetalUtils;
 
