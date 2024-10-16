@@ -450,6 +450,10 @@ public class MockAccountManagerImpl extends ManagerBase implements Manager, Acco
 
     }
 
+    public void validateAccountHasAccessToResource(Account account, AccessType accessType, Object resource) {
+        // TODO Auto-generated method stub
+    }
+
     @Override
     public Long finalyzeAccountId(String accountName, Long domainId, Long projectId, boolean enabledOnly) {
         // TODO Auto-generated method stub

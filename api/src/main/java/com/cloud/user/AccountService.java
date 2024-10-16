@@ -126,6 +126,8 @@ public interface AccountService {
 
     void validateCallingUserHasAccessToDesiredUser(Long userId);
 
+    void validateAccountHasAccessToResource(Account account, AccessType accessType, Object resource);
+
     Long finalyzeAccountId(String accountName, Long domainId, Long projectId, boolean enabledOnly);
 
     /**

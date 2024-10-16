@@ -48,6 +48,7 @@ import org.apache.cloudstack.acl.ApiKeyPairManagerImpl;
 import org.apache.cloudstack.acl.ApiKeyPairPermissionVO;
 import org.apache.cloudstack.acl.ApiKeyPairVO;
 import org.apache.cloudstack.acl.ControlledEntity;
+import org.apache.cloudstack.acl.InfrastructureEntity;
 import org.apache.cloudstack.acl.QuerySelector;
 import org.apache.cloudstack.acl.Role;
 import org.apache.cloudstack.acl.RolePermission;
@@ -775,6 +776,19 @@ public class AccountManagerImpl extends ManagerBase implements AccountManager, M
 
         // check that resources belong to the same account
 
+    }
+
+    @Override
+    public void validateAccountHasAccessToResource(Account account, AccessType accessType, Object resource) {
+        Class<?> resourceClass = resource.getClass();
+        if (ControlledEntity.class.isAssignableFrom(resourceClass)) {
+            checkAccess(account, accessType, true, (ControlledEntity) resource);
+        } else if (Domain.class.isAssignableFrom(resourceClass)) {
+            checkAccess(account, (Domain) resource);
+        } else if (InfrastructureEntity.class.isAssignableFrom(resourceClass)) {
+            logger.trace("Validation of access to infrastructure entity has been disabled in CloudStack version 4.4.");
+        }
+        logger.debug(String.format("Account [%s] has access to resource.", account.getUuid()));
     }
 
     @Override

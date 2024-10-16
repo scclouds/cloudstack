@@ -1323,7 +1323,8 @@ public class AutoScaleManagerImplTest {
         when(userVmService.createAdvancedSecurityGroupVirtualMachine(any(), any(), any(), any(), any(), any(), any(),
                 any(), any(), any(), any(), any(), any(), eq(userData), eq(userDataId), eq(userDataDetails.toString()), any(), any(), any(), any(), any(), any(),
                 any(), any(), any(), any(), any(), eq(true), any(), any())).thenReturn(userVmMock);
-        when(networkModel.checkSecurityGroupSupportForNetwork(zoneMock, List.of(networkId), Collections.emptyList())).thenReturn(true);
+        when(networkModel.checkSecurityGroupSupportForNetwork(account, zoneMock,
+                List.of(networkId), Collections.emptyList())).thenReturn(true);
 
         long result = autoScaleManagerImplSpy.createNewVM(asVmGroupMock);
 
@@ -1372,7 +1373,8 @@ public class AutoScaleManagerImplTest {
         when(userVmService.createAdvancedVirtualMachine(any(), any(), any(), any(), any(), any(), any(),
                 any(), any(), any(), any(), any(), eq(userData), eq(userDataId), eq(userDataDetails.toString()), any(), any(), any(), eq(true), any(), any(), any(),
                 any(), any(), any(), any(), eq(true), any(), any())).thenReturn(userVmMock);
-        when(networkModel.checkSecurityGroupSupportForNetwork(zoneMock, List.of(networkId), Collections.emptyList())).thenReturn(false);
+        when(networkModel.checkSecurityGroupSupportForNetwork(account, zoneMock,
+                List.of(networkId), Collections.emptyList())).thenReturn(false);
 
         long result = autoScaleManagerImplSpy.createNewVM(asVmGroupMock);
 
