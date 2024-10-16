@@ -119,23 +119,22 @@ public class ApiKeyPairVO implements ApiKeyPair {
         this.userId = userId;
     }
 
-    public boolean validateDate(boolean throwException) throws PermissionDeniedException {
+    public void validateDate() throws PermissionDeniedException {
         Date now = DateTime.now().toDate();
         Date keypairStart = this.getStartDate();
         Date keypairExpiration = this.getEndDate();
         if (keypairStart != null && now.compareTo(keypairStart) <= 0) {
-            if (throwException) {
-                throw new PermissionDeniedException(String.format("Keypair is not valid yet, start date: %s", keypairStart));
-            }
-            return false;
+            throw new PermissionDeniedException(String.format("Keypair is not valid yet, start date: %s", keypairStart));
         }
         if (keypairExpiration != null && now.compareTo(keypairExpiration) >= 0) {
-            if (throwException) {
-                throw new PermissionDeniedException(String.format("Keypair is expired, expiration date: %s", keypairExpiration));
-            }
-            return false;
+            throw new PermissionDeniedException(String.format("Keypair is expired, expiration date: %s", keypairExpiration));
         }
-        return true;
+    }
+
+    public boolean hasEndDatePassed() {
+        Date now = DateTime.now().toDate();
+        Date keypairExpiration = this.getEndDate();
+        return keypairExpiration != null && now.compareTo(keypairExpiration) >= 0;
     }
 
     public long getId() {

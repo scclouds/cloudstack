@@ -37,10 +37,14 @@ import org.apache.cloudstack.acl.ControlledEntity;
 import org.apache.cloudstack.acl.RoleType;
 import org.apache.cloudstack.acl.SecurityChecker.AccessType;
 import org.apache.cloudstack.acl.apikeypair.ApiKeyPair;
+import org.apache.cloudstack.acl.apikeypair.ApiKeyPairPermission;
+import org.apache.cloudstack.api.BaseCmd;
 import org.apache.cloudstack.api.command.admin.account.CreateAccountCmd;
 import org.apache.cloudstack.api.command.admin.account.UpdateAccountCmd;
 import org.apache.cloudstack.api.command.admin.user.DeleteUserCmd;
+import org.apache.cloudstack.api.command.admin.user.DeleteUserKeysCmd;
 import org.apache.cloudstack.api.command.admin.user.GetUserKeysCmd;
+import org.apache.cloudstack.api.command.admin.user.ListUserKeyRulesCmd;
 import org.apache.cloudstack.api.command.admin.user.ListUserKeysCmd;
 import org.apache.cloudstack.api.command.admin.user.MoveUserCmd;
 import org.apache.cloudstack.api.command.admin.user.RegisterUserKeysCmd;
@@ -442,6 +446,11 @@ public class MockAccountManagerImpl extends ManagerBase implements Manager, Acco
     }
 
     @Override
+    public void validateCallingUserHasAccessToDesiredUser(Long userId) {
+
+    }
+
+    @Override
     public Long finalyzeAccountId(String accountName, Long domainId, Long projectId, boolean enabledOnly) {
         // TODO Auto-generated method stub
         return null;
@@ -455,6 +464,21 @@ public class MockAccountManagerImpl extends ManagerBase implements Manager, Acco
     @Override
     public ListResponse<ApiKeyPairResponse> getKeys(ListUserKeysCmd cmd) {
         return null;
+    }
+
+    @Override
+    public List<ApiKeyPairPermission> listKeyRules(ListUserKeyRulesCmd cmd) {
+        return null;
+    }
+
+    @Override
+    public void deleteApiKey(DeleteUserKeysCmd cmd) {
+
+    }
+
+    @Override
+    public void deleteApiKey(ApiKeyPair id) {
+
     }
 
     @Override
@@ -474,6 +498,16 @@ public class MockAccountManagerImpl extends ManagerBase implements Manager, Acco
 
     @Override
     public ApiKeyPair getKeyPairById(Long id) {
+        return null;
+    }
+
+    @Override
+    public ApiKeyPair getKeyPairByApiKey(String apiKey) {
+        return null;
+    }
+
+    @Override
+    public String getAccessingApiKey(BaseCmd cmd) {
         return null;
     }
 

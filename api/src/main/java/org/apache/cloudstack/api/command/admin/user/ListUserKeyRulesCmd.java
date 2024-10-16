@@ -19,7 +19,6 @@ package org.apache.cloudstack.api.command.admin.user;
 
 
 import com.cloud.exception.InsufficientCapacityException;
-import com.cloud.exception.InvalidParameterValueException;
 import com.cloud.exception.ResourceUnavailableException;
 import com.cloud.user.Account;
 import java.util.List;
@@ -28,7 +27,7 @@ import org.apache.cloudstack.acl.apikeypair.ApiKeyPairPermission;
 import org.apache.cloudstack.api.ACL;
 import org.apache.cloudstack.api.APICommand;
 import org.apache.cloudstack.api.ApiConstants;
-import org.apache.cloudstack.api.BaseCmd;
+import org.apache.cloudstack.api.BaseListDomainResourcesCmd;
 import org.apache.cloudstack.api.Parameter;
 import org.apache.cloudstack.api.ServerApiException;
 import org.apache.cloudstack.api.response.ApiKeyPairResponse;
@@ -42,10 +41,10 @@ import org.apache.cloudstack.api.response.ListResponse;
         responseHasSensitiveInfo = false,
         since = "4.20.0")
 
-public class ListUserKeyRulesCmd extends BaseCmd {
+public class ListUserKeyRulesCmd extends BaseListDomainResourcesCmd {
 
     @ACL
-    @Parameter(name=ApiConstants.ID, type = CommandType.UUID,  entityType = ApiKeyPairResponse.class, description = "ID of the keypair.", required = true)
+    @Parameter(name = ApiConstants.KEYPAIR_ID, type = CommandType.UUID,  entityType = ApiKeyPairResponse.class, description = "ID of the keypair.", required = true)
     private Long id;
 
     public Long getId() {
@@ -62,13 +61,7 @@ public class ListUserKeyRulesCmd extends BaseCmd {
 
     @Override
     public void execute() throws ResourceUnavailableException, InsufficientCapacityException, ServerApiException {
-        ApiKeyPair keyPair = apiKeyPairService.findById(getId());
-        if (keyPair == null) {
-            throw new InvalidParameterValueException(String.format("No keypair found with the id [%s].", getId()));
-        }
-        apiKeyPairService.validateCallingUserHasAccessToDesiredUser(keyPair.getUserId());
-
-        List<ApiKeyPairPermission> permissions = apiKeyPairService.findAllPermissionsByKeyPairId(keyPair.getId());
+        List<ApiKeyPairPermission> permissions = _accountService.listKeyRules(this);
         ListResponse<BaseRolePermissionResponse> response = _responseGenerator.createKeypairPermissionsResponse(permissions);
         response.setResponseName(getCommandName());
         setResponseObject(response);

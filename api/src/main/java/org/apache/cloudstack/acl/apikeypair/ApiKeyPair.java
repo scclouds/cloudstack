@@ -32,5 +32,7 @@ public interface ApiKeyPair extends ControlledEntity, InternalIdentity, Identity
     String getSecretKey();
     String getName();
     Date getRemoved();
-    boolean validateDate(boolean throwException);
+    void setRemoved(Date date);
+    void validateDate();
+    boolean hasEndDatePassed();
 }

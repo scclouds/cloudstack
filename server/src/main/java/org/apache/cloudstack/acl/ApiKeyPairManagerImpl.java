@@ -17,7 +17,6 @@
 package org.apache.cloudstack.acl;
 
 import com.cloud.exception.InvalidParameterValueException;
-import com.cloud.exception.PermissionDeniedException;
 import com.cloud.user.AccountManager;
 import com.cloud.user.User;
 import com.cloud.user.dao.UserDao;
@@ -27,11 +26,11 @@ import org.apache.cloudstack.acl.apikeypair.ApiKeyPairPermission;
 import org.apache.cloudstack.acl.apikeypair.ApiKeyPairService;
 import org.apache.cloudstack.acl.dao.ApiKeyPairDao;
 import org.apache.cloudstack.acl.dao.ApiKeyPairPermissionsDao;
+import org.apache.cloudstack.acl.dao.RolePermissionsDao;
 import org.apache.cloudstack.query.QueryService;
-import org.apache.cloudstack.utils.baremetal.BaremetalUtils;
+import org.apache.commons.collections.CollectionUtils;
 
 import javax.inject.Inject;
-import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
 import java.util.stream.Collectors;
@@ -49,14 +48,22 @@ public class ApiKeyPairManagerImpl extends ManagerBase implements ApiKeyPairServ
     private QueryService queryService;
     @Inject
     private AccountManager accountManager;
+    @Inject
+    private RolePermissionsDao rolePermissionsDao;
 
     @Override
-    public List<ApiKeyPairPermission> findAllPermissionsByKeyPairId(Long apiKeyPairId) {
+    public List<ApiKeyPairPermission> findAllPermissionsByKeyPairId(Long apiKeyPairId, Long roleId) {
         List<ApiKeyPairPermissionVO> allPermissions = apiKeyPairPermissionsDao.findAllByKeyPairIdSorted(apiKeyPairId);
-        if (allPermissions != null) {
+        if (CollectionUtils.isNotEmpty(allPermissions)) {
             return allPermissions.stream().map(p -> (ApiKeyPairPermission) p).collect(Collectors.toList());
         }
-        return Collections.emptyList();
+        return rolePermissionsDao.findAllByRoleIdSorted(roleId).stream().map(p -> {
+            ApiKeyPairPermissionVO permission = new ApiKeyPairPermissionVO();
+            permission.setRule(p.getRule().getRuleString());
+            permission.setDescription(p.getDescription());
+            permission.setPermission(p.getPermission());
+            return permission;
+        }).collect(Collectors.toList());
     }
 
     @Override
@@ -67,24 +74,6 @@ public class ApiKeyPairManagerImpl extends ManagerBase implements ApiKeyPairServ
     @Override
     public ApiKeyPair findById(Long id) {
         return apiKeyPairDao.findById(id);
-    }
-
-    @Override
-    public void deleteApiKey(ApiKeyPair keyPair) {
-        User user = userDao.findByIdIncludingRemoved(keyPair.getUserId());
-        if (user == null) {
-            throw new InvalidParameterValueException("User associated to the key does not exist.");
-        }
-
-        if (BaremetalUtils.BAREMETAL_SYSTEM_ACCOUNT_NAME.equals(user.getUsername()) || user.getId() == User.UID_SYSTEM) {
-            throw new PermissionDeniedException("User id : " + user.getUuid() + " is system account, deletion of API Keys is not allowed.");
-        }
-
-        List<ApiKeyPairPermissionVO> permissions = apiKeyPairPermissionsDao.findAllByApiKeyPairId(keyPair.getId());
-        for (ApiKeyPairPermission permission : permissions) {
-            apiKeyPairPermissionsDao.remove(permission.getId());
-        }
-        apiKeyPairDao.remove(keyPair.getId());
     }
 
     @Override

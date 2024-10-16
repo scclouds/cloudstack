@@ -16,14 +16,18 @@
 // under the License.
 package org.apache.cloudstack.api.response;
 
-import com.cloud.serializer.Param;
+import com.cloud.user.ApiKeyPairState;
 import com.google.gson.annotations.SerializedName;
-import org.apache.cloudstack.acl.apikeypair.ApiKeyPair;
-import org.apache.cloudstack.api.ApiConstants;
-import org.apache.cloudstack.api.BaseResponseWithAnnotations;
-import org.apache.cloudstack.api.EntityReference;
 
 import java.util.Date;
+import java.util.List;
+
+import org.apache.cloudstack.acl.apikeypair.ApiKeyPair;
+import org.apache.cloudstack.api.ApiConstants;
+
+import com.cloud.serializer.Param;
+import org.apache.cloudstack.api.BaseResponseWithAnnotations;
+import org.apache.cloudstack.api.EntityReference;
 
 @EntityReference(value = ApiKeyPair.class)
 public class ApiKeyPairResponse extends BaseResponseWithAnnotations {
@@ -44,12 +48,12 @@ public class ApiKeyPairResponse extends BaseResponseWithAnnotations {
     private String userId;
 
     @SerializedName(ApiConstants.USERNAME)
-    @Param(description = "User name of the keypair's owner.")
-    private String userName;
+    @Param(description = "Username of the keypair's owner.")
+    private String username;
 
-    @SerializedName(ApiConstants.UUID)
-    @Param(description = "UUID of the API keypair.", isSensitive = true)
-    private String uuid;
+    @SerializedName(ApiConstants.ID)
+    @Param(description = "ID of the API keypair.", isSensitive = true)
+    private String id;
 
     @SerializedName(ApiConstants.DESCRIPTION)
     @Param(description = "Keypair description.")
@@ -68,12 +72,20 @@ public class ApiKeyPairResponse extends BaseResponseWithAnnotations {
     private Date created;
 
     @SerializedName(ApiConstants.ACCOUNT_TYPE)
-    @Param(description = "Account type (admin, domain-admin, user).")
-    private Integer accountType;
+    @Param(description = "Account type.")
+    private String accountType;
+
+    @SerializedName(ApiConstants.ACCOUNT_ID)
+    @Param(description = "Account ID.")
+    private String accountId;
+
+    @SerializedName(ApiConstants.ACCOUNT_NAME)
+    @Param(description = "Account name.")
+    private String accountName;
 
     @SerializedName(ApiConstants.ROLE_ID)
     @Param(description = "ID of the role.")
-    private Long roleId;
+    private String roleId;
 
     @SerializedName(ApiConstants.ROLE_TYPE)
     @Param(description = "Type of the role (Admin, ResourceAdmin, DomainAdmin, User).")
@@ -82,6 +94,10 @@ public class ApiKeyPairResponse extends BaseResponseWithAnnotations {
     @SerializedName(ApiConstants.ROLE_NAME)
     @Param(description = "Name of the role.")
     private String roleName;
+
+    @SerializedName(ApiConstants.PERMISSIONS)
+    @Param(description = "Permissions of the keypair.")
+    private List<BaseRolePermissionResponse> permissions;
 
     @SerializedName(ApiConstants.DOMAIN_ID)
     @Param(description = "ID of the domain which the account belongs to.")
@@ -97,7 +113,7 @@ public class ApiKeyPairResponse extends BaseResponseWithAnnotations {
 
     @SerializedName(ApiConstants.STATE)
     @Param(description = "State of the keypair.")
-    private String state;
+    private ApiKeyPairState state;
 
     public String getApiKey() {
         return userApiKey;
@@ -115,12 +131,12 @@ public class ApiKeyPairResponse extends BaseResponseWithAnnotations {
         this.userSecretKey = secretKey;
     }
 
-    public String getUuid() {
-        return this.uuid;
+    public String getId() {
+        return this.id;
     }
 
-    public void setUuid(String uuid) {
-        this.uuid = uuid;
+    public void setId(String id) {
+        this.id = id;
     }
 
     public String getUserId() {
@@ -171,28 +187,36 @@ public class ApiKeyPairResponse extends BaseResponseWithAnnotations {
         this.name = name;
     }
 
-    public Integer getAccountType() {
+    public String getAccountType() {
         return accountType;
     }
 
-    public void setAccountType(Integer accountType) {
+    public void setAccountType(String accountType) {
         this.accountType = accountType;
     }
 
-    public Long getRoleId() {
+    public String getRoleId() {
         return roleId;
     }
 
-    public void setRoleId(Long roleId) {
+    public void setRoleId(String roleId) {
         this.roleId = roleId;
     }
 
-    public String getUserName() {
-        return userName;
+    public String getAccountId() {
+        return accountId;
     }
 
-    public void setUserName(String userName) {
-        this.userName = userName;
+    public void setAccountId(String accountId) {
+        this.accountId = accountId;
+    }
+
+    public String getUsername() {
+        return username;
+    }
+
+    public void setUsername(String username) {
+        this.username = username;
     }
 
     public String getRoleType() {
@@ -235,11 +259,27 @@ public class ApiKeyPairResponse extends BaseResponseWithAnnotations {
         this.domainPath = domainPath;
     }
 
-    public String getState() {
+    public ApiKeyPairState getState() {
         return state;
     }
 
-    public void setState(String state) {
+    public void setState(ApiKeyPairState state) {
         this.state = state;
+    }
+
+    public String getAccountName() {
+        return accountName;
+    }
+
+    public void setAccountName(String accountName) {
+        this.accountName = accountName;
+    }
+
+    public List<BaseRolePermissionResponse> getPermissions() {
+        return permissions;
+    }
+
+    public void setPermissions(List<BaseRolePermissionResponse> permissions) {
+        this.permissions = permissions;
     }
 }

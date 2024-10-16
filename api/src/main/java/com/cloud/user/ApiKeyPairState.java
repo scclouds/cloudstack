@@ -14,20 +14,8 @@
 // KIND, either express or implied.  See the License for the
 // specific language governing permissions and limitations
 // under the License.
-package org.apache.cloudstack.discovery;
+package com.cloud.user;
 
-import com.cloud.user.Account;
-import org.apache.cloudstack.api.BaseResponse;
-import org.apache.cloudstack.api.command.user.discovery.ListApisCmd;
-import org.apache.cloudstack.api.response.ListResponse;
-
-import com.cloud.user.User;
-import com.cloud.utils.component.PluggableService;
-
-import java.util.List;
-
-public interface ApiDiscoveryService extends PluggableService {
-    List<String> listApiNames(Account account);
-
-    ListResponse<? extends BaseResponse> listApis(User user, String apiName, ListApisCmd listApisCmd);
+public enum ApiKeyPairState {
+    ENABLED, REMOVED, EXPIRED
 }

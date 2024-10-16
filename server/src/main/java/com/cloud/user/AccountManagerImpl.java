@@ -28,6 +28,7 @@ import java.util.HashSet;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.Executors;
@@ -65,10 +66,14 @@ import org.apache.cloudstack.affinity.dao.AffinityGroupDao;
 import org.apache.cloudstack.api.APICommand;
 import org.apache.cloudstack.api.ApiCommandResourceType;
 import org.apache.cloudstack.api.ApiConstants;
+import org.apache.cloudstack.api.BaseAsyncCmd;
+import org.apache.cloudstack.api.BaseCmd;
 import org.apache.cloudstack.api.command.admin.account.CreateAccountCmd;
 import org.apache.cloudstack.api.command.admin.account.UpdateAccountCmd;
 import org.apache.cloudstack.api.command.admin.user.DeleteUserCmd;
+import org.apache.cloudstack.api.command.admin.user.DeleteUserKeysCmd;
 import org.apache.cloudstack.api.command.admin.user.GetUserKeysCmd;
+import org.apache.cloudstack.api.command.admin.user.ListUserKeyRulesCmd;
 import org.apache.cloudstack.api.command.admin.user.ListUserKeysCmd;
 import org.apache.cloudstack.api.command.admin.user.MoveUserCmd;
 import org.apache.cloudstack.api.command.admin.user.RegisterUserKeysCmd;
@@ -887,7 +892,7 @@ public class AccountManagerImpl extends ManagerBase implements AccountManager, M
             for (UserVO user : users) {
                 // remove apikeys
                 List<ApiKeyPairVO> apiKeyPairs = apiKeyPairDao.listApiKeysByUserOrApiKeyId(user.getId(), null).first();
-                apiKeyPairs.stream().forEach(keyPair -> apiKeyPairService.deleteApiKey(keyPair));
+                apiKeyPairs.stream().forEach(keyPair -> _accountService.deleteApiKey(keyPair));
 
                 if (!_userDao.remove(user.getId())) {
                     logger.error("Unable to delete user: " + user + " as a part of account " + account + " cleanup");
@@ -2176,7 +2181,7 @@ public class AccountManagerImpl extends ManagerBase implements AccountManager, M
         checkAccountAndAccess(user, account);
         // remove apikeys
         List<ApiKeyPairVO> apiKeyPairs = apiKeyPairDao.listApiKeysByUserOrApiKeyId(id, null).first();
-        apiKeyPairs.stream().forEach(keyPair -> apiKeyPairService.deleteApiKey(keyPair));
+        apiKeyPairs.stream().forEach(keyPair -> deleteApiKey(keyPair));
 
         return _userDao.remove(id);
     }
@@ -2860,7 +2865,7 @@ public class AccountManagerImpl extends ManagerBase implements AccountManager, M
         ListResponse<ApiKeyPairResponse> finalResponse = new ListResponse<>();
         List<ApiKeyPairResponse> responses = new ArrayList<>();
 
-        if (!cmd.listAll() || cmd.getKeyId() != null) {
+        if (cmd.getApiKeyFilter() != null || cmd.getKeyId() != null) {
             fetchOnlyOneKeypair(responses, cmd);
             finalResponse.setResponses(responses);
             return finalResponse;
@@ -2878,15 +2883,16 @@ public class AccountManagerImpl extends ManagerBase implements AccountManager, M
         ApiKeyPair keyPair;
         if (cmd.getKeyId() != null) {
             keyPair = _accountService.getKeyPairById(cmd.getKeyId());
-        } else if (cmd.getUserId() != null) {
-            keyPair = _accountService.getLatestUserKeyPair(cmd.getUserId());
         } else {
-            keyPair = _accountService.getLatestUserKeyPair(CallContext.current().getCallingUser().getId());
+            keyPair = _accountService.getKeyPairByApiKey(cmd.getApiKeyFilter());
         }
-        if (keyPair == null) {
-            throw new InvalidParameterValueException("No api key was found with the parameters specified");
-        }
+
+        validateKeyPairIsNotNull(keyPair);
+        validateAccessingKeyPairPermissionsIsSupersetOfAccessedKeyPair(keyPair, cmd);
+
         apiKeyPairService.validateCallingUserHasAccessToDesiredUser(keyPair.getUserId());
+        markExpiredKeysWithStateExpired(keyPair);
+
         addKeypairResponse(keyPair, responses, cmd);
     }
 
@@ -2897,14 +2903,155 @@ public class AccountManagerImpl extends ManagerBase implements AccountManager, M
             users = List.of(cmd.getUserId());
         } else {
             User callerUser = CallContext.current().getCallingUser();
-            users = isAdmin(callerUser.getAccountId()) ? queryService.searchForAccessableUsers() : List.of(callerUser.getId());
+            users = cmd.listAll() && isAdmin(callerUser.getAccountId()) ? queryService.searchForAccessableUsers() : List.of(callerUser.getId());
         }
 
         Pair<List<ApiKeyPairVO>,  Integer> keyPairs = apiKeyPairDao.listByUserIdsPaginated(users, cmd);
-        for (ApiKeyPairVO keyPair : keyPairs.first()) {
-            addKeypairResponse(keyPair, responses, cmd);
-        }
+        keyPairs.first().stream()
+                .filter(keyPair -> isAccessingKeypairSuperset(keyPair, cmd))
+                .forEach(keyPair -> {
+                    addKeypairResponse(keyPair, responses, cmd);
+                    markExpiredKeysWithStateExpired(keyPair);
+                });
+
         return keyPairs.second();
+    }
+
+    @Override
+    public List<ApiKeyPairPermission> listKeyRules(ListUserKeyRulesCmd cmd) {
+        ApiKeyPair keyPair = apiKeyPairService.findById(cmd.getId());
+
+        validateKeyPairIsNotNull(keyPair);
+        _accountService.validateCallingUserHasAccessToDesiredUser(keyPair.getUserId());
+        validateAccessingKeyPairPermissionsIsSupersetOfAccessedKeyPair(keyPair, cmd);
+
+        Account account = _accountDao.findById(keyPair.getAccountId());
+
+        return apiKeyPairService.findAllPermissionsByKeyPairId(keyPair.getId(), account.getRoleId());
+    }
+
+    private void validateKeyPairIsNotNull(ApiKeyPair keyPair) {
+        if (keyPair == null) {
+            logger.info("Keypair not found.");
+            throw new InvalidParameterValueException(String.format("Could not complete request."));
+        }
+    }
+
+    @Override
+    public void validateCallingUserHasAccessToDesiredUser(Long userId) {
+        User callerUser = CallContext.current().getCallingUser();
+        if (!isAdmin(callerUser.getAccountId()) && callerUser.getId() != userId) {
+            throw new PermissionDeniedException("Only admins can operate on API keys owned by other users");
+        }
+        List<Long> accessibleUsers = queryService.searchForAccessableUsers();
+        User desiredUser = _userDao.getUser(userId);
+        if (accessibleUsers.stream().noneMatch(u -> Objects.equals(u, userId))) {
+            throw new PermissionDeniedException(String.format("Could not perform operation because calling user has less permissions " +
+                    "than the informed user [%s].", desiredUser.getId()));
+        }
+    }
+
+    private void validateAccessingKeyPairPermissionsIsSupersetOfAccessedKeyPair(ApiKeyPair keyPair, BaseCmd cmd) {
+        if (!isAccessingKeypairSuperset(keyPair, cmd)) {
+            logger.info("Accessing API keypair has less permissions than accessed API keypair.");
+            throw new PermissionDeniedException("Could not complete request.");
+        }
+    }
+
+    private Boolean isAccessingKeypairSuperset(ApiKeyPair accessedKeyPair, BaseCmd cmd) {
+        String apiKey = getAccessingApiKey(cmd);
+        if (apiKey == null) {
+            return Boolean.TRUE;
+        }
+        ApiKeyPair accessingKeyPair = apiKeyPairService.findByApiKey(apiKey);
+        return isApiKeySupersetOfPermission(new ArrayList<>(getAllKeypairPermissions(accessingKeyPair.getApiKey())), new ArrayList<>(getAllKeypairPermissions(accessedKeyPair.getApiKey())));
+    }
+
+    private Boolean isApiKeySupersetOfPermission(List<RolePermissionEntity> baseKeyPairPermissions, List<RolePermissionEntity> comparedPermissions) {
+        Map<String, RolePermissionEntity.Permission> apiNameToBaseKeyPermissions = roleService.getRoleRulesAndPermissions(baseKeyPairPermissions);
+
+        return roleService.roleHasPermission(apiNameToBaseKeyPermissions, comparedPermissions);
+    }
+
+    private Boolean validatePermission(List<RolePermissionEntity> supersetPermissions, RolePermissionEntity comparedPermission) {
+        for (RolePermissionEntity supersetPermission : supersetPermissions) {
+            if (!supersetPermission.getRule().matches(comparedPermission.getRule().getRuleString())) {
+                continue;
+            }
+
+            if (!supersetPermission.getPermission().equals(RolePermissionEntity.Permission.ALLOW) && (comparedPermission.getPermission() == RolePermissionEntity.Permission.ALLOW)) {
+                return false;
+            }
+            return true;
+        }
+        return false;
+    }
+
+    private void markExpiredKeysWithStateExpired(ApiKeyPair apiKeyPair) {
+        if (apiKeyPair.hasEndDatePassed()) {
+            internalDeleteApiKey(apiKeyPair);
+        }
+    }
+
+    @Override
+    public void deleteApiKey(DeleteUserKeysCmd cmd) {
+        ApiKeyPair keyPair = apiKeyPairService.findById(cmd.getId());
+        if (keyPair == null) {
+            throw new InvalidParameterValueException(String.format("No keypair found with the id [%s].", cmd.getId()));
+        }
+        _accountService.validateCallingUserHasAccessToDesiredUser(keyPair.getUserId());
+
+        deleteApiKey(keyPair);
+    }
+
+    @Override
+    public void deleteApiKey(ApiKeyPair keyPair) {
+        User user = _userDao.findByIdIncludingRemoved(keyPair.getUserId());
+        if (user == null) {
+            throw new InvalidParameterValueException("User associated to the key does not exist.");
+        }
+
+        if ((BaremetalUtils.BAREMETAL_SYSTEM_ACCOUNT_NAME.equals(user.getUsername()) || user.getId() == User.UID_SYSTEM)
+                && Boolean.parseBoolean(_configDao.getValue(Config.BaremetalProvisionDoneNotificationEnabled.key()))) {
+            throw new PermissionDeniedException(String.format("User ID [%s] is system account and global setting " +
+                    "baremetal.provision.done.notification is enabled, deletion of API Keys is not allowed. If you wish to delete " +
+                    "the baremetal user/account or their API Key, please disable the baremetal.provision.done.notification configuration.", user.getUuid()));
+        }
+        internalDeleteApiKey(keyPair);
+    }
+
+    private void internalDeleteApiKey(ApiKeyPair keyPair) {
+        List<ApiKeyPairPermissionVO> permissions = apiKeyPairPermissionsDao.findAllByApiKeyPairId(keyPair.getId());
+        for (ApiKeyPairPermission permission : permissions) {
+            apiKeyPairPermissionsDao.remove(permission.getId());
+        }
+        apiKeyPairDao.remove(keyPair.getId());
+    }
+
+    @Override
+    public String getAccessingApiKey(BaseCmd cmd) {
+        if (cmd == null) {
+            return null;
+        }
+        try {
+            if (cmd instanceof BaseAsyncCmd && ((BaseAsyncCmd) cmd).getJob().toString().contains("signature")) {
+                return parseApiKeyFromAsyncJob((BaseAsyncCmd) cmd);
+            }
+            boolean accessedByApiKey = cmd.getFullUrlParams().containsKey(ApiConstants.SIGNATURE);
+            String accessingApiKey = cmd.getFullUrlParams().get("apiKey");
+            if (accessedByApiKey) {
+                return accessingApiKey;
+            }
+        } catch (NullPointerException e) {
+            logger.info("Accessing API through session.");
+        }
+        return null;
+    }
+
+    private String parseApiKeyFromAsyncJob(BaseAsyncCmd cmd) {
+        String jobString = cmd.getJob().toString();
+        int indexOfApiKey = jobString.indexOf("apiKey") + 9;
+        return jobString.substring(indexOfApiKey, jobString.indexOf("\"", indexOfApiKey));
     }
 
     private void addKeypairResponse(ApiKeyPair keyPair, List<ApiKeyPairResponse> responses, ListUserKeysCmd cmd) {
@@ -2919,6 +3066,11 @@ public class AccountManagerImpl extends ManagerBase implements AccountManager, M
     @Override
     public ApiKeyPair getKeyPairById(Long id) {
         return apiKeyPairDao.findById(id);
+    }
+
+    @Override
+    public ApiKeyPair getKeyPairByApiKey(String apiKey) {
+        return apiKeyPairDao.findByApiKey(apiKey);
     }
 
     protected void preventRootDomainAdminAccessToRootAdminKeys(User caller, ControlledEntity account) {
@@ -3099,22 +3251,35 @@ public class AccountManagerImpl extends ManagerBase implements AccountManager, M
      */
     @DB
     private ApiKeyPairVO validateAndPersistKeyPairAndPermissions(Account account, ApiKeyPairVO newApiKeyPair, List<Map<String, Object>> rules, Boolean accessedByApiKey, String apiKey) {
-        final ApiKeyPairVO savedApiKeyPair = apiKeyPairDao.persist(newApiKeyPair);
-
         final Role accountRole = roleService.findRole(account.getRoleId());
 
         List<RolePermissionEntity> allPermissions = (accessedByApiKey == null || BooleanUtils.isFalse(accessedByApiKey)) ? getAllAccountRolePermissions(accountRole) : getAllKeypairPermissions(apiKey);
 
-        List<ApiKeyPairPermissionVO> validatedPermissions;
+        List<RolePermissionEntity> permissions;
 
         if (CollectionUtils.isEmpty(rules)) {
-            validatedPermissions = allPermissions.stream().map(permission -> new ApiKeyPairPermissionVO(savedApiKeyPair.getId(),
+            permissions = allPermissions.stream().map(permission -> new ApiKeyPairPermissionVO(0,
                     permission.getRule().toString(), permission.getPermission(), permission.getDescription())).collect(Collectors.toList());
         } else {
-            validatedPermissions = validatePermissions(rules, savedApiKeyPair, allPermissions);
+            permissions = new ArrayList<>();
+            for (Map<String, Object> ruleDetail : rules) {
+                String rule = ruleDetail.get(ApiConstants.RULE).toString();
+                RolePermission.Permission rulePermission = (RolePermission.Permission) ruleDetail.get(ApiConstants.PERMISSION);
+                String ruleDescription = (String) ruleDetail.get(ApiConstants.DESCRIPTION);
+                permissions.add(new ApiKeyPairPermissionVO(0, rule, rulePermission, ruleDescription));
+            }
+            if (!isApiKeySupersetOfPermission(allPermissions, permissions)) {
+                throw new InvalidParameterValueException(String.format("The keypair being created has a bigger set of permissions than the account [%s] that owns it. This is " +
+                        "not allowed.", account.getUuid()));
+            }
         }
+        ApiKeyPairVO savedApiKeyPair = apiKeyPairDao.persist(newApiKeyPair);
+        permissions.forEach(permission -> {
+            ApiKeyPairPermissionVO permissionVO = (ApiKeyPairPermissionVO) permission;
+            permissionVO.setApiKeyPairId(savedApiKeyPair.getId());
+            apiKeyPairPermissionsDao.persist(permissionVO);
+        });
 
-        validatedPermissions.forEach(permission -> apiKeyPairPermissionsDao.persist(permission));
         return savedApiKeyPair;
     }
 
@@ -3137,49 +3302,10 @@ public class AccountManagerImpl extends ManagerBase implements AccountManager, M
             throw new InvalidParameterValueException("API key not present in URL, cannot fetch API key rules");
         }
         ApiKeyPair apiKeyPair = keyPairManager.findByApiKey(apiKey);
-        List<ApiKeyPairPermission> allApiKeyRolePermissions = keyPairManager.findAllPermissionsByKeyPairId(apiKeyPair.getId());
+        Account account = _accountDao.findById(apiKeyPair.getAccountId());
+        List<ApiKeyPairPermission> allApiKeyRolePermissions = keyPairManager.findAllPermissionsByKeyPairId(apiKeyPair.getId(), account.getRoleId());
         return allApiKeyRolePermissions.stream().map(permission -> (RolePermissionEntity) permission)
                 .collect(Collectors.toList());
-    }
-
-    /***
-     * Validates if the user permissions are a superset of permissions of the Keypair that is being created
-     * @param rules are the rules passed to the API which are being validated
-     * @param savedApiKeyPair is the new keypair being created
-     * @throws InvalidParameterValueException if the user's permissions are not a superset of the Keypair.
-     */
-    private List<ApiKeyPairPermissionVO> validatePermissions(List<Map<String, Object>> rules, ApiKeyPairVO savedApiKeyPair,
-                                                             List<RolePermissionEntity> allAccountPermissions) {
-
-        List<ApiKeyPairPermissionVO> validatedPermissions = new ArrayList<>();
-        for (Map<String, Object> ruleDetail : rules) {
-            String apiName = ruleDetail.get(ApiConstants.RULE).toString();
-            RolePermission.Permission rulePermission = (RolePermission.Permission) ruleDetail.get(ApiConstants.PERMISSION);
-            String ruleDescription = (String) ruleDetail.get(ApiConstants.DESCRIPTION);
-
-            matchARuleWithAccountRules(allAccountPermissions, apiName, rulePermission, savedApiKeyPair, ruleDescription, validatedPermissions);
-        }
-        return validatedPermissions;
-    }
-
-    private void matchARuleWithAccountRules(List<RolePermissionEntity> allAccountPermissions, String apiName, RolePermission.Permission rulePermission,
-                                            ApiKeyPairVO savedApiKeyPair, String ruleDescription, List<ApiKeyPairPermissionVO> validatedPermissions) {
-        for (RolePermissionEntity accountPermission : allAccountPermissions) {
-            if (!accountPermission.getRule().matches(apiName)) {
-                continue;
-            }
-
-            if (!accountPermission.getPermission().equals(RolePermissionEntity.Permission.ALLOW) && rulePermission.equals(RolePermissionEntity.Permission.ALLOW)) {
-                apiKeyPairDao.remove(savedApiKeyPair.getId());
-                throw new InvalidParameterValueException(String.format("API %s is not allowed based on the user's account, a valid " +
-                        "keypair rule must be also allowed at the account level", apiName));
-            }
-            validatedPermissions.add(new ApiKeyPairPermissionVO(savedApiKeyPair.getId(), apiName, rulePermission, ruleDescription));
-            return;
-        }
-        apiKeyPairDao.remove(savedApiKeyPair.getId());
-        throw new InvalidParameterValueException(String.format("API %s was not found on the user's account, a valid " +
-                "keypair rule must be also present at the account level", apiName));
     }
 
     @Override

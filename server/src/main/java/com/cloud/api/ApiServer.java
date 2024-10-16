@@ -1007,7 +1007,7 @@ public class ApiServer extends ManagerBase implements HttpRequestHandler, ApiSer
                 return false;
             }
 
-            keyPair.validateDate(true);
+            keyPair.validateDate();
 
             secretKey = keyPair.getSecretKey();
             if (secretKey == null) {
@@ -1033,7 +1033,7 @@ public class ApiServer extends ManagerBase implements HttpRequestHandler, ApiSer
             }
             CallContext.register(user, account);
 
-            List<ApiKeyPairPermission> keyPairPermissions = keyPairManager.findAllPermissionsByKeyPairId(keyPair.getId());
+            List<ApiKeyPairPermission> keyPairPermissions = keyPairManager.findAllPermissionsByKeyPairId(keyPair.getId(), account.getRoleId());
 
             if (commandAvailable(remoteAddress, commandName, user, keyPairPermissions.toArray(new ApiKeyPairPermission[0]))) {
                 return true;

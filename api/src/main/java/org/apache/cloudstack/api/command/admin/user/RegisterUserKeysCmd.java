@@ -58,10 +58,12 @@ public class RegisterUserKeysCmd extends BaseCmd {
     @Parameter(name = ApiConstants.DESCRIPTION, type = CommandType.STRING, description = "API keypair description.")
     private String description;
 
-    @Parameter(name = ApiConstants.START_DATE, type = CommandType.DATE, description = "Start date for the API keypair.")
+    @Parameter(name = ApiConstants.START_DATE, type = CommandType.DATE, description = "Start date of the API keypair. " +
+            ApiConstants.PARAMETER_DESCRIPTION_START_DATE_POSSIBLE_FORMATS)
     private Date startDate;
 
-    @Parameter(name = ApiConstants.END_DATE, type = CommandType.DATE, description = "Expiration date for the API keypair.")
+    @Parameter(name = ApiConstants.END_DATE, type = CommandType.DATE, description = "Expiration date of the API keypair. " +
+            ApiConstants.PARAMETER_DESCRIPTION_END_DATE_POSSIBLE_FORMATS)
     private Date endDate;
 
     @Parameter(name = ApiConstants.RULES, type = CommandType.MAP, description = "Rules param list, lower indexed rules take precedence over higher. If no rules are informed, " +

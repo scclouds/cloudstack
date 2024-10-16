@@ -23,8 +23,12 @@ import org.apache.cloudstack.acl.ControlledEntity;
 import org.apache.cloudstack.acl.RoleType;
 import org.apache.cloudstack.acl.SecurityChecker.AccessType;
 import org.apache.cloudstack.acl.apikeypair.ApiKeyPair;
+import org.apache.cloudstack.acl.apikeypair.ApiKeyPairPermission;
+import org.apache.cloudstack.api.BaseCmd;
 import org.apache.cloudstack.api.command.admin.account.CreateAccountCmd;
+import org.apache.cloudstack.api.command.admin.user.DeleteUserKeysCmd;
 import org.apache.cloudstack.api.command.admin.user.GetUserKeysCmd;
+import org.apache.cloudstack.api.command.admin.user.ListUserKeyRulesCmd;
 import org.apache.cloudstack.api.command.admin.user.ListUserKeysCmd;
 import org.apache.cloudstack.api.command.admin.user.RegisterUserKeysCmd;
 import org.apache.cloudstack.api.command.admin.user.UpdateUserCmd;
@@ -120,6 +124,8 @@ public interface AccountService {
 
     void checkAccess(Account account, AccessType accessType, boolean sameOwner, String apiName, ControlledEntity... entities) throws PermissionDeniedException;
 
+    void validateCallingUserHasAccessToDesiredUser(Long userId);
+
     Long finalyzeAccountId(String accountName, Long domainId, Long projectId, boolean enabledOnly);
 
     /**
@@ -133,6 +139,11 @@ public interface AccountService {
 
     ListResponse<ApiKeyPairResponse> getKeys(ListUserKeysCmd cmd);
 
+    List<ApiKeyPairPermission> listKeyRules(ListUserKeyRulesCmd cmd);
+
+    void deleteApiKey(DeleteUserKeysCmd cmd);
+
+    void deleteApiKey(ApiKeyPair id);
     /**
      * Lists user two-factor authentication provider plugins
      * @return list of providers
@@ -150,4 +161,7 @@ public interface AccountService {
 
     ApiKeyPair getKeyPairById(Long id);
 
+    ApiKeyPair getKeyPairByApiKey(String apiKey);
+
+    String getAccessingApiKey (BaseCmd cmd);
 }

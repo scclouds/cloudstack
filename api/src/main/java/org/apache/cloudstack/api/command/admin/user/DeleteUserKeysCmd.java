@@ -17,7 +17,6 @@
 package org.apache.cloudstack.api.command.admin.user;
 
 import com.cloud.event.EventTypes;
-import com.cloud.exception.InvalidParameterValueException;
 import com.cloud.user.Account;
 import org.apache.cloudstack.acl.apikeypair.ApiKeyPair;
 import org.apache.cloudstack.api.ACL;
@@ -51,20 +50,13 @@ public class DeleteUserKeysCmd extends BaseAsyncCmd {
         return Account.ACCOUNT_ID_SYSTEM;
     }
 
-    private Long getId() {
+    public Long getId() {
         return id;
     }
 
     @Override
     public void execute() {
-        ApiKeyPair keyPair = apiKeyPairService.findById(getId());
-        if (keyPair == null) {
-            throw new InvalidParameterValueException(String.format("No keypair found with the id [%s].", getId()));
-        }
-        apiKeyPairService.validateCallingUserHasAccessToDesiredUser(keyPair.getUserId());
-
-        apiKeyPairService.deleteApiKey(keyPair);
-
+        _accountService.deleteApiKey(this);
         SuccessResponse response = new SuccessResponse(getCommandName());
         this.setResponseObject(response);
     }

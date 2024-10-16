@@ -19,13 +19,11 @@ package org.apache.cloudstack.acl.apikeypair;
 import java.util.List;
 
 public interface ApiKeyPairService {
-    List<ApiKeyPairPermission> findAllPermissionsByKeyPairId(Long apiKeyPairId);
+    List<ApiKeyPairPermission> findAllPermissionsByKeyPairId(Long apiKeyPairId, Long roleId);
 
     ApiKeyPair findByApiKey(String apiKey);
 
     ApiKeyPair findById(Long id);
-
-    void deleteApiKey(ApiKeyPair id);
 
     void validateCallingUserHasAccessToDesiredUser(Long userId);
 }

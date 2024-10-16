@@ -165,6 +165,7 @@ public class AccountDaoImpl extends GenericDaoBase<AccountVO, Long> implements A
                 keyPair.setEndDate(rs.getTimestamp(13));
                 keyPair.setSecretKey(DBEncryptionUtil.decrypt(rs.getString(14)));
                 keyPair.setRemoved(rs.getTimestamp(15));
+                keyPair.setApiKey(apiKey);
 
                 userAcctTernary = new Ternary<User, Account, ApiKeyPair>(user, account, keyPair);
             }

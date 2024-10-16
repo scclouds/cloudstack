@@ -50,4 +50,8 @@ public class ApiKeyPairPermissionVO extends RolePermissionBaseVO implements ApiK
     public long getSortOrder() {
         return sortOrder;
     }
+
+    public void setApiKeyPairId(long id) {
+        this.apiKeyPairId = id;
+    }
 }

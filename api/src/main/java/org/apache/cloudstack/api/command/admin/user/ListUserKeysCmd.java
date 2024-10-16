@@ -45,12 +45,20 @@ import org.apache.logging.log4j.Logger;
 public class ListUserKeysCmd extends BaseListDomainResourcesCmd {
 
     @ACL
-    @Parameter(name=ApiConstants.ID, type = CommandType.UUID, entityType = UserResponse.class, description = "ID of the user that owns the keys.")
+    @Parameter(name = ApiConstants.ID, type = CommandType.UUID, entityType = UserResponse.class, description = "ID of the user that owns the keys.")
     private Long userId;
 
     @ACL
-    @Parameter(name=ApiConstants.KEYPAIR_ID, type = CommandType.UUID, entityType = ApiKeyPairResponse.class, description = "ID of the keypair.")
+    @Parameter(name = ApiConstants.KEYPAIR_ID, type = CommandType.UUID, entityType = ApiKeyPairResponse.class, description = "ID of the keypair.")
     private Long keyPairId;
+
+    @ACL
+    @Parameter(name = ApiConstants.API_KEY_FILTER, type = CommandType.STRING, description = "API Key of the keypair.")
+    private String apiKeyFilter;
+
+    @Parameter(name = ApiConstants.SHOW_PERMISSIONS, type = CommandType.BOOLEAN, description = "Whether API Key rules should be returned.")
+    private Boolean showPermissions;
+
 
     protected Logger logger = LogManager.getLogger(getClass());
 
@@ -60,6 +68,14 @@ public class ListUserKeysCmd extends BaseListDomainResourcesCmd {
 
     public Long getKeyId() {
         return keyPairId;
+    }
+
+    public String getApiKeyFilter() {
+        return apiKeyFilter;
+    }
+
+    public Boolean getShowPermissions() {
+        return showPermissions;
     }
 
     public long getEntityOwnerId() {
