@@ -64,7 +64,7 @@ public class Upgrade41910to42000 extends DbUpgradeAbstractImpl implements DbUpgr
     private void performKeyPairMigration(Connection conn) throws SQLException {
         try {
             logger.debug("Performing keypair migration from user table to api_keypair table.");
-            PreparedStatement pstmt = conn.prepareStatement("SELECT u.id, u.api_key, u.secret_key, a.domain_id, u.id FROM `cloud`.`user` AS u JOIN `cloud`.`account` AS a " +
+            PreparedStatement pstmt = conn.prepareStatement("SELECT u.id, u.api_key, u.secret_key, a.domain_id, u.account_id FROM `cloud`.`user` AS u JOIN `cloud`.`account` AS a " +
                     "ON u.account_id = a.id WHERE u.api_key IS NOT NULL AND u.secret_key IS NOT NULL");
             ResultSet resultSet = pstmt.executeQuery();
 

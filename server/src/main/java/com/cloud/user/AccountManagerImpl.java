@@ -80,6 +80,7 @@ import org.apache.cloudstack.api.command.admin.user.MoveUserCmd;
 import org.apache.cloudstack.api.command.admin.user.RegisterUserKeysCmd;
 import org.apache.cloudstack.api.command.admin.user.UpdateUserCmd;
 import org.apache.cloudstack.api.response.ApiKeyPairResponse;
+import org.apache.cloudstack.api.response.BaseRolePermissionResponse;
 import org.apache.cloudstack.api.response.ListResponse;
 import org.apache.cloudstack.api.response.UserTwoFactorAuthenticationSetupResponse;
 import org.apache.cloudstack.auth.UserAuthenticator;
@@ -2987,20 +2988,6 @@ public class AccountManagerImpl extends ManagerBase implements AccountManager, M
         return roleService.roleHasPermission(apiNameToBaseKeyPermissions, comparedPermissions);
     }
 
-    private Boolean validatePermission(List<RolePermissionEntity> supersetPermissions, RolePermissionEntity comparedPermission) {
-        for (RolePermissionEntity supersetPermission : supersetPermissions) {
-            if (!supersetPermission.getRule().matches(comparedPermission.getRule().getRuleString())) {
-                continue;
-            }
-
-            if (!supersetPermission.getPermission().equals(RolePermissionEntity.Permission.ALLOW) && (comparedPermission.getPermission() == RolePermissionEntity.Permission.ALLOW)) {
-                return false;
-            }
-            return true;
-        }
-        return false;
-    }
-
     private void markExpiredKeysWithStateExpired(ApiKeyPair apiKeyPair) {
         if (apiKeyPair.hasEndDatePassed()) {
             internalDeleteApiKey(apiKeyPair);
@@ -3073,6 +3060,18 @@ public class AccountManagerImpl extends ManagerBase implements AccountManager, M
             return;
         }
         ApiKeyPairResponse response = cmd._responseGenerator.createKeyPairResponse(keyPair);
+        if (Boolean.TRUE.equals(cmd.getShowPermissions())) {
+            Account account = _accountDao.findById(keyPair.getAccountId());
+            List<ApiKeyPairPermission> apiKeyPairPermissions = apiKeyPairService.findAllPermissionsByKeyPairId(keyPair.getId(), account.getRoleId());
+            response.setPermissions(apiKeyPairPermissions.stream().map(apiKeyPairPermission -> {
+                BaseRolePermissionResponse rolePermissionResponse = new BaseRolePermissionResponse();
+                rolePermissionResponse.setRule(apiKeyPairPermission.getRule());
+                rolePermissionResponse.setDescription(apiKeyPairPermission.getDescription());
+                rolePermissionResponse.setRulePermission(apiKeyPairPermission.getPermission());
+
+                return rolePermissionResponse;
+            }).collect(Collectors.toList()));
+        }
         response.setObjectName(ApiConstants.USER_API_KEY);
         responses.add(response);
     }

@@ -33,7 +33,7 @@ import org.apache.cloudstack.api.response.SuccessResponse;
 public class DeleteUserKeysCmd extends BaseAsyncCmd {
 
     @ACL
-    @Parameter(name = ApiConstants.ID, type = CommandType.UUID, entityType = ApiKeyPairResponse.class, required = true, description = "ID of the keypair to be deleted.")
+    @Parameter(name = ApiConstants.KEYPAIR_ID, type = CommandType.UUID, entityType = ApiKeyPairResponse.class, required = true, description = "ID of the keypair to be deleted.")
     private Long id;
 
     @Override
