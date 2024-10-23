@@ -25,8 +25,12 @@ import javax.inject.Inject;
 import javax.naming.ConfigurationException;
 
 import com.cloud.api.auth.SetupUserTwoFactorAuthenticationCmd;
+import org.apache.cloudstack.acl.apikeypair.ApiKeyPairPermission;
+import org.apache.cloudstack.api.BaseCmd;
 import org.apache.cloudstack.api.command.admin.account.CreateAccountCmd;
+import org.apache.cloudstack.api.command.admin.user.DeleteUserKeysCmd;
 import org.apache.cloudstack.api.command.admin.user.GetUserKeysCmd;
+import org.apache.cloudstack.api.command.admin.user.ListUserKeyRulesCmd;
 import org.apache.cloudstack.api.command.admin.user.MoveUserCmd;
 import org.apache.cloudstack.api.response.UserTwoFactorAuthenticationSetupResponse;
 import org.apache.cloudstack.auth.UserTwoFactorAuthenticator;
@@ -540,6 +544,34 @@ public class MockAccountManager extends ManagerBase implements AccountManager {
 
     @Override
     public void checkApiAccess(Account account, String command) throws PermissionDeniedException {
+
+    }
+
+    @Override
+    public String getAccessingApiKey (BaseCmd cmd) {
+        return null;
+    }
+
+    @Override
+    public ApiKeyPair getKeyPairByApiKey(String apiKey) {
+        return null;
+    }
+
+    @Override
+    public void deleteApiKey(DeleteUserKeysCmd cmd) {
+    }
+
+    @Override
+    public void deleteApiKey(ApiKeyPair apiKeyPair) {
+
+    }
+
+    @Override
+    public List<ApiKeyPairPermission> listKeyRules(ListUserKeyRulesCmd cmd) {
+        return null;
+    }
+    @Override
+    public void validateCallingUserHasAccessToDesiredUser(Long userId) {
 
     }
 }
