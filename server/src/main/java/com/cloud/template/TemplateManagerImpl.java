@@ -1974,11 +1974,12 @@ public class TemplateManagerImpl extends ManagerBase implements TemplateManager,
                 if (vmId != null) {
                     UserVmVO userVm = _userVmDao.findById(vmId);
                     if (userVm != null) {
+                        List<String> templateSettingsDenyList = List.of(TemplateSettingsInheritanceDenyList.value().split(","));
                         _userVmDao.loadDetails(userVm);
                         Map<String, String> vmDetails = userVm.getDetails();
                         vmDetails = vmDetails.entrySet()
                                 .stream()
-                                .filter(map -> map.getValue() != null)
+                                .filter(map -> map.getValue() != null && !templateSettingsDenyList.contains(map.getKey()))
                                 .collect(Collectors.toMap(map -> map.getKey(), map -> map.getValue()));
                         details.putAll(vmDetails);
                     }

@@ -56,6 +56,9 @@ public interface TemplateManager {
             + "will validate if the provided URL is resolvable during the register of templates/ISOs before persisting them in the database.",
             true);
 
+    ConfigKey<String> TemplateSettingsInheritanceDenyList = new ConfigKey<>(ConfigKey.CATEGORY_ADVANCED, String.class, "template.settings.inheritance.deny.list", "",
+            "List of settings to not consider when creating a template. The template settings are inherited from the instance the volume or snapshot belongs to.", false, ConfigKey.Kind.CSV, null);
+
     static final String VMWARE_TOOLS_ISO = "vmware-tools.iso";
     static final String XS_TOOLS_ISO = "xs-tools.iso";
 
