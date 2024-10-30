@@ -39,7 +39,9 @@ public class Account extends GenericPresetVariable {
         fieldNamesToIncludeInToString.add("role");
     }
 
-    public String getCreated() { return created; }
+    public String getCreated() {
+        return created;
+    }
 
     public void setCreated(Date created) {
         this.created = DateUtil.displayDateInTimezone(TimeZone.getTimeZone("UTC"), created);
