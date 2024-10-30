@@ -44,7 +44,7 @@ public class Account extends GenericPresetVariable {
     }
 
     public void setCreated(Date created) {
-        this.created = DateUtil.displayDateInTimezone(TimeZone.getTimeZone("UTC"), created);
+        this.created = DateUtil.displayDateInTimezone(TimeZone.getTimeZone("GMT"), created);
         fieldNamesToIncludeInToString.add("created");
     }
 }
