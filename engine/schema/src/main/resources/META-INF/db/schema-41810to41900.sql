@@ -44,7 +44,7 @@ CREATE TABLE IF NOT EXISTS `cloud`.`quarantined_ips` (
 );
 
 -- create_public_parameter_on_roles. #6960
-ALTER TABLE `cloud`.`roles` ADD COLUMN `public_role` tinyint(1) NOT NULL DEFAULT '1' COMMENT 'Indicates whether the role will be visible to all users (public) or only to root admins (private). If this parameter is not specified during the creation of the role its value will be defaulted to true (public).';
+CALL `cloud`.`IDEMPOTENT_ADD_COLUMN`('cloud.roles', 'public_role', 'tinyint(1) NOT NULL DEFAULT "1" COMMENT "Indicates whether the role will be visible to all users (public) or only to root admins (private). If this parameter is not specified during the creation of the role its value will be defaulted to true (public)."');
 
 -- Create heuristic table for dynamic allocating resources to the secondary storage
 CREATE TABLE IF NOT EXISTS `cloud`.`heuristics` (
@@ -243,11 +243,11 @@ CREATE TABLE `cloud`.`oauth_provider` (
   ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
 
 -- Flexible tags
-ALTER TABLE `cloud`.`storage_pool_tags` ADD COLUMN is_tag_a_rule int(1) UNSIGNED not null DEFAULT 0;
+CALL `cloud`.`IDEMPOTENT_ADD_COLUMN`('cloud.storage_pool_tags', 'is_tag_a_rule', 'int(1) UNSIGNED not null DEFAULT 0');
 
 ALTER TABLE `cloud`.`storage_pool_tags` MODIFY tag text NOT NULL;
 
-ALTER TABLE `cloud`.`host_tags` ADD COLUMN is_tag_a_rule int(1) UNSIGNED not null DEFAULT 0;
+CALL `cloud`.`IDEMPOTENT_ADD_COLUMN`('cloud.host_tags', 'is_tag_a_rule', 'int(1) UNSIGNED not null DEFAULT 0');
 
 ALTER TABLE `cloud`.`host_tags` MODIFY tag text NOT NULL;
 

@@ -1,0 +1,451 @@
+workflow:
+  rules:
+    - if: $CI_PIPELINE_SOURCE == 'merge_request_event'
+    - if: $CI_COMMIT_TAG
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+
+stages:
+  - rat
+  - lint
+  - build
+  - packaging
+  - upload
+  - fast-forward
+  - release-notes
+  - notify
+
+# Template for `before_script` npm clean install on UI linting and building stages
+.before_script_template: &npm-clean-install
+  before_script:
+    - cd ui
+    - npm ci --cache .npm --prefer-offline
+
+# Template for `rules` used in backend jobs
+.rules_and_needs_template: &backend-rules-and-needs
+  needs:
+    - job: lint-frontend
+      optional: true
+    - rat-licence-all
+  rules:
+    - if:
+      changes:
+        - "**/*.java"
+        - "**/*.xml"
+        - "**/*.sh"
+
+#####################
+#       RAT        #
+#####################
+
+rat-licence-all:
+  stage: rat
+  interruptible: true
+  needs: []
+  tags:
+    - cloudstack
+  script:
+    - echo "Starting Rat license..."
+    - mvn -P developer,systemvm -Dsimulator -Dnoredist -pl . org.apache.rat:apache-rat-plugin:0.12:check
+    - echo "Rat license done."
+  artifacts:
+    when: on_failure
+    expire_in: 72h
+    name: "rat-$CI_COMMIT_SHORT_SHA"
+    paths:
+      - target/rat.txt
+
+#####################
+#       LINT        #
+#####################
+
+lint-frontend:
+  stage: lint
+  interruptible: true
+  needs: []
+  tags:
+    - cloudstack
+  <<: *npm-clean-install
+  script:
+    - echo "Starting front-end linting..."
+    - npx vue-cli-service lint --no-fix
+    - echo "Front-end linting done."
+  rules:
+    - if:
+      changes:
+        - ui/**/*
+
+# lint-backend:
+#   stage: lint
+#   tags:
+#     - cloudstack
+#   script:
+#     - echo "Starting back-end linting..."
+#     - mvn checkstyle:checkstyle
+#     - echo "Back-end linting done."
+#   <<: *backend-rules-and-needs
+
+#####################
+#       BUILD       #
+#####################
+
+build-frontend:
+  stage: build
+  interruptible: true
+  needs:
+    - lint-frontend
+    - rat-licence-all
+  tags:
+    - cloudstack
+  <<: *npm-clean-install
+  script:
+    - echo "Building frontend..."
+    - npm run build
+    - echo "Done building frontend."
+  rules:
+    - if:
+      changes:
+        - ui/**/*
+
+build-backend-skip-tests:
+  stage: build
+  interruptible: true
+  <<: *backend-rules-and-needs
+  # needs:
+  #   - lint-backend
+  tags:
+    - cloudstack
+  script:
+    - echo "Building backend with 'mvn clean install -DskipTests'..."
+    - mvn clean install -DskipTests
+    - echo "Done building backend with 'mvn clean install -DskipTests'."
+
+build-backend-with-test:
+  stage: build
+  interruptible: true
+  <<: *backend-rules-and-needs
+  # needs:
+  #   - lint-backend
+  tags:
+    - cloudstack
+  script:
+    - echo "Building backend with 'mvn clean install'..."
+    - mvn clean install
+    - echo "Done building backend with 'mvn clean install'."
+
+build-backend-with-noredist:
+  stage: build
+  interruptible: true
+  <<: *backend-rules-and-needs
+  # needs:
+  #   - lint-backend
+  tags:
+    - cloudstack
+  script:
+    - echo "Building backend with 'mvn clean install -Dnoredist'..."
+    - mvn clean install -Dnoredist
+    - echo "Done building backend with 'mvn clean install -Dnoredist'."
+
+build-backend-with-systemvm:
+  stage: build
+  interruptible: true
+  <<: *backend-rules-and-needs
+  # needs:
+  #   - lint-backend
+  tags:
+    - cloudstack
+  script:
+    - echo "Building backend with 'mvn clean install -Psystemvm,developer -Dsystemvm'..."
+    - mvn clean install -Psystemvm,developer -Dsystemvm
+    - echo "Done building backend with 'mvn clean install -Psystemvm,developer -Dsystemvm'."
+
+build-backend-combined:
+  stage: build
+  interruptible: true
+  <<: *backend-rules-and-needs
+  # needs:
+  #   - lint-backend
+  tags:
+    - cloudstack
+  script:
+    - echo "Building backend with 'mvn clean install -Dnoredist -Psystemvm,developer -Dsystemvm'..."
+    - mvn clean install -Dnoredist -Psystemvm,developer -Dsystemvm
+    - echo "Done building backend with 'mvn clean install -Dnoredist -Psystemvm,developer -Dsystemvm'"
+
+#####################
+# GENERATE PACKAGES #
+#####################
+
+generate-deb-packages:
+  stage: packaging
+  interruptible: true
+  tags:
+    - cloudstack
+  script:
+    - echo "Generating .deb Ubuntu Focal Fossa packages..."
+    - docker run -v $CI_PROJECT_DIR:/mnt/build/cloudstack -v ~/.m2:/root/.m2 -e "USER_ID=$(id -u)" -e "USER_GID=$(id -g)" -e "ACS_BUILD_OPTS=-Dnoredist" scclouds/cloudstack-deb-builder:ubuntu2004-jdk11-python3
+    - echo "Done generating .deb packages."
+  artifacts:
+    expire_in: 12h
+    name: "deb-ubuntu-focal-$CI_COMMIT_SHORT_SHA"
+    paths:
+      - dist/debbuild/DEBS/cloudstack-agent_*.deb
+      - dist/debbuild/DEBS/cloudstack-common_*.deb
+      - dist/debbuild/DEBS/cloudstack-management_*.deb
+      - dist/debbuild/DEBS/cloudstack-ui_*.deb
+      - dist/debbuild/DEBS/cloudstack-usage_*.deb
+
+generate-rpm-el9-packages:
+  stage: packaging
+  interruptible: true
+  tags:
+    - cloudstack
+  script:
+    - echo "Generating .rpm EL9 packages..."
+    - docker run -v $CI_PROJECT_DIR:/mnt/build/cloudstack -v ~/.m2:/root/.m2 -e "USER_ID=$(id -u)" -e "USER_GID=$(id -g)" scclouds/cloudstack-rpm-builder:oracle-linux9-jdk11 --distribution el9 --pack noredist
+    - echo "Done generating .rpm packages."
+  artifacts:
+    expire_in: 2h
+    name: "rpm-el9-$CI_COMMIT_SHORT_SHA"
+    paths:
+      - dist/rpmbuild/RPMS/x86_64/cloudstack-agent-*.rpm
+      - dist/rpmbuild/RPMS/x86_64/cloudstack-common-*.rpm
+      - dist/rpmbuild/RPMS/x86_64/cloudstack-management-*.rpm
+      - dist/rpmbuild/RPMS/x86_64/cloudstack-ui-*.rpm
+      - dist/rpmbuild/RPMS/x86_64/cloudstack-usage-*.rpm
+
+#####################
+#       UPLOAD      #
+#####################
+
+upload-deb-packages:
+  stage: upload
+  rules:
+    - if: $CI_COMMIT_TAG
+  needs:
+    - generate-deb-packages
+  interruptible: false
+  tags:
+    - docker
+  script:
+    - apt-get update && apt-get install -y jq curl
+    - FILENAME="cloudstack-$CI_COMMIT_TAG.tar.gz"
+    - FILEPATH="$CI_PROJECT_DIR/$FILENAME"
+    - echo "Compressing .deb Ubuntu Focal Fossa packages into $FILEPATH..."
+    - |
+      cd dist/debbuild/DEBS/ && tar -czvf $FILEPATH \
+      cloudstack-agent_*.deb \
+      cloudstack-common_*.deb \
+      cloudstack-management_*.deb \
+      cloudstack-ui_*.deb \
+      cloudstack-usage_*.deb && cd -
+    - echo "Logging in FileSystem"
+    - |
+      SID=$(curl "https://vpn.scclouds.com.br/webapi/auth.cgi?api=SYNO.API.Auth&version=7&method=login&account=$VPN_USER&passwd=$VPN_PASSWD&session=FileStation&format=cookie" | jq .data.sid | tr -d '"')
+    - echo "Got sid $SID"
+    - REMOTE_PATH="/scclouds-files/cloudstack/packages/deb"
+    - FULL_REMOTE_PATH="/scclouds-files/cloudstack/packages/deb/$FILENAME"
+    - echo "Uploading .deb Ubuntu Focal Fossa packages to $FULL_REMOTE_PATH"
+    # The file will be overwritten if the same name already exists in the filesystem.
+    - |
+      curl -L "https://vpn.scclouds.com.br/webapi/entry.cgi?_sid=$SID&api=SYNO.FileStation.Upload&method=upload&version=2" \
+      -F 'path="'"$REMOTE_PATH"'"' \
+      -F 'create_parents="false"' \
+      -F 'overwrite="true"' \
+      -F 'filename=@"'"$FILEPATH"'"'
+    - echo "Done uploading .deb packages."
+    - echo "Creating share link..."
+    - |
+      DEB_LINK=$(curl "https://vpn.scclouds.com.br/webapi/entry.cgi?_sid=$SID&api=SYNO.FileStation.Sharing&version=3&method=create&path=$FULL_REMOTE_PATH" | jq '.data.links[] | .url' | tr -d '"')
+    - echo "Generated the link $DEB_LINK for the .deb Ubuntu Focal Fossa packages."
+    - echo "Logging out of FileSystem."
+    - curl -L https://vpn.scclouds.com.br/webapi/auth.cgi?api=SYNO.API.Auth&_sid=$SID&version=1&method=logout&session=FileStation
+    - echo "DEB_LINK=$DEB_LINK" >> links.env
+  artifacts:
+    reports:
+      dotenv: links.env
+
+upload-rpm-el9-packages:
+  stage: upload
+  rules:
+    - if: $CI_COMMIT_TAG
+  needs:
+    - generate-rpm-el9-packages
+  interruptible: false
+  tags:
+    - docker
+  script:
+    - apt-get update && apt-get install -y jq curl
+    - FILENAME="rpm-el9-cloudstack-$CI_COMMIT_TAG.tar.gz"
+    - FILEPATH="$CI_PROJECT_DIR/$FILENAME"
+    - echo "Compressing .rpm EL9 packages into $FILEPATH..."
+    - |
+      cd dist/rpmbuild/RPMS/x86_64/ && tar -czvf $FILEPATH \
+      cloudstack-agent-*.rpm \
+      cloudstack-common-*.rpm \
+      cloudstack-management-*.rpm \
+      cloudstack-ui-*.rpm \
+      cloudstack-usage-*.rpm && cd -
+    - echo "Logging in FileSystem"
+    - |
+      SID=$(curl "https://vpn.scclouds.com.br/webapi/auth.cgi?api=SYNO.API.Auth&version=7&method=login&account=$VPN_USER&passwd=$VPN_PASSWD&session=FileStation&format=cookie" | jq .data.sid | tr -d '"')
+    - echo "Got sid $SID"
+    - REMOTE_PATH="/scclouds-files/cloudstack/packages/rpm"
+    - FULL_REMOTE_PATH="/scclouds-files/cloudstack/packages/rpm/$FILENAME"
+    - echo "Uploading .rpm EL9 packages to $REMOTE_PATH"
+    # The file will be overwritten if the same name already exists in the filesystem.
+    - |
+      curl -L "https://vpn.scclouds.com.br/webapi/entry.cgi?_sid=$SID&api=SYNO.FileStation.Upload&method=upload&version=2" \
+      -F 'path="'"$REMOTE_PATH"'"' \
+      -F 'create_parents="false"' \
+      -F 'overwrite="true"' \
+      -F 'filename=@"'"$FILEPATH"'"'
+    - echo "Done uploading .rpm packages."
+    - echo "Creating share link..."
+    - |
+      RPM_EL9_LINK=$(curl "https://vpn.scclouds.com.br/webapi/entry.cgi?_sid=$SID&api=SYNO.FileStation.Sharing&version=3&method=create&path=$FULL_REMOTE_PATH" | jq '.data.links[] | .url' | tr -d '"')
+    - echo "Generated the link $RPM_EL9_LINK for the .rpm EL9 packages."
+    - echo "Logging out of FileSystem."
+    - curl -L https://vpn.scclouds.com.br/webapi/auth.cgi?api=SYNO.API.Auth&_sid=$SID&version=1&method=logout&session=FileStation
+    - echo "RPM_EL9_LINK=$RPM_EL9_LINK" >> links.env
+  artifacts:
+    reports:
+      dotenv: links.env
+
+#####################
+#   FAST FORWARD    #
+#####################
+
+fast-forward-commits:
+  stage: fast-forward
+  rules:
+    - if: $CI_COMMIT_TAG
+  needs:
+    - upload-deb-packages
+    - upload-rpm-el9-packages
+  interruptible: false
+  tags:
+    - docker
+  script:
+    - apt-get update && apt-get install -y git
+    - echo "Configuring ci-user git user."
+    - git config user.name "ci-user"
+    - git config user.email "ci-user@scclouds.com.br"
+    - echo "Using branch $CI_DEFAULT_BRANCH to forward the commits."
+    - eval "git fetch"
+    - eval "git checkout $CI_DEFAULT_BRANCH"
+    - echo "Pushing branch and tag for customers remotes '$CUSTOMER_NAMES'."
+    - |
+      for customer in $CUSTOMER_NAMES
+      do
+        echo "Pushing to customer $customer"
+        eval "git push https://oauth2:$TOKEN@gitlab.scclouds.com.br/scclouds/$customer.git $CI_DEFAULT_BRANCH:$CI_DEFAULT_BRANCH"
+        eval "git push https://oauth2:$TOKEN@gitlab.scclouds.com.br/scclouds/$customer.git $CI_COMMIT_TAG"
+      done
+    - echo "Done fast forwarding commits to customer repos."
+
+#####################
+#   RELEASE NOTES   #
+#####################
+
+generate-and-publish-release-notes:
+  stage: release-notes
+  rules:
+    - if: $CI_COMMIT_TAG
+  needs:
+    - upload-deb-packages
+    - upload-rpm-el9-packages
+    - fast-forward-commits
+  interruptible: false
+  tags:
+    - docker
+  script:
+    - apt-get update && apt-get install -y git python3 pip curl
+    - git clone https://oauth2:${TOKEN}@gitlab.scclouds.com.br/scclouds/ci.git
+    - cd ci/release-notes-generator/
+    - pip install -r requirements.txt
+    - echo "Creating release notes using the .deb link $DEB_LINK and .rpm EL 9 link $RPM_EL9_LINK."
+    - echo "Creating the release notes for the base repository..."
+    - |
+      python3 releasenotes.py \
+      --token $TOKEN \
+      --to-json true \
+      --version $CI_COMMIT_TAG \
+      --deblink DEB_LINK \
+      --rpmelnovelink RPM_EL9_LINK \
+      --url https://gitlab.scclouds.com.br/ \
+      --labels management-server,system-vm,kvm,vmware-veeam,xenserver,kubernetes,terraform,quota,logs,ui,usage \
+      --company all
+    - echo "Done creating release notes for base repository. Now, creating for customers $CUSTOMER_NAMES..."
+    - |
+      for customer in $CUSTOMER_NAMES
+      do
+        if [ "$customer" = "template-group/template-project-cloudstack" ]; then
+          customer="template-group%2Ftemplate-project-cloudstack"
+        fi
+        python3 releasenotes.py \
+        --token $TOKEN \
+        --to-json true \
+        --version $CI_COMMIT_TAG \
+        --deblink $DEB_LINK \
+        --rpmelnovelink $RPM_EL9_LINK \
+        --url https://gitlab.scclouds.com.br/ \
+        --labels management-server,system-vm,kvm,vmware-veeam,xenserver,kubernetes,terraform,quota,logs,ui,usage \
+        --company $customer
+      done
+    - echo "Done creating release notes. Publishing release notes for base repository..."
+    - DESCRIPTION=$(cat base-releasenotes-$CI_COMMIT_TAG.md)
+    - echo "Using description $DESCRIPTION"
+    - |
+      curl -X POST \
+      -H "PRIVATE-TOKEN: $TOKEN" \
+      -H "Content-Type: application/json" \
+      -d "{\"name\": \"${CI_COMMIT_TAG}\", \"tag_name\": \"${CI_COMMIT_TAG}\", \"milestones\": [\"${CI_COMMIT_TAG}\"], \"description\": ${DESCRIPTION}}" \
+      "https://gitlab.scclouds.com.br/api/v4/projects/scclouds%2Fscclouds/releases"
+    - echo "Done publishing release notes for base repository."
+    - |
+      for customer in $CUSTOMER_NAMES
+      do
+        if [ "$customer" = "template-group/template-project-cloudstack" ]; then
+          customer="template-group%2Ftemplate-project-cloudstack"
+        fi
+        FILEPATH="${customer}-releasenotes-${CI_COMMIT_TAG}.md"
+        DESCRIPTION=$(cat ${FILEPATH})
+        echo "Publishing release for customer $customer with description file ${FILEPATH}."
+        curl -X POST \
+        -H "PRIVATE-TOKEN: $TOKEN" \
+        -H "Content-Type: application/json" \
+        -d "{\"name\": \"${CI_COMMIT_TAG}\", \"tag_name\": \"${CI_COMMIT_TAG}\", \"description\": ${DESCRIPTION}}" \
+        "https://gitlab.scclouds.com.br/api/v4/projects/scclouds%2F${customer}/releases"
+        echo "Done publishing release notes for customer $customer."
+      done
+    - echo "Done publishing release notes for customers $CUSTOMER_NAMES".
+
+#####################
+#       NOTIFY      #
+#####################
+
+notify-customers:
+  stage: notify
+  rules:
+    - if: $CI_COMMIT_TAG
+  needs:
+    - generate-and-publish-release-notes
+  interruptible: false
+  tags:
+    - docker
+  script:
+    - apt-get update && apt-get install -y jq curl
+    - TITLE="Release $CI_COMMIT_TAG"
+    - echo "Using title $TITLE and description $NOTIFY_DESCRIPTION"
+    - |
+      for customer in $CUSTOMER_NAMES
+      do
+        if [ "$customer" = "template-group/template-project-cloudstack" ]; then
+          echo "Skipping notification for template-project-cloudstack remote."
+        fi
+        curl -X POST \
+        -H "PRIVATE-TOKEN: $TOKEN" \
+        -H "Content-Type: application/json" \
+        -d "{\"title\": \"${TITLE}\", \"description\": \"${NOTIFY_DESCRIPTION}\"}" \
+        "https://gitlab.scclouds.com.br/api/v4/projects/scclouds%2F${customer}/issues"
+      done
