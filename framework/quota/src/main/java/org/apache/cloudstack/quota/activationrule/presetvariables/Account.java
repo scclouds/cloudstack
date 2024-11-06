@@ -27,7 +27,7 @@ public class Account extends GenericPresetVariable {
 
     private Role role;
 
-    @PresetVariableDefinition(description = "The date the account was created. This field will not exist for the first root admin account.")
+    @PresetVariableDefinition(description = "The date the account was created in GMT. This field will not exist for the first root admin account.")
     private String created;
 
     public Role getRole() {
