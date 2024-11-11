@@ -29,6 +29,8 @@ select
     user.lastname,
     user.email,
     user.state,
+    user.api_key,
+    user.secret_key,
     user.created,
     user.removed,
     user.timezone,
