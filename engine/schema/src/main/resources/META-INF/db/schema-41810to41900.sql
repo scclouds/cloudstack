@@ -26,7 +26,19 @@ UPDATE `cloud`.`network_offerings` SET conserve_mode=1 WHERE name='DefaultIsolat
 -- Invalidate existing console_session records
 UPDATE `cloud`.`console_session` SET removed=now();
 -- Modify acquired column in console_session to datetime type
-ALTER TABLE `cloud`.`console_session` DROP `acquired`, ADD `acquired` datetime COMMENT 'When the session was acquired' AFTER `host_id`;
+SELECT @datatype:=DATA_TYPE
+FROM INFORMATION_SCHEMA.COLUMNS
+WHERE TABLE_NAME = 'console_session'
+AND COLUMN_NAME = 'acquired';
+
+SET @query = IF(
+    @datatype = 'datetime',
+    'SELECT \'Do nothing\'',
+    'ALTER TABLE `cloud`.`console_session` DROP `acquired`, ADD `acquired` datetime COMMENT \'When the session was acquired\' AFTER `host_id`;'
+);
+
+PREPARE STMT FROM @query;
+EXECUTE stmt;
 
 -- IP quarantine PR#7378
 CREATE TABLE IF NOT EXISTS `cloud`.`quarantined_ips` (
