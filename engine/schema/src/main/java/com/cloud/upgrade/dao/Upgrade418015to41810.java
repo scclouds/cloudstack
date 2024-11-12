@@ -44,7 +44,13 @@ public class Upgrade418015to41810 extends DbUpgradeAbstractImpl implements DbUpg
 
     @Override
     public InputStream[] getPrepareScripts() {
-        return null;
+        final String scriptFile = "META-INF/db/schema-418015to41810.sql";
+        final InputStream script = Thread.currentThread().getContextClassLoader().getResourceAsStream(scriptFile);
+        if (script == null) {
+            throw new CloudRuntimeException("Unable to find " + scriptFile);
+        }
+
+        return new InputStream[] {script};
     }
 
     @Override
