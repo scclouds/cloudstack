@@ -47,7 +47,7 @@ UPDATE `cloud`.`service_offering` so
 SET so.limit_cpu_use = 1
 WHERE so.default_use = 1 AND
       so.vm_type IN ('domainrouter', 'secondarystoragevm', 'consoleproxy', 'internalloadbalancervm', 'elasticloadbalancervm') AND
-      NOT EXISTS(SELECT version FROM `cloud`.`version` WHERE version = '4.16.0.7-scclouds')
+      NOT EXISTS(SELECT version FROM `cloud`.`version` WHERE version = '4.16.0.7-scclouds');
 
 -- fix erronous commas in guest_os names
 UPDATE `cloud`.`guest_os_hypervisor` SET guest_os_name = 'rhel9_64Guest' WHERE guest_os_name = 'rhel9_64Guest,';
