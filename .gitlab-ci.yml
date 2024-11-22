@@ -46,7 +46,12 @@ stages:
       optional: true
     - rat-licence-all
   rules:
-    - if:
+    - if: $CI_COMMIT_BRANCH
+      changes:
+        - "**/*.java"
+        - "**/*.xml"
+        - "**/*.sh"
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
       changes:
         - "**/*.java"
         - "**/*.xml"
@@ -58,10 +63,13 @@ stages:
 
 rat-licence-all:
   stage: rat
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+    - if: $CI_COMMIT_BRANCH
   interruptible: true
   needs: []
   tags:
-    - cloudstack
+    - cloudstack-light-step
   script:
     - echo "Starting Rat license..."
     - mvn -P developer,systemvm -Dsimulator -Dnoredist -pl . org.apache.rat:apache-rat-plugin:0.12:check
@@ -82,14 +90,17 @@ lint-frontend:
   interruptible: true
   needs: []
   tags:
-    - cloudstack
+    - cloudstack-light-step
   <<: *npm-clean-install
   script:
     - echo "Starting front-end linting..."
     - npx vue-cli-service lint --no-fix
     - echo "Front-end linting done."
   rules:
-    - if:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+      changes:
+        - ui/**/*
+    - if: $CI_COMMIT_BRANCH
       changes:
         - ui/**/*
 
@@ -114,14 +125,17 @@ build-frontend:
     - lint-frontend
     - rat-licence-all
   tags:
-    - cloudstack
+    - cloudstack-light-step
   <<: *npm-clean-install
   script:
     - echo "Building frontend..."
     - npm run build
     - echo "Done building frontend."
   rules:
-    - if:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+      changes:
+        - ui/**/*
+    - if: $CI_COMMIT_BRANCH
       changes:
         - ui/**/*
 
@@ -134,48 +148,9 @@ build-backend-skip-tests:
   tags:
     - cloudstack
   script:
-    - echo "Building backend with 'mvn clean install -DskipTests'..."
-    - mvn clean install -DskipTests
-    - echo "Done building backend with 'mvn clean install -DskipTests'."
-
-build-backend-with-test:
-  stage: build
-  interruptible: true
-  <<: *backend-rules-and-needs
-  # needs:
-  #   - lint-backend
-  tags:
-    - cloudstack
-  script:
-    - echo "Building backend with 'mvn clean install'..."
-    - mvn clean install
-    - echo "Done building backend with 'mvn clean install'."
-
-build-backend-with-noredist:
-  stage: build
-  interruptible: true
-  <<: *backend-rules-and-needs
-  # needs:
-  #   - lint-backend
-  tags:
-    - cloudstack
-  script:
-    - echo "Building backend with 'mvn clean install -Dnoredist'..."
-    - mvn clean install -Dnoredist
-    - echo "Done building backend with 'mvn clean install -Dnoredist'."
-
-build-backend-with-systemvm:
-  stage: build
-  interruptible: true
-  <<: *backend-rules-and-needs
-  # needs:
-  #   - lint-backend
-  tags:
-    - cloudstack
-  script:
-    - echo "Building backend with 'mvn clean install -Psystemvm,developer -Dsystemvm'..."
-    - mvn clean install -Psystemvm,developer -Dsystemvm
-    - echo "Done building backend with 'mvn clean install -Psystemvm,developer -Dsystemvm'."
+    - echo "Building backend with 'mvn clean install -DskipTests -Dnoredist'..."
+    - mvn clean install -DskipTests -Dnoredist
+    - echo "Done building backend with 'mvn clean install -DskipTests -Dnoredist'."
 
 build-backend-combined:
   stage: build
@@ -350,14 +325,13 @@ fast-forward-commits:
     - git config user.name "ci-user"
     - git config user.email "ci-user@scclouds.com.br"
     - echo "Using branch $CI_DEFAULT_BRANCH to forward the commits."
-    - eval "git fetch"
-    - eval "git checkout $CI_DEFAULT_BRANCH"
-    - echo "Pushing branch and tag for customers remotes '$CUSTOMER_NAMES'."
+    - eval "git fetch $REMOTE"
+    - echo "Pushing branch and tag for customers remotes '$CUSTOMERS_TO_PUSH_CHANGES'."
     - |
-      for customer in $CUSTOMER_NAMES
+      for customer in $CUSTOMERS_TO_PUSH_CHANGES
       do
         echo "Pushing to customer $customer"
-        eval "git push https://oauth2:$TOKEN@gitlab.scclouds.com.br/scclouds/$customer.git $CI_DEFAULT_BRANCH:$CI_DEFAULT_BRANCH"
+        eval "git push https://oauth2:$TOKEN@gitlab.scclouds.com.br/scclouds/$customer.git $(git --no-pager log -n 1 --pretty=format:"%H" $REMOTE/$CI_DEFAULT_BRANCH):$CI_DEFAULT_BRANCH"
         eval "git push https://oauth2:$TOKEN@gitlab.scclouds.com.br/scclouds/$customer.git $CI_COMMIT_TAG"
       done
     - echo "Done fast forwarding commits to customer repos."
@@ -392,11 +366,11 @@ generate-and-publish-release-notes:
       --deblink DEB_LINK \
       --rpmelnovelink RPM_EL9_LINK \
       --url https://gitlab.scclouds.com.br/ \
-      --labels management-server,system-vm,kvm,vmware-veeam,xenserver,kubernetes,terraform,quota,logs,ui,usage \
+      --labels management-server,system-vm,kvm,vmware,veeam,xenserver,kubernetes,terraform,quota,logs,ui,usage \
       --company all
-    - echo "Done creating release notes for base repository. Now, creating for customers $CUSTOMER_NAMES..."
+    - echo "Done creating release notes for base repository. Now, creating for customers $CUSTOMERS_TO_NOTIFY..."
     - |
-      for customer in $CUSTOMER_NAMES
+      for customer in $CUSTOMERS_TO_NOTIFY
       do
         if [ "$customer" = "template-group/template-project-cloudstack" ]; then
           customer="template-group%2Ftemplate-project-cloudstack"
@@ -408,7 +382,7 @@ generate-and-publish-release-notes:
         --deblink $DEB_LINK \
         --rpmelnovelink $RPM_EL9_LINK \
         --url https://gitlab.scclouds.com.br/ \
-        --labels management-server,system-vm,kvm,vmware-veeam,xenserver,kubernetes,terraform,quota,logs,ui,usage \
+        --labels management-server,system-vm,kvm,vmware,veeam,xenserver,kubernetes,terraform,quota,logs,ui,usage \
         --company $customer
       done
     - echo "Done creating release notes. Publishing release notes for base repository..."
@@ -422,7 +396,7 @@ generate-and-publish-release-notes:
       "https://gitlab.scclouds.com.br/api/v4/projects/scclouds%2Fscclouds/releases"
     - echo "Done publishing release notes for base repository."
     - |
-      for customer in $CUSTOMER_NAMES
+      for customer in $CUSTOMERS_TO_NOTIFY
       do
         if [ "$customer" = "template-group/template-project-cloudstack" ]; then
           customer="template-group%2Ftemplate-project-cloudstack"
@@ -437,7 +411,7 @@ generate-and-publish-release-notes:
         "https://gitlab.scclouds.com.br/api/v4/projects/scclouds%2F${customer}/releases"
         echo "Done publishing release notes for customer $customer."
       done
-    - echo "Done publishing release notes for customers $CUSTOMER_NAMES".
+    - echo "Done publishing release notes for customers $CUSTOMERS_TO_NOTIFY".
 
 #####################
 #       NOTIFY      #
@@ -457,7 +431,7 @@ notify-customers:
     - TITLE="Release $CI_COMMIT_TAG"
     - echo "Using title $TITLE and description $NOTIFY_DESCRIPTION"
     - |
-      for customer in $CUSTOMER_NAMES
+      for customer in $CUSTOMERS_TO_NOTIFY
       do
         if [ "$customer" = "template-group/template-project-cloudstack" ]; then
           echo "Skipping notification for template-project-cloudstack remote."
