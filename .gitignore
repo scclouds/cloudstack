@@ -96,6 +96,7 @@ tools/devcloud/devcloudbox/.vagrant
 tools/marvin/build/
 tools/marvin/marvin/cloudstackAPI/
 tools/marvin/marvin/cloudstackAPI/*
+ui/package-lock.json
 unittest
 venv
 waf-*
