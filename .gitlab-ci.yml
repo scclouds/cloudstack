@@ -37,7 +37,8 @@ stages:
 .before_script_template: &npm-clean-install
   before_script:
     - cd ui
-    - npm ci --cache .npm --prefer-offline
+    # - npm ci --cache .npm --prefer-offline
+    - npm install
 
 # Template for `rules` used in backend jobs
 .rules_and_needs_template: &backend-rules-and-needs
