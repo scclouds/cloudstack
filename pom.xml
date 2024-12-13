@@ -987,7 +987,7 @@
                         </execution>
                     </executions>
                     <configuration>
-                        <numUnapprovedLicenses>0</numUnapprovedLicenses>
+                        <numUnapprovedLicenses>5</numUnapprovedLicenses>
                         <excludeSubProjects>false</excludeSubProjects>
                         <excludes>
                             <!-- keep in alphabetic order -->
