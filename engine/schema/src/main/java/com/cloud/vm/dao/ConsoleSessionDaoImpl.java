@@ -22,6 +22,8 @@ package com.cloud.vm.dao;
 import java.util.Date;
 import java.util.List;
 
+import com.cloud.utils.Pair;
+import com.cloud.utils.db.Filter;
 import org.apache.commons.collections.CollectionUtils;
 
 import com.cloud.utils.db.GenericDaoBase;
@@ -62,9 +64,10 @@ public class ConsoleSessionDaoImpl extends GenericDaoBase<ConsoleSessionVO, Long
     }
 
     @Override
-    public void acquireSession(String sessionUuid) {
+    public void acquireSession(String sessionUuid, String clientAddress) {
         ConsoleSessionVO consoleSessionVO = findByUuid(sessionUuid);
         consoleSessionVO.setAcquired(new Date());
+        consoleSessionVO.setClientAddress(clientAddress);
         update(consoleSessionVO.getId(), consoleSessionVO);
     }
 
@@ -78,5 +81,62 @@ public class ConsoleSessionDaoImpl extends GenericDaoBase<ConsoleSessionVO, Long
         SearchCriteria<ConsoleSessionVO> sc = sb.create();
         sc.setParameters("vmIds", vmIds.toArray());
         return batchExpunge(sc, batchSize);
+    }
+
+    @Override
+    public Pair<List<ConsoleSessionVO>, Integer> listConsoleSessions(Long id, List<Long> domainIds, Long accountId, Long userId, Long hostId,
+                                                                     Date startDate, Date endDate, Long instanceId,
+                                                                     String consoleEndpointCreatorAddress, String clientAddress,
+                                                                     boolean activeOnly, Long pageSizeVal, Long startIndex) {
+        Filter filter = new Filter(ConsoleSessionVO.class, "created", false, startIndex, pageSizeVal);
+        SearchCriteria<ConsoleSessionVO> searchCriteria = createListConsoleSessionsSearchCriteria(id, domainIds, accountId, userId, hostId,
+                startDate, endDate, instanceId, consoleEndpointCreatorAddress, clientAddress, activeOnly);
+
+        return searchAndCount(searchCriteria, filter, true);
+    }
+
+
+    private SearchCriteria<ConsoleSessionVO> createListConsoleSessionsSearchCriteria(Long id, List<Long> domainIds, Long accountId, Long userId, Long hostId,
+                                                                                     Date startDate, Date endDate, Long instanceId,
+                                                                                     String consoleEndpointCreatorAddress, String clientAddress,
+                                                                                     boolean activeOnly) {
+        SearchCriteria<ConsoleSessionVO> searchCriteria = createListConsoleSessionsSearchBuilder(activeOnly).create();
+
+        searchCriteria.setParametersIfNotNull("id", id);
+        searchCriteria.setParametersIfNotNull("domainIds", domainIds.toArray());
+        searchCriteria.setParametersIfNotNull("accountId", accountId);
+        searchCriteria.setParametersIfNotNull("userId", userId);
+        searchCriteria.setParametersIfNotNull("hostId", hostId);
+        searchCriteria.setParametersIfNotNull("instanceId", instanceId);
+        searchCriteria.setParametersIfNotNull("startDate", startDate);
+        searchCriteria.setParametersIfNotNull("endDate", endDate);
+        searchCriteria.setParametersIfNotNull("creatorAddress", consoleEndpointCreatorAddress);
+        searchCriteria.setParametersIfNotNull("clientAddress", clientAddress);
+
+        return searchCriteria;
+    }
+
+    private SearchBuilder<ConsoleSessionVO> createListConsoleSessionsSearchBuilder(boolean activeOnly) {
+        SearchBuilder<ConsoleSessionVO> searchBuilder = createSearchBuilder();
+
+        searchBuilder.and("id", searchBuilder.entity().getId(), SearchCriteria.Op.EQ);
+        searchBuilder.and("domainIds", searchBuilder.entity().getDomainId(), SearchCriteria.Op.IN);
+        searchBuilder.and("accountId", searchBuilder.entity().getAccountId(), SearchCriteria.Op.EQ);
+        searchBuilder.and("userId", searchBuilder.entity().getUserId(), SearchCriteria.Op.EQ);
+        searchBuilder.and("instanceId", searchBuilder.entity().getInstanceId(), SearchCriteria.Op.EQ);
+        searchBuilder.and("hostId", searchBuilder.entity().getHostId(), SearchCriteria.Op.EQ);
+        searchBuilder.and("startDate", searchBuilder.entity().getAcquired(), SearchCriteria.Op.GTEQ);
+        searchBuilder.and("endDate", searchBuilder.entity().getAcquired(), SearchCriteria.Op.LTEQ);
+        searchBuilder.and("creatorAddress", searchBuilder.entity().getConsoleEndpointCreatorAddress(), SearchCriteria.Op.EQ);
+        searchBuilder.and("clientAddress", searchBuilder.entity().getClientAddress(), SearchCriteria.Op.EQ);
+
+        if (activeOnly) {
+            searchBuilder.and("acquired", searchBuilder.entity().getAcquired(), SearchCriteria.Op.NNULL);
+            searchBuilder.and("removed", searchBuilder.entity().getRemoved(), SearchCriteria.Op.NULL);
+        }
+
+        searchBuilder.done();
+
+        return searchBuilder;
     }
 }

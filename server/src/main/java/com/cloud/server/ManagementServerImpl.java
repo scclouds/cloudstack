@@ -71,6 +71,7 @@ import org.apache.cloudstack.api.command.admin.autoscale.DeleteCounterCmd;
 import org.apache.cloudstack.api.command.admin.bgp.CreateASNRangeCmd;
 import org.apache.cloudstack.api.command.admin.bgp.DeleteASNRangeCmd;
 import org.apache.cloudstack.api.command.admin.bgp.ListASNRangesCmd;
+import org.apache.cloudstack.api.command.admin.consoleproxy.ListConsoleSessionsCmd;
 import org.apache.cloudstack.api.command.user.bgp.ListASNumbersCmd;
 import org.apache.cloudstack.api.command.admin.bgp.ReleaseASNumberCmd;
 import org.apache.cloudstack.api.command.admin.cluster.AddClusterCmd;
@@ -4035,6 +4036,7 @@ public class ManagementServerImpl extends ManagerBase implements ManagementServe
         cmdList.add(ChangeOutOfBandManagementPasswordCmd.class);
         cmdList.add(GetUserKeysCmd.class);
         cmdList.add(CreateConsoleEndpointCmd.class);
+        cmdList.add(ListConsoleSessionsCmd.class);
 
         //user data APIs
         cmdList.add(RegisterUserDataCmd.class);

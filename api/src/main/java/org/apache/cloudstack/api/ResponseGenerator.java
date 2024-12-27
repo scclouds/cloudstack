@@ -25,6 +25,8 @@ import java.util.Set;
 import com.cloud.bgp.ASNumber;
 import com.cloud.bgp.ASNumberRange;
 
+import org.apache.cloudstack.consoleproxy.ConsoleSession;
+import org.apache.cloudstack.api.response.ConsoleSessionResponse;
 import org.apache.cloudstack.storage.object.Bucket;
 import org.apache.cloudstack.affinity.AffinityGroup;
 import org.apache.cloudstack.affinity.AffinityGroupResponse;
@@ -568,4 +570,6 @@ public interface ResponseGenerator {
     BackupRepositoryResponse createBackupRepositoryResponse(BackupRepository repository);
 
     SharedFSResponse createSharedFSResponse(ResponseView view, SharedFS sharedFS);
+
+    ConsoleSessionResponse createConsoleSessionResponse(ConsoleSession consoleSession, ResponseView responseView);
 }
