@@ -41,6 +41,7 @@ import javax.inject.Inject;
 
 import com.cloud.bgp.ASNumber;
 import com.cloud.bgp.ASNumberRange;
+import org.apache.cloudstack.consoleproxy.ConsoleSession;
 import com.cloud.dc.ASNumberRangeVO;
 import com.cloud.dc.ASNumberVO;
 import com.cloud.dc.VlanDetailsVO;
@@ -86,6 +87,7 @@ import org.apache.cloudstack.api.response.ConditionResponse;
 import org.apache.cloudstack.api.response.ConfigurationGroupResponse;
 import org.apache.cloudstack.api.response.ConfigurationResponse;
 import org.apache.cloudstack.api.response.ConfigurationSubGroupResponse;
+import org.apache.cloudstack.api.response.ConsoleSessionResponse;
 import org.apache.cloudstack.api.response.ControlledEntityResponse;
 import org.apache.cloudstack.api.response.ControlledViewEntityResponse;
 import org.apache.cloudstack.api.response.CounterResponse;
@@ -5454,5 +5456,49 @@ public class ApiResponseHelper implements ResponseGenerator {
     public SharedFSResponse createSharedFSResponse(ResponseView view, SharedFS sharedFS) {
         SharedFSJoinVO sharedFSView = ApiDBUtils.newSharedFSView(sharedFS);
         return ApiDBUtils.newSharedFSResponse(view, sharedFSView);
+    }
+
+    @Override
+    public ConsoleSessionResponse createConsoleSessionResponse(ConsoleSession consoleSession, ResponseView responseView) {
+        ConsoleSessionResponse consoleSessionResponse = new ConsoleSessionResponse();
+        consoleSessionResponse.setId(consoleSession.getUuid());
+        consoleSessionResponse.setCreated(consoleSession.getCreated());
+        consoleSessionResponse.setAcquired(consoleSession.getAcquired());
+        consoleSessionResponse.setRemoved(consoleSession.getRemoved());
+        consoleSessionResponse.setConsoleEndpointCreatorAddress(consoleSession.getConsoleEndpointCreatorAddress());
+        consoleSessionResponse.setClientAddress(consoleSession.getClientAddress());
+
+        Domain domain = ApiDBUtils.findDomainById(consoleSession.getDomainId());
+        if (domain != null) {
+            consoleSessionResponse.setDomain(domain.getName());
+            consoleSessionResponse.setDomainPath(domain.getPath());
+            consoleSessionResponse.setDomainId(domain.getUuid());
+        }
+
+        User user = findUserById(consoleSession.getUserId());
+        if (user != null) {
+            consoleSessionResponse.setUser(user.getUsername());
+            consoleSessionResponse.setUserId(user.getUuid());
+        }
+
+        Account account = ApiDBUtils.findAccountById(consoleSession.getAccountId());
+        if (account != null) {
+            consoleSessionResponse.setAccount(account.getAccountName());
+            consoleSessionResponse.setAccountId(account.getUuid());
+        }
+
+        Host host = findHostById(consoleSession.getHostId());
+        if (responseView == ResponseView.Full && host != null) {
+            consoleSessionResponse.setHostId(host.getUuid());
+            consoleSessionResponse.setHostName(host.getName());
+        }
+
+        VMInstanceVO instance = ApiDBUtils.findVMInstanceById(consoleSession.getInstanceId());
+        if (instance != null) {
+            consoleSessionResponse.setInstanceId(instance.getUuid());
+        }
+
+        consoleSessionResponse.setObjectName("consolesession");
+        return consoleSessionResponse;
     }
 }

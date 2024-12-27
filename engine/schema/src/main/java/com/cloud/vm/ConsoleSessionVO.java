@@ -19,6 +19,8 @@
 
 package com.cloud.vm;
 
+import org.apache.cloudstack.consoleproxy.ConsoleSession;
+
 import java.util.Date;
 
 import javax.persistence.Column;
@@ -32,7 +34,7 @@ import javax.persistence.TemporalType;
 
 @Entity
 @Table(name = "console_session")
-public class ConsoleSessionVO {
+public class ConsoleSessionVO implements ConsoleSession {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -44,6 +46,9 @@ public class ConsoleSessionVO {
 
     @Column(name = "created")
     private Date created;
+
+    @Column(name = "domain_id")
+    private long domainId;
 
     @Column(name = "account_id")
     private long accountId;
@@ -63,6 +68,12 @@ public class ConsoleSessionVO {
 
     @Column(name = "removed")
     private Date removed;
+
+    @Column(name = "console_endpoint_creator_address")
+    private String consoleEndpointCreatorAddress;
+
+    @Column(name = "client_address")
+    private String clientAddress;
 
     public long getId() {
         return id;
@@ -86,6 +97,15 @@ public class ConsoleSessionVO {
 
     public void setCreated(Date created) {
         this.created = created;
+    }
+
+    @Override
+    public long getDomainId() {
+        return domainId;
+    }
+
+    public void setDomainId(long domainId) {
+        this.domainId = domainId;
     }
 
     public long getAccountId() {
@@ -134,5 +154,21 @@ public class ConsoleSessionVO {
 
     public void setAcquired(Date acquired) {
         this.acquired = acquired;
+    }
+
+    public String getConsoleEndpointCreatorAddress() {
+        return consoleEndpointCreatorAddress;
+    }
+
+    public void setConsoleEndpointCreatorAddress(String consoleEndpointCreatorAddress) {
+        this.consoleEndpointCreatorAddress = consoleEndpointCreatorAddress;
+    }
+
+    public String getClientAddress() {
+        return clientAddress;
+    }
+
+    public void setClientAddress(String clientAddress) {
+        this.clientAddress = clientAddress;
     }
 }
