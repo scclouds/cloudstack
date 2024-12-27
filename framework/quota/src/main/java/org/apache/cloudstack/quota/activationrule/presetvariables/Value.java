@@ -87,6 +87,9 @@ public class Value extends GenericPresetVariable {
     @PresetVariableDefinition(description = "Backup offering of the backup.", supportedTypes = {QuotaTypes.BACKUP})
     private BackupOffering backupOffering;
 
+    @PresetVariableDefinition(description = "The amount of resources of the usage type.")
+    private ResourceCounting resourceCounting;
+
     @PresetVariableDefinition(description = "The hypervisor where the resource was deployed. Values can be: XenServer, KVM, VMware, Hyperv, BareMetal, Ovm, Ovm3 and LXC.",
             supportedTypes = {QuotaTypes.RUNNING_VM, QuotaTypes.ALLOCATED_VM, QuotaTypes.VM_SNAPSHOT, QuotaTypes.SNAPSHOT})
     private String hypervisorType;
@@ -264,5 +267,14 @@ public class Value extends GenericPresetVariable {
     public void setState(String state) {
         this.state = state;
         fieldNamesToIncludeInToString.add("state");
+    }
+
+    public ResourceCounting getResourceCounting() {
+        return resourceCounting;
+    }
+
+    public void setResourceCounting(ResourceCounting resourceCounting) {
+        this.resourceCounting = resourceCounting;
+        fieldNamesToIncludeInToString.add("resourceCounting");
     }
 }
