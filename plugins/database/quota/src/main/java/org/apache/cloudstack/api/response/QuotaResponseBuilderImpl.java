@@ -61,6 +61,7 @@ import org.apache.cloudstack.quota.activationrule.presetvariables.ComputingResou
 import org.apache.cloudstack.quota.activationrule.presetvariables.GenericPresetVariable;
 import org.apache.cloudstack.quota.activationrule.presetvariables.PresetVariableDefinition;
 import org.apache.cloudstack.quota.activationrule.presetvariables.PresetVariables;
+import org.apache.cloudstack.quota.activationrule.presetvariables.ResourceCounting;
 import org.apache.cloudstack.quota.activationrule.presetvariables.Value;
 import org.apache.cloudstack.quota.constant.QuotaConfig;
 import org.apache.cloudstack.quota.constant.QuotaTypes;
@@ -134,7 +135,7 @@ public class QuotaResponseBuilderImpl implements QuotaResponseBuilder {
     @Inject
     private QuotaEmailConfigurationDao quotaEmailConfigurationDao;
 
-    private final Class<?>[] assignableClasses = {GenericPresetVariable.class, ComputingResources.class};
+    private final Class<?>[] assignableClasses = {GenericPresetVariable.class, ComputingResources.class, ResourceCounting.class};
 
     @Inject
     private ApiDiscoveryService apiDiscoveryService;
