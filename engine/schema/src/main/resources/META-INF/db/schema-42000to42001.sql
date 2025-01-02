@@ -18,3 +18,49 @@
 --;
 -- Schema upgrade from 4.20.0.0 to 4.20.0.1
 --;
+
+--- Add 2FA permissions to default roles
+INSERT INTO `cloud`.`role_permissions` (uuid, role_id, rule, permission)
+SELECT
+  UUID(),
+  rp.role_id,
+  'listUserTwoFactorAuthenticatorProviders',
+  'ALLOW'
+FROM
+  `cloud`.`role_permissions` rp
+  INNER JOIN `cloud`.`roles` r ON rp.role_id = r.id
+  AND r.is_default = TRUE
+  AND r.name != 'Root Admin'
+  AND r.removed IS NULL
+GROUP BY
+  rp.role_id;
+
+INSERT INTO `cloud`.`role_permissions` (uuid, role_id, rule, permission)
+SELECT
+  UUID(),
+  rp.role_id,
+  'setupUserTwoFactorAuthentication',
+  'ALLOW'
+FROM
+  `cloud`.`role_permissions` rp
+  INNER JOIN cloud.roles r ON rp.role_id = r.id
+  AND r.is_default = TRUE
+  AND r.name != 'Root Admin'
+  AND r.removed IS NULL
+GROUP BY
+  rp.role_id;
+
+INSERT INTO `cloud`.`role_permissions` (uuid, role_id, rule, permission)
+SELECT
+  UUID(),
+  rp.role_id,
+  'validateUserTwoFactorAuthenticationCode',
+  'ALLOW'
+FROM
+  `cloud`.`role_permissions` rp
+  INNER JOIN cloud.roles r ON rp.role_id = r.id
+  AND r.is_default = TRUE
+  AND r.name != 'Root Admin'
+  AND r.removed IS NULL
+GROUP BY
+  rp.role_id;
