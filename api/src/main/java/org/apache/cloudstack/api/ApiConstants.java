@@ -1209,6 +1209,10 @@ public class ApiConstants {
             "however, the following formats are also accepted: \"yyyy-MM-dd HH:mm:ss\" (e.g.: \"2023-01-01 12:00:00\") and \"yyyy-MM-dd\" (e.g.: \"2023-01-01\" - if the time is not " +
             "added, it will be interpreted as \"23:59:59\"). If the recommended format is not used, the date will be considered in the server timezone.";
 
+    public static final String PARAMETER_DESCRIPTION_KUBERNETES_CLUSTER_NAME = "Kubernetes cluster's name. It must: " +
+            "contain at most 43 characters; contain only lowercase alphanumeric characters or '-'; " +
+            "start with a letter; end with an alphanumeric character.";
+
     public enum BootType {
         UEFI, BIOS;
 
