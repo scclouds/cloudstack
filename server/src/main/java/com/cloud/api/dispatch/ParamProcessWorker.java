@@ -261,7 +261,7 @@ public class ParamProcessWorker implements DispatchWorker {
                                 final List<Long> listParam = (List<Long>) field.get(cmd);
                                 for (final Long entityId : listParam) {
                                     for (final Class entity : entityList) {
-                                        final Object entityObj = _entityMgr.findById(entity, entityId);
+                                        final Object entityObj = _entityMgr.findByIdIncludingRemoved(entity, entityId);
                                         if(entityObj != null){
                                             entitiesToAccess.put(entityObj, checkAccess.accessType());
                                             break;
@@ -284,7 +284,7 @@ public class ParamProcessWorker implements DispatchWorker {
                         case LONG:
                         case UUID:
                             for (final Class entity : entityList) {
-                                final Object entityObj = _entityMgr.findById(entity, (Long) field.get(cmd));
+                                final Object entityObj = _entityMgr.findByIdIncludingRemoved(entity, (Long) field.get(cmd));
                                 if(entityObj != null){
                                     entitiesToAccess.put(entityObj, checkAccess.accessType());
                                     break;
