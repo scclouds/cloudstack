@@ -36,7 +36,6 @@ import java.util.stream.Stream;
 import javax.inject.Inject;
 import javax.naming.ConfigurationException;
 
-import com.cloud.utils.Ternary;
 import org.apache.cloudstack.acl.SecurityChecker.AccessType;
 import org.apache.cloudstack.api.response.AccountResponse;
 import org.apache.cloudstack.api.response.DomainResponse;
@@ -61,6 +60,8 @@ import org.apache.commons.lang3.ObjectUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.stereotype.Component;
 
+import com.cloud.utils.Ternary;
+import com.cloud.vm.snapshot.dao.VMSnapshotDao;
 import com.cloud.alert.AlertManager;
 import com.cloud.api.query.dao.UserVmJoinDao;
 import com.cloud.api.query.vo.UserVmJoinVO;
@@ -194,6 +195,8 @@ public class ResourceLimitManagerImpl extends ManagerBase implements ResourceLim
     ServiceOfferingDao serviceOfferingDao;
     @Inject
     DiskOfferingDao diskOfferingDao;
+    @Inject
+    private VMSnapshotDao vmSnapshotDao;
 
     protected GenericSearchBuilder<TemplateDataStoreVO, SumCount> templateSizeSearch;
     protected GenericSearchBuilder<SnapshotDataStoreVO, SumCount> snapshotSizeSearch;
@@ -289,6 +292,7 @@ public class ResourceLimitManagerImpl extends ManagerBase implements ResourceLim
             projectResourceLimitMap.put(Resource.ResourceType.memory.name(), Long.parseLong(_configDao.getValue(Config.DefaultMaxProjectMemory.key())));
             projectResourceLimitMap.put(Resource.ResourceType.primary_storage.name(), Long.parseLong(_configDao.getValue(Config.DefaultMaxProjectPrimaryStorage.key())));
             projectResourceLimitMap.put(Resource.ResourceType.secondary_storage.name(), MaxProjectSecondaryStorage.value());
+            projectResourceLimitMap.put(Resource.ResourceType.vm_snapshot.name(), MaxProjectVmSnapshot.value());
 
             accountResourceLimitMap.put(Resource.ResourceType.public_ip.name(), Long.parseLong(_configDao.getValue(Config.DefaultMaxAccountPublicIPs.key())));
             accountResourceLimitMap.put(Resource.ResourceType.snapshot.name(), Long.parseLong(_configDao.getValue(Config.DefaultMaxAccountSnapshots.key())));
@@ -302,6 +306,7 @@ public class ResourceLimitManagerImpl extends ManagerBase implements ResourceLim
             accountResourceLimitMap.put(Resource.ResourceType.primary_storage.name(), Long.parseLong(_configDao.getValue(Config.DefaultMaxAccountPrimaryStorage.key())));
             accountResourceLimitMap.put(Resource.ResourceType.secondary_storage.name(), MaxAccountSecondaryStorage.value());
             accountResourceLimitMap.put(Resource.ResourceType.project.name(), DefaultMaxAccountProjects.value());
+            accountResourceLimitMap.put(Resource.ResourceType.vm_snapshot.name(), MaxAccountVmSnapshot.value());
 
             domainResourceLimitMap.put(Resource.ResourceType.public_ip.name(), Long.parseLong(_configDao.getValue(Config.DefaultMaxDomainPublicIPs.key())));
             domainResourceLimitMap.put(Resource.ResourceType.snapshot.name(), Long.parseLong(_configDao.getValue(Config.DefaultMaxDomainSnapshots.key())));
@@ -315,6 +320,7 @@ public class ResourceLimitManagerImpl extends ManagerBase implements ResourceLim
             domainResourceLimitMap.put(Resource.ResourceType.primary_storage.name(), Long.parseLong(_configDao.getValue(Config.DefaultMaxDomainPrimaryStorage.key())));
             domainResourceLimitMap.put(Resource.ResourceType.secondary_storage.name(), Long.parseLong(_configDao.getValue(Config.DefaultMaxDomainSecondaryStorage.key())));
             domainResourceLimitMap.put(Resource.ResourceType.project.name(), DefaultMaxDomainProjects.value());
+            domainResourceLimitMap.put(Resource.ResourceType.vm_snapshot.name(), MaxDomainVmSnapshot.value());
         } catch (NumberFormatException e) {
             logger.error("NumberFormatException during configuration", e);
             throw new ConfigurationException("Configuration failed due to NumberFormatException, see log for the stacktrace");
@@ -1256,6 +1262,8 @@ public class ResourceLimitManagerImpl extends ManagerBase implements ResourceLim
             newCount = calculatePrimaryStorageForAccount(accountId, tag);
         } else if (type == Resource.ResourceType.secondary_storage) {
             newCount = calculateSecondaryStorageForAccount(accountId);
+        } else if (type == Resource.ResourceType.vm_snapshot) {
+            newCount = (long) getAmountOfVmSnapshotsForAccount(accountId);
         } else {
             throw new InvalidParameterValueException("Unsupported resource type " + type);
         }
@@ -1307,6 +1315,7 @@ public class ResourceLimitManagerImpl extends ManagerBase implements ResourceLim
         return getVmsWithAccountAndTag(accountId, null);
     }
 
+
     protected List<VolumeVO> getVolumesWithAccountAndTag(long accountId, String tag) {
         List<DiskOfferingVO> offerings = diskOfferingDao.listByStorageTag(tag);
         if (CollectionUtils.isEmpty(offerings)) {
@@ -1316,6 +1325,10 @@ public class ResourceLimitManagerImpl extends ManagerBase implements ResourceLim
         return _volumeDao.listAllocatedVolumesForAccountDiskOfferingIdsAndNotForVms(accountId,
                 offerings.stream().map(DiskOfferingVO::getId).collect(Collectors.toList()),
                 vrIds);
+    }
+
+    private int getAmountOfVmSnapshotsForAccount(long accountId) {
+        return CollectionUtils.size(vmSnapshotDao.listByAccountId(accountId));
     }
 
     private long calculateReservedResources(List<UserVmJoinVO> vms, long accountId, ResourceType type, String tag) {
@@ -2141,7 +2154,10 @@ public class ResourceLimitManagerImpl extends ManagerBase implements ResourceLim
                 ResourceLimitHostTags,
                 ResourceLimitStorageTags,
                 DefaultMaxAccountProjects,
-                DefaultMaxDomainProjects
+                DefaultMaxDomainProjects,
+                MaxDomainVmSnapshot,
+                MaxAccountVmSnapshot,
+                MaxProjectVmSnapshot
         };
     }
 
