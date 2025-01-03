@@ -55,6 +55,7 @@ public class LibvirtStoragePool implements KVMStoragePool {
     protected String authSecret;
     protected String sourceHost;
     protected int sourcePort;
+    protected Map<String, String> details;
 
     protected String sourceDir;
 
@@ -292,7 +293,11 @@ public class LibvirtStoragePool implements KVMStoragePool {
 
     @Override
     public Map<String, String> getDetails() {
-        return null;
+        return this.details;
+    }
+
+    public void setDetails(Map<String, String> details) {
+        this.details = details;
     }
 
     @Override
