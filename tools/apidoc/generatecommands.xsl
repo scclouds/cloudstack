@@ -82,12 +82,12 @@ version="1.0">
                                 <tr>
 				    <xsl:if test="required='true'">
                                     <td style="width:200px;"><strong><xsl:value-of select="name"/></strong></td>
-				    <td style="width:500px;"><strong><xsl:value-of select="description"/></strong></td>
+				    <td style="width:500px;"><strong><xsl:value-of select="description" disable-output-escaping="yes"/></strong></td>
                                     <td style="width:180px;"><strong><xsl:value-of select="required"/></strong></td>
 				    </xsl:if>
 				    <xsl:if test="required='false'">
 					<td style="width:200px;"><i><xsl:value-of select="name"/></i></td>
-                                    <td style="width:500px;"><i><xsl:value-of select="description"/></i></td>
+                                    <td style="width:500px;"><i><xsl:value-of select="description" disable-output-escaping="yes"/></i></td>
                                     <td style="width:180px;"><i><xsl:value-of select="required"/></i></td>
 				    </xsl:if>
                                 </tr>
