@@ -1960,6 +1960,7 @@ public class TemplateManagerImpl extends ManagerBase implements TemplateManager,
         VMTemplateVO template = _tmpltDao.persist(privateTemplate);
         // Increment the number of templates
         if (template != null) {
+            List<String> templateSettingsDenyList = List.of(TemplateSettingsInheritanceDenyList.value().split(","));
             Map<String, String> details = new HashMap<String, String>();
 
             if (sourceTemplateId != null) {
@@ -1976,9 +1977,10 @@ public class TemplateManagerImpl extends ManagerBase implements TemplateManager,
                     if (userVm != null) {
                         _userVmDao.loadDetails(userVm);
                         Map<String, String> vmDetails = userVm.getDetails();
+                        logger.debug("Removing the {} settings from template because they were defined in the {} global setting.", templateSettingsDenyList, TemplateSettingsInheritanceDenyList.key());
                         vmDetails = vmDetails.entrySet()
                                 .stream()
-                                .filter(map -> map.getValue() != null)
+                                .filter(map -> map.getValue() != null && !templateSettingsDenyList.contains(map.getKey()))
                                 .collect(Collectors.toMap(map -> map.getKey(), map -> map.getValue()));
                         details.putAll(vmDetails);
                     }
@@ -2364,7 +2366,7 @@ public class TemplateManagerImpl extends ManagerBase implements TemplateManager,
 
     @Override
     public ConfigKey<?>[] getConfigKeys() {
-        return new ConfigKey<?>[] {AllowPublicUserTemplates, TemplatePreloaderPoolSize, ValidateUrlIsResolvableBeforeRegisteringTemplate};
+        return new ConfigKey<?>[] {AllowPublicUserTemplates, TemplatePreloaderPoolSize, ValidateUrlIsResolvableBeforeRegisteringTemplate, TemplateSettingsInheritanceDenyList};
     }
 
     public List<TemplateAdapter> getTemplateAdapters() {
