@@ -17,6 +17,7 @@
 package com.cloud.vm.snapshot;
 
 import com.cloud.agent.AgentManager;
+import com.cloud.configuration.Resource;
 import com.cloud.exception.AgentUnavailableException;
 import com.cloud.exception.ConcurrentOperationException;
 import com.cloud.exception.InvalidParameterValueException;
@@ -41,6 +42,7 @@ import com.cloud.storage.dao.SnapshotDao;
 import com.cloud.storage.dao.VolumeDao;
 import com.cloud.user.Account;
 import com.cloud.user.AccountManager;
+import com.cloud.user.ResourceLimitService;
 import com.cloud.user.dao.AccountDao;
 import com.cloud.user.dao.UserDao;
 import com.cloud.uservm.UserVm;
@@ -136,6 +138,8 @@ public class VMSnapshotManagerTest {
     VMSnapshotDetailsDao _vmSnapshotDetailsDao;
     @Mock
     UserVmManager _userVmManager;
+    @Mock
+    ResourceLimitService resourceLimitService;
 
     private static final long TEST_VM_ID = 3L;
     private static final long SERVICE_OFFERING_ID = 1L;
@@ -190,6 +194,7 @@ public class VMSnapshotManagerTest {
         _vmSnapshotMgr._guestOSDao = _guestOSDao;
         _vmSnapshotMgr._hypervisorCapabilitiesDao = _hypervisorCapabilitiesDao;
         _vmSnapshotMgr._serviceOfferingDetailsDao = _serviceOfferingDetailsDao;
+        _vmSnapshotMgr.resourceLimitMgr = resourceLimitService;
 
         doNothing().when(_accountMgr).checkAccess(any(Account.class), any(AccessType.class), any(Boolean.class), any(ControlledEntity.class));
 
@@ -305,6 +310,7 @@ public class VMSnapshotManagerTest {
     @Test
     public void testCreateVMSnapshot() throws AgentUnavailableException, OperationTimedoutException, ResourceAllocationException, NoTransitionException {
         when(vmMock.getState()).thenReturn(State.Running);
+        doNothing().when(resourceLimitService).checkResourceLimit(admin, Resource.ResourceType.vm_snapshot);
         _vmSnapshotMgr.allocVMSnapshot(TEST_VM_ID, "", "", true);
     }
 

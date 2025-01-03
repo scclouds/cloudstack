@@ -54,6 +54,13 @@ public interface ResourceLimitService {
     static final List<ResourceType> HostTagsSupportingTypes = List.of(ResourceType.user_vm, ResourceType.cpu, ResourceType.memory);
     static final List<ResourceType> StorageTagsSupportingTypes = List.of(ResourceType.volume, ResourceType.primary_storage);
 
+    static final ConfigKey<Long> MaxDomainVmSnapshot = new ConfigKey<>("Domain Defaults", Long.class, "max.domain.vm.snapshots", "40",
+            "The default maximum VM snapshots that can be used for a domain", false);
+    static final ConfigKey<Long> MaxAccountVmSnapshot = new ConfigKey<>("Account Defaults", Long.class, "max.account.vm.snapshots", "20",
+            "The default maximum VM snapshots that can be used for a account", false);
+    static final ConfigKey<Long> MaxProjectVmSnapshot = new ConfigKey<>("Project Defaults", Long.class, "max.project.vm.snapshots", "20",
+            "The default maximum VM snapshots that can be used for a project", false);
+
     /**
      * Updates an existing resource limit with the specified details. If a limit doesn't exist, will create one.
      *
