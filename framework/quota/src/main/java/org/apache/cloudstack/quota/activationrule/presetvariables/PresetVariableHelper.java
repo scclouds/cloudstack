@@ -25,14 +25,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
-import com.cloud.host.HostTagVO;
-import com.cloud.network.dao.NetworkVO;
-import com.cloud.network.vpc.VpcVO;
 import javax.inject.Inject;
 
-import com.cloud.hypervisor.Hypervisor;
-import com.cloud.storage.StoragePoolTagVO;
-import com.cloud.vm.VirtualMachine;
 import org.apache.cloudstack.acl.RoleVO;
 import org.apache.cloudstack.acl.dao.RoleDao;
 import org.apache.cloudstack.backup.BackupOfferingVO;
@@ -61,8 +55,14 @@ import com.cloud.dc.dao.DataCenterDao;
 import com.cloud.domain.DomainVO;
 import com.cloud.domain.dao.DomainDao;
 import com.cloud.host.HostVO;
+import com.cloud.host.HostTagVO;
 import com.cloud.host.dao.HostDao;
 import com.cloud.host.dao.HostTagsDao;
+import com.cloud.hypervisor.Hypervisor;
+import com.cloud.network.dao.NetworkVO;
+import com.cloud.network.vpc.VpcVO;
+import com.cloud.network.vpc.VpcOfferingVO;
+import com.cloud.network.vpc.dao.VpcOfferingDao;
 import com.cloud.offerings.NetworkOfferingVO;
 import com.cloud.offerings.dao.NetworkOfferingDao;
 import com.cloud.server.ResourceTag;
@@ -75,6 +75,7 @@ import com.cloud.storage.GuestOSVO;
 import com.cloud.storage.Snapshot;
 import com.cloud.storage.SnapshotVO;
 import com.cloud.storage.Storage.ImageFormat;
+import com.cloud.storage.StoragePoolTagVO;
 import com.cloud.storage.VMTemplateVO;
 import com.cloud.storage.VolumeVO;
 import com.cloud.storage.dao.DiskOfferingDao;
@@ -90,6 +91,7 @@ import com.cloud.user.dao.AccountDao;
 import com.cloud.utils.Pair;
 import com.cloud.utils.exception.CloudRuntimeException;
 import com.cloud.vm.UserVmDetailVO;
+import com.cloud.vm.VirtualMachine;
 import com.cloud.vm.VMInstanceVO;
 import com.cloud.vm.constants.VmDetails;
 import com.cloud.vm.dao.UserVmDetailsDao;
@@ -182,6 +184,8 @@ public class PresetVariableHelper {
     @Inject
     VpcDao vpcDao;
 
+    @Inject
+    VpcOfferingDao vpcOfferingDao;
 
     protected boolean backupSnapshotAfterTakingSnapshot = SnapshotInfo.BackupSnapshotAfterTakingSnapshot.value();
 
@@ -719,7 +723,19 @@ public class PresetVariableHelper {
         value.setId(network.getUuid());
         value.setName(network.getName());
         value.setState(usageRecord.getState());
+        value.setNetworkOffering(getPresetVariableValueNetworkOffering(network.getNetworkOfferingId()));
         value.setResourceCounting(getPresetVariableValueNetworkResourceCounting(networkId));
+    }
+
+    protected GenericPresetVariable getPresetVariableValueNetworkOffering(Long networkOfferingId) {
+        NetworkOfferingVO networkOfferingVo = networkOfferingDao.findByIdIncludingRemoved(networkOfferingId);
+        validateIfObjectIsNull(networkOfferingVo, networkOfferingId, "network offering");
+
+        GenericPresetVariable networkOffering = new GenericPresetVariable();
+        networkOffering.setId(networkOfferingVo.getUuid());
+        networkOffering.setName(networkOfferingVo.getName());
+
+        return networkOffering;
     }
 
     private ResourceCounting getPresetVariableValueNetworkResourceCounting(Long networkId) {
@@ -748,6 +764,18 @@ public class PresetVariableHelper {
 
         value.setId(vpc.getUuid());
         value.setName(vpc.getName());
+        value.setVpcOffering(getPresetVariableValueVpcOffering(vpc.getVpcOfferingId()));
+    }
+
+    protected GenericPresetVariable getPresetVariableValueVpcOffering(long vpcOfferingId) {
+        VpcOfferingVO vpcOfferingVo = vpcOfferingDao.findByIdIncludingRemoved(vpcOfferingId);
+        validateIfObjectIsNull(vpcOfferingVo, vpcOfferingId, "vpc offering");
+
+        GenericPresetVariable vpcOffering = new GenericPresetVariable();
+        vpcOffering.setId(vpcOfferingVo.getUuid());
+        vpcOffering.setName(vpcOfferingVo.getName());
+
+        return vpcOffering;
     }
 
     /**
