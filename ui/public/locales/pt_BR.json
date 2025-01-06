@@ -1856,7 +1856,7 @@
 "message.action.delete.volume": "Confirme que voc\u00ea deseja remover este disco.",
 "message.action.delete.vpn.user": "Por favor, confirme que voc\u00ea quer remover o usu\u00e1rio da VPN.",
 "message.action.delete.zone": "Confirme que voc\u00ea deseja remover esta zona.",
-"message.action.destroy.instance": "Por favor, confirme que voc\u00ea deseja excluir esta inst\u00e2ncia.",
+"message.action.destroy.instance": "Por favor, confirme que voc\u00ea deseja excluir a inst\u00e2ncia \"{name}\".",
 "message.action.destroy.instance.with.backups": "Por favor, confirme que voc\u00ea quer destruir a inst\u00e2ncia. \u00c9 poss\u00edvel que haja backups associados a inst\u00e2ncia no qual n\u00e3o ser\u00e3o removidos.",
 "message.action.destroy.systemvm": "Confirme que voc\u00ea deseja excluir esta VM de sistema.",
 "message.action.destroy.volume": "Por favor, confirme que voc\u00ea quer destruir este volume.",
