@@ -27,11 +27,14 @@ import libvirt
 import fcntl
 import time
 import ipaddress
+from cloudutils.configFileOps import configFileOps
 
 logpath = "/var/run/cloud/"        # FIXME: Logs should reside in /var/log/cloud
 lock_file = "/var/lock/cloudstack_security_group.lock"
-driver = "qemu:///system"
 lock_handle = None
+
+cfo = configFileOps("/etc/cloudstack/agent/agent.properties")
+driver = cfo.getEntry("hypervisor.uri") or "qemu:///system"
 
 
 def obtain_file_lock(path):
