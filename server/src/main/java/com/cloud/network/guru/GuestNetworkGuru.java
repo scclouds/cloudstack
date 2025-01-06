@@ -441,7 +441,7 @@ public abstract class GuestNetworkGuru extends AdapterBase implements NetworkGur
                             guestIp = placeholderNic.getIPv4Address();
                         }
                     }
-                    if (guestIp == null) {
+                    if (guestIp == null && !(network.getGuestType() == GuestType.L2 && nic.getRequestedIPv4() == null)) {
                         if (vm.getVirtualMachine().getType() == VirtualMachine.Type.DomainRouter) {
                             guestIp = _ipAddrMgr.acquireGuestIpAddressByPlacement(network, nic.getRequestedIPv4());
                         } else {

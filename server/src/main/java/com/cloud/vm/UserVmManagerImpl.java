@@ -1877,8 +1877,6 @@ public class UserVmManagerImpl extends ManagerBase implements UserVmManager, Vir
                 logger.error("Allocating ip to guest nic " + nicVO.getUuid() + " failed, for insufficient address capacity");
                 return null;
             }
-        } else {
-            throw new InvalidParameterValueException("UpdateVmNicIpCmd is not supported in L2 network");
         }
 
         logger.debug("Updating IPv4 address of NIC " + nicVO + " to " + ipaddr + "/" + nicVO.getIPv4Netmask() + " with gateway " + nicVO.getIPv4Gateway());
