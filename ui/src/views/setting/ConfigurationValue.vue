@@ -57,12 +57,11 @@
           />
         </a-tooltip>
       </span>
-      <span v-else-if="configrecord.type ==='Range'">
-        <a-row>
-          <a-col>
+      <span v-else-if="configrecord.type ==='Range'" style="width: 75%;">
+        <a-row type="flex">
+          <a-col flex="auto">
             <a-tooltip :title="editableValue">
               <a-slider
-                style="width: 13vw"
                 class="config-slider-value"
                 :defaultValue="configrecord.value * 100"
                 :min="0"
@@ -75,10 +74,10 @@
               />
             </a-tooltip>
           </a-col>
-          <a-col>
+          <a-col flex="30px">
             <a-tooltip :title="editableValue">
               <a-input-number
-                style="width: 5vw; margin-left: 10px; float: right"
+                style="margin-left: 10px;"
                 class="config-slider-text"
                 :defaultValue="configrecord.value * 100"
                 :min="0"
