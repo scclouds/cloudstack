@@ -19,13 +19,16 @@
 
 package com.cloud.hypervisor.kvm.resource;
 
+import com.cloud.agent.properties.AgentPropertiesFileHandler;
 import org.junit.Assert;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.libvirt.Connect;
 import org.libvirt.Domain;
+import org.libvirt.LibvirtException;
 import org.libvirt.TypedParameter;
 import org.mockito.Mock;
+import org.mockito.MockedStatic;
 import org.mockito.Mockito;
 import org.mockito.junit.MockitoJUnitRunner;
 
@@ -35,12 +38,198 @@ import java.util.Set;
 public class MigrateKVMAsyncTest {
 
     @Mock
+    private AgentPropertiesFileHandler agentPropertiesFileHandler;
+    @Mock
     private LibvirtComputingResource libvirtComputingResource;
     @Mock
     private Connect connect;
     @Mock
     private Domain domain;
 
+    @Test
+    public void getFlagsTestPropertyChangedReturnIt() throws LibvirtException {
+        MigrateKVMAsync migrateKVMAsync = new MigrateKVMAsync(libvirtComputingResource, domain, connect, "testxml",
+                false, false, true, "tst", "1.1.1.1", null);
+
+        long flags;
+        try (MockedStatic<AgentPropertiesFileHandler> properties = Mockito.mockStatic(AgentPropertiesFileHandler.class)) {
+            properties.when(() -> AgentPropertiesFileHandler.getPropertyValue(Mockito.any())).thenReturn(1000L);
+            flags = migrateKVMAsync.getFlags();
+        }
+        Assert.assertEquals(1000L, flags);
+    }
+
+    @Test
+    public void getFlagsTestVirMigrateLive() throws LibvirtException{
+        MigrateKVMAsync migrateKVMAsync = new MigrateKVMAsync(libvirtComputingResource, domain, connect, "testxml",
+                false, false, false, "tst", "1.1.1.1", null);
+
+        long flags;
+        try (MockedStatic<AgentPropertiesFileHandler> properties = Mockito.mockStatic(AgentPropertiesFileHandler.class)) {
+            properties.when(() -> AgentPropertiesFileHandler.getPropertyValue(Mockito.any())).thenReturn(-1L);
+            flags = migrateKVMAsync.getFlags();
+        }
+        Assert.assertEquals(1L, flags & 1L);
+    }
+
+
+    @Test
+    public void getFlagsTestVirMigrateCompressed() throws LibvirtException{
+        MigrateKVMAsync migrateKVMAsync = new MigrateKVMAsync(libvirtComputingResource, domain, connect, "testxml",
+                false, false, false, "tst", "1.1.1.1", null);
+
+        Mockito.when(connect.getLibVirVersion()).thenReturn(1000003L);
+
+        long flags;
+        try (MockedStatic<AgentPropertiesFileHandler> properties = Mockito.mockStatic(AgentPropertiesFileHandler.class)) {
+            properties.when(() -> AgentPropertiesFileHandler.getPropertyValue(Mockito.any())).thenReturn(-1L);
+            flags = migrateKVMAsync.getFlags();
+        }
+        Assert.assertEquals(2048L, flags & 2048L);
+    }
+
+    @Test
+    public void getFlagsTestVirMigrateCompressedVersionNotSupported() throws LibvirtException{
+        MigrateKVMAsync migrateKVMAsync = new MigrateKVMAsync(libvirtComputingResource, domain, connect, "testxml",
+                false, false, false, "tst", "1.1.1.1", null);
+
+        Mockito.when(connect.getLibVirVersion()).thenReturn(1000000L);
+
+        long flags;
+        try (MockedStatic<AgentPropertiesFileHandler> properties = Mockito.mockStatic(AgentPropertiesFileHandler.class)) {
+            properties.when(() -> AgentPropertiesFileHandler.getPropertyValue(Mockito.any())).thenReturn(-1L);
+            flags = migrateKVMAsync.getFlags();
+        }
+        Assert.assertNotEquals(2048L, flags & 2048L);
+    }
+
+    @Test
+    public void getFlagsTestVirMigratePersistDestAndVirMigrateNonSharedInc() throws LibvirtException{
+        MigrateKVMAsync migrateKVMAsync = new MigrateKVMAsync(libvirtComputingResource, domain, connect, "testxml",
+                true, true, false, "tst", "1.1.1.1", null);
+
+        long flags;
+        try (MockedStatic<AgentPropertiesFileHandler> properties = Mockito.mockStatic(AgentPropertiesFileHandler.class)) {
+            properties.when(() -> AgentPropertiesFileHandler.getPropertyValue(Mockito.any())).thenReturn(-1L);
+            flags = migrateKVMAsync.getFlags();
+        }
+        Assert.assertEquals(136L, flags & 136L);
+    }
+
+    @Test
+    public void getFlagsTestVirMigratePersistDestAndVirMigrateNonSharedIncNotEqualReturnFail() throws LibvirtException{
+        MigrateKVMAsync migrateKVMAsync = new MigrateKVMAsync(libvirtComputingResource, domain, connect, "testxml",
+                true, true, false, "tst", "1.1.1.1", null);
+
+        long flags;
+        try (MockedStatic<AgentPropertiesFileHandler> properties = Mockito.mockStatic(AgentPropertiesFileHandler.class)) {
+            properties.when(() -> AgentPropertiesFileHandler.getPropertyValue(Mockito.any())).thenReturn(-1L);
+            flags = migrateKVMAsync.getFlags();
+        }
+        Assert.assertNotEquals(128L, flags & 136L);
+        Assert.assertNotEquals(8L, flags & 136L);
+    }
+
+    @Test
+    public void getFlagsTestVirMigratePersistDestAndVirMigrateNonSharedIncWithVirMigrateNonSharedDiskReturnFail() throws LibvirtException{
+        MigrateKVMAsync migrateKVMAsync = new MigrateKVMAsync(libvirtComputingResource, domain, connect, "testxml",
+                true, true, false, "tst", "1.1.1.1", null);
+
+        long flags;
+        try (MockedStatic<AgentPropertiesFileHandler> properties = Mockito.mockStatic(AgentPropertiesFileHandler.class)) {
+            properties.when(() -> AgentPropertiesFileHandler.getPropertyValue(Mockito.any())).thenReturn(-1L);
+            flags = migrateKVMAsync.getFlags();
+        }
+        Assert.assertNotEquals(192L, flags & 200L);
+        Assert.assertNotEquals(72L, flags & 200L);
+    }
+
+    @Test
+    public void getFlagsTestVirMigrateNonSharedDiskWithVirMigratePersistDestOrVirMigrateNonSharedIncReturnFail() throws LibvirtException{
+        MigrateKVMAsync migrateKVMAsync = new MigrateKVMAsync(libvirtComputingResource, domain, connect, "testxml",
+                true, false, false, "tst", "1.1.1.1", null);
+
+        long flags;
+        try (MockedStatic<AgentPropertiesFileHandler> properties = Mockito.mockStatic(AgentPropertiesFileHandler.class)) {
+            properties.when(() -> AgentPropertiesFileHandler.getPropertyValue(Mockito.any())).thenReturn(-1L);
+            flags = migrateKVMAsync.getFlags();
+        }
+        Assert.assertNotEquals(192L, flags & 200L);
+        Assert.assertNotEquals(72L, flags & 200L);
+    }
+
+    @Test
+    public void getFlagsTestVirMigrateNonSharedDisk() throws LibvirtException{
+        MigrateKVMAsync migrateKVMAsync = new MigrateKVMAsync(libvirtComputingResource, domain, connect, "testxml",
+                true, false, false, "tst", "1.1.1.1", null);
+
+        long flags;
+        try (MockedStatic<AgentPropertiesFileHandler> properties = Mockito.mockStatic(AgentPropertiesFileHandler.class)) {
+            properties.when(() -> AgentPropertiesFileHandler.getPropertyValue(Mockito.any())).thenReturn(-1L);
+            flags = migrateKVMAsync.getFlags();
+        }
+        Assert.assertEquals(64L, flags & 64L);
+    }
+
+    @Test
+    public void getFlagsTestVirMigrateAutoConvergeVersionSupportedReturn() throws LibvirtException{
+        MigrateKVMAsync migrateKVMAsync = new MigrateKVMAsync(libvirtComputingResource, domain, connect, "testxml",
+                false, false, true, "tst", "1.1.1.1", null);
+
+        Mockito.when(connect.getLibVirVersion()).thenReturn(1002003L);
+
+        long flags;
+        try (MockedStatic<AgentPropertiesFileHandler> properties = Mockito.mockStatic(AgentPropertiesFileHandler.class)) {
+            properties.when(() -> AgentPropertiesFileHandler.getPropertyValue(Mockito.any())).thenReturn(-1L);
+            flags = migrateKVMAsync.getFlags();
+        }
+        Assert.assertEquals(8192L, flags & 8192L);
+    }
+
+    @Test
+    public void getFlagsTestVirMigrateAutoConvergeVersionNotSupportedNotReturn() throws LibvirtException{
+        MigrateKVMAsync migrateKVMAsync = new MigrateKVMAsync(libvirtComputingResource, domain, connect, "testxml",
+                false, false, true, "tst", "1.1.1.1", null);
+
+        Mockito.when(connect.getLibVirVersion()).thenReturn(1002000L);
+
+        long flags;
+        try (MockedStatic<AgentPropertiesFileHandler> properties = Mockito.mockStatic(AgentPropertiesFileHandler.class)) {
+            properties.when(() -> AgentPropertiesFileHandler.getPropertyValue(Mockito.any())).thenReturn(-1L);
+            flags = migrateKVMAsync.getFlags();
+        }
+        Assert.assertNotEquals(8192L, flags & 8192L);
+    }
+
+    @Test
+    public void getFlagsTestNotVirMigrateAutoConvergeVersionSupportedNotReturn() throws LibvirtException{
+        MigrateKVMAsync migrateKVMAsync = new MigrateKVMAsync(libvirtComputingResource, domain, connect, "testxml",
+                false, false, false, "tst", "1.1.1.1", null);
+
+        Mockito.when(connect.getLibVirVersion()).thenReturn(1002003L);
+
+        long flags;
+        try (MockedStatic<AgentPropertiesFileHandler> properties = Mockito.mockStatic(AgentPropertiesFileHandler.class)) {
+            properties.when(() -> AgentPropertiesFileHandler.getPropertyValue(Mockito.any())).thenReturn(-1L);
+            flags = migrateKVMAsync.getFlags();
+        }
+        Assert.assertNotEquals(8192L, flags & 8192L);
+    }
+
+    @Test
+    public void getFlagsTestNotVirMigrateAutoConvergeVersionNotSupportedNotReturn() throws LibvirtException{
+        MigrateKVMAsync migrateKVMAsync = new MigrateKVMAsync(libvirtComputingResource, domain, connect, "testxml",
+                false, false, false, "tst", "1.1.1.1", null);
+
+        Mockito.when(connect.getLibVirVersion()).thenReturn(1002000L);
+
+        long flags;
+        try (MockedStatic<AgentPropertiesFileHandler> properties = Mockito.mockStatic(AgentPropertiesFileHandler.class)) {
+            properties.when(() -> AgentPropertiesFileHandler.getPropertyValue(Mockito.any())).thenReturn(-1L);
+            flags = migrateKVMAsync.getFlags();
+        }
+        Assert.assertNotEquals(8192L, flags & 8192L);
+    }
 
     @Test
     public void createTypedParameterListTestNoMigrateDiskLabels() {

@@ -22,6 +22,8 @@ import java.util.Iterator;
 import java.util.Set;
 import java.util.concurrent.Callable;
 
+import com.cloud.agent.properties.AgentProperties;
+import com.cloud.agent.properties.AgentPropertiesFileHandler;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.libvirt.Connect;
@@ -111,12 +113,19 @@ public class MigrateKVMAsync implements Callable<Domain> {
         this.migrateDiskLabels = migrateDiskLabels;
     }
 
-    @Override
-    public Domain call() throws LibvirtException {
+    protected long getFlags() throws LibvirtException {
+        long configFlags = AgentPropertiesFileHandler.getPropertyValue(AgentProperties.VM_MIGRATE_DOMAIN_FLAGS);
+        if (configFlags != -1) {
+            logger.warn("Property [{}] was set; therefore, the migration flags will be overridden with [{}].", AgentProperties.VM_MIGRATE_DOMAIN_FLAGS.getName(), configFlags);
+            return configFlags;
+        }
+
         long flags = VIR_MIGRATE_LIVE;
+        logger.debug("Setting virMigrateLive for live migration.");
 
         if (dconn.getLibVirVersion() >= LIBVIRT_VERSION_SUPPORTS_MIGRATE_COMPRESSED) {
             flags |= VIR_MIGRATE_COMPRESSED;
+            logger.debug("Setting virMigrateCompressed since libvirt version [{}] supports it.", dconn.getLibVirVersion());
         }
 
         if (migrateStorage) {
@@ -132,12 +141,18 @@ public class MigrateKVMAsync implements Callable<Domain> {
 
         if (autoConvergence && dconn.getLibVirVersion() >= LIBVIRT_VERSION_SUPPORTS_AUTO_CONVERGE) {
             flags |= VIR_MIGRATE_AUTO_CONVERGE;
+            logger.debug("Setting VIR_MIGRATE_AUTO_CONVERGE.");
         }
+        return flags;
+    }
 
+    @Override
+    public Domain call() throws LibvirtException {
+        long flags = getFlags();
         TypedParameter [] parameters = createTypedParameterList();
 
-        logger.debug(String.format("Migrating [%s] with flags [%s], destination [%s] and speed [%s]. The disks with the following labels will be migrated [%s].", vmName, flags,
-                destIp, libvirtComputingResource.getMigrateSpeed(), migrateDiskLabels));
+        logger.debug("Migrating [{}] with flags [{}], destination [{}] and speed [{}]. The disks with the following labels will be migrated [{}].",
+                vmName, flags, destIp, libvirtComputingResource.getMigrateSpeed(), migrateDiskLabels);
 
         return dm.migrate(dconn, parameters, flags);
 
