@@ -32,6 +32,7 @@ import org.apache.cloudstack.acl.dao.RoleDao;
 import org.apache.cloudstack.backup.BackupOfferingVO;
 import org.apache.cloudstack.backup.dao.BackupOfferingDao;
 import org.apache.cloudstack.engine.subsystem.api.storage.SnapshotInfo;
+import org.apache.cloudstack.framework.config.dao.ConfigurationDao;
 import org.apache.cloudstack.quota.constant.QuotaTypes;
 import org.apache.cloudstack.quota.dao.NetworkDao;
 import org.apache.cloudstack.quota.dao.VmTemplateDao;
@@ -46,10 +47,13 @@ import org.apache.cloudstack.usage.UsageTypes;
 import org.apache.cloudstack.utils.bytescale.ByteScaleUtils;
 import org.apache.cloudstack.utils.jsinterpreter.JsInterpreter;
 import org.apache.commons.collections.CollectionUtils;
+import org.apache.commons.lang3.ObjectUtils;
 import org.apache.logging.log4j.Logger;
 import org.apache.logging.log4j.LogManager;
 import org.springframework.stereotype.Component;
 
+import com.cloud.dc.ClusterDetailsDao;
+import com.cloud.dc.ClusterDetailsVO;
 import com.cloud.dc.DataCenterVO;
 import com.cloud.dc.dao.DataCenterDao;
 import com.cloud.domain.DomainVO;
@@ -185,6 +189,11 @@ public class PresetVariableHelper {
     VpcDao vpcDao;
 
     @Inject
+    ConfigurationDao configDao;
+
+    @Inject
+    ClusterDetailsDao clusterDetailsDao;
+    @Inject
     VpcOfferingDao vpcOfferingDao;
 
     protected boolean backupSnapshotAfterTakingSnapshot = SnapshotInfo.BackupSnapshotAfterTakingSnapshot.value();
@@ -199,6 +208,7 @@ public class PresetVariableHelper {
 
         presetVariables.setAccount(getPresetVariableAccount(usageRecord.getAccountId()));
         setPresetVariableProject(presetVariables);
+        setPresetVariableConfiguration(presetVariables, usageRecord);
 
         presetVariables.setDomain(getPresetVariableDomain(usageRecord.getDomainId()));
         presetVariables.setResourceType(usageRecord.getType());
@@ -275,6 +285,39 @@ public class PresetVariableHelper {
         zone.setName(dataCenterVo.getName());
 
         return zone;
+    }
+
+    protected void setPresetVariableConfiguration(PresetVariables presetVariables, UsageVO usageRecord) {
+        if (usageRecord.getUsageType() != UsageTypes.RUNNING_VM) {
+            return;
+        }
+
+        Configuration configuration = new Configuration();
+        setForceHaInConfiguration(configuration, usageRecord);
+
+        presetVariables.setConfiguration(configuration);
+    }
+
+    protected void setForceHaInConfiguration(Configuration configuration, UsageVO usageRecord) {
+        Long vmId = usageRecord.getUsageId();
+        VMInstanceVO vmVo = vmInstanceDao.findByIdIncludingRemoved(vmId);
+        validateIfObjectIsNull(vmVo, vmId, "VM");
+
+        Long hostId = ObjectUtils.defaultIfNull(vmVo.getHostId(), vmVo.getLastHostId());
+
+        HostVO hostVo = hostDao.findByIdIncludingRemoved(hostId);
+        validateIfObjectIsNull(hostVo, hostId, "host");
+        ClusterDetailsVO forceHa = clusterDetailsDao.findDetail(hostVo.getClusterId(), "force.ha");
+
+        String forceHaValue;
+
+        if (forceHa != null) {
+            forceHaValue = forceHa.getValue();
+        } else {
+            forceHaValue = configDao.getValue("force.ha");
+        }
+
+        configuration.setForceHa(Boolean.parseBoolean(forceHaValue));
     }
 
     protected Value getPresetVariableValue(UsageVO usageRecord) {
@@ -395,11 +438,15 @@ public class PresetVariableHelper {
         return guestOsVo.getDisplayName();
     }
 
-    protected ComputeOffering getPresetVariableValueComputeOffering(ServiceOfferingVO serviceOfferingVo) {
+    protected ComputeOffering getPresetVariableValueComputeOffering(ServiceOfferingVO serviceOfferingVo, int usageType) {
         ComputeOffering computeOffering = new ComputeOffering();
         computeOffering.setId(serviceOfferingVo.getUuid());
         computeOffering.setName(serviceOfferingVo.getName());
         computeOffering.setCustomized(serviceOfferingVo.isDynamic());
+
+        if (usageType == UsageTypes.RUNNING_VM) {
+            computeOffering.setOfferHa(serviceOfferingVo.isOfferHA());
+        }
 
         return computeOffering;
     }
@@ -409,7 +456,7 @@ public class PresetVariableHelper {
         long computeOfferingId = vmVo.getServiceOfferingId();
         ServiceOfferingVO serviceOfferingVo = serviceOfferingDao.findByIdIncludingRemoved(computeOfferingId);
         validateIfObjectIsNull(serviceOfferingVo, computeOfferingId, "compute offering");
-        value.setComputeOffering(getPresetVariableValueComputeOffering(serviceOfferingVo));
+        value.setComputeOffering(getPresetVariableValueComputeOffering(serviceOfferingVo, usageType));
 
         if (usageType == UsageTypes.RUNNING_VM) {
             value.setComputingResources(getPresetVariableValueComputingResource(vmVo, serviceOfferingVo));
