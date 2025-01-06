@@ -1700,7 +1700,6 @@ public class NetworkModelImpl extends ManagerBase implements NetworkModel, Confi
             logger.info(String.format("Checking permission for account %s (%s) on network %s (%s)", caller.getAccountName(), caller.getUuid(), network.getName(), network.getUuid()));
             if (network.getGuestType() != GuestType.Shared || network.getAclType() == ACLType.Account) {
                 checkAccountNetworkPermissions(caller, network);
-
             } else {
                 checkDomainNetworkPermissions(caller, network);
             }
@@ -1715,13 +1714,34 @@ public class NetworkModelImpl extends ManagerBase implements NetworkModel, Confi
         if (!Account.Type.PROJECT.equals(caller.getType()) && Account.Type.PROJECT.equals(networkOwner.getType())) {
             checkProjectNetworkPermissions(caller, networkOwner, network);
         } else {
-            List<NetworkVO> networkMap = _networksDao.listBy(caller.getId(), network.getId());
-            NetworkPermissionVO networkPermission = _networkPermissionDao.findByNetworkAndAccount(network.getId(), caller.getId());
-            if (CollectionUtils.isEmpty(networkMap) && networkPermission == null) {
-                throw new PermissionDeniedException(String.format(UNABLE_TO_USE_NETWORK, ((NetworkVO) network).getUuid()));
-            }
+            checkAccountAccessToNetwork(caller, network);
         }
     }
+
+    protected void checkAccountAccessToNetwork(Account caller, Network network) {
+        if (caller.getType().equals(Account.Type.ADMIN)) {
+            logger.debug("Account [{}] is ROOT ADMIN. No need to check access permissions to network [{}].", caller.getUuid(), network.getUuid());
+            return;
+        }
+
+        if (caller.getId() == network.getAccountId()) {
+            logger.debug("Account [{}] is the owner of network [{}]. No need to check access permissions to this network.", caller.getUuid(), network.getUuid());
+            return;
+        }
+
+        if (caller.getType().equals(Account.Type.DOMAIN_ADMIN) && _domainDao.isChildDomain(caller.getId(), network.getAccountId())) {
+            logger.debug("Account [{}] is the DOMAIN ADMIN of child account [{}]. No need to check access permissions to network [{}].",
+                    caller.getUuid(), _accountDao.findById(network.getAccountId()).getUuid(), network.getUuid());
+            return;
+        }
+
+        List<NetworkVO> networkMap = _networksDao.listBy(caller.getId(), network.getId());
+        NetworkPermissionVO networkPermission = _networkPermissionDao.findByNetworkAndAccount(network.getId(), caller.getId());
+        if (CollectionUtils.isEmpty(networkMap) && networkPermission == null) {
+            throw new PermissionDeniedException(String.format(UNABLE_TO_USE_NETWORK, ((NetworkVO) network).getUuid()));
+        }
+    }
+
 
     private void checkDomainNetworkPermissions(Account caller, Network network) {
         if (!isNetworkAvailableInDomain(network.getId(), caller.getDomainId())) {

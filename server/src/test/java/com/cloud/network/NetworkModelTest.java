@@ -346,21 +346,6 @@ public class NetworkModelTest {
         networkModel.checkNetworkPermissions(caller, network);
     }
 
-    @Test(expected = PermissionDeniedException.class)
-    public void testCheckNetworkPermissionsNoPermission() {
-        long accountId = 1L;
-        AccountVO caller = mock(AccountVO.class);
-        when(caller.getId()).thenReturn(accountId);
-        when(caller.getType()).thenReturn(Account.Type.NORMAL);
-        NetworkVO network = mock(NetworkVO.class);
-        when(network.getGuestType()).thenReturn(Network.GuestType.Isolated);
-        when(network.getAccountId()).thenReturn(accountId);
-        when(accountDao.findById(accountId)).thenReturn(caller);
-        when(networkDao.listBy(caller.getId(), network.getId())).thenReturn(null);
-        when(networkPermissionDao.findByNetworkAndAccount(network.getId(), caller.getId())).thenReturn(null);
-        networkModel.checkNetworkPermissions(caller, network);
-    }
-
     @Test
     public void testCheckNetworkPermissionsSharedNetwork() {
         long id = 1L;
@@ -423,4 +408,76 @@ public class NetworkModelTest {
         when(domainManager.getDomainParentIds(subDomainId)).thenReturn(Set.of(0L));
         networkModel.checkNetworkPermissions(caller, network);
     }
+
+    @Test
+    public void checkAccountAccessToNetworkTestAccountRootAdmin() {
+        AccountVO accountVO = new AccountVO();
+        accountVO.setType(Account.Type.ADMIN);
+        NetworkVO networkVO = mock(NetworkVO.class);
+        when(networkVO.getAccountId()).thenReturn(2l);
+        networkModel.checkAccountAccessToNetwork(accountVO, networkVO);
+    }
+
+    @Test
+    public void checkAccountAccessToNetworkTestAccountIsTheSameInNetwork() {
+        AccountVO accountVO = new AccountVO();
+        accountVO.setType(Account.Type.NORMAL);
+        accountVO.setId(1l);
+        NetworkVO networkVO = mock(NetworkVO.class);
+        when(networkVO.getAccountId()).thenReturn(1l);
+
+        networkModel.checkAccountAccessToNetwork(accountVO, networkVO);
+    }
+
+    @Test
+    public void checkAccountAccessToNetworkTestAccountIsDomainAdminOfTheNetwork() {
+        AccountVO accountVO = new AccountVO();
+        accountVO.setType(Account.Type.DOMAIN_ADMIN);
+        accountVO.setId(1l);
+        NetworkVO networkVO = mock(NetworkVO.class);
+        when(networkVO.getAccountId()).thenReturn(2l);
+        when(domainDao.isChildDomain(1l, 2l)).thenReturn(true);
+        when(accountDao.findById(2l)).thenReturn(new AccountVO());
+        networkModel.checkAccountAccessToNetwork(accountVO, networkVO);
+    }
+
+    @Test(expected = PermissionDeniedException.class)
+    public void checkAccountAccessToNetworkTestAccountIsDomainAdminButDoesNotHaveAccessToNetwork() {
+        AccountVO accountVO = new AccountVO();
+        accountVO.setType(Account.Type.DOMAIN_ADMIN);
+        accountVO.setId(1l);
+        NetworkVO networkVO = mock(NetworkVO.class);
+        when(networkVO.getAccountId()).thenReturn(2l);
+        when(domainDao.isChildDomain(1l, 2l)).thenReturn(false);
+        when(networkDao.listBy(1l, 2l)).thenReturn(null);
+        networkModel.checkAccountAccessToNetwork(accountVO, networkVO);
+    }
+
+    @Test(expected = PermissionDeniedException.class)
+    public void checkAccountAccessToNetworkTestAccountDoesNotHaveAccessToNetwork() {
+        AccountVO accountVO = new AccountVO();
+        accountVO.setType(Account.Type.NORMAL);
+        accountVO.setId(1l);
+        NetworkVO networkVO = mock(NetworkVO.class);
+        when(networkVO.getAccountId()).thenReturn(2l);
+        when(domainDao.isChildDomain(1l, 2l)).thenReturn(false);
+        when(networkDao.listBy(1l, 2l)).thenReturn(null);
+        networkModel.checkAccountAccessToNetwork(accountVO, networkVO);
+    }
+
+    @Test
+    public void checkAccountAccessToNetworkTestAccountHaveAccessToNetwork() {
+        AccountVO accountVO = new AccountVO();
+        accountVO.setType(Account.Type.NORMAL);
+        accountVO.setId(1l);
+        NetworkVO networkVO = mock(NetworkVO.class);
+        when(networkVO.getId()).thenReturn(3l);
+        when(networkVO.getAccountId()).thenReturn(2l);
+        List<NetworkVO> list = new ArrayList<>();
+        list.add(networkVO);
+        when(domainDao.isChildDomain(1l, 2l)).thenReturn(false);
+        when(networkDao.listBy(1l, 3l)).thenReturn(list);
+        networkModel.checkAccountAccessToNetwork(accountVO, networkVO);
+    }
+
 }
