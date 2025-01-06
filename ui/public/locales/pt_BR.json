@@ -1092,6 +1092,7 @@
 "label.networkspeed": "Velocidade da rede",
 "label.networktype": "Tipo de rede",
 "label.networkwrite": "Escrita da rede",
+"label.never": "Nunca",
 "label.new": "Novo",
 "label.new.instance.group": "Novo grupo de inst\u00e2ncia",
 "label.new.password": "Nova senha",
