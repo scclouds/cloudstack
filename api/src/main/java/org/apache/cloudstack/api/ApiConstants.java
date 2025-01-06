@@ -1184,6 +1184,9 @@ public class ApiConstants {
             "numeric value will be applied; if the result is neither a boolean nor a numeric value, the tariff will not be applied. If the rule is not informed, the tariff " +
             "value will be applied.";
 
+    public static final String L2_NETWORK_UPDATE_MESSAGE = "This field is only available when updating L2 networks to allow operators to customize information about this type of" +
+            " guest network, and they only affect the presentation of this field.";
+
     /**
      * This enum specifies IO Drivers, each option controls specific policies on I/O.
      * Qemu guests support "threads" and "native" options Since 0.8.8 ; "io_uring" is supported Since 6.3.0 (QEMU 5.0).

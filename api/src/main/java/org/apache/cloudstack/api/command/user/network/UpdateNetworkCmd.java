@@ -68,7 +68,8 @@ public class UpdateNetworkCmd extends BaseAsyncCustomIdCmd implements UserCmd {
     @Parameter(name = ApiConstants.NETWORK_OFFERING_ID, type = CommandType.UUID, entityType = NetworkOfferingResponse.class, description = "network offering ID")
     private Long networkOfferingId;
 
-    @Parameter(name = ApiConstants.GUEST_VM_CIDR, type = CommandType.STRING, description = "CIDR for guest VMs, CloudStack allocates IPs to guest VMs only from this CIDR")
+    @Parameter(name = ApiConstants.GUEST_VM_CIDR, type = CommandType.STRING, description = "CIDR for guest VMs, CloudStack allocates IPs to guest VMs only from this CIDR." +
+            ApiConstants.L2_NETWORK_UPDATE_MESSAGE)
     private String guestVmCidr;
 
     @Parameter(name =ApiConstants.UPDATE_IN_SEQUENCE, type=CommandType.BOOLEAN, description = "if true, we will update the routers one after the other. applicable only for redundant router based networks using virtual router as provider")
@@ -104,6 +105,9 @@ public class UpdateNetworkCmd extends BaseAsyncCustomIdCmd implements UserCmd {
 
     @Parameter(name = ApiConstants.SOURCE_NAT_IP, type = CommandType.STRING, description = "IPV4 address to be assigned to the public interface of the network router. This address must already be acquired for this network", since = "4.19")
     private String sourceNatIP;
+
+    @Parameter(name = ApiConstants.GATEWAY, type = CommandType.STRING, description = "the gateway of the network."  + ApiConstants.L2_NETWORK_UPDATE_MESSAGE)
+    private String gateway;
 
     /////////////////////////////////////////////////////
     /////////////////// Accessors ///////////////////////
@@ -184,6 +188,10 @@ public class UpdateNetworkCmd extends BaseAsyncCustomIdCmd implements UserCmd {
 
     public String getSourceNatIP() {
         return sourceNatIP;
+    }
+
+    public String getGateway() {
+        return gateway;
     }
 
     /////////////////////////////////////////////////////
