@@ -21,7 +21,6 @@ import com.google.gson.annotations.SerializedName;
 import org.apache.cloudstack.api.BaseResponse;
 
 import java.math.BigDecimal;
-import java.math.RoundingMode;
 import java.util.Date;
 import java.util.List;
 
@@ -117,7 +116,7 @@ public class QuotaStatementResponse  extends BaseResponse {
     }
 
     public void setTotalQuota(BigDecimal totalQuota) {
-        this.totalQuota = totalQuota.setScale(2, RoundingMode.HALF_EVEN);
+        this.totalQuota = totalQuota;
     }
 
     public String getCurrency() {
