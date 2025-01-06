@@ -40,6 +40,7 @@ import org.apache.cloudstack.context.CallContext;
 import org.apache.cloudstack.engine.orchestration.service.NetworkOrchestrationService;
 import org.apache.cloudstack.framework.config.dao.ConfigurationDao;
 import org.apache.cloudstack.network.RoutedIpv4Manager;
+import org.apache.commons.lang3.ObjectUtils;
 import org.springframework.stereotype.Component;
 
 import com.cloud.configuration.Config;
@@ -402,20 +403,34 @@ public class FirewallManagerImpl extends ManagerBase implements FirewallService,
                 ((rule.getPurpose() == Purpose.Firewall || newRule.getPurpose() == Purpose.Firewall) && ((newRule.getPurpose() != rule.getPurpose()) || (!newRule.getProtocol()
                             .equalsIgnoreCase(rule.getProtocol()))));
 
-            // if both rules are firewall and their cidrs are different, we can skip port ranges verification
-            boolean bothRulesFirewall = (rule.getPurpose() == newRule.getPurpose() && rule.getPurpose() == Purpose.Firewall);
+            // if both rules are firewall/port forwarding and their cidrs are different, we can skip port ranges verification
             boolean duplicatedCidrs = false;
+
+            boolean bothRulesFirewall = (rule.getPurpose() == newRule.getPurpose() && rule.getPurpose() == Purpose.Firewall);
             if (bothRulesFirewall) {
                 _firewallDao.loadSourceCidrs(rule);
                 _firewallDao.loadSourceCidrs((FirewallRuleVO)newRule);
 
+                if (ObjectUtils.anyNull(rule.getSourceCidrList(), newRule.getSourceCidrList())) {
+                    continue;
+                }
+
                 _firewallDao.loadDestinationCidrs(rule);
                 _firewallDao.loadDestinationCidrs((FirewallRuleVO) newRule);
 
-                if (rule.getSourceCidrList() == null || newRule.getSourceCidrList() == null) {
+                duplicatedCidrs = detectConflictingCidrs(rule.getSourceCidrList(), newRule.getSourceCidrList()) && detectConflictingCidrs(rule.getDestinationCidrList(), newRule.getDestinationCidrList());
+            }
+
+            boolean bothRulesPortForwarding = rule.getPurpose() == newRule.getPurpose() && rule.getPurpose() == Purpose.PortForwarding;
+            if (bothRulesPortForwarding) {
+                _firewallDao.loadSourceCidrs(rule);
+                _firewallDao.loadSourceCidrs((FirewallRuleVO) newRule);
+
+                if (ObjectUtils.anyNull(rule.getSourceCidrList(), newRule.getSourceCidrList())) {
                     continue;
                 }
-                duplicatedCidrs = (detectConflictingCidrs(rule.getSourceCidrList(), newRule.getSourceCidrList()) && detectConflictingCidrs(rule.getDestinationCidrList(), newRule.getDestinationCidrList()));
+
+                duplicatedCidrs = detectConflictingCidrs(rule.getSourceCidrList(), newRule.getSourceCidrList());
             }
 
             if (!oneOfRulesIsFirewall) {
@@ -451,18 +466,7 @@ public class FirewallManagerImpl extends ManagerBase implements FirewallService,
 
             if (!notNullPorts) {
                 continue;
-            } else if (!oneOfRulesIsFirewall &&
-                !(bothRulesFirewall && !duplicatedCidrs) &&
-                ((rule.getSourcePortStart().intValue() <= newRule.getSourcePortStart().intValue() &&
-                    rule.getSourcePortEnd().intValue() >= newRule.getSourcePortStart().intValue()) ||
-                    (rule.getSourcePortStart().intValue() <= newRule.getSourcePortEnd().intValue() &&
-                    rule.getSourcePortEnd().intValue() >= newRule.getSourcePortEnd().intValue()) ||
-                    (newRule.getSourcePortStart().intValue() <= rule.getSourcePortStart().intValue() &&
-                    newRule.getSourcePortEnd().intValue() >= rule.getSourcePortStart().intValue()) ||
-                (newRule.getSourcePortStart().intValue() <= rule.getSourcePortEnd().intValue() &&
-                newRule.getSourcePortEnd().intValue() >= rule.getSourcePortEnd().intValue()))) {
-                //Above else if conditions checks for the conflicting port ranges.
-
+            } else if (checkIfRulesHaveConflictingPortRanges(newRule, rule, oneOfRulesIsFirewall, bothRulesFirewall, bothRulesPortForwarding, duplicatedCidrs)) {
                 // we allow port forwarding rules with the same parameters but different protocols
                 boolean allowPf =
                     (rule.getPurpose() == Purpose.PortForwarding && newRule.getPurpose() == Purpose.PortForwarding && !newRule.getProtocol().equalsIgnoreCase(
@@ -487,6 +491,43 @@ public class FirewallManagerImpl extends ManagerBase implements FirewallService,
         if (logger.isDebugEnabled()) {
             logger.debug("No network rule conflicts detected for " + newRule + " against " + (rules.size() - 1) + " existing rules");
         }
+    }
+
+    protected boolean checkIfRulesHaveConflictingPortRanges(FirewallRule newRule, FirewallRule rule, boolean oneOfRulesIsFirewall, boolean bothRulesFirewall, boolean bothRulesPortForwarding, boolean duplicatedCidrs) {
+        String rulesAsString = String.format("[%s] and [%s]", rule, newRule);
+
+        if (oneOfRulesIsFirewall) {
+            logger.debug("Only one of the rules ({}) is firewall; therefore, their port ranges will not conflict.", rulesAsString);
+            return false;
+        }
+
+        if ((bothRulesFirewall || bothRulesPortForwarding) && !duplicatedCidrs) {
+            logger.debug("Both rules ({}) are firewall/port forwarding, but they do not have duplicated CIDRs; therefore, their port ranges will not conflict.", rulesAsString);
+            return false;
+        }
+
+        if (rule.getSourcePortStart() <= newRule.getSourcePortStart() && rule.getSourcePortEnd() >= newRule.getSourcePortStart()) {
+            logger.debug("Rules ({}) have conflicting port ranges.", rulesAsString);
+            return true;
+        }
+
+        if (rule.getSourcePortStart() <= newRule.getSourcePortEnd() && rule.getSourcePortEnd() >= newRule.getSourcePortEnd()) {
+            logger.debug("Rules ({}) have conflicting port ranges.", rulesAsString);
+            return true;
+        }
+
+        if (newRule.getSourcePortStart() <= rule.getSourcePortStart() && newRule.getSourcePortEnd() >= rule.getSourcePortStart()) {
+            logger.debug("Rules ({}) have conflicting port ranges.", rulesAsString);
+            return true;
+        }
+
+        if (newRule.getSourcePortStart() <= rule.getSourcePortEnd() && newRule.getSourcePortEnd() >= rule.getSourcePortEnd()) {
+            logger.debug("Rules ({}) have conflicting port ranges.", rulesAsString);
+            return true;
+        }
+
+        logger.debug("Rules ({}) do not have conflicting port ranges.", rulesAsString);
+        return false;
     }
 
     @Override

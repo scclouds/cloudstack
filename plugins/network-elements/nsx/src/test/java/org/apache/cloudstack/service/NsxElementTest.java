@@ -259,7 +259,7 @@ public class NsxElementTest {
                 "network1", null, Network.GuestType.Isolated, 2L, 2L,
                 ControlledEntity.ACLType.Domain, false, 1L, false );
         PortForwardingRuleVO rule = new PortForwardingRuleVO("1", 11L, 80, 90, new Ip("172.30.10.11"), 8080, 8090, "tcp", 12L,
-        5L, 2L, 15L);
+        5L, 2L, 15L, null);
         rule.setState(FirewallRule.State.Add);
         Network.Service service = new Network.Service("service1", new Network.Capability("capability"));
 
@@ -274,7 +274,7 @@ public class NsxElementTest {
                 "network1", null, Network.GuestType.Isolated, 2L, 2L,
                 ControlledEntity.ACLType.Domain, false, 1L, false );
         PortForwardingRuleVO rule = new PortForwardingRuleVO("1", 11L, 80, 90, new Ip("172.30.10.11"), 8080, 8090, "tcp", 12L,
-                5L, 2L, 15L);
+                5L, 2L, 15L, null);
         rule.setState(FirewallRule.State.Revoke);
         Network.Service service = new Network.Service("service1", new Network.Capability("capability"));
         VpcVO vpcVO = Mockito.mock(VpcVO.class);
@@ -334,28 +334,28 @@ public class NsxElementTest {
     @Test
     public void testGetPublicPortRangeWhenStartAndEndPortNumbersAreDifferent() throws NoSuchMethodException, InvocationTargetException, IllegalAccessException {
         PortForwardingRule rule = new PortForwardingRuleVO("1", 11L, 80, 90, new Ip("172.30.10.11"), 8080, 8090, "tcp", 12L,
-                5L, 2L, 15L);
+                5L, 2L, 15L, null);
         assertEquals("80-90", getPublicPortRangeMethod().invoke(null, rule));
     }
 
     @Test
     public void testGetPublicPortRangeWhenStartAndEndPortNumbersAreSame() throws NoSuchMethodException, InvocationTargetException, IllegalAccessException {
         PortForwardingRule rule = new PortForwardingRuleVO("1", 11L, 80, 80, new Ip("172.30.10.11"), 8080, 8080, "tcp", 12L,
-                5L, 2L, 15L);
+                5L, 2L, 15L, null);
         assertEquals("80", getPublicPortRangeMethod().invoke(null, rule));
     }
 
     @Test
     public void testGetPrivatePFPortRangeWhenStartAndEndPortNumbersAreDifferent() throws NoSuchMethodException, InvocationTargetException, IllegalAccessException {
         PortForwardingRule rule = new PortForwardingRuleVO("1", 11L, 80, 90, new Ip("172.30.10.11"), 8080, 8090, "tcp", 12L,
-                5L, 2L, 15L);
+                5L, 2L, 15L, null);
         assertEquals("8080-8090", getPrivatePFPortRangeMethod().invoke(null, rule));
     }
 
     @Test
     public void testGetPrivatePFPortRangeWhenStartAndEndPortNumbersAreSame() throws NoSuchMethodException, InvocationTargetException, IllegalAccessException {
         PortForwardingRule rule = new PortForwardingRuleVO("1", 11L, 80, 80, new Ip("172.30.10.11"), 8080, 8080, "tcp", 12L,
-                5L, 2L, 15L);
+                5L, 2L, 15L, null);
         assertEquals("8080", getPrivatePFPortRangeMethod().invoke(null, rule));
     }
 
