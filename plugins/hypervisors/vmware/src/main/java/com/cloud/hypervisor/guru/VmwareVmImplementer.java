@@ -106,6 +106,7 @@ class VmwareVmImplementer {
     }
 
     VirtualMachineTO implement(VirtualMachineProfile vm, VirtualMachineTO to, long clusterId) {
+        logger.debug("Start implementing of VM [id: {}, name: {}].", to.getUuid(), to.getName());
         to.setBootloader(VirtualMachineTemplate.BootloaderType.HVM);
         boolean deployAsIs = vm.getTemplate().isDeployAsIs();
         HostVO host = hostDao.findById(vm.getVirtualMachine().getHostId());
