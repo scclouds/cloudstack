@@ -62,6 +62,9 @@ FROM
   AND r.is_default = TRUE
   AND r.name != 'Root Admin'
   AND r.removed IS NULL
+  AND NOT EXISTS (
+    SELECT 1 FROM role_permissions rp2 WHERE rp2.role_id = rp.role_id AND rule = 'listUserTwoFactorAuthenticatorProviders'
+  )
 GROUP BY
   rp.role_id;
 
@@ -77,6 +80,9 @@ FROM
   AND r.is_default = TRUE
   AND r.name != 'Root Admin'
   AND r.removed IS NULL
+  AND NOT EXISTS (
+    SELECT 1 FROM role_permissions rp2 WHERE rp2.role_id = rp.role_id AND rule = 'setupUserTwoFactorAuthentication'
+  )
 GROUP BY
   rp.role_id;
 
@@ -92,6 +98,9 @@ FROM
   AND r.is_default = TRUE
   AND r.name != 'Root Admin'
   AND r.removed IS NULL
+  AND NOT EXISTS (
+    SELECT 1 FROM role_permissions rp2 WHERE rp2.role_id = rp.role_id AND rule = 'validateUserTwoFactorAuthenticationCode'
+  )
 GROUP BY
   rp.role_id;
 
