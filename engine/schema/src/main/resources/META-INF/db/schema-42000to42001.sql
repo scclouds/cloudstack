@@ -97,3 +97,23 @@ GROUP BY
 
 -- Add last_id to the volumes table
 CALL `cloud`.`IDEMPOTENT_ADD_COLUMN`('cloud.volumes', 'last_id', 'bigint(20) unsigned DEFAULT NULL');
+
+-- Restaurar configurações 'usage.execution.timezone' e 'usage.aggregation.timezone'. As configurações são inseridas após
+-- o upgrade. Assim, é necessário inserir as configurações manualmente para derivar o valor da 'usage.timezone'.
+
+INSERT INTO `cloud`.`configuration` (`category`, `instance`, `component`, `name`, `value`, `description`, `default_value`, `updated`, `scope`, `is_dynamic`, `group_id`, `subgroup_id`, `display_text`)
+SELECT 'Usage', 'DEFAULT', 'management-server', 'usage.aggregation.timezone', 'GMT', 'The timezone to use for usage stats aggregation', 'GMT', NULL, NULL, 0, 7, 22, 'Usage aggregation timezone'
+FROM DUAL
+WHERE NOT EXISTS (SELECT 1 FROM `cloud`.`configuration` WHERE `name` = 'usage.aggregation.timezone');
+
+INSERT INTO `cloud`.`configuration` (`category`, `instance`, `component`, `name`, `value`, `description`, `default_value`, `updated`, `scope`, `is_dynamic`, `group_id`, `subgroup_id`, `display_text`)
+SELECT 'Usage', 'DEFAULT', 'management-server', 'usage.execution.timezone', NULL, 'The timezone to use for usage job execution time', NULL, NULL, NULL, 0, 7, 22, 'Usage execution timezone'
+FROM DUAL
+WHERE NOT EXISTS (SELECT 1 FROM `cloud`.`configuration` WHERE `name` = 'usage.execution.timezone');
+
+UPDATE `cloud`.`configuration`
+SET `value` = (SELECT `value` FROM `cloud`.`configuration` WHERE `name` = 'usage.timezone')
+WHERE `name` IN ('usage.execution.timezone', 'usage.aggregation.timezone');
+
+DELETE FROM `cloud`.`configuration`
+WHERE `name` = 'usage.timezone';
