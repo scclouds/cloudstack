@@ -245,7 +245,6 @@ public class DomainDaoImpl extends GenericDaoBase<DomainVO, Long> implements Dom
         if (domain != null) {
             return getDomainChildrenIds(domain.getPath());
         }
-
         return new ArrayList<>();
     }
 
