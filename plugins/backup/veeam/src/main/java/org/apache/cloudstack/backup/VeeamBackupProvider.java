@@ -29,6 +29,8 @@ import java.util.stream.Collectors;
 
 import javax.inject.Inject;
 
+import com.cloud.event.UsageEventUtils;
+import com.cloud.event.UsageEventVO;
 import org.apache.cloudstack.api.ApiCommandResourceType;
 import org.apache.cloudstack.api.InternalIdentity;
 import org.apache.cloudstack.backup.Backup.Metric;
@@ -382,7 +384,17 @@ public class VeeamBackupProvider extends AdapterBase implements BackupProvider, 
                         logger.debug(String.format("Creating a new entry in backups: [uuid: %s, vm_id: %s, external_id: %s, type: %s, date: %s, backup_offering_id: %s, account_id: %s, "
                                         + "domain_id: %s, zone_id: %s].", backup.getUuid(), backup.getVmId(), backup.getExternalId(), backup.getType(), backup.getDate(),
                                 backup.getBackupOfferingId(), backup.getAccountId(), backup.getDomainId(), backup.getZoneId()));
-                        backupDao.persist(backup);
+                        BackupVO persistedBackup = backupDao.persist(backup);
+
+                        if (persistedBackup != null) {
+                            Map<String, String> details = new HashMap<>();
+                            details.put(UsageEventVO.DynamicParameters.vmId.name(), String.valueOf(vm.getId()));
+
+                            UsageEventUtils.publishUsageEvent(EventTypes.EVENT_VM_BACKUP_CREATE, persistedBackup.getAccountId(), persistedBackup.getZoneId(),
+                                    persistedBackup.getId(),
+                                    String.format("Backup %s - VM %s", backup.getUuid(), vm.getUuid()), persistedBackup.getBackupOfferingId(), null, persistedBackup.getSize(),
+                                    persistedBackup.getProtectedSize(), Backup.class.getName(), persistedBackup.getUuid(), details);
+                        }
 
                         ActionEventUtils.onCompletedActionEvent(User.UID_SYSTEM, vm.getAccountId(), EventVO.LEVEL_INFO, EventTypes.EVENT_VM_BACKUP_CREATE,
                                 String.format("Created backup %s for VM ID: %s", backup.getUuid(), vm.getUuid()),

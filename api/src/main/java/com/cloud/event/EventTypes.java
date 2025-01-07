@@ -1314,4 +1314,8 @@ public class EventTypes {
     public static void addEntityEventDetail(String event, Class<?> clazz) {
         entityEventDetails.put(event, clazz);
     }
+
+    public static boolean isBackupObjectEvent(String eventType) {
+        return EventTypes.EVENT_VM_BACKUP_CREATE.equals(eventType) || EventTypes.EVENT_VM_BACKUP_DELETE.equals(eventType);
+    }
 }
