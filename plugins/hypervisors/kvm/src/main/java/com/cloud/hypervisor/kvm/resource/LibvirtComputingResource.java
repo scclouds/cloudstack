@@ -50,6 +50,7 @@ import java.util.stream.Stream;
 import javax.naming.ConfigurationException;
 import javax.xml.parsers.DocumentBuilder;
 import javax.xml.parsers.ParserConfigurationException;
+import javax.xml.transform.TransformerException;
 
 import org.apache.cloudstack.api.ApiConstants.IoDriverPolicy;
 import org.apache.cloudstack.engine.orchestration.service.NetworkOrchestrationService;
@@ -5196,13 +5197,44 @@ public class LibvirtComputingResource extends ServerResourceBase implements Serv
         return nValue.getNodeValue();
     }
 
-    public void restoreVMSnapshotMetadata(Domain dm, String vmName, List<Ternary<String, Boolean, String>> vmsnapshots) {
-        LOGGER.debug("Restoring the metadata of vm snapshots of vm " + vmName);
+    /**
+     * Adds back the VNC password parameter to the snapshots's XML since libvirt's DomainSnapshot.getXMLDesc() does not accept the security flag and can't return the VNC password.
+     */
+    public String addGraphicsPasswordToXml(String xmlDesc, String vncPassword, String vmName) {
+        if (StringUtils.isBlank(vncPassword)) {
+            LOGGER.debug("VNC password not added to snapshot XML of VM [{}].", vmName);
+            return xmlDesc;
+        }
+
+        DocumentBuilder builder;
+        try {
+            builder = ParserUtils.getSaferDocumentBuilderFactory().newDocumentBuilder();
+            InputSource is = new InputSource(new StringReader(xmlDesc));
+            Document doc = builder.parse(is);
+
+            Element graphics = (Element) doc.getElementsByTagName("graphics").item(0);
+            graphics.setAttribute("passwd", vncPassword);
+
+            xmlDesc = LibvirtXMLParser.getXml(doc);
+
+            LOGGER.debug("VNC password added to snapshot XML of VM [{}]", vmName);
+        } catch (ParserConfigurationException | SAXException | IOException | TransformerException e) {
+            LOGGER.error("Failed to parse snapshot [{}] of VM [{}] due to: [{}].", xmlDesc, vmName, e.getMessage());
+        }
+
+        return xmlDesc;
+    }
+
+    /**
+     * Rolls back "cleanupVMSnapshotMetadata" due to migration error.
+     */
+    public void restoreVMSnapshotMetadata(Domain dm, String vmName, String vncPassword, List<Ternary<String, Boolean, String>> vmsnapshots) {
+        LOGGER.debug("Restoring VM Snapshots' metadata of [{}].", vmName);
         for (Ternary<String, Boolean, String> vmsnapshot: vmsnapshots) {
             String snapshotName = vmsnapshot.first();
             Boolean isCurrent = vmsnapshot.second();
-            String snapshotXML = vmsnapshot.third();
-            LOGGER.debug("Restoring vm snapshot " + snapshotName + " on " + vmName + " with XML:\n " + snapshotXML);
+            String snapshotXML = addGraphicsPasswordToXml(vmsnapshot.third(), vncPassword, vmName);
+            LOGGER.debug("Restoring VM Snapshot [{}] of [{}] with XML:\n {}.", snapshotName, vmName, snapshotXML);
             try {
                 int flags = 1; // VIR_DOMAIN_SNAPSHOT_CREATE_REDEFINE = 1
                 if (isCurrent) {
@@ -5210,8 +5242,7 @@ public class LibvirtComputingResource extends ServerResourceBase implements Serv
                 }
                 dm.snapshotCreateXML(snapshotXML, flags);
             } catch (LibvirtException e) {
-                LOGGER.debug("Failed to restore vm snapshot " + snapshotName + ", continue");
-                continue;
+                LOGGER.error("Failed to restore VM Snapshot [{}] of [{}] due to [{}].", snapshotName, vmName, e.getError(), e);
             }
         }
     }

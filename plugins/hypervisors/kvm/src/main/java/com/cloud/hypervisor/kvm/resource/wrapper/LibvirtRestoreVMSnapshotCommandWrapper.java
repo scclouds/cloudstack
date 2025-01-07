@@ -40,6 +40,11 @@ import com.cloud.vm.VirtualMachine;
 public final class LibvirtRestoreVMSnapshotCommandWrapper extends CommandWrapper<RestoreVMSnapshotCommand, Answer, LibvirtComputingResource> {
 
 
+    private static final int VIR_DOMAIN_XML_SECURE = 1;
+
+    private static final int VIR_DOMAIN_SNAPSHOT_CREATE_REDEFINE = 1;
+    private static final int VIR_DOMAIN_SNAPSHOT_CREATE_CURRENT = 2;
+
     @Override
     public Answer execute(final RestoreVMSnapshotCommand cmd, final LibvirtComputingResource libvirtComputingResource) {
         String vmName = cmd.getVmName();
@@ -56,7 +61,7 @@ public final class LibvirtRestoreVMSnapshotCommandWrapper extends CommandWrapper
                 return new RestoreVMSnapshotAnswer(cmd, false,
                         "Restore VM Snapshot Failed due to can not find vm: " + vmName);
             }
-            String xmlDesc = dm.getXMLDesc(0);
+            String xmlDesc = dm.getXMLDesc(VIR_DOMAIN_XML_SECURE);
 
             List<VMSnapshotTO> snapshots = cmd.getSnapshots();
             Map<Long, VMSnapshotTO> snapshotAndParents = cmd.getSnapshotAndParents();
@@ -65,9 +70,9 @@ public final class LibvirtRestoreVMSnapshotCommandWrapper extends CommandWrapper
                 String vmSnapshotXML = libvirtUtilitiesHelper.generateVMSnapshotXML(snapshot, parent, xmlDesc);
                 logger.debug("Restoring vm snapshot " + snapshot.getSnapshotName() + " on " + vmName + " with XML:\n " + vmSnapshotXML);
                 try {
-                    int flags = 1; // VIR_DOMAIN_SNAPSHOT_CREATE_REDEFINE = 1
+                    int flags = VIR_DOMAIN_SNAPSHOT_CREATE_REDEFINE;
                     if (snapshot.getCurrent()) {
-                        flags += 2; // VIR_DOMAIN_SNAPSHOT_CREATE_CURRENT = 2
+                        flags += VIR_DOMAIN_SNAPSHOT_CREATE_CURRENT;
                     }
                     dm.snapshotCreateXML(vmSnapshotXML, flags);
                 } catch (LibvirtException e) {
