@@ -95,6 +95,12 @@ FROM
 GROUP BY
   rp.role_id;
 
+INSERT INTO `cloud`.`role_permissions` (uuid, role_id, rule, permission, sort_order)
+SELECT uuid(), role_id, 'quotaCreditsList', permission, sort_order
+FROM `cloud`.`role_permissions` rp
+WHERE rp.rule = 'quotaStatement'
+AND NOT EXISTS(SELECT 1 FROM cloud.role_permissions rp_ WHERE rp.role_id = rp_.role_id AND rp_.rule = 'quotaCreditsList');
+
 -- Add last_id to the volumes table
 CALL `cloud`.`IDEMPOTENT_ADD_COLUMN`('cloud.volumes', 'last_id', 'bigint(20) unsigned DEFAULT NULL');
 
