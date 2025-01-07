@@ -404,7 +404,7 @@
 
     <div :style="this.$store.getters.shutdownTriggered ? 'margin-top: 24px; margin-bottom: 12px' : null">
       <div v-if="dataView">
-        <slot name="resource" v-if="$route.path.startsWith('/quotasummary') || $route.path.startsWith('/publicip')"></slot>
+        <slot name="resource" v-if="$route.path.startsWith('/publicip')"></slot>
         <resource-view
           v-else
           :resource="resource"
@@ -864,7 +864,7 @@ export default {
       const customRender = {}
       for (var columnKey of this.columnKeys) {
         let key = columnKey
-        let title = columnKey === 'cidr' && this.columnKeys.includes('ip6cidr') ? 'ipv4.cidr' : columnKey
+        let title = columnKey === 'cidr' && this.columnKeys.includes('ip6cidr') ? 'ipv4.cidr' : key
         if (typeof columnKey === 'object') {
           if ('customTitle' in columnKey && 'field' in columnKey) {
             key = columnKey.field
@@ -872,7 +872,7 @@ export default {
             customRender[key] = columnKey[key]
           } else {
             key = Object.keys(columnKey)[0]
-            title = Object.keys(columnKey)[0]
+            title = (typeof title === 'object') ? key : title
             customRender[key] = columnKey[key]
           }
         }
@@ -915,6 +915,11 @@ export default {
         delete params.details
         delete params.isvnf
         params.details = 'group,nics,secgrp,tmpl,servoff,diskoff,iso,volume,affgrp'
+      }
+
+      if (this.apiName === 'quotaTariffList' && !('quotaTariffCreate' in store.getters.apis || 'quotaTariffUpdate' in store.getters.apis)) {
+        const index = this.columns.findIndex(col => col.dataIndex === 'hasActivationRule')
+        this.columns.splice(index, 1)
       }
 
       this.loading = true

@@ -101,7 +101,7 @@
         </span>
       </template>
       <template v-if="column.key === 'templatetype'">
-        <span>{{ text }}</span>
+        <router-link :to="{ path: $route.path + '/' + record.templatetype }">{{ text }}</router-link>
       </template>
       <template v-if="column.key === 'templateid'">
         <router-link :to="{ path: '/template/' + record.templateid }">{{ text }}</router-link>
@@ -344,20 +344,38 @@
             </span>
           </template>
         </template>
-        <template v-if="text && !text.startsWith('PrjAcct-')">
-          <router-link
-            v-if="'quota' in record && $router.resolve(`${$route.path}/${record.account}`).matched[0].redirect !== '/exception/404'"
-            :to="{ path: `${$route.path}/${record.account}`, query: { account: record.account, domainid: record.domainid, quota: true } }">{{ text }}</router-link>
-          <router-link :to="{ path: '/account/' + record.accountid }" v-else-if="record.accountid">{{ text }}</router-link>
-          <router-link :to="{ path: '/account', query: { name: record.account, domainid: record.domainid, dataView: true } }" v-else-if="$store.getters.userInfo.roletype !== 'User'">{{ text }}</router-link>
-          <span v-else>{{ text }}</span>
+        <template v-if="text">
+          <template v-if="!text.startsWith('PrjAcct-')">
+            <router-link
+              v-if="$route.path.startsWith('/quotasummary') && $router.resolve(`${$route.path}/${record.account}`) !== '404'"
+              :to="{ path: `${$route.path}/${record.account}`, query: { account: record.account, domainid: record.domainid, accountid: record.accountid, filter: $route.query.filter } }">{{ text }}</router-link>
+            <router-link :to="{ path: '/account/' + record.accountid }" v-else-if="record.accountid">{{ text }}</router-link>
+            <router-link :to="{ path: '/account', query: { name: record.account, domainid: record.domainid, dataView: true } }" v-else-if="$store.getters.userInfo.roletype !== 'User'">{{ text }}</router-link>
+          </template>
+          <span v-else>
+            <router-link
+              v-if="$route.path.startsWith('/quotasummary') && $router.resolve(`${$route.path}/${record.account}`) !== '404'"
+              :to="{ path: `${$route.path}/${record.account}`, query:
+                {
+                  account: record.account,
+                  domainid: record.domainid,
+                  accountid: record.accountid,
+                  filter: $route.query.filter
+                } }">{{ (record.projectname || record.account).concat(' (').concat($t('label.project')).concat(')') }}</router-link>
+            <span v-else>{{ text }}</span>
+          </span>
         </template>
       </template>
       <template v-if="column.key === 'resource'">
         <resource-label :resourceType="record.resourcetype" :resourceId="record.resourceid" :resourceName="record.resourcename" />
       </template>
       <template v-if="column.key === 'domain'">
-        <router-link v-if="record.domainid && !record.domainid.toString().includes(',') && $store.getters.userInfo.roletype !== 'User'" :to="{ path: '/domain/' + record.domainid, query: { tab: 'details' } }">{{ text }}</router-link>
+        <router-link
+        v-if="(!$route.path.includes('quotasummary') || ($route.path.includes('quotasummary') && !record.domainremoved))
+          && record.domainid && !record.domainid.toString().includes(',') && $store.getters.userInfo.roletype !== 'User'"
+        :to="{ path: '/domain/' + record.domainid }">
+          {{ text }}
+        </router-link>
         <span v-else>{{ text }}</span>
       </template>
       <template v-if="column.key === 'domainpath'">
@@ -539,15 +557,6 @@
           :tooltip="$t('label.view')"
           icon="search-outlined"
           @onClick="$emit('view-usage-record', record)" />
-        <slot></slot>
-      </template>
-      <template v-if="column.key === 'tariffActions'">
-        <tooltip-button
-          :tooltip="$t('label.edit')"
-          v-if="editableValueKey !== record.key"
-          :disabled="!('quotaTariffUpdate' in $store.getters.apis)"
-          icon="edit-outlined"
-          @onClick="editTariffValue(record)" />
         <slot></slot>
       </template>
       <template v-if="column.key === 'vmScheduleActions'">
@@ -895,9 +904,6 @@ export default {
       if (index === data.length - 1) return
       data.push(data.splice(index, 1)[0])
       this.updateOrder(data)
-    },
-    editTariffValue (record) {
-      this.$emit('edit-tariff-action', true, record)
     },
     updateVMSchedule (record) {
       this.$emit('update-vm-schedule', record)

@@ -22,6 +22,7 @@
       layout="vertical"
       :ref="formRef"
       :model="form"
+      :rules="rules"
       @finish="handleSubmit"
       v-ctrl-enter="handleSubmit">
       <a-form-item ref="description" name="description">
@@ -38,7 +39,6 @@
           <tooltip-label :title="$t('label.quota.tariff.value')" :tooltip="apiParams.value.description"/>
         </template>
         <a-input-number
-          class="full-width-input"
           v-model:value="form.value"
           :placeholder="$t('placeholder.quota.tariff.value')" />
       </a-form-item>
@@ -61,7 +61,6 @@
          <tooltip-label :title="$t('label.quota.tariff.position')" :tooltip="apiParams.position.description"/>
        </template>
        <a-input-number
-          class="full-width-input"
           v-model:value="form.position"
           :placeholder="$t('placeholder.quota.tariff.position')" />
       </a-form-item>
@@ -70,7 +69,6 @@
           <tooltip-label :title="$t('label.end.date')" :tooltip="apiParams.enddate.description"/>
         </template>
         <a-date-picker
-          class="full-width-input"
           v-model:value="form.endDate"
           :disabled-date="disabledEndDate"
           :placeholder="$t('placeholder.quota.tariff.enddate')"
@@ -131,10 +129,11 @@ export default {
       this.form = reactive({
         description: this.resource.description,
         value: this.resource.tariffValue,
+        activationRule: this.resource.activationRule,
         position: this.resource.position,
-        endDate: parseDateToDatePicker(this.resource.endDate),
-        activationRule: this.resource.activationRule
+        endDate: parseDateToDatePicker(this.resource.endDate)
       })
+      this.rules = reactive({})
     },
     closeModal () {
       this.$emit('close-action')
@@ -161,6 +160,10 @@ export default {
 
         if (values.position && this.resource.position !== values.position) {
           params.position = values.position
+        }
+
+        if (this.resource.activationRule !== values.activationRule) {
+          params.activationRule = values.activationRule
         }
 
         if (values.endDate && !values.endDate.isSame(this.resource.endDate)) {
