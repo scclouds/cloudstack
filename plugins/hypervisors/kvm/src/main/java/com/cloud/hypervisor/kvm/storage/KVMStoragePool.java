@@ -116,9 +116,7 @@ public interface KVMStoragePool {
     default void customizeLibvirtDiskDef(LibvirtVMDef.DiskDef disk) {
     }
 
-
     default String getLocalPathFor(String relativePath) {
         return String.format("%s%s%s", getLocalPath(), File.separator, relativePath);
     }
-
 }

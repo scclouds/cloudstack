@@ -187,36 +187,36 @@ public class DatabaseConfig {
         s_configurationDescriptions.put("retries.per.host", "The number of times each command sent to a host should be retried in case of failure.");
         s_configurationDescriptions.put("integration.api.port", "internal port used by the management server for servicing Integration API requests");
         s_configurationDescriptions.put("usage.stats.job.exec.time",
-            "the time at which the usage statistics aggregation job will run as an HH24:MM time, e.g. 00:30 to run at 12:30am");
+                "the time at which the usage statistics aggregation job will run as an HH24:MM time, e.g. 00:30 to run at 12:30am");
         s_configurationDescriptions.put("usage.stats.job.aggregation.range",
-            "the range of time for aggregating the user statistics specified in minutes (e.g. 1440 for daily, 60 for hourly)");
+                "the range of time for aggregating the user statistics specified in minutes (e.g. 1440 for daily, 60 for hourly)");
         s_configurationDescriptions.put("consoleproxy.domP.enable", "Obsolete");
         s_configurationDescriptions.put("consoleproxy.port", "Obsolete");
         s_configurationDescriptions.put("consoleproxy.url.port", "Console proxy port for AJAX viewer");
         s_configurationDescriptions.put("consoleproxy.ram.size", "RAM size (in MB) used to create new console proxy VMs");
         s_configurationDescriptions.put("consoleproxy.cmd.port", "Console proxy command port that is used to communicate with management server");
         s_configurationDescriptions.put("consoleproxy.capacityscan.interval",
-            "The time interval(in millisecond) to scan whether or not system needs more console proxy to ensure minimal standby capacity");
+                "The time interval(in millisecond) to scan whether or not system needs more console proxy to ensure minimal standby capacity");
         s_configurationDescriptions.put("consoleproxy.capacity.standby",
-            "The minimal number of console proxy viewer sessions that system is able to serve immediately(standby capacity)");
+                "The minimal number of console proxy viewer sessions that system is able to serve immediately(standby capacity)");
         s_configurationDescriptions.put("alert.email.addresses", "comma separated list of email addresses used for sending alerts");
         s_configurationDescriptions.put("alert.smtp.host", "SMTP hostname used for sending out email alerts");
         s_configurationDescriptions.put("alert.smtp.port", "port the SMTP server is listening on (default is 25)");
         s_configurationDescriptions.put("alert.smtp.useAuth",
-            "If true, use SMTP authentication when sending emails.  If false, do not use SMTP authentication when sending emails.");
+                "If true, use SMTP authentication when sending emails.  If false, do not use SMTP authentication when sending emails.");
         s_configurationDescriptions.put("alert.smtp.username", "username for SMTP authentication (applies only if alert.smtp.useAuth is true)");
         s_configurationDescriptions.put("alert.smtp.password", "password for SMTP authentication (applies only if alert.smtp.useAuth is true)");
         s_configurationDescriptions.put("alert.email.sender", "sender of alert email (will be in the From header of the email)");
         s_configurationDescriptions.put("memory.capacity.threshold",
-            "percentage (as a value between 0 and 1) of memory utilization above which alerts will be sent about low memory available");
+                "percentage (as a value between 0 and 1) of memory utilization above which alerts will be sent about low memory available");
         s_configurationDescriptions.put("cpu.capacity.threshold",
-            "percentage (as a value between 0 and 1) of cpu utilization above which alerts will be sent about low cpu available");
+                "percentage (as a value between 0 and 1) of cpu utilization above which alerts will be sent about low cpu available");
         s_configurationDescriptions.put("storage.capacity.threshold",
-            "percentage (as a value between 0 and 1) of storage utilization above which alerts will be sent about low storage available");
+                "percentage (as a value between 0 and 1) of storage utilization above which alerts will be sent about low storage available");
         s_configurationDescriptions.put("public.ip.capacity.threshold",
-            "percentage (as a value between 0 and 1) of public IP address space utilization above which alerts will be sent");
+                "percentage (as a value between 0 and 1) of public IP address space utilization above which alerts will be sent");
         s_configurationDescriptions.put("private.ip.capacity.threshold",
-            "percentage (as a value between 0 and 1) of private IP address space utilization above which alerts will be sent");
+                "percentage (as a value between 0 and 1) of private IP address space utilization above which alerts will be sent");
         s_configurationDescriptions.put("expunge.interval", "the interval to wait before running the expunge thread");
         s_configurationDescriptions.put("network.throttling.rate", "default data transfer rate in megabits per second allowed per user");
         s_configurationDescriptions.put("multicast.throttling.rate", "default multicast rate in megabits per second allowed");
@@ -226,7 +226,6 @@ public class DatabaseConfig {
         s_configurationDescriptions.put("snapshot.max.daily", "Maximum daily snapshots for a volume");
         s_configurationDescriptions.put("snapshot.max.weekly", "Maximum weekly snapshots for a volume");
         s_configurationDescriptions.put("snapshot.max.monthly", "Maximum monthly snapshots for a volume");
-        s_configurationDescriptions.put("snapshot.delta.max", "max delta snapshots between two full snapshots.");
         s_configurationDescriptions.put("snapshot.recurring.test", "Flag for testing recurring snapshots");
         s_configurationDescriptions.put("snapshot.test.minutes.per.hour", "Set it to a smaller value to take more recurring snapshots");
         s_configurationDescriptions.put("snapshot.test.hours.per.day", "Set it to a smaller value to take more recurring snapshots");
@@ -298,7 +297,6 @@ public class DatabaseConfig {
         s_configurationComponents.put("snapshot.max.daily", "SnapshotManager");
         s_configurationComponents.put("snapshot.max.weekly", "SnapshotManager");
         s_configurationComponents.put("snapshot.max.monthly", "SnapshotManager");
-        s_configurationComponents.put("snapshot.delta.max", "SnapshotManager");
         s_configurationComponents.put("snapshot.recurring.test", "SnapshotManager");
         s_configurationComponents.put("snapshot.test.minutes.per.hour", "SnapshotManager");
         s_configurationComponents.put("snapshot.test.hours.per.day", "SnapshotManager");
@@ -329,7 +327,6 @@ public class DatabaseConfig {
         s_defaultConfigurationValues.put("snapshot.max.daily", "8");
         s_defaultConfigurationValues.put("snapshot.max.weekly", "8");
         s_defaultConfigurationValues.put("snapshot.max.monthly", "8");
-        s_defaultConfigurationValues.put("snapshot.delta.max", "16");
         s_defaultConfigurationValues.put("snapshot.recurring.test", "false");
         s_defaultConfigurationValues.put("snapshot.test.minutes.per.hour", "60");
         s_defaultConfigurationValues.put("snapshot.test.hours.per.day", "24");
@@ -501,7 +498,7 @@ public class DatabaseConfig {
             return;
         }
         String insertSql1 =
-            "INSERT INTO `host` (`id`, `name`, `status` , `type` , `private_ip_address`, `private_netmask` ,`private_mac_address` , `storage_ip_address` ,`storage_netmask`, `storage_mac_address`, `data_center_id`, `version`, `dom0_memory`, `last_ping`, `resource`, `guid`, `hypervisor_type`) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)";
+                "INSERT INTO `host` (`id`, `name`, `status` , `type` , `private_ip_address`, `private_netmask` ,`private_mac_address` , `storage_ip_address` ,`storage_netmask`, `storage_mac_address`, `data_center_id`, `version`, `dom0_memory`, `last_ping`, `resource`, `guid`, `hypervisor_type`) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)";
         String insertSqlHostDetails = "INSERT INTO `host_details` (`id`, `host_id`, `name`, `value`) VALUES(?,?,?,?)";
         String insertSql2 = "INSERT INTO `op_host` (`id`, `sequence`) VALUES(?, ?)";
         TransactionLegacy txn = TransactionLegacy.currentTxn();
@@ -580,7 +577,7 @@ public class DatabaseConfig {
         long podId = Long.parseLong(_currentObjectParams.get("podId"));
         String hypervisor = _currentObjectParams.get("hypervisorType");
         String insertSql1 =
-            "INSERT INTO `cluster` (`id`, `name`, `data_center_id` , `pod_id`, `hypervisor_type` , `cluster_type`, `allocation_state`) VALUES (?,?,?,?,?,?,?)";
+                "INSERT INTO `cluster` (`id`, `name`, `data_center_id` , `pod_id`, `hypervisor_type` , `cluster_type`, `allocation_state`) VALUES (?,?,?,?,?,?,?)";
 
         TransactionLegacy txn = TransactionLegacy.currentTxn();
         try {
@@ -615,7 +612,7 @@ public class DatabaseConfig {
         String uuid = UUID.nameUUIDFromBytes(new String(hostAddress + hostPath).getBytes()).toString();
 
         String insertSql1 =
-            "INSERT INTO `storage_pool` (`id`, `name`, `uuid` , `pool_type` , `port`, `data_center_id` ,`available_bytes` , `capacity_bytes` ,`host_address`, `path`, `created`, `pod_id`,`status` , `cluster_id`) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)";
+                "INSERT INTO `storage_pool` (`id`, `name`, `uuid` , `pool_type` , `port`, `data_center_id` ,`available_bytes` , `capacity_bytes` ,`host_address`, `path`, `created`, `pod_id`,`status` , `cluster_id`) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)";
         // String insertSql2 = "INSERT INTO `netfs_storage_pool` VALUES (?,?,?)";
 
         TransactionLegacy txn = TransactionLegacy.currentTxn();
@@ -719,10 +716,10 @@ public class DatabaseConfig {
         int securityGroup = Integer.parseInt(_currentObjectParams.get("securityGroup"));
 
         String insertSql1 =
-            "INSERT INTO `physical_network_service_providers` (`id`, `uuid`, `physical_network_id` , `provider_name`, `state` ,"
-                + "`destination_physical_network_id`, `vpn_service_provided`, `dhcp_service_provided`, `dns_service_provided`, `gateway_service_provided`,"
-                + "`firewall_service_provided`, `source_nat_service_provided`, `load_balance_service_provided`, `static_nat_service_provided`,"
-                + "`port_forwarding_service_provided`, `user_data_service_provided`, `security_group_service_provided`) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)";
+                "INSERT INTO `physical_network_service_providers` (`id`, `uuid`, `physical_network_id` , `provider_name`, `state` ,"
+                        + "`destination_physical_network_id`, `vpn_service_provided`, `dhcp_service_provided`, `dns_service_provided`, `gateway_service_provided`,"
+                        + "`firewall_service_provided`, `source_nat_service_provided`, `load_balance_service_provided`, `static_nat_service_provided`,"
+                        + "`port_forwarding_service_provided`, `user_data_service_provided`, `security_group_service_provided`) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)";
 
         TransactionLegacy txn = TransactionLegacy.currentTxn();
         try {
@@ -938,8 +935,8 @@ public class DatabaseConfig {
         DiskOfferingVO diskOfferingVO = new DiskOfferingVO(name, displayText, provisioningType, false, null, false, false, true);
 
         ServiceOfferingVO serviceOffering =
-            new ServiceOfferingVO(name, cpu, ramSize, speed, null, null, ha, displayText,
-                    false, null, false);
+                new ServiceOfferingVO(name, cpu, ramSize, speed, null, null, ha, displayText,
+                        false, null, false);
 
         Long bytesReadRate = Long.parseLong(_currentObjectParams.get("bytesReadRate"));
         if ((bytesReadRate != null) && (bytesReadRate > 0))
@@ -1148,8 +1145,8 @@ public class DatabaseConfig {
 
         // insert system user
         final String insertSystemUser =
-            "INSERT INTO `cloud`.`user` (id, username, password, account_id, firstname, lastname, created)"
-                + " VALUES (1, 'system', RAND(), 1, 'system', 'cloud', now())";
+                "INSERT INTO `cloud`.`user` (id, username, password, account_id, firstname, lastname, created)"
+                        + " VALUES (1, 'system', RAND(), 1, 'system', 'cloud', now())";
         txn = TransactionLegacy.currentTxn();
         try {
             PreparedStatement stmt = txn.prepareAutoCloseStatement(insertSystemUser);
@@ -1253,7 +1250,7 @@ public class DatabaseConfig {
 
         String insertSql =
                 "INSERT INTO `cloud`.`configuration` (instance, component, name, value, description, category) " +
-                "VALUES (?,?,?,?,?,?)";
+                        "VALUES (?,?,?,?,?,?)";
         String selectSql = "SELECT name FROM cloud.configuration WHERE name = ?";
 
         TransactionLegacy txn = TransactionLegacy.currentTxn();
