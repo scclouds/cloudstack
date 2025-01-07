@@ -122,6 +122,11 @@ public final class LibvirtMigrateCommandWrapper extends CommandWrapper<MigrateCo
         String xmlDesc = null;
         List<Ternary<String, Boolean, String>> vmsnapshots = null;
 
+        VirtualMachineTO to = command.getVirtualMachine();
+        // Limit the VNC password in case the length is greater than 8 characters
+        // Since libvirt version 8 VNC passwords are limited to 8 characters
+        String vncPassword = StringUtils.truncate(to.getVncPassword(), 8);
+
         try {
             final LibvirtUtilitiesHelper libvirtUtilitiesHelper = libvirtComputingResource.getLibvirtUtilitiesHelper();
 
@@ -131,7 +136,6 @@ public final class LibvirtMigrateCommandWrapper extends CommandWrapper<MigrateCo
             if (logger.isDebugEnabled()) {
                 logger.debug(String.format("Found domain with name [%s]. Starting VM migration to host [%s].", vmName, destinationUri));
             }
-            VirtualMachineTO to = command.getVirtualMachine();
 
             dm = conn.domainLookupByName(vmName);
             /*
@@ -160,10 +164,6 @@ public final class LibvirtMigrateCommandWrapper extends CommandWrapper<MigrateCo
             if (logger.isDebugEnabled()) {
                 logger.debug(String.format("VM [%s] with XML configuration [%s] will be migrated to host [%s].", vmName, xmlDesc, target));
             }
-
-            // Limit the VNC password in case the length is greater than 8 characters
-            // Since libvirt version 8 VNC passwords are limited to 8 characters
-            String vncPassword = org.apache.commons.lang3.StringUtils.truncate(to.getVncPassword(), 8);
             xmlDesc = replaceIpForVNCInDescFileAndNormalizePassword(xmlDesc, target, vncPassword, vmName);
 
             // Replace Config Drive ISO path
@@ -342,7 +342,7 @@ public final class LibvirtMigrateCommandWrapper extends CommandWrapper<MigrateCo
                 if (dm != null && result != null) {
                     // restore vm snapshots in case of failed migration
                     if (vmsnapshots != null) {
-                        libvirtComputingResource.restoreVMSnapshotMetadata(dm, vmName, vmsnapshots);
+                        libvirtComputingResource.restoreVMSnapshotMetadata(dm, vmName, vncPassword, vmsnapshots);
                     }
                 }
                 if (dm != null) {
