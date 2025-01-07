@@ -34,6 +34,8 @@ import javax.annotation.PostConstruct;
 import javax.inject.Inject;
 import javax.persistence.TableGenerator;
 
+import com.cloud.vm.VirtualMachine;
+import org.apache.cloudstack.engine.subsystem.api.storage.VolumeInfo;
 import org.apache.cloudstack.framework.config.ConfigKey;
 import org.apache.cloudstack.framework.config.Configurable;
 import org.apache.cloudstack.utils.jsinterpreter.GenericRuleHelper;
@@ -75,6 +77,7 @@ import com.cloud.utils.db.SearchCriteria.Op;
 import com.cloud.utils.db.TransactionLegacy;
 import com.cloud.utils.db.UpdateBuilder;
 import com.cloud.utils.exception.CloudRuntimeException;
+import org.apache.commons.lang3.ObjectUtils;
 
 import java.util.Arrays;
 
@@ -1624,6 +1627,23 @@ public class HostDaoImpl extends GenericDaoBase<HostVO, Long> implements HostDao
     }
 
     @Override
+    public Long findClusterIdByVolumeInfo(VolumeInfo volumeInfo) {
+        VirtualMachine virtualMachine = volumeInfo.getAttachedVM();
+        if (virtualMachine == null) {
+            return null;
+        }
+
+        Long hostId = ObjectUtils.defaultIfNull(virtualMachine.getHostId(), virtualMachine.getLastHostId());
+        Host host = findById(hostId);
+
+        if (host == null) {
+            logger.warn(String.format("VM [%s] has null host on DB, either this VM was never started, or there is some inconsistency on the DB.", virtualMachine.getUuid()));
+            return null;
+        }
+
+        return host.getClusterId();
+    }
+
     public ConfigKey<?>[] getConfigKeys() {
         return new ConfigKey<?>[] {guestOsRuleExecutionTimeout};
     }

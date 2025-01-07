@@ -17,7 +17,8 @@
 package com.cloud.agent.api.to;
 
 import com.cloud.storage.DataStoreRole;
-import org.apache.cloudstack.utils.reflectiontostringbuilderutils.ReflectionToStringBuilderUtils;
+import org.apache.commons.lang3.builder.ReflectionToStringBuilder;
+import org.apache.commons.lang3.builder.ToStringStyle;
 
 public class NfsTO implements DataStoreTO {
 
@@ -84,6 +85,6 @@ public class NfsTO implements DataStoreTO {
 
     @Override
     public String toString() {
-        return ReflectionToStringBuilderUtils.reflectOnlySelectedFields(this, "_url", "_role", "uuid", "nfsVersion");
+        return new ReflectionToStringBuilder(this, ToStringStyle.JSON_STYLE).setExcludeFieldNames("pathSeparator").toString();
     }
 }

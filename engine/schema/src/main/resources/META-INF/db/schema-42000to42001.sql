@@ -95,6 +95,11 @@ FROM
 GROUP BY
   rp.role_id;
 
+--- KVM Incremental Snapshots
+CALL `cloud`.`IDEMPOTENT_ADD_COLUMN`('cloud.snapshot_store_ref', 'kvm_checkpoint_path', 'varchar(255)');
+
+CALL `cloud`.`IDEMPOTENT_ADD_COLUMN`('cloud.snapshot_store_ref', 'end_of_chain', 'int(1) unsigned');
+
 INSERT INTO `cloud`.`role_permissions` (uuid, role_id, rule, permission, sort_order)
 SELECT uuid(), role_id, 'quotaCreditsList', permission, sort_order
 FROM `cloud`.`role_permissions` rp

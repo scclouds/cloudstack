@@ -35,6 +35,7 @@ import javax.inject.Inject;
 import javax.naming.ConfigurationException;
 
 import com.cloud.cpu.CPU;
+import com.cloud.storage.snapshot.SnapshotManager;
 import org.apache.cloudstack.acl.SecurityChecker.AccessType;
 import org.apache.cloudstack.api.ApiConstants;
 import org.apache.cloudstack.api.BaseCmd;
@@ -1532,8 +1533,8 @@ public class TemplateManagerImpl extends ManagerBase implements TemplateManager,
         if (accountNames != null) {
             if ((operation == null) || (!operation.equalsIgnoreCase("add") && !operation.equalsIgnoreCase("remove") && !operation.equalsIgnoreCase("reset"))) {
                 throw new InvalidParameterValueException(
-                    "Invalid operation on accounts, the operation must be either 'add' or 'remove' in order to modify launch permissions." + "  Given operation is: '" +
-                        operation + "'");
+                        "Invalid operation on accounts, the operation must be either 'add' or 'remove' in order to modify launch permissions." + "  Given operation is: '" +
+                                operation + "'");
             }
         }
 
@@ -1592,9 +1593,9 @@ public class TemplateManagerImpl extends ManagerBase implements TemplateManager,
                             }
                         } else {
                             throw new InvalidParameterValueException("Unable to grant a launch permission to account " + accountName + " in domain id=" +
-                                domain.getUuid() + ", account not found.  " + "No permissions updated, please verify the account names and retry.");
-                }
-            }
+                                    domain.getUuid() + ", account not found.  " + "No permissions updated, please verify the account names and retry.");
+                        }
+                    }
                 }
             });
 
@@ -1673,8 +1674,10 @@ public class TemplateManagerImpl extends ManagerBase implements TemplateManager,
             if (snapshotId != null) {
                 DataStoreRole dataStoreRole = snapshotHelper.getDataStoreRole(snapshot);
                 kvmSnapshotOnlyInPrimaryStorage = snapshotHelper.isKvmSnapshotOnlyInPrimaryStorage(snapshot, dataStoreRole);
-
                 snapInfo = _snapshotFactory.getSnapshotWithRoleAndZone(snapshotId, dataStoreRole, zoneId);
+
+                boolean kvmIncrementalSnapshot = SnapshotManager.kvmIncrementalSnapshot.valueIn(_hostDao.findClusterIdByVolumeInfo(snapInfo.getBaseVolume()));
+
                 if (dataStoreRole == DataStoreRole.Image || kvmSnapshotOnlyInPrimaryStorage) {
                     snapInfo = snapshotHelper.backupSnapshotToSecondaryStorageIfNotExists(snapInfo, dataStoreRole, snapshot, kvmSnapshotOnlyInPrimaryStorage);
                     _accountMgr.checkAccess(caller, null, true, snapInfo);
@@ -1683,6 +1686,9 @@ public class TemplateManagerImpl extends ManagerBase implements TemplateManager,
                     if (snapStore != null) {
                         store = snapStore; // pick snapshot image store to create template
                     }
+                }
+                if (kvmIncrementalSnapshot && DataStoreRole.Image.equals(dataStoreRole)) {
+                    snapInfo = snapshotHelper.convertSnapshotIfNeeded(snapInfo);
                 }
 
                 future = _tmpltSvr.createTemplateFromSnapshotAsync(snapInfo, tmplInfo, store);
@@ -2157,21 +2163,21 @@ public class TemplateManagerImpl extends ManagerBase implements TemplateManager,
         // update is needed if any of the fields below got filled by the user
         boolean updateNeeded =
                 !(name == null &&
-                  displayText == null &&
-                  format == null &&
-                  guestOSId == null &&
-                  passwordEnabled == null &&
-                  bootable == null &&
-                  sshKeyEnabled == null &&
-                  requiresHvm == null &&
-                  sortKey == null &&
-                  isDynamicallyScalable == null &&
-                  isRoutingTemplate == null &&
-                  templateType == null &&
-                  templateTag == null &&
-                  arch == null &&
-                  (! cleanupDetails && details == null) //update details in every case except this one
-                  );
+                        displayText == null &&
+                        format == null &&
+                        guestOSId == null &&
+                        passwordEnabled == null &&
+                        bootable == null &&
+                        sshKeyEnabled == null &&
+                        requiresHvm == null &&
+                        sortKey == null &&
+                        isDynamicallyScalable == null &&
+                        isRoutingTemplate == null &&
+                        templateType == null &&
+                        templateTag == null &&
+                        arch == null &&
+                        (! cleanupDetails && details == null) //update details in every case except this one
+                );
         if (!updateNeeded) {
             return template;
         }
@@ -2334,7 +2340,7 @@ public class TemplateManagerImpl extends ManagerBase implements TemplateManager,
         }
         if (template.isDeployAsIs()) {
             String msg = String.format("Deploy-as-is template %s [%s] can not have the UEFI setting. Settings are read directly from the template",
-                template.getName(), template.getUuid());
+                    template.getName(), template.getUuid());
             throw new InvalidParameterValueException(msg);
         }
         try {
@@ -2344,7 +2350,7 @@ public class TemplateManagerImpl extends ManagerBase implements TemplateManager,
             return;
         } catch (IllegalArgumentException e) {
             String msg = String.format("Invalid %s: %s specified. Valid values are: %s",
-                ApiConstants.BOOT_MODE, bootMode, Arrays.toString(ApiConstants.BootMode.values()));
+                    ApiConstants.BOOT_MODE, bootMode, Arrays.toString(ApiConstants.BootMode.values()));
             logger.error(msg);
             throw new InvalidParameterValueException(msg);
         }

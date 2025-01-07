@@ -41,6 +41,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.stream.Collectors;
 
+import com.cloud.utils.exception.CloudRuntimeException;
 import org.apache.cloudstack.utils.security.KeyStoreUtils;
 import org.apache.commons.io.IOUtils;
 import org.apache.logging.log4j.LogManager;
@@ -786,5 +787,18 @@ public class Script implements Callable<String> {
         } else {
             return result.trim();
         }
+    }
+
+    public static String runSimpleBashScriptWithFullResult(String command, int timeout) {
+        Script script = new Script("/bin/bash", Duration.standardSeconds(timeout));
+        script.add("-c");
+        script.add(command);
+
+        OutputInterpreter.AllLinesParser parser = new OutputInterpreter.AllLinesParser();
+
+        if (script.execute(parser) != null) {
+            throw new CloudRuntimeException(String.format("Error executing command [%s]", script));
+        }
+        return parser.getLines();
     }
 }

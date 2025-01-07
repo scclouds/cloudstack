@@ -29,6 +29,7 @@ import com.cloud.info.RunningHostCountInfo;
 import com.cloud.resource.ResourceState;
 import com.cloud.utils.db.GenericDao;
 import com.cloud.utils.fsm.StateDao;
+import org.apache.cloudstack.engine.subsystem.api.storage.VolumeInfo;
 import org.apache.cloudstack.framework.config.ConfigKey;
 
 /**
@@ -177,5 +178,8 @@ public interface HostDao extends GenericDao<HostVO, Long>, StateDao<Status, Stat
 
     List<Long> listSsvmHostsWithPendingMigrateJobsOrderedByJobCount();
 
+    Long findClusterIdByVolumeInfo(VolumeInfo volumeInfo);
+
     List<HostVO> findHostsWithGuestOsRulesThatDidNotMatchOsOfGuestVm(String templateGuestOSName);
+
 }

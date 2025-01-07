@@ -72,6 +72,9 @@ public class LibvirtXMLParser extends DefaultHandler {
         return false;
     }
 
+    @Override
+    public void characters(char[] ch, int start, int length) throws SAXException {
+    }
 
     public static String getXml(Document doc) throws TransformerException {
         TransformerFactory transformerFactory = ParserUtils.getSaferTransformerFactory();
@@ -86,9 +89,4 @@ public class LibvirtXMLParser extends DefaultHandler {
 
         return byteArrayOutputStream.toString();
     }
-
-    @Override
-    public void characters(char[] ch, int start, int length) throws SAXException {
-    }
-
 }
