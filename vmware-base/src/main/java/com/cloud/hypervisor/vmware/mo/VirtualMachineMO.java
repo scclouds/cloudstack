@@ -1185,6 +1185,7 @@ public class VirtualMachineMO extends BaseMO {
     }
 
     public boolean configureVm(VirtualMachineConfigSpec vmConfigSpec) throws Exception {
+        logger.debug(LogUtils.logGsonWithoutException("Configuring VM with configSpec: [%s].", vmConfigSpec));
         ManagedObjectReference morTask = _context.getService().reconfigVMTask(_mor, vmConfigSpec);
 
         boolean result = _context.getVimClient().waitForTask(morTask);
@@ -2422,6 +2423,7 @@ public class VirtualMachineMO extends BaseMO {
         String recommendedController;
         GuestOsDescriptor guestOsDescriptor = getGuestOsDescriptor(guestOsId);
         recommendedController = VmwareHelper.getRecommendedDiskControllerFromDescriptor(guestOsDescriptor);
+        logger.debug(LogUtils.logGsonWithoutException("Recommended disk controller for VM [name: %s] from descriptor [%s] is: [%s].", getVmName(), guestOsDescriptor, recommendedController));
         return recommendedController;
     }
 
@@ -2474,6 +2476,8 @@ public class VirtualMachineMO extends BaseMO {
             int scsiControllerDeviceCount = 0;
             DiskControllerType diskControllerType = DiskControllerType.getType(diskController);
             for (VirtualDevice device : devices) {
+                logger.debug(LogUtils.logGsonWithoutException("Trying to identify controller key of disk controller [%s] and device: [%s] of VM [name: %s].",
+                        diskController, device, getVmName()));
                 if ((diskControllerType == DiskControllerType.lsilogic || diskControllerType == DiskControllerType.scsi) && device instanceof VirtualLsiLogicController) {
                     if (scsiControllerDeviceCount == requiredScsiController) {
                         if (isValidScsiDiskController((VirtualLsiLogicController)device)) {

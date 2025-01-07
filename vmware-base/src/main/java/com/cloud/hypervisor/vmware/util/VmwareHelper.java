@@ -688,8 +688,7 @@ public class VmwareHelper {
                 }
             }
         } catch (Exception ex) {
-            LOGGER.info("[ignored]"
-                    + "failed to get message for exception: " + e.getLocalizedMessage());
+            LOGGER.info("[ignored] failed to get message for exception: [{}].", e.getLocalizedMessage());
         }
 
         return ExceptionUtil.toString(e, printStack);
