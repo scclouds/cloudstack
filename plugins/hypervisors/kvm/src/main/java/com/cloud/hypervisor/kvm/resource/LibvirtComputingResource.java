@@ -28,6 +28,7 @@ import java.net.InetAddress;
 import java.net.NetworkInterface;
 import java.net.URI;
 import java.net.URISyntaxException;
+import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -42,6 +43,8 @@ import java.util.Properties;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.Semaphore;
+import java.util.concurrent.TimeUnit;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
@@ -83,10 +86,12 @@ import org.apache.commons.lang3.builder.ReflectionToStringBuilder;
 import org.apache.commons.lang3.builder.ToStringStyle;
 import org.apache.logging.log4j.Logger;
 import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.ThreadContext;
 import org.apache.xerces.impl.xpath.regex.Match;
 import org.joda.time.Duration;
 import org.libvirt.Connect;
 import org.libvirt.Domain;
+import org.libvirt.DomainBlockJobInfo;
 import org.libvirt.DomainBlockStats;
 import org.libvirt.DomainInfo;
 import org.libvirt.DomainInfo.DomainState;
@@ -321,6 +326,8 @@ public class LibvirtComputingResource extends ServerResourceBase implements Serv
     public static final String WINDOWS_GUEST_CONVERSION_SUPPORTED_CHECK_CMD = "rpm -qa | grep -i virtio-win";
     public static final String UBUNTU_WINDOWS_GUEST_CONVERSION_SUPPORTED_CHECK_CMD = "dpkg -l virtio-win";
     public static final String UBUNTU_NBDKIT_PKG_CHECK_CMD = "dpkg -l nbdkit";
+
+    protected int snapshotMergeTimeout;
 
     private String modifyVlanPath;
     private String versionStringPath;
@@ -1120,6 +1127,8 @@ public class LibvirtComputingResource extends ServerResourceBase implements Serv
         cmdsTimeout = AgentPropertiesFileHandler.getPropertyValue(AgentProperties.CMDS_TIMEOUT) * 1000;
 
         noMemBalloon = AgentPropertiesFileHandler.getPropertyValue(AgentProperties.VM_MEMBALLOON_DISABLE);
+        snapshotMergeTimeout = AgentPropertiesFileHandler.getPropertyValue(AgentProperties.SNAPSHOT_MERGE_TIMEOUT);
+        snapshotMergeTimeout = snapshotMergeTimeout > 0 ? snapshotMergeTimeout : AgentProperties.SNAPSHOT_MERGE_TIMEOUT.getDefaultValue();
 
         manualCpuSpeed = AgentPropertiesFileHandler.getPropertyValue(AgentProperties.HOST_CPU_MANUAL_SPEED_MHZ);
 
@@ -4419,6 +4428,13 @@ public class LibvirtComputingResource extends ServerResourceBase implements Serv
         }
     }
 
+    public DiskDef getDiskWithPathOfVolumeObjectTO(List<DiskDef> disks, VolumeObjectTO vol) {
+        return disks.stream()
+                .filter(diskDef -> diskDef.getDiskPath() != null && diskDef.getDiskPath().contains(vol.getPath()))
+                .findFirst()
+                .orElseThrow(() -> new CloudRuntimeException(String.format("Unable to find volume [%s].", vol.getUuid())));
+    }
+
     protected String getDiskPathFromDiskDef(DiskDef disk) {
         final String path = disk.getDiskPath();
         if (path != null) {
@@ -5526,8 +5542,170 @@ public class LibvirtComputingResource extends ServerResourceBase implements Serv
         }
     }
 
+    /**
+     * Retrieves the temporary path of the snapshot.
+     * @param diskPath Path of the disk to snapshot;
+     * @param snapshotName Snapshot name;
+     * @return the path of the disk replacing the disk with the snapshot.
+     */
+    public String getSnapshotTemporaryPath(String diskPath, String snapshotName) {
+        String[] diskPathSplitted = diskPath.split(File.separator);
+        diskPathSplitted[diskPathSplitted.length - 1] = snapshotName;
+        return String.join(File.separator, diskPathSplitted);
+    }
+
     public static String generateSecretUUIDFromString(String seed) {
         return UUID.nameUUIDFromBytes(seed.getBytes()).toString();
+    }
+
+    /**
+     * Merges the snapshot into base file.
+     *
+     * @param vm           Domain of the VM;
+     * @param diskLabel    Disk label to manage snapshot and base file;
+     * @param baseFilePath Path of the base file;
+     * @param topFilePath Path of the top file, if null, the active image is used;
+     * @param active Whether the snapshot being merged is the active image;
+     * @param snapshotName Name of the snapshot;
+     * @param volume VolumeObjectTO of the corresponding volume;
+     * @param conn Libvirt connection;
+     * @throws LibvirtException
+     */
+    public void mergeSnapshotIntoBaseFile(Domain vm, String diskLabel, String baseFilePath, String topFilePath, boolean active, String snapshotName, VolumeObjectTO volume,
+                                          Connect conn) throws LibvirtException {
+        boolean isLibvirtSupportingFlagDeleteOnCommandVirshBlockcommit = LibvirtUtilitiesHelper.isLibvirtSupportingFlagDeleteOnCommandVirshBlockcommit(conn);
+        String vmName = vm.getName();
+
+        int commitFlags = 0;
+        if (isLibvirtSupportingFlagDeleteOnCommandVirshBlockcommit) {
+            commitFlags |= Domain.BlockCommitFlags.DELETE;
+        }
+        if (active) {
+            commitFlags |= Domain.BlockCommitFlags.ACTIVE;
+        }
+
+        Semaphore semaphore = getSemaphoreToWaitForMerge();
+        BlockCommitListener blockCommitListener = getBlockCommitListener(semaphore, vmName);
+        vm.addBlockJobListener(blockCommitListener);
+
+        logger.info(String.format("Starting block commit of snapshot [%s] of VM [%s].", snapshotName, vmName));
+
+        vm.blockCommit(diskLabel, baseFilePath, topFilePath, 0, commitFlags);
+
+        Thread checkProgressThread = new Thread(() -> checkBlockCommitProgress(vm, diskLabel, vmName, snapshotName, topFilePath, baseFilePath));
+        checkProgressThread.start();
+
+        String errorMessage = String.format("the block commit of top file [%s] into base file [%s] for snapshot [%s] of VM [%s]." +
+                " The job will be left running to avoid data corruption, but ACS will return an error and volume [%s] will need to be normalized manually. If the commit" +
+                " involved the active image, the pivot will need to be manually done.", topFilePath, baseFilePath, snapshotName, vmName, volume);
+        try {
+            if (!semaphore.tryAcquire(snapshotMergeTimeout, TimeUnit.SECONDS)) {
+                throw new CloudRuntimeException("Timed out while waiting for " + errorMessage);
+            }
+        } catch (InterruptedException e) {
+            throw new CloudRuntimeException("Interrupted while waiting for " + errorMessage);
+        } finally {
+            vm.removeBlockJobListener(blockCommitListener);
+        }
+
+        String mergeResult = blockCommitListener.getResult();
+        try {
+            checkProgressThread.join();
+        } catch (InterruptedException ex) {
+            throw new CloudRuntimeException(String.format("Exception while running wait block commit task of snapshot [%s] and VM [%s].", snapshotName, vmName));
+        }
+
+        if (mergeResult != null) {
+            String commitError = String.format("Failed %s The failure occurred due to [%s].", errorMessage, mergeResult);
+            logger.error(commitError);
+            throw new CloudRuntimeException(commitError);
+        }
+
+        logger.info(String.format("Completed block commit of snapshot [%s] of VM [%s].", snapshotName, vmName));
+
+        manuallyDeleteUnusedSnapshotFile(isLibvirtSupportingFlagDeleteOnCommandVirshBlockcommit, topFilePath != null ? topFilePath : getSnapshotTemporaryPath(baseFilePath, snapshotName));
+    }
+
+    /**
+     * This was created to facilitate testing.
+     * */
+    protected BlockCommitListener getBlockCommitListener(Semaphore semaphore, String vmName) {
+        return new BlockCommitListener(semaphore, vmName, ThreadContext.get("logcontextid"));
+    }
+
+    /**
+     * This was created to facilitate testing.
+     * */
+    protected Semaphore getSemaphoreToWaitForMerge() {
+        return new Semaphore(0);
+    }
+
+    protected void checkBlockCommitProgress(Domain vm, String diskLabel, String vmName, String snapshotName, String topFilePath, String baseFilePath) {
+        int timeout = snapshotMergeTimeout;
+        DomainBlockJobInfo result;
+        long lastCommittedBytes = 0;
+        long endBytes = 0;
+        String partialLog = String.format("of top file [%s] into base file [%s] for snapshot [%s] of VM [%s]", topFilePath, baseFilePath, snapshotName, vmName);
+
+        while (timeout > 0) {
+            timeout -= 1;
+
+            try {
+                Thread.sleep(1000);
+            } catch (InterruptedException ex) {
+                logger.debug(String.format("Thread that was tracking the progress %s was interrupted.", partialLog), ex);
+                return;
+            }
+
+            try {
+                result = vm.getBlockJobInfo(diskLabel, 0);
+            } catch (LibvirtException ex) {
+                logger.warn(String.format("Exception while getting block job info %s: [%s].", partialLog, ex.getMessage()), ex);
+                return;
+            }
+
+            if (result == null || result.type == 0 && result.end == 0 && result.cur == 0) {
+                logger.debug(String.format("Block commit job %s has already finished.", partialLog));
+                return;
+            }
+
+            long currentCommittedBytes = result.cur;
+            if (currentCommittedBytes > lastCommittedBytes) {
+                logger.debug(String.format("The block commit %s is at [%s] of [%s].", partialLog, currentCommittedBytes, result.end));
+            }
+            lastCommittedBytes = currentCommittedBytes;
+            endBytes = result.end;
+        }
+        logger.warn(String.format("Block commit %s has timed out after waiting at least %s seconds. The progress of the operation was [%s] of [%s].", partialLog,
+                snapshotMergeTimeout, lastCommittedBytes, endBytes));
+    }
+
+    /**
+     * Manually deletes the unused snapshot file.<br/>
+     * This method is necessary due to Libvirt created the tag '--delete' on command 'virsh blockcommit' on version <b>1.2.9</b>, however it was only implemented on version
+     *  <b>6.0.0</b>.
+     * @param snapshotPath The unused snapshot file to manually delete.
+     */
+    protected void manuallyDeleteUnusedSnapshotFile(boolean isLibvirtSupportingFlagDeleteOnCommandVirshBlockcommit, String snapshotPath) {
+        if (isLibvirtSupportingFlagDeleteOnCommandVirshBlockcommit) {
+            logger.debug(String.format("The current Libvirt's version supports the flag '--delete' on command 'virsh blockcommit', we will skip the manually deletion of the"
+                    + " unused snapshot file [%s] as it already was automatically deleted.", snapshotPath));
+            return;
+        }
+
+        logger.debug(String.format("The current Libvirt's version does not supports the flag '--delete' on command 'virsh blockcommit', therefore we will manually delete the"
+                + " unused snapshot file [%s].", snapshotPath));
+
+        deleteIfExists(snapshotPath);
+    }
+
+    protected void deleteIfExists(String snapshotPath) {
+        try {
+            Files.deleteIfExists(Paths.get(snapshotPath));
+            logger.debug(String.format("Manually deleted unused snapshot file [%s].", snapshotPath));
+        } catch (IOException ex) {
+            throw new CloudRuntimeException(String.format("Unable to manually delete unused snapshot file [%s] due to [%s].", snapshotPath, ex.getMessage()));
+        }
     }
 
     public void setInterfaceDefQueueSettings(Map<String, String> details, Integer cpus, InterfaceDef interfaceDef) {

@@ -156,6 +156,13 @@ public class AgentProperties{
     public static final Property<Integer> CMDS_TIMEOUT = new Property<>("cmds.timeout", 7200);
 
     /**
+     * The timeout (in seconds) for the snapshot merge operation, mainly used for classic volume snapshots and disk-only VM snapshots on file-based storage.<br>
+     * Data type: Integer.<br>
+     * Default value: <code>259200</code>
+     */
+    public static final Property<Integer> SNAPSHOT_MERGE_TIMEOUT = new Property<>("snapshot.merge.timeout", 60 * 60 * 72);
+
+    /**
      * This parameter sets the VM migration speed (in mbps). The default value is -1,<br>
      * which means that the agent will try to guess the speed of the guest network and consume all possible bandwidth.<br>
      * When entering a value, make sure to enter it in megabits per second.<br>
@@ -708,7 +715,7 @@ public class AgentProperties{
      * stopped VMs. Experimental, requires agent restart.
      * Default value: <code>false</code>
      */
-    public static final Property<Boolean> LIBVIRT_EVENTS_ENABLED = new Property<>("libvirt.events.enabled", false);
+    public static final Property<Boolean> LIBVIRT_EVENTS_ENABLED = new Property<>("libvirt.events.enabled", true);
 
     /**
      * Can only be used if developer = true. This property is used to define the local bridge name and private network name.<br>

@@ -384,8 +384,8 @@ public class VMSnapshotManagerImpl extends MutualExclusiveIdsManagerBase impleme
             VMSnapshotStrategy snapshotStrategy = storageStrategyFactory.getVmSnapshotStrategy(userVmVo.getId(), rootVolumePool.getId(), snapshotMemory);
 
             if (snapshotStrategy == null) {
-                String message = "KVM does not support the type of snapshot requested";
-                logger.debug(message);
+                String message = String.format("No strategy was able to handle requested snapshot for VM [%s].", userVmVo.getUuid());
+                logger.error(message);
                 throw new CloudRuntimeException(message);
             }
 
