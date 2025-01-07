@@ -30,6 +30,8 @@ import javax.inject.Inject;
 import org.apache.cloudstack.acl.RoleVO;
 import org.apache.cloudstack.acl.dao.RoleDao;
 import org.apache.cloudstack.backup.BackupOfferingVO;
+import org.apache.cloudstack.backup.BackupVO;
+import org.apache.cloudstack.backup.dao.BackupDao;
 import org.apache.cloudstack.backup.dao.BackupOfferingDao;
 import org.apache.cloudstack.engine.subsystem.api.storage.SnapshotInfo;
 import org.apache.cloudstack.framework.config.dao.ConfigurationDao;
@@ -189,10 +191,14 @@ public class PresetVariableHelper {
     VpcDao vpcDao;
 
     @Inject
+    BackupDao backupDao;
+
+    @Inject
     ConfigurationDao configDao;
 
     @Inject
     ClusterDetailsDao clusterDetailsDao;
+
     @Inject
     VpcOfferingDao vpcOfferingDao;
 
@@ -336,6 +342,7 @@ public class PresetVariableHelper {
         loadPresetVariableValueForBackup(usageRecord, value);
         loadPresetVariableValueForNetwork(usageRecord, value);
         loadPresetVariableValueForVpc(usageRecord, value);
+        loadPresetVariableValueForBackupObject(usageRecord, value);
 
         return value;
     }
@@ -691,6 +698,25 @@ public class PresetVariableHelper {
         return snapshotStore.getDataStoreId();
     }
 
+    protected void loadPresetVariableValueForBackupObject(UsageVO usageRecord, Value value) {
+        int usageType = usageRecord.getUsageType();
+        if (usageType != QuotaTypes.BACKUP_OBJECT) {
+            logNotLoadingMessageInTrace("Backup Object", usageType);
+            return;
+        }
+
+        Long backupId = usageRecord.getUsageId();
+        BackupVO backup = backupDao.findByIdIncludingRemoved(backupId);
+        validateIfObjectIsNull(backup, backupId, "Backup");
+
+        value.setId(backup.getUuid());
+        value.setName(backup.getName());
+        value.setBackupOffering(getPresetVariableValueBackupOffering(usageRecord.getOfferingId()));
+        value.setVirtualMachine(getPresetVariableValueVirtualMachine(backup.getVmId()));
+        value.setSize(backup.getSize());
+        value.setVirtualSize(backup.getProtectedSize());
+    }
+
     protected void loadPresetVariableValueForNetworkOffering(UsageVO usageRecord, Value value) {
         int usageType = usageRecord.getUsageType();
 
@@ -823,6 +849,17 @@ public class PresetVariableHelper {
         vpcOffering.setName(vpcOfferingVo.getName());
 
         return vpcOffering;
+    }
+
+    protected GenericPresetVariable getPresetVariableValueVirtualMachine(Long vmId) {
+        VMInstanceVO vmInstanceVo = vmInstanceDao.findByIdIncludingRemoved(vmId);
+        validateIfObjectIsNull(vmInstanceVo, vmId, "virtual machine");
+
+        GenericPresetVariable virtualMachine = new GenericPresetVariable();
+        virtualMachine.setId(vmInstanceVo.getUuid());
+        virtualMachine.setName(vmInstanceVo.getHostName());
+
+        return virtualMachine;
     }
 
     /**

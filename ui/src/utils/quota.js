@@ -115,7 +115,10 @@ export const QUOTA_TYPES = [
   },
   {
     id: 31,
-    type: 'BACKUP_OBJECT'
+    type: 'BACKUP_OBJECT',
+    chartColor: '#9b782a',
+    isImplemented: true,
+    componentUrl: 'backupobject'
   }
 ]
 

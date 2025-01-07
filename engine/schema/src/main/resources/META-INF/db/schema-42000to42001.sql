@@ -19,6 +19,21 @@
 -- Schema upgrade from 4.20.0.0 to 4.20.0.1
 --;
 
+CREATE TABLE IF NOT EXISTS `cloud_usage`.`usage_backup_object` (
+    `id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+   `backup_id` bigint(20) unsigned NOT NULL,
+   `backup_offering_id` bigint(20) unsigned NOT NULL,
+   `vm_id` bigint(20) unsigned NOT NULL,
+   `zone_id` bigint(20) unsigned NOT NULL,
+   `domain_id` bigint(20) unsigned NOT NULL,
+   `account_id` bigint(20) unsigned NOT NULL,
+   `size` bigint(20) unsigned NOT NULL,
+   `protected_size` bigint(20) unsigned NOT NULL,
+   `created` datetime DEFAULT NULL,
+   `removed` datetime DEFAULT NULL,
+   PRIMARY KEY (`id`)
+);
+
 CREATE TABLE IF NOT EXISTS `cloud_usage`.`quota_usage_detail` (
     `id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
     `tariff_id` bigint(20) unsigned NOT NULL COMMENT 'ID of the tariff of the quota usage detail calculated, foreign key to tariff table',
