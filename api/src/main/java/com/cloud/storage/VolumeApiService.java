@@ -136,7 +136,7 @@ public interface VolumeApiService {
 
     void updateDisplay(Volume volume, Boolean displayVolume);
 
-    Snapshot allocSnapshotForVm(Long vmId, Long volumeId, String snapshotName) throws ResourceAllocationException;
+    Snapshot allocSnapshotForVm(Long vmId, Long volumeId, String snapshotName, Long vmSnapshotId) throws ResourceAllocationException;
 
     /**
      *  Checks if the target storage supports the disk offering.

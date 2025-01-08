@@ -31,6 +31,7 @@ import java.util.stream.Collectors;
 import com.amazonaws.util.CollectionUtils;
 import com.cloud.storage.VolumeApiService;
 import com.cloud.utils.fsm.NoTransitionException;
+import com.cloud.vm.UserVmManager;
 import com.cloud.vm.VirtualMachineManager;
 import javax.inject.Inject;
 import javax.naming.ConfigurationException;
@@ -165,6 +166,9 @@ public class BackupManagerImpl extends ManagerBase implements BackupManager {
     @Inject
     private VolumeOrchestrationService volumeOrchestrationService;
 
+    @Inject
+    private UserVmManager userVmManager;
+
     private AsyncJobDispatcher asyncJobDispatcher;
     private Timer backupTimer;
     private Date currentTimestamp;
@@ -292,6 +296,11 @@ public class BackupManagerImpl extends ManagerBase implements BackupManager {
 
         if (!Arrays.asList(VirtualMachine.State.Running, VirtualMachine.State.Stopped, VirtualMachine.State.Shutdown).contains(vm.getState())) {
             throw new CloudRuntimeException("VM is not in running or stopped state");
+        }
+
+        if (Hypervisor.HypervisorType.KVM.equals(vm.getHypervisorType())) {
+            userVmManager.validateNoVolumeSnapshots(vm, "backups");
+            userVmManager.validateNoVmSnapshots(vm, "backups");
         }
 
         validateForZone(vm.getDataCenterId());

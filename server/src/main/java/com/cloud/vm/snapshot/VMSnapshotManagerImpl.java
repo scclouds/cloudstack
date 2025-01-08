@@ -376,7 +376,9 @@ public class VMSnapshotManagerImpl extends MutualExclusiveIdsManagerBase impleme
             throw new CloudRuntimeException("Unable to find root volume storage pool for the user vm:" + userVmVo.getUuid());
         }
 
-        if (userVmVo.getHypervisorType() == HypervisorType.KVM) {
+        if (HypervisorType.KVM.equals(userVmVo.getHypervisorType())) {
+            _userVmManager.validateNoVolumeSnapshots(userVmVo, "VM snapshots");
+            _userVmManager.validateNoBackupOfferings(userVmVo, "VM snapshots");
             //DefaultVMSnapshotStrategy - allows snapshot with memory when VM is in running state and all volumes have to be in QCOW format
             //ScaleIOVMSnapshotStrategy - allows group snapshots without memory; all VM's volumes should be on same storage pool; The state of VM could be Running/Stopped; RAW image format is only supported
             //StorageVMSnapshotStrategy - allows volume snapshots without memory; VM has to be in Running state; No limitation of the image format if the storage plugin supports volume snapshots; "kvm.vmstoragesnapshot.enabled" has to be enabled
