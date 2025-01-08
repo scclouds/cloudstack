@@ -138,6 +138,15 @@ WHERE `name` IN ('usage.execution.timezone', 'usage.aggregation.timezone');
 DELETE FROM `cloud`.`configuration`
 WHERE `name` = 'usage.timezone';
 
+-- Add posting date to quota credits table.
+CALL `cloud_usage`.`IDEMPOTENT_ADD_COLUMN`('cloud_usage.quota_credits', 'posting_date', 'datetime COMMENT "Posting date of the payment"');
+
+UPDATE `cloud_usage`.`quota_credits`
+SET `posting_date` = `updated_on`
+WHERE `posting_date` IS NULL;
+
+ALTER TABLE `cloud_usage`.`quota_credits` MODIFY COLUMN `posting_date` datetime NOT NULL DEFAULT NOW() COMMENT 'Posting date of the payment';
+
 -- Change deleteEvent and archiveEvent permissions for default roles.
 UPDATE `cloud`.`role_permissions` rp, `cloud`.`roles` r
 SET rp.`permission` = 'DENY'

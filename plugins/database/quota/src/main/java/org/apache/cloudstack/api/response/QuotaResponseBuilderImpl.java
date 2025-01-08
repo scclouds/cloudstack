@@ -604,7 +604,7 @@ public class QuotaResponseBuilderImpl implements QuotaResponseBuilder {
     }
 
     @Override
-    public QuotaCreditsResponse addQuotaCredits(Long accountId, Long domainId, Double amount, Long updatedBy, Boolean enforce) {
+    public QuotaCreditsResponse addQuotaCredits(Long accountId, Long domainId, Double amount, Long updatedBy, Boolean enforce, Date postingDate) {
         Date depositedOn = new Date();
         QuotaBalanceVO qb = _quotaBalanceDao.findLaterBalanceEntry(accountId, domainId, depositedOn);
 
@@ -613,7 +613,12 @@ public class QuotaResponseBuilderImpl implements QuotaResponseBuilder {
                     depositedOn));
         }
 
-        QuotaCreditsVO credits = new QuotaCreditsVO(accountId, domainId, new BigDecimal(amount), updatedBy);
+        postingDate = ObjectUtils.defaultIfNull(postingDate, depositedOn);
+        if (postingDate.after(depositedOn)) {
+            throw new InvalidParameterValueException(String.format("Posting date [%s] must be before or equal to the processing date [%s].", postingDate, depositedOn));
+        }
+
+        QuotaCreditsVO credits = new QuotaCreditsVO(accountId, domainId, new BigDecimal(amount), updatedBy, postingDate);
         credits.setUpdatedOn(depositedOn);
         QuotaCreditsVO result = quotaCreditsDao.saveCredits(credits);
         if (result == null) {
@@ -1069,6 +1074,7 @@ public class QuotaResponseBuilderImpl implements QuotaResponseBuilder {
             response.setCredit(credit.getCredit());
             response.setCreditedOn(credit.getUpdatedOn());
             response.setCurrency(QuotaConfig.QuotaCurrencySymbol.value());
+            response.setPostingDate(credit.getPostingDate());
         }
         if (creditor != null) {
             response.setCreditorUserId(creditor.getUuid());

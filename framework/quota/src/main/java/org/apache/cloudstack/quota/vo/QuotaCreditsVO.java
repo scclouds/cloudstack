@@ -51,15 +51,20 @@ public class QuotaCreditsVO implements InternalIdentity {
     @Temporal(value = TemporalType.TIMESTAMP)
     private Date updatedOn = null;
 
+    @Column(name = "posting_date")
+    @Temporal(value = TemporalType.TIMESTAMP)
+    private Date postingDate;
+
     public QuotaCreditsVO() {
     }
 
-    public QuotaCreditsVO(long accountId, long domainId, BigDecimal credit, long updatedBy) {
+    public QuotaCreditsVO(long accountId, long domainId, BigDecimal credit, long updatedBy, Date postingDate) {
         super();
         this.accountId = accountId;
         this.domainId = domainId;
         this.credit = credit;
         this.updatedBy = updatedBy;
+        this.postingDate = postingDate;
     }
 
     public Long getAccountId() {
@@ -104,6 +109,14 @@ public class QuotaCreditsVO implements InternalIdentity {
 
     public void setId(Long id) {
         this.id = id;
+    }
+
+    public Date getPostingDate() {
+        return postingDate;
+    }
+
+    public void setPostingDate(Date postingDate) {
+        this.postingDate = postingDate;
     }
 
     // User ID of the creditor
