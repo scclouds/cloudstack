@@ -99,6 +99,9 @@ public class VeeamBackupProvider extends AdapterBase implements BackupProvider, 
     private static ConfigKey<Integer> VeeamTaskPollMaxRetry = new ConfigKey<>("Advanced", Integer.class, "backup.plugin.veeam.task.poll.max.retry", "120",
             "The max number of retrying times when the management server polls for Veeam task status.", true, ConfigKey.Scope.Zone);
 
+    private static ConfigKey<Boolean> VeeamQuickRollback = new ConfigKey<>("Advanced", Boolean.class, "backup.plugin.veeam.quickrollback", "false", "Indicates if the flag " +
+            "quickRollback will be used in Veeam when restoring the full VM or only the disks of this VM", true, ConfigKey.Scope.Zone);
+
     @Inject
     private VmwareDatacenterZoneMapDao vmwareDatacenterZoneMapDao;
     @Inject
@@ -116,7 +119,7 @@ public class VeeamBackupProvider extends AdapterBase implements BackupProvider, 
         try {
             return new VeeamClient(VeeamUrl.valueIn(zoneId), VeeamVersion.valueIn(zoneId), VeeamUsername.valueIn(zoneId), VeeamPassword.valueIn(zoneId),
                     VeeamValidateSSLSecurity.valueIn(zoneId), VeeamApiRequestTimeout.valueIn(zoneId), VeeamRestoreTimeout.valueIn(zoneId),
-                    VeeamTaskPollInterval.valueIn(zoneId), VeeamTaskPollMaxRetry.valueIn(zoneId));
+                    VeeamTaskPollInterval.valueIn(zoneId), VeeamTaskPollMaxRetry.valueIn(zoneId), VeeamQuickRollback.valueIn(zoneId));
         } catch (URISyntaxException e) {
             throw new CloudRuntimeException("Failed to parse Veeam API URL: " + e.getMessage());
         } catch (NoSuchAlgorithmException | KeyManagementException e) {
@@ -425,7 +428,8 @@ public class VeeamBackupProvider extends AdapterBase implements BackupProvider, 
                 VeeamApiRequestTimeout,
                 VeeamRestoreTimeout,
                 VeeamTaskPollInterval,
-                VeeamTaskPollMaxRetry
+                VeeamTaskPollMaxRetry,
+                VeeamQuickRollback
         };
     }
 
