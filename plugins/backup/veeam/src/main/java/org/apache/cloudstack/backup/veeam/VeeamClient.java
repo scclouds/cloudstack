@@ -61,9 +61,11 @@ import org.apache.cloudstack.backup.veeam.api.ObjectInJob;
 import org.apache.cloudstack.backup.veeam.api.ObjectsInJob;
 import org.apache.cloudstack.backup.veeam.api.Ref;
 import org.apache.cloudstack.backup.veeam.api.RestoreSession;
+import org.apache.cloudstack.backup.veeam.api.RestoreSpec;
 import org.apache.cloudstack.backup.veeam.api.Task;
 import org.apache.cloudstack.backup.veeam.api.VmRestorePoint;
 import org.apache.cloudstack.backup.veeam.api.VmRestorePoints;
+import org.apache.cloudstack.backup.veeam.api.VmRestoreSpec;
 import org.apache.cloudstack.utils.security.SSLUtils;
 import org.apache.commons.collections.CollectionUtils;
 import org.apache.http.HttpHeaders;
@@ -119,13 +121,15 @@ public class VeeamClient {
     private final int veeamServerPort = 22;
     private final int taskPollInterval;
     private final int taskPollMaxRetry;
+    private Boolean quickRollback;
 
     public VeeamClient(final String url, final Integer version, final String username, final String password, final boolean validateCertificate, final int timeout,
-            final int restoreTimeout, final int taskPollInterval, final int taskPollMaxRetry) throws URISyntaxException, NoSuchAlgorithmException, KeyManagementException {
+            final int restoreTimeout, final int taskPollInterval, final int taskPollMaxRetry, Boolean quickRollback) throws URISyntaxException, NoSuchAlgorithmException, KeyManagementException {
         this.apiURI = new URI(url);
         this.restoreTimeout = restoreTimeout;
         this.taskPollInterval = taskPollInterval;
         this.taskPollMaxRetry = taskPollMaxRetry;
+        this.quickRollback = quickRollback;
 
         final RequestConfig config = RequestConfig.custom()
                 .setConnectTimeout(timeout * 1000)
@@ -594,9 +598,12 @@ public class VeeamClient {
     }
 
     public boolean restoreFullVM(final String vmwareInstanceName, final String restorePointId) {
-        logger.debug("Trying to restore full VM: " + vmwareInstanceName + " from backup");
+        logger.debug("Trying to restore full VM: {} from backup", vmwareInstanceName);
         try {
-            final HttpResponse response = post(String.format("/vmRestorePoints/%s?action=restore", restorePointId), null);
+            VmRestoreSpec vmRestoreSpec = new VmRestoreSpec();
+            vmRestoreSpec.setQuickRollback(quickRollback);
+            RestoreSpec restoreSpec = new RestoreSpec(vmRestoreSpec);
+            final HttpResponse response = post(String.format("/vmRestorePoints/%s?action=restore", restorePointId), restoreSpec);
             return checkTaskStatus(response);
         } catch (final IOException e) {
             logger.error("Failed to restore full VM due to: ", e);
