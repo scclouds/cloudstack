@@ -19,6 +19,7 @@ package org.apache.cloudstack.api.response;
 import com.cloud.serializer.Param;
 import com.google.gson.annotations.SerializedName;
 
+import org.apache.cloudstack.api.ApiConstants;
 import org.apache.cloudstack.api.BaseResponse;
 
 import java.math.BigDecimal;
@@ -45,6 +46,10 @@ public class QuotaCreditsResponse extends BaseResponse {
     @SerializedName("currency")
     @Param(description = "Credit's currency.")
     private String currency;
+
+    @SerializedName(ApiConstants.POSTING_DATE)
+    @Param(description = "Posting date of the payment.")
+    private Date postingDate;
 
     public BigDecimal getCredit() {
         return credit;
@@ -84,5 +89,13 @@ public class QuotaCreditsResponse extends BaseResponse {
 
     public void setCurrency(String currency) {
         this.currency = currency;
+    }
+
+    public Date getPostingDate() {
+        return postingDate;
+    }
+
+    public void setPostingDate(Date postingDate) {
+        this.postingDate = postingDate;
     }
 }

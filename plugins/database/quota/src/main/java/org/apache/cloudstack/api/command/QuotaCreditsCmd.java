@@ -32,6 +32,7 @@ import org.apache.cloudstack.context.CallContext;
 import org.apache.cloudstack.quota.QuotaService;
 
 import javax.inject.Inject;
+import java.util.Date;
 
 @APICommand(name = "quotaCredits", responseObject = QuotaCreditsResponse.class, description = "Add +-credits to an account", since = "4.7.0", requestHasSensitiveInfo = false, responseHasSensitiveInfo = false)
 public class QuotaCreditsCmd extends BaseCmd {
@@ -59,6 +60,10 @@ public class QuotaCreditsCmd extends BaseCmd {
 
     @Parameter(name = "quota_enforce", type = CommandType.BOOLEAN, required = false, description = "Account for which quota enforce is set to false will not be locked when there is no credit balance")
     private Boolean quotaEnforce;
+
+    @Parameter(name = ApiConstants.POSTING_DATE, type = CommandType.DATE, description = "Posting date of the payment. Inform null to use the current date. "
+            + ApiConstants.PARAMETER_DESCRIPTION_START_DATE_POSSIBLE_FORMATS)
+    private Date postingDate;
 
     public Double getMinBalance() {
         return minBalance;
@@ -100,6 +105,14 @@ public class QuotaCreditsCmd extends BaseCmd {
         this.value = value;
     }
 
+    public Date getPostingDate() {
+        return postingDate;
+    }
+
+    public void setPostingDate(Date postingDate) {
+        this.postingDate = postingDate;
+    }
+
     public QuotaCreditsCmd() {
         super();
     }
@@ -124,7 +137,7 @@ public class QuotaCreditsCmd extends BaseCmd {
             _quotaService.setMinBalance(accountId, getMinBalance());
         }
 
-        final QuotaCreditsResponse response = _responseBuilder.addQuotaCredits(accountId, getDomainId(), getValue(), CallContext.current().getCallingUserId(), getQuotaEnforce());
+        final QuotaCreditsResponse response = _responseBuilder.addQuotaCredits(accountId, getDomainId(), getValue(), CallContext.current().getCallingUserId(), getQuotaEnforce(), getPostingDate());
         response.setResponseName(getCommandName());
         response.setObjectName("quotacredits");
         setResponseObject(response);
