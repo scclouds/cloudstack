@@ -54,6 +54,7 @@ import javax.naming.ConfigurationException;
 import javax.xml.parsers.DocumentBuilder;
 import javax.xml.parsers.ParserConfigurationException;
 
+import com.cloud.storage.dao.SnapshotPolicyDao;
 import org.apache.cloudstack.acl.ControlledEntity;
 import org.apache.cloudstack.acl.ControlledEntity.ACLType;
 import org.apache.cloudstack.acl.SecurityChecker.AccessType;
@@ -605,6 +606,8 @@ public class UserVmManagerImpl extends ManagerBase implements UserVmManager, Vir
     @Inject
     NsxProviderDao nsxProviderDao;
 
+    @Inject
+    private SnapshotPolicyDao snapshotPolicyDao;
 
     private ScheduledExecutorService _executor = null;
     private ScheduledExecutorService _vmIpFetchExecutor = null;
@@ -8984,6 +8987,56 @@ public class UserVmManagerImpl extends ManagerBase implements UserVmManager, Vir
         }
 
         return true;
+    }
+
+    /**
+     * Validates that the VM does not have any volume snapshots or snapshot policies.
+     * @param userVm VM being validated
+     * @param vmSnapshotOrBackup Whether the validation is being made because of backups or VM snapshots.
+     * */
+    @Override
+    public void validateNoVolumeSnapshots(VirtualMachine userVm, String vmSnapshotOrBackup) {
+        String errorMsg = "VM [%s] has a volume with a snapshot%s. Volume snapshots and %s are not compatible on KVM," +
+                " as restoring volume snapshots will erase any %s and cause data loss.";
+        List<SnapshotVO> vmVolumeSnapshots = _snapshotDao.listByInstanceIdAndNotTypeAndStates(userVm.getId(), Snapshot.Type.GROUP, Snapshot.State.Allocated,
+                Snapshot.State.Creating, Snapshot.State.CreatedOnPrimary, Snapshot.State.Copying, Snapshot.State.BackingUp, Snapshot.State.BackedUp);
+
+        if (CollectionUtils.isNotEmpty(vmVolumeSnapshots)) {
+            throw new CloudRuntimeException(String.format(errorMsg, userVm.getUuid(), "", vmSnapshotOrBackup, vmSnapshotOrBackup));
+        }
+
+        List<VolumeVO> vmVolumes = _volsDao.findByInstance(userVm.getId());
+        for (VolumeVO volumeVO : vmVolumes) {
+            if (CollectionUtils.isNotEmpty(snapshotPolicyDao.listByVolumeId(volumeVO.getId()))) {
+                throw new CloudRuntimeException(String.format(errorMsg, userVm.getUuid(), " policy", vmSnapshotOrBackup, vmSnapshotOrBackup));
+            }
+        }
+    }
+
+    /**
+     * Validates that the VM does not have backup offerings or backups.
+     * @param userVm VM being validated
+     * @param volumeOrVmSnapshot Whether the validation is being made because of volume or VM snapshots.
+     * */
+    @Override
+    public void validateNoBackupOfferings(VirtualMachine userVm, String volumeOrVmSnapshot) {
+        if ((userVm.getBackupOfferingId() != null || CollectionUtils.isNotEmpty(userVm.getBackupVolumeList()))) {
+            throw new CloudRuntimeException(String.format("VM [%s] has a backup offering. Backups and %s are not supported together on KVM.",
+                    userVm.getUuid(), volumeOrVmSnapshot));
+        }
+    }
+
+    /**
+     * Validates that the VM does not have any VM snapshots.
+     * @param userVm VM being validated
+     * @param volumeSnapshotOrBackup Whether the validation is being made because of backups or volume snapshots.
+     * */
+    @Override
+    public void validateNoVmSnapshots(VirtualMachine userVm, String volumeSnapshotOrBackup) {
+        if (CollectionUtils.isNotEmpty(_vmSnapshotDao.findByVm(userVm.getId()))) {
+            throw new CloudRuntimeException(String.format("VM [%s] already has VM snapshots. VM snapshots and %s are not supported together for KVM. " +
+                    "As restoring %s will erase VM snapshots and cause data loss.", userVm.getUuid(), volumeSnapshotOrBackup, volumeSnapshotOrBackup));
+        }
     }
 
     /*

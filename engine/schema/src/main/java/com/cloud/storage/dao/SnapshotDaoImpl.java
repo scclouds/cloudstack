@@ -168,6 +168,7 @@ public class SnapshotDaoImpl extends GenericDaoBase<SnapshotVO, Long> implements
 
         InstanceIdSearch = createSearchBuilder();
         InstanceIdSearch.and("status", InstanceIdSearch.entity().getState(), SearchCriteria.Op.IN);
+        InstanceIdSearch.and("notType", InstanceIdSearch.entity().getSnapshotType(), SearchCriteria.Op.NEQ);
 
         snapshotIdsSearch = createSearchBuilder();
         snapshotIdsSearch.and("id", snapshotIdsSearch.entity().getId(), SearchCriteria.Op.IN);
@@ -176,7 +177,7 @@ public class SnapshotDaoImpl extends GenericDaoBase<SnapshotVO, Long> implements
         instanceSearch.and("instanceId", instanceSearch.entity().getId(), SearchCriteria.Op.EQ);
 
         SearchBuilder<VolumeVO> volumeSearch = _volumeDao.createSearchBuilder();
-        volumeSearch.and("state", volumeSearch.entity().getState(), SearchCriteria.Op.EQ);
+        volumeSearch.and("state", volumeSearch.entity().getState(), SearchCriteria.Op.IN);
         volumeSearch.join("instanceVolumes", instanceSearch, instanceSearch.entity().getId(), volumeSearch.entity().getInstanceId(), JoinType.INNER);
 
         InstanceIdSearch.join("instanceSnapshots", volumeSearch, volumeSearch.entity().getId(), InstanceIdSearch.entity().getVolumeId(), JoinType.INNER);
@@ -218,10 +219,28 @@ public class SnapshotDaoImpl extends GenericDaoBase<SnapshotVO, Long> implements
             sc.setParameters("status", (Object[])status);
         }
 
-        sc.setJoinParameters("instanceSnapshots", "state", Volume.State.Ready);
+        sc.setJoinParameters("instanceSnapshots", "state", Volume.State.Ready, Volume.State.Snapshotting);
         sc.setJoinParameters("instanceVolumes", "instanceId", instanceId);
         return listBy(sc, null);
     }
+
+    @Override
+    public List<SnapshotVO> listByInstanceIdAndNotTypeAndStates(long instanceId, Type snapshotType, Snapshot.State... status) {
+        SearchCriteria<SnapshotVO> sc = InstanceIdSearch.create();
+
+        if (snapshotType != null) {
+            sc.setParameters("notType", snapshotType.ordinal());
+        }
+
+        if (status != null && status.length != 0) {
+            sc.setParameters("status", (Object[])status);
+        }
+
+        sc.setJoinParameters("instanceSnapshots", "state", Volume.State.Ready, Volume.State.Snapshotting);
+        sc.setJoinParameters("instanceVolumes", "instanceId", instanceId);
+        return listBy(sc, null);
+    }
+
 
     @Override
     public List<SnapshotVO> listByStatus(long volumeId, Snapshot.State... status) {

@@ -174,4 +174,10 @@ public interface UserVmManager extends UserVmService {
 
     Boolean getDestroyRootVolumeOnVmDestruction(Long domainId);
 
+    void validateNoVolumeSnapshots(VirtualMachine userVm, String vmSnapshotOrBackup);
+
+    void validateNoBackupOfferings(VirtualMachine userVm, String volumeOrVmSnapshot);
+
+    void validateNoVmSnapshots(VirtualMachine userVm, String volumeSnapshotOrBackup);
+
 }

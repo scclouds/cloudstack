@@ -260,6 +260,9 @@ public class SnapshotManagerImpl extends MutualExclusiveIdsManagerBase implement
     @Inject
     SnapshotDetailsDao snapshotDetailsDao;
 
+    @Inject
+    private UserVmManager userVmManager;
+
     private int _totalRetries;
     private int _pauseInterval;
     private int snapshotBackupRetries, snapshotBackupRetryInterval;
@@ -1090,6 +1093,14 @@ public class SnapshotManagerImpl extends MutualExclusiveIdsManagerBase implement
         VolumeVO volume = _volsDao.findById(cmd.getVolumeId());
         if (volume == null) {
             throw new InvalidParameterValueException("Failed to create snapshot policy, unable to find a volume with id " + volumeId);
+        }
+
+        if (volume.getInstanceId() != null) {
+            UserVmVO userVmVO = _vmDao.findById(volume.getInstanceId());
+            if (HypervisorType.KVM.equals(userVmVO.getHypervisorType())) {
+                userVmManager.validateNoVmSnapshots(userVmVO, "volume snapshots");
+                userVmManager.validateNoBackupOfferings(userVmVO, "volume snapshots");
+            }
         }
 
         // For now, volumes with encryption don't support snapshot schedules, because they will fail when VM is running
