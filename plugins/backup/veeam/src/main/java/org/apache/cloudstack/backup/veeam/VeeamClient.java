@@ -429,15 +429,15 @@ public class VeeamClient {
 
     protected String getRepositoryNameFromJob(String backupName) {
         final List<String> cmds = Arrays.asList(
-                String.format("$Job = Get-VBRJob -name '%s'", backupName),
-                "$Job.GetBackupTargetRepository() ^| select Name ^| Format-List"
+                String.format("$job = Get-VBRJob -name \"%s\"", backupName),
+                "$job.GetBackupTargetRepository() ^| Select Name ^| Format-List"
         );
         Pair<Boolean, String> result = executePowerShellCommands(cmds);
         if (result == null || !result.first()) {
             throw new CloudRuntimeException(String.format("Failed to get Repository Name from Job [name: %s].", backupName));
         }
 
-        for (String block : result.second().split("\r\n")) {
+        for (String block : result.second().split("\r\n\r\n")) {
            if (block.matches("Name(\\s)+:(.)*")) {
                return block.split(":")[1].trim();
            }
@@ -660,8 +660,10 @@ public class VeeamClient {
         Pair<Boolean, String> result = executePowerShellCommands(Arrays.asList(
                 String.format("$job = Get-VBRJob -Name '%s'", jobName),
                 "if ($job) { Remove-VBRJob -Job $job -Confirm:$false }",
-                String.format("$backup = Get-VBRBackup -Name '%s'", jobName),
-                "if ($backup) { Remove-VBRBackup -Backup $backup -FromDisk -Confirm:$false }"
+                String.format("$backup = Get-VBRBackup -Name \"%s\"", jobName),
+                "if ($backup) { Remove-VBRBackup -Backup $backup -FromDisk -Confirm:$false }",
+                "$repo = Get-VBRBackupRepository",
+                "Sync-VBRBackupRepository -Repository $repo"
         ));
         return result != null && result.first() && !result.second().contains(FAILED_TO_DELETE);
     }
