@@ -23,28 +23,35 @@ import com.cloud.agent.manager.Commands;
 import com.cloud.exception.AgentUnavailableException;
 import com.cloud.exception.OperationTimedoutException;
 import com.cloud.exception.ResourceUnavailableException;
+import com.cloud.network.Network;
 import com.cloud.network.NetworkModel;
 import com.cloud.network.dao.NetworkDao;
+import com.cloud.vm.NicProfile;
+import com.cloud.vm.NicVO;
 import com.cloud.vm.dao.NicDao;
 import org.apache.cloudstack.engine.orchestration.service.NetworkOrchestrationService;
+import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.mockito.InjectMocks;
 import org.mockito.ArgumentMatchers;
 import org.mockito.Mock;
-import org.mockito.junit.MockitoJUnitRunner;
 
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import org.mockito.Mockito;
+import org.mockito.Spy;
+import org.mockito.junit.MockitoJUnitRunner;
 
 @RunWith(MockitoJUnitRunner.class)
 public class NetworkHelperImplTest {
@@ -54,28 +61,41 @@ public class NetworkHelperImplTest {
     @Mock
     protected AgentManager agentManager;
 
+    @Mock
+    private NicDao nicDaoMock;
+
+    private NicProfile nicProfile = new NicProfile();
+
+    @Mock
+    private NicVO nicVoMock;
+
+    @Mock
+    private Network networkMock;
+
+    @Spy
     @InjectMocks
-    protected NetworkHelperImpl nwHelper = new NetworkHelperImpl();
+    protected NetworkHelperImpl networkHelperSpy = new NetworkHelperImpl();
+
     @Mock
     NetworkOrchestrationService networkOrchestrationService;
+
     @Mock
     NetworkDao networkDao;
+
     @Mock
     NetworkModel networkModel;
-    @Mock
-    NicDao nicDao;
 
     @Before
     public void setUp() {
-        nwHelper._networkDao = networkDao;
-        nwHelper._networkModel = networkModel;
+        networkHelperSpy._networkDao = networkDao;
+        networkHelperSpy._networkModel = networkModel;
     }
 
     @Test(expected=ResourceUnavailableException.class)
     public void testSendCommandsToRouterWrongRouterVersion()
             throws AgentUnavailableException, OperationTimedoutException, ResourceUnavailableException {
         // Prepare
-        NetworkHelperImpl nwHelperUT = spy(this.nwHelper);
+        NetworkHelperImpl nwHelperUT = spy(this.networkHelperSpy);
         VirtualRouter vr = mock(VirtualRouter.class);
         doReturn(false).when(nwHelperUT).checkRouterVersion(vr);
 
@@ -90,7 +110,7 @@ public class NetworkHelperImplTest {
     public void testSendCommandsToRouter()
             throws AgentUnavailableException, OperationTimedoutException, ResourceUnavailableException {
         // Prepare
-        NetworkHelperImpl nwHelperUT = spy(this.nwHelper);
+        NetworkHelperImpl nwHelperUT = spy(this.networkHelperSpy);
         VirtualRouter vr = mock(VirtualRouter.class);
         when(vr.getHostId()).thenReturn(HOST_ID);
         doReturn(true).when(nwHelperUT).checkRouterVersion(vr);
@@ -128,7 +148,7 @@ public class NetworkHelperImplTest {
     public void testSendCommandsToRouterWithTrueResult()
             throws AgentUnavailableException, OperationTimedoutException, ResourceUnavailableException {
         // Prepare
-        NetworkHelperImpl nwHelperUT = spy(this.nwHelper);
+        NetworkHelperImpl nwHelperUT = spy(this.networkHelperSpy);
         VirtualRouter vr = mock(VirtualRouter.class);
         when(vr.getHostId()).thenReturn(HOST_ID);
         doReturn(true).when(nwHelperUT).checkRouterVersion(vr);
@@ -166,7 +186,7 @@ public class NetworkHelperImplTest {
     public void testSendCommandsToRouterWithNoAnswers()
             throws AgentUnavailableException, OperationTimedoutException, ResourceUnavailableException {
         // Prepare
-        NetworkHelperImpl nwHelperUT = spy(this.nwHelper);
+        NetworkHelperImpl nwHelperUT = spy(this.networkHelperSpy);
         VirtualRouter vr = mock(VirtualRouter.class);
         when(vr.getHostId()).thenReturn(HOST_ID);
         doReturn(true).when(nwHelperUT).checkRouterVersion(vr);
@@ -187,4 +207,45 @@ public class NetworkHelperImplTest {
         verify(answer1, times(0)).getResult();
         assertFalse(result);
     }
+
+    @Test
+    public void setPublicNicMacAddressSameAsPeerNicTestConfigurationIsFalseExpectDoNothing() {
+        when(NetworkOrchestrationService.getUseSameMacAddressForPublicNicOfVirtualRoutersOnSameNetworkValue()).thenReturn(false);
+
+        NicProfile nicProfileMock = Mockito.mock(NicProfile.class);
+        Network networkMock = Mockito.mock(Network.class);
+        networkHelperSpy.setPublicNicMacAddressSameAsPeerNic(nicProfileMock, networkMock);
+
+        Mockito.verify(nicProfileMock, Mockito.never()).setMacAddress(Mockito.anyString());
+    }
+
+    @Test
+    public void setPublicNicMacAddressSameAsPeerNicTestConfigurationIsTrueAndThereIsNoPeerNicExpectDoNothing() {
+        when(NetworkOrchestrationService.getUseSameMacAddressForPublicNicOfVirtualRoutersOnSameNetworkValue()).thenReturn(true);
+
+        String expectedValue = "original";
+        nicProfile.setIPv4Address("10.0.0.1");
+        nicProfile.setMacAddress(expectedValue);
+        Mockito.doReturn(null).when(nicDaoMock).findByIp4AddressAndNetworkId(Mockito.anyString(), Mockito.anyLong());
+        networkHelperSpy.setPublicNicMacAddressSameAsPeerNic(nicProfile, networkMock);
+
+        Assert.assertEquals(expectedValue, nicProfile.getMacAddress());
+    }
+
+    @Test
+    public void setPublicNicMacAddressSameAsPeerNicTestConfigurationIsTrueAndThereIsAPeerNicExpectSetMacAddress() {
+        mockStatic(NetworkOrchestrationService.class);
+        when(NetworkOrchestrationService.getUseSameMacAddressForPublicNicOfVirtualRoutersOnSameNetworkValue()).thenReturn(true);
+
+        String expectedValue = "macaddress";
+        nicProfile.setIPv4Address("10.0.0.1");
+        nicProfile.setMacAddress("original");
+
+        Mockito.doReturn(nicVoMock).when(nicDaoMock).findByIp4AddressAndNetworkId(Mockito.anyString(), Mockito.anyLong());
+        Mockito.doReturn(expectedValue).when(nicVoMock).getMacAddress();
+        networkHelperSpy.setPublicNicMacAddressSameAsPeerNic(nicProfile, networkMock);
+
+        Assert.assertEquals(expectedValue, nicProfile.getMacAddress());
+    }
+
 }
