@@ -2169,11 +2169,11 @@ public class VpcManagerImpl extends ManagerBase implements VpcManager, VpcProvis
         }
 
         ClusterVO vpcCluster = clusterDao.findById(domainRouters.get(0).getClusterId());
-        int configValue = VpcMaxNetworks.valueIn(vpcCluster.getId());
+        int configValue = VpcManager.getVpcMaxNetworksConfigurationValue(vpcCluster.getId());
         logger.debug("Using {} configuration value {} from cluster {}, which is using the {} hypervisor.", VpcMaxNetworks, configValue, vpcCluster.getUuid(), vpcCluster.getHypervisorType());
 
         for (DomainRouterJoinVO domainRouter : domainRouters) {
-            int clusterConfigValue = VpcMaxNetworks.valueIn(domainRouter.getClusterId());
+            int clusterConfigValue = VpcManager.getVpcMaxNetworksConfigurationValue(domainRouter.getClusterId());
             if (configValue > clusterConfigValue) {
                 configValue = clusterConfigValue;
                 vpcCluster = clusterDao.findById(domainRouter.getClusterId());

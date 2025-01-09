@@ -184,4 +184,8 @@ public interface VpcManager {
      * @return
      */
     boolean isSrcNatIpRequired(long vpcOfferingId);
+
+    static int getVpcMaxNetworksConfigurationValue(Long clusterId) {
+        return VpcMaxNetworks.valueIn(clusterId);
+    }
 }

@@ -84,13 +84,13 @@ import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.mockito.Mock;
+import org.mockito.MockedStatic;
 import org.mockito.Mockito;
 import org.mockito.MockitoAnnotations;
 import org.mockito.junit.MockitoJUnitRunner;
 import org.springframework.test.util.ReflectionTestUtils;
 
 import java.lang.reflect.Field;
-import java.lang.reflect.Modifier;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -179,8 +179,6 @@ public class VpcManagerImplTest {
     DomainRouterJoinVO domainRouterJoinVO1Mock;
     @Mock
     DomainRouterJoinVO domainRouterJoinVO2Mock;
-    @Mock
-    ConfigKey vpcMaxNetworksMock;
 
     public static final long ACCOUNT_ID = 1;
     private AccountVO account;
@@ -577,9 +575,7 @@ public class VpcManagerImplTest {
 
     @Test
     public void getVpcMaxNetworksValueEmptyDomainRoutersReturnsGlobalConfigurationDefaultValue() throws NoSuchFieldException, IllegalAccessException {
-        Mockito.when(vpcMaxNetworksMock.value()).thenReturn(3);
         Mockito.when(domainRouterJoinDaoMock.listByVpcId(vpcId)).thenReturn(new ArrayList<>());
-        updateFinalStaticField(manager.getClass().getField("VpcMaxNetworks"), vpcMaxNetworksMock);
 
         int vpcMaxNetworks = manager.getVpcMaxNetworksValue(vpcId);
 
@@ -588,43 +584,35 @@ public class VpcManagerImplTest {
 
     @Test
     public void getVpcMaxNetworksValueDomainRoutersSingleClusterReturnsClusterConfigurationValue() throws NoSuchFieldException, IllegalAccessException {
-        Mockito.when(vpcMaxNetworksMock.valueIn(1L)).thenReturn(5);
         Mockito.when(clusterDaoMock.findById(anyLong())).thenReturn(clusterVO1Mock);
         Mockito.when(clusterVO1Mock.getId()).thenReturn(1L);
         Mockito.when(domainRouterJoinVO1Mock.getClusterId()).thenReturn(1L);
         Mockito.when(domainRouterJoinVO2Mock.getClusterId()).thenReturn(1L);
         Mockito.when(domainRouterJoinDaoMock.listByVpcId(vpcId)).thenReturn(List.of(domainRouterJoinVO1Mock, domainRouterJoinVO2Mock));
-        updateFinalStaticField(manager.getClass().getField("VpcMaxNetworks"), vpcMaxNetworksMock);
+        try (MockedStatic<VpcManager> vpcManagerMockedStatic = Mockito.mockStatic(VpcManager.class)) {
+            vpcManagerMockedStatic.when(() -> VpcManager.getVpcMaxNetworksConfigurationValue(1L)).thenReturn(5);
 
-        int vpcMaxNetworks = manager.getVpcMaxNetworksValue(vpcId);
+            int vpcMaxNetworks = manager.getVpcMaxNetworksValue(vpcId);
 
-        Assert.assertEquals(5, vpcMaxNetworks);
+            Assert.assertEquals(5, vpcMaxNetworks);
+        }
     }
 
     @Test
-    public void getVpcMaxNetworksValueDomainRoutersWithDifferentClustersReturnsClustersSmallestConfigurationValue() throws NoSuchFieldException, IllegalAccessException {
-        Mockito.when(vpcMaxNetworksMock.valueIn(1L)).thenReturn(5);
-        Mockito.when(vpcMaxNetworksMock.valueIn(2L)).thenReturn(1);
+    public void getVpcMaxNetworksValueDomainRoutersWithDifferentClustersReturnsClustersSmallestConfigurationValue() {
         Mockito.when(clusterDaoMock.findById(1L)).thenReturn(clusterVO1Mock);
         Mockito.when(clusterDaoMock.findById(2L)).thenReturn(clusterVO2Mock);
         Mockito.when(clusterVO1Mock.getId()).thenReturn(1L);
         Mockito.when(domainRouterJoinVO1Mock.getClusterId()).thenReturn(1L);
         Mockito.when(domainRouterJoinVO2Mock.getClusterId()).thenReturn(2L);
         Mockito.when(domainRouterJoinDaoMock.listByVpcId(vpcId)).thenReturn(List.of(domainRouterJoinVO1Mock, domainRouterJoinVO2Mock));
-        updateFinalStaticField(manager.getClass().getField("VpcMaxNetworks"), vpcMaxNetworksMock);
+        try (MockedStatic<VpcManager> vpcManagerMockedStatic = Mockito.mockStatic(VpcManager.class)) {
+            vpcManagerMockedStatic.when(() -> VpcManager.getVpcMaxNetworksConfigurationValue(1L)).thenReturn(5);
+            vpcManagerMockedStatic.when(() -> VpcManager.getVpcMaxNetworksConfigurationValue(2L)).thenReturn(1);
 
-        int vpcMaxNetworks = manager.getVpcMaxNetworksValue(vpcId);
+            int vpcMaxNetworks = manager.getVpcMaxNetworksValue(vpcId);
 
-        Assert.assertEquals(1, vpcMaxNetworks);
-    }
-
-    void updateFinalStaticField(Field field, Object newValue) throws IllegalArgumentException, IllegalAccessException, NoSuchFieldException, SecurityException {
-        field.setAccessible(true);
-
-        Field modifiersField = Field.class.getDeclaredField("modifiers");
-        modifiersField.setAccessible(true);
-        modifiersField.setInt(field, field.getModifiers() & ~Modifier.FINAL);
-
-        field.set(null, newValue);
+            Assert.assertEquals(1, vpcMaxNetworks);
+        }
     }
  }
