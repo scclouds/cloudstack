@@ -1975,6 +1975,7 @@
 "label.routercount": "Total of virtual routers",
 "label.routerip": "IPv4 address for the VR in this Network.",
 "label.routeripv6": "IPv6 address for the VR in this Network.",
+"label.router.source.nat.ip": "Source NAT IP for router",
 "label.routing.firewall": "IPv4 Routing Firewall",
 "label.resourcegroup": "Resource group",
 "label.routingmode": "Routing mode",
