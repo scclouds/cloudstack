@@ -2501,6 +2501,7 @@
 "label.vmlimit": "Instance limits",
 "label.vmname": "Instance name",
 "label.vms": "Instances",
+"label.vmsnapshotlimit": "VM snapshot limits",
 "label.vmscheduleactions": "Actions",
 "label.vmstate": "Instance state",
 "label.vmtotal": "Total of Instances",
