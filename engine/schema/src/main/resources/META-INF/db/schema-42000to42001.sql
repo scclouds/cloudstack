@@ -204,3 +204,6 @@ CREATE TABLE IF NOT EXISTS `cloud`.`gui_themes_details` (
     PRIMARY KEY (`id`),
     CONSTRAINT `fk_gui_themes_details__gui_theme_id` FOREIGN KEY (`gui_theme_id`) REFERENCES `gui_themes`(`id`)
 );
+
+-- Add custom labels to GUI themes
+CALL `cloud`.`IDEMPOTENT_ADD_COLUMN`('cloud.gui_themes', 'custom_labels_path', 'TEXT DEFAULT NULL');

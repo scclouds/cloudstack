@@ -5537,6 +5537,7 @@ public class ApiResponseHelper implements ResponseGenerator {
         }
 
         guiThemeResponse.setJsonConfiguration(guiThemeJoin.getJsonConfiguration());
+        guiThemeResponse.setCustomLabelsPath(guiThemeJoin.getCustomLabelsPath());
         guiThemeResponse.setCss(guiThemeJoin.getCss());
         guiThemeResponse.setResponseName("guithemes");
 
