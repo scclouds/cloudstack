@@ -29,12 +29,11 @@ import java.util.stream.Collectors;
 
 import javax.inject.Inject;
 
-import com.cloud.event.UsageEventUtils;
-import com.cloud.event.UsageEventVO;
 import org.apache.cloudstack.api.ApiCommandResourceType;
 import org.apache.cloudstack.api.InternalIdentity;
 import org.apache.cloudstack.backup.Backup.Metric;
 import org.apache.cloudstack.backup.dao.BackupDao;
+import org.apache.cloudstack.backup.dao.BackupOfferingDao;
 import org.apache.cloudstack.backup.veeam.VeeamClient;
 import org.apache.cloudstack.backup.veeam.api.Job;
 import org.apache.cloudstack.framework.config.ConfigKey;
@@ -109,6 +108,8 @@ public class VeeamBackupProvider extends AdapterBase implements BackupProvider, 
     private VmwareDatacenterDao vmwareDatacenterDao;
     @Inject
     private BackupDao backupDao;
+    @Inject
+    private BackupOfferingDao backupOfferingDao;
     @Inject
     private VMInstanceDao vmInstanceDao;
     @Inject
@@ -310,16 +311,19 @@ public class VeeamBackupProvider extends AdapterBase implements BackupProvider, 
     @Override
     public Map<VirtualMachine, Backup.Metric> getBackupMetrics(final Long zoneId, final List<VirtualMachine> vms) {
         final Map<VirtualMachine, Backup.Metric> metrics = new HashMap<>();
+        final Map<String, Backup.Metric> backendMetrics = getClient(zoneId).getBackupMetrics();
+
         if (CollectionUtils.isEmpty(vms)) {
             logger.warn("Unable to get VM Backup Metrics because the list of VMs is empty.");
             return metrics;
         }
 
-        List<String> vmUuids = vms.stream().filter(Objects::nonNull).map(VirtualMachine::getUuid).collect(Collectors.toList());
-        logger.debug(String.format("Get Backup Metrics for VMs: [%s].", String.join(", ", vmUuids)));
+        if (backendMetrics.isEmpty()) {
+            return metrics;
+        }
 
-        final Map<String, Backup.Metric> backendMetrics = getClient(zoneId).getBackupMetrics();
-        for (final VirtualMachine vm : vms) {
+        List<VMInstanceVO> collect = vmInstanceDao.listByZoneIdAndTypeIncludingRemoved(zoneId, VirtualMachine.Type.User).stream().filter(Objects::nonNull).filter(t -> t.getHypervisorType().equals(Hypervisor.HypervisorType.VMware)).collect(Collectors.toList());
+        for (final VirtualMachine vm : collect) {
             if (vm == null || !backendMetrics.containsKey(vm.getUuid())) {
                 continue;
             }
@@ -340,8 +344,8 @@ public class VeeamBackupProvider extends AdapterBase implements BackupProvider, 
         for (final Backup backup : backupsInDb) {
             if (restorePoint.getId().equals(backup.getExternalId())) {
                 if (metric != null) {
-                    logger.debug(String.format("Update backup with [uuid: %s, external id: %s] from [size: %s, protected size: %s] to [size: %s, protected size: %s].",
-                            backup.getUuid(), backup.getExternalId(), backup.getSize(), backup.getProtectedSize(), metric.getBackupSize(), metric.getDataSize()));
+                    logger.debug("Update backup with [uuid: {}, external id: {}] from [size: {}, protected size: {}] to [size: {}, protected size: {}].",
+                            backup.getUuid(), backup.getExternalId(), backup.getSize(), backup.getProtectedSize(), metric.getBackupSize(), metric.getDataSize());
 
                     ((BackupVO) backup).setSize(metric.getBackupSize());
                     ((BackupVO) backup).setProtectedSize(metric.getDataSize());
@@ -357,7 +361,7 @@ public class VeeamBackupProvider extends AdapterBase implements BackupProvider, 
     public void syncBackups(VirtualMachine vm, Backup.Metric metric) {
         List<Backup.RestorePoint> restorePoints = listRestorePoints(vm);
         if (CollectionUtils.isEmpty(restorePoints)) {
-            logger.debug(String.format("Can't find any restore point to VM: [uuid: %s, name: %s].", vm.getUuid(), vm.getInstanceName()));
+            logger.debug("Can't find any restore point to VM: [uuid: {}, name: {}].", vm.getUuid(), vm.getInstanceName());
             return;
         }
         Transaction.execute(new TransactionCallbackNoReturn() {
@@ -384,25 +388,16 @@ public class VeeamBackupProvider extends AdapterBase implements BackupProvider, 
                             backup.setSize(metric.getBackupSize());
                             backup.setProtectedSize(metric.getDataSize());
                         }
-                        backup.setBackupOfferingId(vm.getBackupOfferingId());
+
+                        backup.setBackupOfferingId(findBackupOfferingOfBackup(restorePoint, vm));
                         backup.setAccountId(vm.getAccountId());
                         backup.setDomainId(vm.getDomainId());
                         backup.setZoneId(vm.getDataCenterId());
 
-                        logger.debug(String.format("Creating a new entry in backups: [uuid: %s, vm_id: %s, external_id: %s, type: %s, date: %s, backup_offering_id: %s, account_id: %s, "
-                                        + "domain_id: %s, zone_id: %s].", backup.getUuid(), backup.getVmId(), backup.getExternalId(), backup.getType(), backup.getDate(),
-                                backup.getBackupOfferingId(), backup.getAccountId(), backup.getDomainId(), backup.getZoneId()));
-                        BackupVO persistedBackup = backupDao.persist(backup);
-
-                        if (persistedBackup != null) {
-                            Map<String, String> details = new HashMap<>();
-                            details.put(UsageEventVO.DynamicParameters.vmId.name(), String.valueOf(vm.getId()));
-
-                            UsageEventUtils.publishUsageEvent(EventTypes.EVENT_VM_BACKUP_CREATE, persistedBackup.getAccountId(), persistedBackup.getZoneId(),
-                                    persistedBackup.getId(),
-                                    String.format("Backup %s - VM %s", backup.getUuid(), vm.getUuid()), persistedBackup.getBackupOfferingId(), null, persistedBackup.getSize(),
-                                    persistedBackup.getProtectedSize(), Backup.class.getName(), persistedBackup.getUuid(), details);
-                        }
+                        logger.debug("Creating a new entry in backups: [uuid: {}, vm_id: {}, external_id: {}, type: {}, date: {}, backup_offering_id: {}, account_id: {}, "
+                                        + "domain_id: {}, zone_id: {}].", backup.getUuid(), backup.getVmId(), backup.getExternalId(), backup.getType(), backup.getDate(),
+                                backup.getBackupOfferingId(), backup.getAccountId(), backup.getDomainId(), backup.getZoneId());
+                        backupDao.persist(backup);
 
                         ActionEventUtils.onCompletedActionEvent(User.UID_SYSTEM, vm.getAccountId(), EventVO.LEVEL_INFO, EventTypes.EVENT_VM_BACKUP_CREATE,
                                 String.format("Created backup %s for VM ID: %s", backup.getUuid(), vm.getUuid()),
@@ -410,12 +405,31 @@ public class VeeamBackupProvider extends AdapterBase implements BackupProvider, 
                     }
                 }
                 for (final Long backupIdToRemove : removeList) {
-                    logger.warn(String.format("Removing backup with ID: [%s].", backupIdToRemove));
+                    logger.warn("Removing backup with ID: [{}].", backupIdToRemove);
                     backupDao.remove(backupIdToRemove);
                 }
             }
         });
     }
+
+    private long findBackupOfferingOfBackup(Backup.RestorePoint restorePoint, VirtualMachine vm) {
+        logger.debug("Trying to find backup offering of restore point [{}] of VM [{}] using backup UUID [{}].", restorePoint.getId(), vm.getUuid(), restorePoint.getBackupUuid());
+        BackupOffering backupOffering = backupOfferingDao.findByUuid(restorePoint.getBackupUuid());
+        if (backupOffering != null) {
+            return backupOffering.getId();
+        }
+        logger.warn("Could not find any backup offering with UUID [{}] used by restore point [{}]. " +
+                        "Trying to use the ID [{}] data from vm_instance table instead.", restorePoint.getBackupUuid(),
+                restorePoint.getId(), vm.getBackupOfferingId());
+        backupOffering = backupOfferingDao.findById(vm.getBackupOfferingId());
+        if (backupOffering == null) {
+            String errMsg = String.format("Could not find any backup offering with ID [%s] or UUID [%s] used by VM [%s].", vm.getBackupOfferingId(), restorePoint.getBackupUuid(), vm.getUuid());
+            logger.warn(errMsg);
+            throw new RuntimeException(errMsg);
+        }
+        return backupOffering.getId();
+    }
+
 
     @Override
     public String getConfigComponentName() {

@@ -1069,4 +1069,12 @@ public class VMInstanceDaoImpl extends GenericDaoBase<VMInstanceVO, Long> implem
         List<VMInstanceVO> uniqueVms = vms.stream().distinct().collect(Collectors.toList());
         return new Pair<>(uniqueVms, uniqueVms.size());
     }
+
+    @Override
+    public List<VMInstanceVO> listByZoneIdAndTypeIncludingRemoved(long zoneId, VirtualMachine.Type type) {
+        SearchCriteria<VMInstanceVO> sc = AllFieldsSearch.create();
+        sc.setParameters("zone", zoneId);
+        sc.setParameters("type", type.toString());
+        return listIncludingRemovedBy(sc);
+    }
 }

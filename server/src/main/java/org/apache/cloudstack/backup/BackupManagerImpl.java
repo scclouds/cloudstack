@@ -802,7 +802,7 @@ public class BackupManagerImpl extends ManagerBase implements BackupManager {
         logger.debug(String.format("Trying to restore volume using host private IP address: [%s].", host.getPrivateIpAddress()));
 
         String[] hostPossibleValues = {host.getPrivateIpAddress(), host.getName()};
-        String[] datastoresPossibleValues = {datastore.getUuid(), datastore.getName()};
+        String[] datastoresPossibleValues = {datastore.getUuid(), datastore.getName(), StringUtils.substringAfterLast(datastore.getPath(), "/")};;
 
         Pair<Boolean, String> result = restoreBackedUpVolume(backedUpVolumeUuid, backup, backupProvider, hostPossibleValues, datastoresPossibleValues, vm);
 
@@ -833,8 +833,8 @@ public class BackupManagerImpl extends ManagerBase implements BackupManager {
                         return result;
                     }
                 } catch (Exception e) {
-                    logger.debug(String.format("Failed to restore volume [UUID: %s], using host [%s] and datastore [%s] due to: [%s].",
-                            backedUpVolumeUuid, hostData, datastoreData, e.getMessage()), e);
+                    logger.error("Failed to restore volume [UUID: {}], using host [{}] and datastore [{}] due to: [{}].",
+                            backedUpVolumeUuid, hostData, datastoreData, e.getMessage(), e);
                 }
             }
         }
@@ -1236,10 +1236,13 @@ public class BackupManagerImpl extends ManagerBase implements BackupManager {
                         continue;
                     }
 
-                    List<VMInstanceVO> vms = vmInstanceDao.listByZoneWithBackups(dataCenter.getId(), null);
-                    if (vms == null || vms.isEmpty()) {
-                        logger.debug(String.format("Can't find any VM to sync backups in zone [id: %s].", dataCenter.getId()));
-                        continue;
+                    List<VMInstanceVO> vms = new ArrayList<>();
+                    if (!backupProvider.getName().equals("veeam")) {
+                        vms = vmInstanceDao.listByZoneWithBackups(dataCenter.getId(), null);
+                        if (CollectionUtils.isNullOrEmpty(vms)) {
+                            logger.debug("Cannot find any VM to sync backups in zone [{}].", dataCenter.getUuid());
+                            continue;
+                        }
                     }
 
                     final Map<VirtualMachine, Backup.Metric> metrics = backupProvider.getBackupMetrics(dataCenter.getId(), new ArrayList<>(vms));
