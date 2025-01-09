@@ -270,7 +270,7 @@ import com.cloud.offerings.dao.NetworkOfferingDao;
 import com.cloud.projects.Project;
 import com.cloud.projects.ProjectAccount;
 import com.cloud.projects.ProjectInvitation;
-import com.cloud.projects.ProjectService;
+import com.cloud.projects.ProjectManager;
 import com.cloud.region.ha.GlobalLoadBalancingRulesService;
 import com.cloud.resource.ResourceManager;
 import com.cloud.resource.icon.ResourceIconVO;
@@ -427,7 +427,7 @@ public class ApiDBUtils {
     static FirewallRulesDcidrsDao s_firewallDcidrsDao;
     static VMInstanceDao s_vmDao;
     static ResourceLimitService s_resourceLimitMgr;
-    static ProjectService s_projectMgr;
+    static ProjectManager s_projectMgr;
     static ResourceManager s_resourceMgr;
     static DomainDetailsDao s_domainDetailsDao;
     static AccountDetailsDao s_accountDetailsDao;
@@ -624,7 +624,7 @@ public class ApiDBUtils {
     @Inject
     private ResourceLimitService resourceLimitMgr;
     @Inject
-    private ProjectService projectMgr;
+    private ProjectManager projectMgr;
     @Inject
     private ResourceManager resourceMgr;
     @Inject
@@ -1963,6 +1963,15 @@ public class ApiDBUtils {
                 response.setRoleName(role.getName());
             }
         }
+
+        if (usr.getDefaultProjectId() != null) {
+            Project project = s_projectMgr.getProject(usr.getDefaultProjectId());
+            if (project != null && s_projectMgr.canUserAccessProject(usr.getId(), usr.getAccountId(), project.getId())) {
+                response.setDefaultProjectId(project.getUuid());
+                response.setDefaultProject(project.getName());
+            }
+        }
+
         if (domainId != null && usr.getDomainId() != domainId)
             response.setIsCallerChildDomain(true);
         else
@@ -2087,6 +2096,9 @@ public class ApiDBUtils {
                 response.setRoleName(role.getName());
             }
         }
+
+        setDefaultProject(ve, response);
+
         return response;
     }
 
@@ -2107,10 +2119,22 @@ public class ApiDBUtils {
                     response.setRoleName(role.getName());
                 }
             }
+
+            setDefaultProject(account, response);
             responseList.add(response);
         }
 
         return responseList;
+    }
+
+    private static void setDefaultProject(AccountJoinVO account, AccountResponse response) {
+        if (account.getDefaultProjectId() != null) {
+            Project project = s_projectMgr.getProject(account.getDefaultProjectId());
+            if (project != null && s_projectMgr.canAccountAccessProject(account.getId(), project.getId())) {
+                response.setDefaultProjectId(project.getUuid());
+                response.setDefaultProject(project.getName());
+            }
+        }
     }
 
     public static AccountJoinVO newAccountView(Account e) {

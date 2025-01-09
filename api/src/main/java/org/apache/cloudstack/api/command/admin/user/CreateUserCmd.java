@@ -78,6 +78,10 @@ public class CreateUserCmd extends BaseCmd {
     @Parameter(name = ApiConstants.USER_ID, type = CommandType.STRING, description = "User UUID, required for adding account from external provisioning system")
     private String userUUID;
 
+    @Parameter(name = ApiConstants.DEFAULT_PROJECT_ID, type = CommandType.STRING, description = "The default project to be first shown when logging in. " +
+            "Overwrites the account's default project. If neither is provided, only then is standard account view shown.")
+    private String defaultProjectUuid;
+
     /////////////////////////////////////////////////////
     /////////////////// Accessors ///////////////////////
     /////////////////////////////////////////////////////
@@ -118,6 +122,10 @@ public class CreateUserCmd extends BaseCmd {
         return userUUID;
     }
 
+    public String getDefaultProjectUuid() {
+        return defaultProjectUuid;
+    }
+
     /////////////////////////////////////////////////////
     /////////////// API Implementation///////////////////
     /////////////////////////////////////////////////////
@@ -147,7 +155,7 @@ public class CreateUserCmd extends BaseCmd {
         CallContext.current().setEventDetails("UserName: " + getUserName() + ", FirstName :" + getFirstName() + ", LastName: " + getLastName());
         User user =
             _accountService.createUser(getUserName(), getPassword(), getFirstName(), getLastName(), getEmail(), getTimezone(), getAccountName(), getDomainId(),
-                getUserUUID());
+                getUserUUID(), getDefaultProjectUuid());
         if (user != null) {
             UserResponse response = _responseGenerator.createUserResponse(user);
             response.setResponseName(getCommandName());

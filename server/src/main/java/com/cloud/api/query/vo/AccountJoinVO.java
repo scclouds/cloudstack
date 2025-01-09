@@ -53,6 +53,9 @@ public class AccountJoinVO extends BaseViewVO implements InternalIdentity, Ident
     @Column(name = "role_id")
     private Long roleId;
 
+    @Column(name = "default_project_id")
+    private Long defaultProjectId;
+
     @Column(name = "state")
     @Enumerated(value = EnumType.STRING)
     private State state;
@@ -208,6 +211,10 @@ public class AccountJoinVO extends BaseViewVO implements InternalIdentity, Ident
 
     public Account.Type getType() {
         return type;
+    }
+
+    public Long getDefaultProjectId() {
+        return defaultProjectId;
     }
 
     public Long getRoleId() {

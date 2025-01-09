@@ -147,6 +147,35 @@
             </a-select-option>
           </a-select>
         </a-form-item>
+        <a-form-item
+          name="defaultprojectid"
+          ref="defaultprojectid"
+          v-if="this.account || this.accountList[form.account]"
+          @focus="fetchProjects"
+          v-show="projects.length > 0">
+          <template #label>
+            <tooltip-label :title="$t('label.default.project')" :tooltip="apiParams.defaultprojectid.description"/>
+          </template>
+          <a-select
+            v-model:value="form.defaultprojectid"
+            :loading="projectsLoading"
+            showSearch
+            optionFilterProp="label"
+            :filterOption="(input, option) => {
+              return option.label.toLowerCase().indexOf(input.toLowerCase()) >= 0
+            }" >
+            <a-select-option
+              v-for="project in projects"
+              :key="project.id"
+              :label="project.displaytext || project.name">
+              <span>
+                <resource-icon v-if="project.icon && project.icon.base64image" :image="project.icon.base64image" size="1x" style="margin-right: 5px"/>
+                <project-outlined v-else style="margin-right: 5px" />
+                {{ project.displaytext || project.name }}
+              </span>
+            </a-select-option>
+          </a-select>
+        </a-form-item>
         <div v-if="samlAllowed">
           <a-form-item name="samlenable" ref="samlenable" :label="$t('label.samlenable')">
             <a-switch v-model:checked="form.samlenable" />
@@ -185,6 +214,7 @@ import { timeZone } from '@/utils/timezone'
 import debounce from 'lodash/debounce'
 import ResourceIcon from '@/components/view/ResourceIcon'
 import TooltipLabel from '@/components/widgets/TooltipLabel'
+import { isAdmin } from '@/role'
 
 export default {
   name: 'AddUser',
@@ -207,7 +237,9 @@ export default {
       loadingAccount: false,
       accountList: [],
       account: null,
-      domainid: null
+      domainid: null,
+      projects: [],
+      projectsLoading: false
     }
   },
   created () {
@@ -218,6 +250,9 @@ export default {
   computed: {
     samlAllowed () {
       return 'authorizeSamlSso' in this.$store.getters.apis
+    },
+    listingSelf () {
+      return this.$store.getters.userInfo.id === this.resource.id
     }
   },
   methods: {
@@ -298,6 +333,45 @@ export default {
         this.timeZoneLoading = false
       })
     },
+    fetchProjects () {
+      if (!('listProjects' in this.$store.getters.apis)) {
+        return
+      }
+      const acct = this.account || this.accountList[this.form.account]
+      this.projects = []
+      var params = {
+        page: 1,
+        pageSize: 500,
+        details: 'min',
+        showIcon: true
+      }
+      if (this.listingSelf || isAdmin(acct.roletype)) {
+        params.listAll = true
+      } else {
+        params.domainid = (this.domainid)
+        if (!this.isDomainAdmin(acct.roletype)) {
+          params.account = acct.name
+        }
+      }
+      var page = 1
+      const getNextPage = () => {
+        this.projectsLoading = true
+        api('listProjects', { listAll: true, page: page, pageSize: 500, details: 'min', showIcon: true }).then(json => {
+          const projectBatch = json?.listprojectsresponse?.project
+          if (projectBatch) {
+            this.projects.push(...projectBatch)
+          }
+          if (this.projects.length < json.listprojectsresponse.count) {
+            params.page++
+            getNextPage()
+          }
+        }).finally(() => {
+          this.projectsLoading = false
+          this.projects.unshift({ name: this.$t('label.account.view') })
+        })
+      }
+      getNextPage()
+    },
     fetchIdps () {
       this.idpLoading = true
       api('listIdps').then(response => {
@@ -338,6 +412,10 @@ export default {
           params.domainid = this.domainid
         } else if (values.domainid) {
           params.domainid = values.domainid
+        }
+
+        if (values.defaultprojectid) {
+          params.defaultprojectid = values.defaultprojectid
         }
 
         if (this.isValidValueForKey(values, 'timezone') && values.timezone.length > 0) {

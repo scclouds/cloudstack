@@ -288,6 +288,9 @@ public class SAMLUtils {
         resp.addCookie(new Cookie("userid", URLEncoder.encode(loginResponse.getUserId(), HttpUtils.UTF_8)));
         resp.addCookie(new Cookie("domainid", URLEncoder.encode(loginResponse.getDomainId(), HttpUtils.UTF_8)));
         resp.addCookie(new Cookie("role", URLEncoder.encode(loginResponse.getType(), HttpUtils.UTF_8)));
+        if (loginResponse.getDefaultProjectId() != null) {
+            resp.addCookie(new Cookie("defaultprojectid", URLEncoder.encode(loginResponse.getDefaultProjectId(), HttpUtils.UTF_8)));
+        }
         resp.addCookie(new Cookie("username", URLEncoder.encode(loginResponse.getUsername(), HttpUtils.UTF_8)));
         resp.addCookie(new Cookie("account", URLEncoder.encode(loginResponse.getAccount(), HttpUtils.UTF_8)));
         resp.addCookie(new Cookie("isSAML", URLEncoder.encode("true", HttpUtils.UTF_8)));

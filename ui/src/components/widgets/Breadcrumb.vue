@@ -107,8 +107,7 @@ export default {
       })
     },
     resetToMainView () {
-      this.$store.dispatch('SetProject', {})
-      this.$store.dispatch('ToggleTheme', 'light')
+      this.$router.push({ name: 'dashboard' })
     }
   }
 }

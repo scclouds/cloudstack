@@ -61,6 +61,9 @@ public class UserAccountJoinVO extends BaseViewVO implements InternalIdentity, I
     @Column(name = "state")
     private String state;
 
+    @Column(name = "default_project_id")
+    private Long defaultProjectId;
+
     @Column(name = "api_key")
     private String apiKey = null;
 
@@ -204,6 +207,10 @@ public class UserAccountJoinVO extends BaseViewVO implements InternalIdentity, I
 
     public String getState() {
         return state;
+    }
+
+    public Long getDefaultProjectId() {
+        return defaultProjectId;
     }
 
     public String getApiKey() {

@@ -26,6 +26,7 @@ select
     `account`.`type` AS `type`,
     `account`.`role_id` AS `role_id`,
     `account`.`state` AS `state`,
+    `account`.`default_project_id` AS `default_project_id`,
     `account`.`created` AS `created`,
     `account`.`removed` AS `removed`,
     `account`.`cleanup_needed` AS `cleanup_needed`,

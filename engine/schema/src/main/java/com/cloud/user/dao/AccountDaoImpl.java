@@ -52,6 +52,7 @@ public class AccountDaoImpl extends GenericDaoBase<AccountVO, Long> implements A
     protected final SearchBuilder<AccountVO> CleanupForDisabledAccountsSearch;
     protected final SearchBuilder<AccountVO> NonProjectAccountSearch;
     protected final SearchBuilder<AccountVO> AccountByRoleSearch;
+    protected final SearchBuilder<AccountVO> AccountByDefaultProjectSearch;
     protected final GenericSearchBuilder<AccountVO, Long> AccountIdsSearch;
     protected final GenericSearchBuilder<AccountVO, Long> ActiveDomainCount;
 
@@ -101,6 +102,10 @@ public class AccountDaoImpl extends GenericDaoBase<AccountVO, Long> implements A
         AccountByRoleSearch = createSearchBuilder();
         AccountByRoleSearch.and("roleId", AccountByRoleSearch.entity().getRoleId(), SearchCriteria.Op.EQ);
         AccountByRoleSearch.done();
+
+        AccountByDefaultProjectSearch = createSearchBuilder();
+        AccountByDefaultProjectSearch.and("defaultProjectId", AccountByDefaultProjectSearch.entity().getDefaultProjectId(), SearchCriteria.Op.EQ);
+        AccountByDefaultProjectSearch.done();
 
         ActiveDomainCount = createSearchBuilder(Long.class);
         ActiveDomainCount.select(null, Func.COUNT, null);
@@ -289,6 +294,13 @@ public class AccountDaoImpl extends GenericDaoBase<AccountVO, Long> implements A
     public List<AccountVO> findAccountsByRole(Long roleId) {
         SearchCriteria<AccountVO> sc = AccountByRoleSearch.create();
         sc.setParameters("roleId", roleId);
+        return listBy(sc);
+    }
+
+    @Override
+    public List<AccountVO> findAccountsByDefaultProject(Long defaultProjectId) {
+        SearchCriteria<AccountVO> sc = AccountByDefaultProjectSearch.create();
+        sc.setParameters("defaultProjectId", defaultProjectId);
         return listBy(sc);
     }
 

@@ -21,6 +21,7 @@ import store from '@/store/'
 import {
   ACCESS_TOKEN,
   CURRENT_PROJECT,
+  DEFAULT_VIEW,
   DEFAULT_COLOR,
   DEFAULT_THEME,
   DEFAULT_LAYOUT_MODE,
@@ -56,6 +57,7 @@ export default {
     store.commit('TOGGLE_MULTI_TAB', vueProps.$localStorage.get(DEFAULT_MULTI_TAB, config.multiTab))
     store.commit('SET_TOKEN', vueProps.$localStorage.get(ACCESS_TOKEN))
     store.commit('SET_PROJECT', vueProps.$localStorage.get(CURRENT_PROJECT))
+    store.commit('SET_DEFAULT_VIEW', vueProps.$localStorage.get(DEFAULT_VIEW))
     store.commit('SET_HEADER_NOTICES', vueProps.$localStorage.get(HEADER_NOTICES) || [])
   }
 }

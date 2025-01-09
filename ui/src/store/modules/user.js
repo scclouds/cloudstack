@@ -31,6 +31,7 @@ import { getParsedVersion } from '@/utils/util'
 import {
   ACCESS_TOKEN,
   CURRENT_PROJECT,
+  DEFAULT_VIEW,
   DEFAULT_THEME,
   APIS,
   ZONES,
@@ -59,6 +60,7 @@ const user = {
     apis: {},
     features: {},
     project: {},
+    defaultView: null,
     headerNotices: [],
     isLdapEnabled: false,
     cloudian: {},
@@ -95,6 +97,15 @@ const user = {
     SET_PROJECT: (state, project = {}) => {
       vueProps.$localStorage.set(CURRENT_PROJECT, project)
       state.project = project
+    },
+    SET_DEFAULT_VIEW: (state, defaultView) => {
+      if (defaultView) {
+        vueProps.$localStorage.set(DEFAULT_VIEW, defaultView)
+        state.defaultView = defaultView
+      } else {
+        vueProps.$localStorage.remove(DEFAULT_VIEW)
+        state.defaultView = undefined
+      }
     },
     SET_NAME: (state, name) => {
       state.name = name
@@ -221,6 +232,7 @@ const user = {
           commit('SET_AVATAR', '')
           commit('SET_INFO', {})
           commit('SET_PROJECT', {})
+          commit('SET_DEFAULT_VIEW', result?.defaultprojectid)
           commit('SET_HEADER_NOTICES', [])
           commit('SET_FEATURES', {})
           commit('SET_LDAP', {})
@@ -274,6 +286,7 @@ const user = {
           commit('SET_AVATAR', '')
           commit('SET_INFO', {})
           commit('SET_PROJECT', {})
+          commit('SET_DEFAULT_VIEW', result?.defaultprojectid)
           commit('SET_HEADER_NOTICES', [])
           commit('SET_FEATURES', {})
           commit('SET_LDAP', {})
@@ -294,7 +307,16 @@ const user = {
         })
       })
     },
-
+    GetProject ({ commit }, id) {
+      return new Promise((resolve, reject) => {
+        api('listProjects', { id: id, listall: true }).then(response => {
+          const result = response.listprojectsresponse.project[0].id
+          resolve(result)
+        }).catch(error => {
+          reject(error)
+        })
+      })
+    },
     GetInfo ({ commit }, switchDomain) {
       return new Promise((resolve, reject) => {
         const cachedApis = switchDomain ? {} : vueProps.$localStorage.get(APIS, {})
@@ -307,6 +329,7 @@ const user = {
         const darkMode = vueProps.$localStorage.get(DARK_MODE, false)
         const latestVersion = vueProps.$localStorage.get(LATEST_CS_VERSION, { version: '', fetchedTs: 0 })
         const hasAuth = Object.keys(cachedApis).length > 0
+        const projectViewNotManuallySelected = !store.getters.project || Object.keys(store.getters.project).length === 0
 
         commit('SET_DOMAIN_STORE', domainStore)
         commit('SET_DARK_MODE', darkMode)
@@ -325,6 +348,11 @@ const user = {
             const result = response.listusersresponse.user[0]
             commit('SET_INFO', result)
             commit('SET_NAME', result.firstname + ' ' + result.lastname)
+            if (projectViewNotManuallySelected && Cookies.get('defaultprojectid')) {
+              store.dispatch('GetProject', Cookies.get('defaultprojectid')).then(response => {
+                commit('SET_DEFAULT_VIEW', response)
+              })
+            }
             store.dispatch('SetCsLatestVersion', result.rolename)
             resolve(cachedApis)
           }).catch(error => {
@@ -398,6 +426,11 @@ const user = {
           const result = response.listusersresponse.user[0]
           commit('SET_INFO', result)
           commit('SET_NAME', result.firstname + ' ' + result.lastname)
+          if (projectViewNotManuallySelected && Cookies.get('defaultprojectid')) {
+            store.dispatch('GetProject', Cookies.get('defaultprojectid')).then(response => {
+              commit('SET_DEFAULT_VIEW', response)
+            })
+          }
           store.dispatch('SetCsLatestVersion', result.rolename)
         }).catch(error => {
           reject(error)
@@ -455,6 +488,7 @@ const user = {
         commit('SET_TOKEN', '')
         commit('SET_APIS', {})
         commit('SET_PROJECT', {})
+        commit('SET_DEFAULT_VIEW', undefined)
         commit('SET_HEADER_NOTICES', [])
         commit('SET_FEATURES', {})
         commit('SET_LDAP', {})

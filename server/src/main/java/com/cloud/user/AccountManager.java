@@ -202,5 +202,9 @@ public interface AccountManager extends AccountService, Configurable {
 
     void validateUserPasswordAndUpdateIfNeeded(String newPassword, UserVO user, String currentPassword, boolean skipCurrentPassValidation);
 
-  void checkApiAccess(Account caller, String command);
+    void checkApiAccess(Account caller, String command);
+
+    boolean cleanupAccountDefaultProject(AccountVO account);
+
+    boolean cleanupUserDefaultProject(UserVO user);
 }

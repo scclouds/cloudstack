@@ -21,65 +21,24 @@
       <a-form
         :ref="formRef"
         :model="form"
-        :rules="rules"
         :loading="loading"
         layout="vertical"
         @finish="handleSubmit">
-        <a-form-item name="username" ref="username">
+        <a-form-item name="newname" ref="newname">
           <template #label>
-            <tooltip-label :title="$t('label.username')" :tooltip="apiParams.username.description"/>
+            <tooltip-label :title="$t('label.name')" :tooltip="apiParams.newname.description"/>
           </template>
           <a-input
-            v-model:value="form.username"
-            :placeholder="apiParams.username.description"
-            v-focus="true" />
+            v-model:value="form.newname"
+            :placeholder="apiParams.newname.description" />
         </a-form-item>
-        <a-form-item name="email" ref="email">
+        <a-form-item name="networkdomain" ref="networkdomain">
           <template #label>
-            <tooltip-label :title="$t('label.email')" :tooltip="apiParams.email.description"/>
+            <tooltip-label :title="$t('label.networkdomain')" :tooltip="apiParams.networkdomain.description"/>
           </template>
           <a-input
-            v-model:value="form.email"
-            :placeholder="apiParams.email.description" />
-        </a-form-item>
-        <a-row :gutter="12">
-          <a-col :md="24" :lg="12">
-            <a-form-item name="firstname" ref="firstname">
-              <template #label>
-                <tooltip-label :title="$t('label.firstname')" :tooltip="apiParams.firstname.description"/>
-              </template>
-              <a-input
-                v-model:value="form.firstname"
-                :placeholder="apiParams.firstname.description" />
-            </a-form-item>
-          </a-col>
-          <a-col :md="24" :lg="12">
-            <a-form-item name="lastname" ref="lastname">
-              <template #label>
-                <tooltip-label :title="$t('label.lastname')" :tooltip="apiParams.lastname.description"/>
-              </template>
-              <a-input
-                v-model:value="form.lastname"
-                :placeholder="apiParams.lastname.description" />
-            </a-form-item>
-          </a-col>
-        </a-row>
-        <a-form-item name="timezone" ref="timezone">
-          <template #label>
-            <tooltip-label :title="$t('label.timezone')" :tooltip="apiParams.timezone.description"/>
-          </template>
-          <a-select
-            v-model:value="form.timezone"
-            :loading="timeZoneLoading"
-            showSearch
-            optionFilterProp="label"
-            :filterOption="(input, option) => {
-              return option.label.toLowerCase().indexOf(input.toLowerCase()) >= 0
-            }" >
-            <a-select-option v-for="opt in timeZoneMap" :key="opt.id" :label="opt.name || opt.description">
-              {{ opt.name || opt.description }}
-            </a-select-option>
-          </a-select>
+            v-model:value="form.networkdomain"
+            :placeholder="apiParams.networkdomain.description" />
         </a-form-item>
         <a-form-item
           name="defaultprojectid"
@@ -120,13 +79,11 @@
 <script>
 import { ref, reactive, toRaw } from 'vue'
 import { api } from '@/api'
-import { timeZone } from '@/utils/timezone'
-import debounce from 'lodash/debounce'
 import TooltipLabel from '@/components/widgets/TooltipLabel'
 import ResourceIcon from '@/components/view/ResourceIcon.vue'
 
 export default {
-  name: 'EditUser',
+  name: 'EditAccount',
   components: {
     ResourceIcon,
     TooltipLabel
@@ -135,25 +92,18 @@ export default {
     resource: {
       type: Object,
       required: true
-    },
-    currentAction: {
-      type: Object,
-      required: true
     }
   },
   data () {
-    this.fetchTimeZone = debounce(this.fetchTimeZone, 800)
     return {
-      loading: false,
-      timeZoneLoading: false,
-      timeZoneMap: [],
       projects: [],
       projectsLoading: false,
-      userId: null
+      loading: false,
+      accountId: null
     }
   },
   beforeCreate () {
-    this.apiParams = this.$getApiParams('updateUser')
+    this.apiParams = this.$getApiParams('updateAccount')
   },
   created () {
     this.initForm()
@@ -168,29 +118,22 @@ export default {
     initForm () {
       this.formRef = ref()
       this.form = reactive({})
-      this.rules = reactive({
-        username: [{ required: true, message: this.$t('message.error.required.input') }],
-        email: [{ required: true, message: this.$t('message.error.required.input') }],
-        firstname: [{ required: true, message: this.$t('message.error.required.input') }],
-        lastname: [{ required: true, message: this.$t('message.error.required.input') }]
-      })
     },
     fetchData () {
-      this.userId = this.$route.params.id || null
-      this.fetchTimeZone()
+      this.accountId = this.$route.params.id || null
       if ('listProjects' in this.$store.getters.apis) {
         this.fetchProjects()
       }
       this.fillEditFormFieldValues()
     },
-    fetchTimeZone (value) {
-      this.timeZoneMap = []
-      this.timeZoneLoading = true
-
-      timeZone(value).then(json => {
-        this.timeZoneMap = json
-        this.timeZoneLoading = false
-      })
+    fillEditFormFieldValues () {
+      const form = this.form
+      this.loading = true
+      if (this.resource.networkdomain) {
+        form.networkdomain = this.resource.networkdomain
+      }
+      form.newname = this.resource.name
+      this.loading = false
     },
     fetchProjects () {
       this.projects = []
@@ -204,7 +147,9 @@ export default {
         params.listAll = true
       } else {
         params.domainid = this.resource.domainid
-        params.username = this.resource.username
+        if (!this.isDomainAdmin(this.resource.roletype)) {
+          params.account = this.resource.name
+        }
       }
       var page = 1
       const getNextPage = () => {
@@ -219,58 +164,44 @@ export default {
             getNextPage()
           }
         }).finally(() => {
-          this.projectsLoading = false
           this.projects.unshift({ name: this.$t('label.account.view') })
+          this.projectsLoading = false
         })
       }
       getNextPage()
-    },
-    fillEditFormFieldValues () {
-      const form = this.form
-      this.loading = true
-      Object.keys(this.apiParams).forEach(item => {
-        const field = this.apiParams[item]
-        let fieldValue = null
-        let fieldName = null
-
-        if (field.type === 'list' || field.name === 'account') {
-          fieldName = field.name.replace('ids', 'name').replace('id', 'name')
-        } else {
-          fieldName = field.name
-        }
-        fieldValue = this.resource[fieldName] ? this.resource[fieldName] : null
-        if (fieldValue) {
-          form[field.name] = fieldValue
-        }
-      })
-      this.loading = false
-    },
-    isValidValueForKey (obj, key) {
-      return key in obj && obj[key] != null
+      this.form.defaultprojectid = this.resource.defaultprojectid
     },
     handleSubmit (e) {
+      console.log(this.resource)
       e.preventDefault()
       if (this.loading) return
       this.formRef.value.validate().then(() => {
         const values = toRaw(this.form)
         this.loading = true
         const params = {
-          id: this.userId,
-          username: values.username,
-          email: values.email,
-          firstname: values.firstname,
-          lastname: values.lastname,
+          id: this.$props.resource.id,
           defaultprojectid: (values.defaultprojectid) ? values.defaultprojectid : ''
         }
-        if (this.isValidValueForKey(values, 'timezone') && values.timezone.length > 0) {
-          params.timezone = values.timezone
+        if (values.newname) {
+          if (values.newname !== this.resource.name) {
+            params.newname = values.newname
+          }
+        }
+        if (values.networkdomain || values.networkdomain === '') {
+          if (values.networkdomain !== this.resource.networkdomain) {
+            params.networkdomain = values.networkdomain
+          }
         }
 
-        api('updateUser', params).then(response => {
+        if (this.defaultprojectid !== undefined) {
+          params.defaultprojectid = this.defaultprojectid
+        }
+
+        api('updateAccount', params).then(response => {
           this.$emit('refresh-data')
           this.$notification.success({
-            message: this.$t('label.edit.user'),
-            description: `${this.$t('message.success.update.user')} ${params.username}`
+            message: this.$t('label.edit.account'),
+            description: `${this.$t('message.success.update.account')} ${params.name}`
           })
           this.closeAction()
         }).catch(error => {
@@ -285,6 +216,9 @@ export default {
       }).catch(error => {
         this.formRef.value.scrollToField(error.errorFields[0].name)
       })
+    },
+    isDomainAdmin (roletype) {
+      return ['DomainAdmin'].includes(roletype)
     },
     closeAction () {
       this.$emit('close-action')
