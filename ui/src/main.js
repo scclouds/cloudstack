@@ -77,8 +77,6 @@ fetch('config.json').then(response => response.json()).then(async config => {
     })
   }
 
-  await applyCustomGuiTheme(accountid, domainid)
-
   loadLanguageAsync().then(() => {
     vueApp.use(store)
       .use(router)
@@ -86,4 +84,6 @@ fetch('config.json').then(response => response.json()).then(async config => {
       .use(bootstrap)
       .mount('#app')
   })
+
+  await applyCustomGuiTheme(accountid, domainid)
 })
