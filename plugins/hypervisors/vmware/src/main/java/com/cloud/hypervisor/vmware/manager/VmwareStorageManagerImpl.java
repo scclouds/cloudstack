@@ -28,6 +28,8 @@ import java.util.Map;
 import java.util.Properties;
 import java.util.UUID;
 
+import com.cloud.serializer.GsonHelper;
+import com.google.gson.Gson;
 import org.apache.cloudstack.storage.to.PrimaryDataStoreTO;
 import org.apache.cloudstack.storage.to.TemplateObjectTO;
 import org.apache.cloudstack.storage.to.VolumeObjectTO;
@@ -97,6 +99,7 @@ import com.vmware.vim25.VirtualDisk;
 public class VmwareStorageManagerImpl implements VmwareStorageManager {
 
     private String _nfsVersion;
+    private final Gson GSON = GsonHelper.getGsonLogger();
 
 
     @Override
@@ -634,7 +637,9 @@ public class VmwareStorageManagerImpl implements VmwareStorageManager {
 
         } finally {
             if (clonedVm != null) {
-                clonedVm.detachAllDisksAndDestroy();
+                VirtualMachineMO finalClonedVm = clonedVm;
+                logger.debug("Destroying cloned VM [{}].", () -> GSON.toJson(finalClonedVm));
+                clonedVm.destroy();
             }
 
             vmMo.removeSnapshot(templateUniqueName, false);
