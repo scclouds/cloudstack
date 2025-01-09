@@ -17,6 +17,7 @@
 package org.apache.cloudstack.quota;
 
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
@@ -25,6 +26,7 @@ import java.util.Date;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 import org.apache.cloudstack.quota.activationrule.presetvariables.Domain;
 import org.apache.cloudstack.quota.activationrule.presetvariables.GenericPresetVariable;
@@ -39,22 +41,24 @@ import org.apache.cloudstack.quota.dao.QuotaUsageDetailDao;
 import org.apache.cloudstack.quota.vo.QuotaTariffVO;
 import org.apache.cloudstack.quota.vo.QuotaUsageDetailVO;
 import org.apache.cloudstack.quota.vo.QuotaUsageVO;
+import org.apache.cloudstack.quota.vo.ResourcesToQuoteVO;
 import org.apache.cloudstack.usage.UsageUnitTypes;
 import org.apache.cloudstack.utils.bytescale.ByteScaleUtils;
 import org.apache.cloudstack.utils.jsinterpreter.JsInterpreter;
+import org.apache.commons.lang.time.DateUtils;
 import org.junit.Assert;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.Mockito;
-import org.mockito.junit.MockitoJUnitRunner;
 
 import com.cloud.usage.UsageVO;
 import com.cloud.usage.dao.UsageDao;
 import com.cloud.user.Account;
 import com.cloud.user.AccountVO;
 import com.cloud.utils.Pair;
+import org.mockito.junit.MockitoJUnitRunner;
 
 @RunWith(MockitoJUnitRunner.class)
 public class QuotaManagerImplTest {
@@ -96,6 +100,8 @@ public class QuotaManagerImplTest {
     QuotaUsageDetailDao quotaUsageDetailDaoMock;
 
     SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
+
+    List<QuotaTariffVO> listQuotaTariffs = List.of(new QuotaTariffVO(), new QuotaTariffVO());
 
     @Test
     public void isLockableTestValidateAccountTypes() {
@@ -147,9 +153,10 @@ public class QuotaManagerImplTest {
 
     @Test
     public void getUsageValueAccordingToUsageUnitTypeTestAllTypes() {
-        Mockito.doReturn(10.0).when(usageVoMock).getRawUsage();
-        Mockito.doReturn(ByteScaleUtils.GiB).when(usageVoMock).getSize();
-        Mockito.doReturn(new Date(0, 8, 10)).when(usageVoMock).getStartDate();
+        Mockito.doReturn(BigDecimal.valueOf(200)).when(quotaManagerImplSpy).getCostPerHour(Mockito.any(), Mockito.any());
+        Mockito.doReturn(24.0).when(usageVoMock).getRawUsage();
+        Mockito.doReturn(ByteScaleUtils.GiB * 4).when(usageVoMock).getSize();
+
         BigDecimal aggregatedQuotaTariffsValue = new BigDecimal(400);
 
 
@@ -161,24 +168,24 @@ public class QuotaManagerImplTest {
                case COMPUTE_MONTH:
                case IP_MONTH:
                case POLICY_MONTH:
-                   //The value 5.5555556 is referent to the calculation (( tariffs values / hours in month ) * raw usage ).
-                   expected = 5.5555556;
+                   // cost per hour * raw usage
+                   expected = 4800.0;
                    break;
 
                case GB:
-                   //The value 0.000004 is referent to the calculation (( raw usage / gib) * tariffs values ).
-                   expected = 0.000004;
+                   // ( raw usage / gib) * tariffs values
+                   expected = 0.000008;
                    break;
 
                case GB_MONTH:
-                   //The value 5.5555556 is referent to the calculation (( usage size / gib ) * raw usage * ( tariffs values / hours in month )).
-                   expected = 5.5555556;
+                   // ( size / gib ) * raw usage * cost per month
+                   expected = 19200.0;
                    break;
 
                case BYTES:
                case IOPS:
                    //The value 4000.0 is referent to the calculation ( raw usage * tariffs values ).
-                   expected = 4000.0;
+                   expected = 9600.0;
                    break;
 
                default:
@@ -305,8 +312,8 @@ public class QuotaManagerImplTest {
 
     @Test
     public void createMapQuotaTariffsPerUsageTypeTestNoTariffs() {
-        Mockito.doReturn(new Pair<>(new ArrayList<>(), 0)).when(quotaTariffDaoMock).listQuotaTariffs(Mockito.any(), Mockito.any(), Mockito.any(),Mockito.any(), Mockito.any(),
-                Mockito.anyBoolean(), Mockito.any(), Mockito.any());
+        Mockito.doReturn(new Pair<>(new ArrayList<>(), 0)).when(quotaTariffDaoMock).listQuotaTariffs(Mockito.any(), Mockito.any(), Mockito.<Set<Integer>>any(), Mockito.any(),
+                Mockito.any(), Mockito.anyBoolean(), Mockito.anyBoolean(), Mockito.any(), Mockito.any());
 
         Map<Integer, Pair<List<QuotaTariffVO>, Boolean>> result = quotaManagerImplSpy.createMapQuotaTariffsPerUsageType();
 
@@ -324,8 +331,8 @@ public class QuotaManagerImplTest {
         tariff.setActivationRule("");
         tariffs.add(tariff);
 
-        Mockito.doReturn(new Pair<>(tariffs, tariffs.size())).when(quotaTariffDaoMock).listQuotaTariffs(Mockito.any(), Mockito.any(), Mockito.any(),Mockito.any(), Mockito.any(),
-                Mockito.anyBoolean(), Mockito.any(), Mockito.any());
+        Mockito.doReturn(new Pair<>(tariffs, tariffs.size())).when(quotaTariffDaoMock).listQuotaTariffs(Mockito.any(), Mockito.any(), Mockito.<Set<Integer>>any(), Mockito.any(),
+                Mockito.any(), Mockito.anyBoolean(), Mockito.anyBoolean(), Mockito.any(), Mockito.any());
 
         Map<Integer, Pair<List<QuotaTariffVO>, Boolean>> result = quotaManagerImplSpy.createMapQuotaTariffsPerUsageType();
 
@@ -347,8 +354,8 @@ public class QuotaManagerImplTest {
         tariff.setActivationRule(" ");
         tariffs.add(tariff);
 
-        Mockito.doReturn(new Pair<>(tariffs, tariffs.size())).when(quotaTariffDaoMock).listQuotaTariffs(Mockito.any(), Mockito.any(), Mockito.any(),Mockito.any(), Mockito.any(),
-                Mockito.anyBoolean(), Mockito.any(), Mockito.any());
+        Mockito.doReturn(new Pair<>(tariffs, tariffs.size())).when(quotaTariffDaoMock).listQuotaTariffs(Mockito.any(), Mockito.any(), Mockito.<Set<Integer>>any(), Mockito.any(),
+                Mockito.any(), Mockito.anyBoolean(), Mockito.anyBoolean(), Mockito.any(), Mockito.any());
 
         Map<Integer, Pair<List<QuotaTariffVO>, Boolean>> result = quotaManagerImplSpy.createMapQuotaTariffsPerUsageType();
 
@@ -548,6 +555,242 @@ public class QuotaManagerImplTest {
         tariffs.add(new QuotaTariffVO());
         tariffs.forEach(quotaTariffVO -> quotaTariffVO.setPosition(1));
         return tariffs;
+    }
+
+    @Test
+    public void handleFieldsPresenceInPresetVariableClassesTestHandleAllDeclaredFields() throws IllegalAccessException {
+        int qtFields = this.getClass().getDeclaredFields().length;
+
+        Mockito.doNothing().when(quotaManagerImplSpy).handleFieldPresenceInPresetVariableClasses(Mockito.any(), Mockito.any(), Mockito.any(), Mockito.any());
+
+        quotaManagerImplSpy.handleFieldsPresenceInPresetVariableClasses(this, "", "");
+
+        Mockito.verify(quotaManagerImplSpy, Mockito.times(qtFields)).handleFieldPresenceInPresetVariableClasses(Mockito.any(), Mockito.any(), Mockito.any(), Mockito.any());
+    }
+
+    @Test
+    public void isTariffValidForTheCurrentDatetimeTestReturnFalseIfStartDateIsAfterParameter() {
+        Date now = new Date();
+        Date startDate = DateUtils.addMilliseconds(now, 1);
+        QuotaTariffVO tariff = new QuotaTariffVO();
+        tariff.setEffectiveOn(startDate);
+
+        boolean result = quotaManagerImplSpy.isTariffValidForTheCurrentDatetime(now, "", tariff);
+
+        Assert.assertFalse(result);
+    }
+
+    @Test
+    public void isTariffValidForTheCurrentDatetimeTestReturnFalseIfStartDateIsEqualToParameterAndEndDateIsBeforeParameter() {
+        Date now = new Date();
+        Date endDate = DateUtils.addMilliseconds(now, -1);
+
+        QuotaTariffVO tariff = new QuotaTariffVO();
+        tariff.setEffectiveOn(now);
+        tariff.setEndDate(endDate);
+
+        boolean result = quotaManagerImplSpy.isTariffValidForTheCurrentDatetime(now, "", tariff);
+
+        Assert.assertFalse(result);
+    }
+
+    @Test
+    public void isTariffValidForTheCurrentDatetimeTestReturnFalseIfStartDateIsBeforeParameterAndEndDateIsBeforeParameter() {
+        Date now = new Date();
+        Date endDate = DateUtils.addMilliseconds(now, -1);
+
+        QuotaTariffVO tariff = new QuotaTariffVO();
+        tariff.setEffectiveOn(endDate);
+        tariff.setEndDate(endDate);
+
+        boolean result = quotaManagerImplSpy.isTariffValidForTheCurrentDatetime(now, "", tariff);
+
+        Assert.assertFalse(result);
+    }
+
+    @Test
+    public void isTariffValidForTheCurrentDatetimeTestReturnTrueIfStartDateIsEqualToParameterAndEndDateIsEqualToParameter() {
+        Date now = new Date();
+
+        QuotaTariffVO tariff = new QuotaTariffVO();
+        tariff.setEffectiveOn(now);
+        tariff.setEndDate(now);
+
+        boolean result = quotaManagerImplSpy.isTariffValidForTheCurrentDatetime(now, "", tariff);
+
+        Assert.assertTrue(result);
+    }
+
+    @Test
+    public void isTariffValidForTheCurrentDatetimeTestReturnTrueIfStartDateIsBeforeParameterAndEndDateIsEqualToParameter() {
+        Date now = new Date();
+        Date startDate = DateUtils.addMilliseconds(now, -1);
+
+        QuotaTariffVO tariff = new QuotaTariffVO();
+        tariff.setEffectiveOn(startDate);
+        tariff.setEndDate(now);
+
+        boolean result = quotaManagerImplSpy.isTariffValidForTheCurrentDatetime(now, "", tariff);
+
+        Assert.assertTrue(result);
+    }
+
+    @Test
+    public void isTariffValidForTheCurrentDatetimeTestReturnTrueIfStartDateIsBeforeParameterAndEndDateIsAfterParameter() {
+        Date now = new Date();
+        Date startDate = DateUtils.addMilliseconds(now, -1);
+        Date endDate = DateUtils.addMilliseconds(now, 1);
+
+        QuotaTariffVO tariff = new QuotaTariffVO();
+        tariff.setEffectiveOn(startDate);
+        tariff.setEndDate(endDate);
+
+        boolean result = quotaManagerImplSpy.isTariffValidForTheCurrentDatetime(now, "", tariff);
+
+        Assert.assertTrue(result);
+    }
+
+    @Test
+    public void isTariffValidForTheCurrentDatetimeTestReturnTrueIfStartDateIsEqualToParameterAndEndDateIsAfterParameter() {
+        Date now = new Date();
+        Date endDate = DateUtils.addMilliseconds(now, 1);
+
+        QuotaTariffVO tariff = new QuotaTariffVO();
+        tariff.setEffectiveOn(now);
+        tariff.setEndDate(endDate);
+
+        boolean result = quotaManagerImplSpy.isTariffValidForTheCurrentDatetime(now, "", tariff);
+
+        Assert.assertTrue(result);
+    }
+
+    @Test
+    public void getValidTariffForUsageTypeTestReturnNullWhenTariffListIsNull() {
+        Pair<QuotaTypes, List<QuotaTariffVO>> result = quotaManagerImplSpy.getValidTariffsByUsageType(new Date(), "", 0, null);
+        Assert.assertNull(result);
+    }
+
+    @Test
+    public void getValidTariffForUsageTypeTestReturnNullWhenTariffListIsEmpty() {
+        Pair<QuotaTypes, List<QuotaTariffVO>> result = quotaManagerImplSpy.getValidTariffsByUsageType(new Date(), "", 0, new ArrayList<>());
+        Assert.assertNull(result);
+    }
+
+    @Test
+    public void getValidTariffsByUsageTypeTestReturnNullWhenFilteredTariffsIsEmpty() {
+        Mockito.doReturn(false).when(quotaManagerImplSpy).isTariffValidForTheCurrentDatetime(Mockito.any(), Mockito.any(), Mockito.any());
+        Pair<QuotaTypes, List<QuotaTariffVO>> result = quotaManagerImplSpy.getValidTariffsByUsageType(new Date(), "", 0, List.of(new QuotaTariffVO(), new QuotaTariffVO()));
+        Assert.assertNull(result);
+    }
+
+    @Test
+    public void getValidTariffsByUsageTypeTestReturnPairWhenFilteredTariffsIsNotEmpty() {
+        Integer expectedInt = 1;
+
+        Mockito.doReturn(true).when(quotaManagerImplSpy).isTariffValidForTheCurrentDatetime(Mockito.any(), Mockito.any(), Mockito.any());
+        Pair<QuotaTypes, List<QuotaTariffVO>> result = quotaManagerImplSpy.getValidTariffsByUsageType(new Date(), "", expectedInt, listQuotaTariffs);
+
+        Assert.assertEquals(expectedInt, result.first().getQuotaType());
+        Assert.assertEquals(listQuotaTariffs, result.second());
+    }
+
+    @Test
+    public void getResourceRatingTestDoNotHandleFieldsPresenceWhenMetadataIsNull() throws IllegalAccessException {
+        ResourcesToQuoteVO resourceToQuote = new ResourcesToQuoteVO();
+        resourceToQuote.setVolumeToQuote(2);
+
+        BigDecimal expectedForGb = new BigDecimal(20);
+        BigDecimal expectedForNotGb = new BigDecimal(3);
+
+        Mockito.doReturn(new BigDecimal(5)).when(quotaManagerImplSpy).getQuotaTariffValueToBeApplied(Mockito.any(), Mockito.any(), Mockito.any(), Mockito.any());
+        Mockito.doReturn(new BigDecimal("1.5")).when(quotaManagerImplSpy).getCostPerHour(Mockito.any(), Mockito.any());
+
+        int timesNotGb = 0;
+
+        for (QuotaTypes type : QuotaTypes.listQuotaTypes().values()) {
+            BigDecimal result = quotaManagerImplSpy.getResourceRating(null, resourceToQuote, listQuotaTariffs, type, new Date());
+
+            if (UsageUnitTypes.getByDescription(type.getQuotaUnit()) == UsageUnitTypes.GB) {
+                Assert.assertEquals(expectedForGb.doubleValue(), result.doubleValue(), 0);
+            } else {
+                timesNotGb++;
+                Assert.assertEquals(expectedForNotGb.doubleValue(), result.doubleValue(), 0);
+            }
+        }
+
+        Mockito.verify(quotaManagerImplSpy, Mockito.never()).handleFieldsPresenceInPresetVariableClasses(Mockito.any(), Mockito.any(), Mockito.any());
+        Mockito.verify(quotaManagerImplSpy, Mockito.times(timesNotGb)).getCostPerHour(Mockito.any(), Mockito.any());
+    }
+
+    @Test
+    public void getResourceRatingTestHandleFieldsPresenceWhenMetadataIsNotNull() throws IllegalAccessException {
+        ResourcesToQuoteVO resourceToQuote = new ResourcesToQuoteVO();
+        resourceToQuote.setVolumeToQuote(3);
+        resourceToQuote.setMetadata(new PresetVariables());
+
+        BigDecimal expectedForGb = new BigDecimal(30);
+        BigDecimal expectedForNotGb = new BigDecimal("7.5");
+
+        Mockito.doReturn(new BigDecimal(5)).when(quotaManagerImplSpy).getQuotaTariffValueToBeApplied(Mockito.any(), Mockito.any(), Mockito.any(), Mockito.any());
+        Mockito.doReturn(new BigDecimal("2.5")).when(quotaManagerImplSpy).getCostPerHour(Mockito.any(), Mockito.any());
+        int timesNotGb = 0;
+
+        for (QuotaTypes type : QuotaTypes.listQuotaTypes().values()) {
+            BigDecimal result = quotaManagerImplSpy.getResourceRating(null, resourceToQuote, listQuotaTariffs, type, new Date());
+
+            if (UsageUnitTypes.getByDescription(type.getQuotaUnit()) == UsageUnitTypes.GB) {
+                Assert.assertEquals(expectedForGb.doubleValue(), result.doubleValue(), 0);
+            } else {
+                timesNotGb++;
+                Assert.assertEquals(expectedForNotGb.doubleValue(), result.doubleValue(), 0);
+            }
+        }
+
+        Mockito.verify(quotaManagerImplSpy, Mockito.times(QuotaTypes.listQuotaTypes().size())).handleFieldsPresenceInPresetVariableClasses(Mockito.any(), Mockito.any(),
+                Mockito.any());
+        Mockito.verify(quotaManagerImplSpy, Mockito.times(timesNotGb)).getCostPerHour(Mockito.any(), Mockito.any());
+    }
+
+    @Test
+    public void getCostPerHourTestReturnValue() {
+        quotaManagerImplSpy.setHoursInCurrentMonth();
+        BigDecimal value = new BigDecimal(42420);
+        BigDecimal expected = value.divide(new BigDecimal(String.valueOf(QuotaManagerImpl.hoursInCurrentMonth)), 8, RoundingMode.HALF_EVEN);
+        BigDecimal result = quotaManagerImplSpy.getCostPerHour(value, new Date());
+
+        Assert.assertEquals(expected.doubleValue(), result.doubleValue(), 0);
+    }
+
+    @Test
+    public void injectPresetVariablesIntoJsInterpreterTestDoNothingWhenPresetVariablesIsNull() {
+        quotaManagerImplSpy.injectPresetVariablesIntoJsInterpreter(jsInterpreterMock, null);
+        Mockito.verify(quotaManagerImplSpy, Mockito.never()).injectPresetVariableToStringIfItIsNotNull(Mockito.any(), Mockito.any(), Mockito.any());
+    }
+
+    @Test
+    public void injectPresetVariablesIntoJsInterpreterTestInjectVariablesWhenPresetVariablesIsNull() {
+        Mockito.doNothing().when(quotaManagerImplSpy).injectPresetVariableToStringIfItIsNotNull(Mockito.any(), Mockito.any(), Mockito.any());
+        Mockito.doReturn("test").when(presetVariablesMock).getResourceType();
+
+        quotaManagerImplSpy.injectPresetVariablesIntoJsInterpreter(jsInterpreterMock, presetVariablesMock);
+
+        Mockito.verify(quotaManagerImplSpy, Mockito.times(5)).injectPresetVariableToStringIfItIsNotNull(Mockito.any(), Mockito.any(), Mockito.any());
+        Mockito.verify(jsInterpreterMock).injectStringVariable("resourceType", "test");
+    }
+
+    @Test
+    public void injectPresetVariableToStringIfItIsNotNullTestDoNothingWhenGenericPresetVariableIsNull() {
+        quotaManagerImplSpy.injectPresetVariableToStringIfItIsNotNull(jsInterpreterMock, "domain", null);
+        Mockito.verify(jsInterpreterMock, Mockito.never()).injectVariable(Mockito.anyString(), Mockito.any());
+    }
+
+    @Test
+    public void injectPresetVariableToStringIfItIsNotNullTestInjectVariableWhenGenericPresetVariableIsNotNull() {
+        Mockito.doNothing().when(jsInterpreterMock).injectVariable(Mockito.anyString(), Mockito.any());
+
+        quotaManagerImplSpy.injectPresetVariableToStringIfItIsNotNull(jsInterpreterMock, "domain", new GenericPresetVariable());
+
+        Mockito.verify(jsInterpreterMock).injectVariable(Mockito.anyString(), Mockito.any());
     }
 
     private static List<Tariff> createLastAppliedTariffsPresetVariableList(int numberOfTariffs) {

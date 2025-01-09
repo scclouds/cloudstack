@@ -17,12 +17,22 @@
 
 package org.apache.cloudstack.quota.activationrule.presetvariables;
 
+import java.lang.reflect.Field;
+import java.lang.reflect.Modifier;
+import java.util.Arrays;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 import org.apache.cloudstack.utils.reflectiontostringbuilderutils.ReflectionToStringBuilderUtils;
+import org.apache.commons.lang3.ArrayUtils;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 
 public class GenericPresetVariable {
+    private transient Logger logger = LogManager.getLogger(getClass());
+
     @PresetVariableDefinition(description = "ID of the resource.")
     private String id;
 
@@ -52,5 +62,45 @@ public class GenericPresetVariable {
     @Override
     public String toString() {
         return ReflectionToStringBuilderUtils.reflectOnlySelectedFields(this, fieldNamesToIncludeInToString.toArray(new String[0]));
+    }
+
+    /**
+     * Sets all not null and non-transient fields in fieldNamesToIncludeInToString.
+     */
+    public void includeAllNotNullAndNonTransientFieldsInToString() throws IllegalAccessException {
+        Field[] fields = this.getClass().getDeclaredFields();
+        fields = ArrayUtils.addAll(fields, this.getClass().getSuperclass().getDeclaredFields());
+
+        List<String> allFieldsName = Arrays.stream(fields).map(Field::getName).collect(Collectors.toList());
+
+        logger.trace(String.format("Validating and including fields %s into [%s] toString.", allFieldsName, this.getClass().getName()));
+        for (Field field : fields) {
+            includeFieldInToStringIfNotNullAndNonTransient(field);
+        }
+
+        logger.trace(String.format("The following fields were included in [%s] toString: %s.", this.getClass().getName(), fieldNamesToIncludeInToString));
+    }
+
+    protected void includeFieldInToStringIfNotNullAndNonTransient(Field field) throws IllegalAccessException {
+        String fieldName = field.getName();
+        String thisClassName = this.getClass().getName();
+        logger.trace(String.format("Validating if field [%s] is not transient and not null to include in [%s] toString.", fieldName, thisClassName));
+
+        if (Modifier.isTransient(field.getModifiers())) {
+            logger.trace(String.format("Field [%s] is transient; not including in [%s] toString.", fieldName, thisClassName));
+            return;
+        }
+
+        field.setAccessible(true);
+        Object fieldValue = field.get(this);
+        field.setAccessible(false);
+
+        if (fieldValue == null) {
+            logger.trace(String.format("Field [%s] is null; not including in [%s] toString.", fieldName, thisClassName));
+            return;
+        }
+
+        logger.trace(String.format("Including field [%s] in [%s] toString.", fieldName, thisClassName));
+        this.fieldNamesToIncludeInToString.add(fieldName);
     }
 }
