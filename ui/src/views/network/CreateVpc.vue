@@ -108,6 +108,26 @@
             </a-select-option>
           </a-select>
         </a-form-item>
+        <a-form-item v-if="'listPublicIpAddresses' in $store.getters.apis">
+          <template #label>
+            <tooltip-label :title="$t('label.router.source.nat.ip')" :tooltip="apiParams.sourcenatipaddress.description"/>
+          </template>
+          <a-select
+            :loading="loadingIp"
+            v-model:value="form.sourcenatipaddress"
+            showSearch
+            optionFilterProp="children"
+            :placeholder="apiParams.sourcenatipaddress.description"
+            :filterOption="(input, option) => {
+              return option.children[0].children.toLowerCase().indexOf(input.toLowerCase()) >= 0
+            }" >
+            <a-select-option
+              v-for="ip in publicIpAddresses"
+              :key="ip.ipaddress">
+              {{ ip.ipaddress }}
+            </a-select-option>
+          </a-select>
+        </a-form-item>
         <a-form-item ref="asnumber" name="asnumber" v-if="isASNumberRequired()">
           <template #label>
             <tooltip-label :title="$t('label.asnumber')" :tooltip="apiParams.asnumber.description"/>
@@ -214,6 +234,7 @@ import { api } from '@/api'
 import { isAdmin, isAdminOrDomainAdmin } from '@/role'
 import ResourceIcon from '@/components/view/ResourceIcon'
 import TooltipLabel from '@/components/widgets/TooltipLabel'
+import * as networkUtils from '@/utils/network'
 import OwnershipSelection from '@/views/compute/wizard/OwnershipSelection.vue'
 
 export default {
@@ -240,7 +261,9 @@ export default {
       isNsxNetwork: false,
       asNumberLoading: false,
       asNumbersZone: [],
-      selectedAsNumber: 0
+      selectedAsNumber: 0,
+      loadingIp: false,
+      publicIpAddresses: []
     }
   },
   beforeCreate () {
@@ -334,6 +357,7 @@ export default {
       if (this.isASNumberRequired()) {
         this.fetchZoneASNumbers()
       }
+      this.fetchIps()
     },
     fetchZoneASNumbers () {
       const params = {}
@@ -358,6 +382,20 @@ export default {
           this.handleVpcOfferingChange(this.vpcOfferings[0].id)
         }
       })
+    },
+    async fetchIps () {
+      if (this.loadingIp || !('listPublicIpAddresses' in this.$store.getters.apis)) return
+
+      this.loadingIp = true
+      this.publicIpAddresses = []
+
+      try {
+        this.publicIpAddresses = await networkUtils.getAvailablePublicIpAddresses(this.form.zoneid)
+      } catch (e) {
+        this.$notifyError(e)
+      }
+
+      this.loadingIp = false
     },
     fetchOwnerOptions (OwnerOptions) {
       this.owner = {
