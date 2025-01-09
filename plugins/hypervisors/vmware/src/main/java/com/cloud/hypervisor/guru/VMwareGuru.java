@@ -104,7 +104,6 @@ import com.cloud.hypervisor.vmware.dao.VmwareDatacenterZoneMapDao;
 import com.cloud.hypervisor.vmware.manager.VmwareManager;
 import com.cloud.hypervisor.vmware.mo.DatacenterMO;
 import com.cloud.hypervisor.vmware.mo.NetworkMO;
-import com.cloud.hypervisor.vmware.mo.VirtualDiskManagerMO;
 import com.cloud.hypervisor.vmware.mo.VirtualMachineDiskInfoBuilder;
 import com.cloud.hypervisor.vmware.mo.VirtualMachineMO;
 import com.cloud.hypervisor.vmware.resource.VmwareContextFactory;
@@ -907,6 +906,12 @@ public class VMwareGuru extends HypervisorGuruBase implements HypervisorGuru, Co
         return diskInfoBuilder.getDiskInfoByBackingFileBaseName(volumeName, poolName);
     }
 
+    private VirtualMachineDiskInfo getDiskInfo(VirtualMachineMO vmMo, Long poolId, String volumeName, String busName) throws Exception {
+        VirtualMachineDiskInfoBuilder diskInfoBuilder = vmMo.getDiskInfoBuilder();
+        String poolName = _storagePoolDao.findById(poolId).getUuid().replace("-", "");
+        return diskInfoBuilder.getDiskInfoByBackingFileBaseName(volumeName, poolName, busName);
+    }
+
     private VolumeVO createVolume(VirtualDisk disk, VirtualMachineMO vmToImport, long domainId, long zoneId, long accountId, long instanceId, Long poolId, long templateId, Backup backup, boolean isImport) throws Exception {
         VMInstanceVO vm = virtualMachineDao.findByIdIncludingRemoved(backup.getVmId());
         if (vm == null) {
@@ -926,10 +931,11 @@ public class VMwareGuru extends HypervisorGuruBase implements HypervisorGuru, Co
         checkBackingInfo(backing);
         VirtualDiskFlatVer2BackingInfo info = (VirtualDiskFlatVer2BackingInfo)backing;
         String volumeName = getVolumeName(disk, vmToImport);
+        String deviceBusName = vmToImport.getDeviceBusName(vmToImport.getAllDeviceList(), disk);
         Storage.ProvisioningType provisioningType = getProvisioningType(info);
         long diskOfferingId = getDiskOfferingId(size, provisioningType);
         Integer unitNumber = disk.getUnitNumber();
-        VirtualMachineDiskInfo diskInfo = getDiskInfo(vmToImport, poolId, volumeName);
+        VirtualMachineDiskInfo diskInfo = getDiskInfo(vmToImport, poolId, volumeName, deviceBusName);
         return createVolumeRecord(type, volumeName, zoneId, domainId, accountId, diskOfferingId, provisioningType, size, instanceId, poolId, templateId, unitNumber, diskInfo);
     }
 
@@ -1173,7 +1179,7 @@ public class VMwareGuru extends HypervisorGuruBase implements HypervisorGuru, Co
         for (VirtualDisk disk : virtualDisks) {
             VirtualDeviceBackingInfo backingInfo = disk.getBacking();
             if (backingInfo instanceof VirtualDiskFlatVer2BackingInfo) {
-                VirtualDiskFlatVer2BackingInfo diskBackingInfo = (VirtualDiskFlatVer2BackingInfo)backingInfo;
+                VirtualDiskFlatVer2BackingInfo diskBackingInfo = (VirtualDiskFlatVer2BackingInfo) backingInfo;
                 if (disk.getCapacityInBytes().equals(volumeInfo.getSize()) && diskBackingInfo.getFileName().contains(volumeName) && disk.getUnitNumber() == deviceId) {
                     return disk;
                 }
@@ -1245,55 +1251,15 @@ public class VMwareGuru extends HypervisorGuruBase implements HypervisorGuru, Co
     }
 
     @Override
-    public boolean attachRestoredVolumeToVirtualMachine(long zoneId, String location, Backup.VolumeInfo volumeInfo, VirtualMachine vm, long poolId, Backup backup)
+    public boolean attachRestoredVolumeToVirtualMachine(long zoneId, String restoredVolumeName, Backup.VolumeInfo volumeInfo, VirtualMachine vm, long poolId, Backup backup)
             throws Exception {
         DatacenterMO dcMo = getDatacenterMO(zoneId);
-        VirtualMachineMO vmRestored = findVM(dcMo, location);
-        int newDeviceId = (int) (_volumeDao.findByInstance(vm.getId()).stream().mapToLong(VolumeVO::getDeviceId).max().orElse(0L) + 1);
         VirtualMachineMO vmMo = findVM(dcMo, vm.getInstanceName());
-        VirtualDisk restoredDisk = findRestoredVolume(volumeInfo, vmRestored, location.split(".vmdk")[0], newDeviceId);
-        String diskPath = vmRestored.getVmdkFileBaseName(restoredDisk);
-
-        logger.debug("Restored disk size=" + toHumanReadableSize(restoredDisk.getCapacityInKB() * Resource.ResourceType.bytesToKiB) + " path=" + diskPath);
-
-        // Detach restored VM disks
-        vmRestored.detachDisk(String.format("%s/%s.vmdk", location, diskPath), false);
-
-        String srcPath = getVolumeFullPath(restoredDisk);
-        String destPath = getDestVolumeFullPath(vmMo);
-
-        VirtualDiskManagerMO virtualDiskManagerMO = new VirtualDiskManagerMO(dcMo.getContext());
-
-        // Copy volume to the VM folder
-        logger.debug(String.format("Moving volume from %s to %s", srcPath, destPath));
-        virtualDiskManagerMO.moveVirtualDisk(srcPath, dcMo.getMor(), destPath, dcMo.getMor(), true);
-
-        try {
-            // Attach volume to VM
-            vmMo.attachDisk(new String[] {destPath}, getDestStoreMor(vmMo));
-        } catch (Exception e) {
-            logger.error("Failed to attach the restored volume: " + diskPath, e);
-            return false;
-        } finally {
-            // Destroy restored VM
-            vmRestored.destroy();
-        }
-
-        logger.debug(String.format("Attaching disk %s to vm %s", destPath, vm.getId()));
-        VirtualDisk attachedDisk = getAttachedDisk(vmMo, destPath);
-        if (attachedDisk == null) {
-            logger.error("Failed to get the attached the (restored) volume " + destPath);
-            return false;
-        }
-        logger.debug(String.format("Creating volume entry for disk %s attached to vm %s", destPath, vm.getId()));
-        createVolume(attachedDisk, vmMo, vm.getDomainId(), vm.getDataCenterId(), vm.getAccountId(), vm.getId(), poolId, vm.getTemplateId(), backup, false);
-
-        if (vm.getBackupOfferingId() == null) {
-            return true;
-        }
-        VMInstanceVO vmVO = (VMInstanceVO)vm;
-        vmVO.setBackupVolumes(createVolumeInfoFromVolumes(_volumeDao.findByInstance(vm.getId())));
-        vmDao.update(vmVO.getId(), vmVO);
+        int newDeviceId = (int) (_volumeDao.findByInstance(vm.getId()).stream().mapToLong(VolumeVO::getDeviceId).max().orElse(0L) + 1);
+        VirtualDisk restoredDisk = findRestoredVolume(volumeInfo, vmMo, restoredVolumeName.split(".vmdk")[0], newDeviceId);
+        String diskPath = vmMo.getVmdkFileBaseName(restoredDisk);
+        logger.debug("Restored disk size={} path={}.", toHumanReadableSize(restoredDisk.getCapacityInKB()), diskPath);
+        createVolume(restoredDisk, vmMo, vm.getDomainId(), vm.getDataCenterId(), vm.getAccountId(), vm.getId(), poolId, vm.getTemplateId(), backup, false);
         return true;
     }
 

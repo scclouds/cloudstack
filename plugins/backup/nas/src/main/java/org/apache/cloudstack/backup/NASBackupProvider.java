@@ -254,7 +254,7 @@ public class NASBackupProvider extends AdapterBase implements BackupProvider, Co
     }
 
     @Override
-    public Pair<Boolean, String> restoreBackedUpVolume(Backup backup, String volumeUuid, String hostIp, String dataStoreUuid, Pair<String, VirtualMachine.State> vmNameAndState) {
+    public Pair<Boolean, String> restoreBackedUpVolume(Backup backup, String volumeUuid, String hostIp, String dataStoreUuid, Pair<String, VirtualMachine.State> vmNameAndState, VirtualMachine vm, Boolean startVm) {
         final VolumeVO volume = volumeDao.findByUuid(volumeUuid);
         final VirtualMachine backupSourceVm = vmInstanceDao.findById(backup.getVmId());
         final StoragePoolHostVO dataStore = storagePoolHostDao.findByUuid(dataStoreUuid);
