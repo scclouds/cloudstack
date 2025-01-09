@@ -372,7 +372,7 @@ public class NetworkerBackupProvider extends AdapterBase implements BackupProvid
     }
 
     @Override
-    public Pair<Boolean, String> restoreBackedUpVolume(Backup backup, String volumeUuid, String hostIp, String dataStoreUuid, Pair<String, VirtualMachine.State> vmNameAndState) {
+    public Pair<Boolean, String> restoreBackedUpVolume(Backup backup, String volumeUuid, String hostIp, String dataStoreUuid, Pair<String, VirtualMachine.State> vmNameAndState, VirtualMachine vm, Boolean startVm) {
         String networkerServer;
         VolumeVO volume = volumeDao.findByUuid(volumeUuid);
         VMInstanceVO backupSourceVm = vmInstanceDao.findById(backup.getVmId());

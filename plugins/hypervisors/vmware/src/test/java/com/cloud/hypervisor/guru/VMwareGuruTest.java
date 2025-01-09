@@ -79,7 +79,6 @@ import com.cloud.hypervisor.vmware.util.VmwareClient;
 import com.cloud.hypervisor.vmware.util.VmwareContext;
 import com.cloud.hypervisor.vmware.util.VmwareHelper;
 import com.cloud.storage.Storage;
-import com.cloud.storage.Storage.ProvisioningType;
 import com.cloud.storage.StoragePool;
 import com.cloud.storage.StoragePoolHostVO;
 import com.cloud.storage.Volume;
@@ -204,10 +203,10 @@ public class VMwareGuruTest {
     public void createVolumeInfoFromVolumesTestCorrectlyConvertOfVolumes() {
         List<VolumeVO> volumesToTest = new ArrayList<>();
 
-        VolumeVO root = new VolumeVO("test", 1l, 1l, 1l, 1l, 1l, "test", "/root/dir", ProvisioningType.THIN, 555l, Volume.Type.ROOT);
+        VolumeVO root = new VolumeVO("test", 1l, 1l, 1l, 1l, 1l, "test", "/root/dir", Storage.ProvisioningType.THIN, 555l, Volume.Type.ROOT);
         String rootUuid = root.getUuid();
 
-        VolumeVO data = new VolumeVO("test", 1l, 1l, 1l, 1l, 1l, "test", "/root/dir/data", ProvisioningType.THIN, 1111000l, Volume.Type.DATADISK);
+        VolumeVO data = new VolumeVO("test", 1l, 1l, 1l, 1l, 1l, "test", "/root/dir/data", Storage.ProvisioningType.THIN, 1111000l, Volume.Type.DATADISK);
         String dataUuid = data.getUuid();
 
         volumesToTest.add(root);

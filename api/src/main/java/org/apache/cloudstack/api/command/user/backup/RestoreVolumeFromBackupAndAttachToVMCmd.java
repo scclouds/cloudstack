@@ -39,6 +39,7 @@ import com.cloud.exception.NetworkRuleConflictException;
 import com.cloud.exception.ResourceAllocationException;
 import com.cloud.exception.ResourceUnavailableException;
 import com.cloud.utils.exception.CloudRuntimeException;
+import org.apache.commons.lang.BooleanUtils;
 
 @APICommand(name = "restoreVolumeFromBackupAndAttachToVM",
         description = "Restore and attach a backed up volume to VM",
@@ -73,6 +74,12 @@ public class RestoreVolumeFromBackupAndAttachToVMCmd extends BaseAsyncCmd {
             description = "id of the VM where to attach the restored volume")
     private Long vmId;
 
+    @Parameter(name = ApiConstants.START_VM,
+            type = CommandType.BOOLEAN,
+            required = false,
+            description = "start VM after the restore is finished")
+    private Boolean startVm;
+
     /////////////////////////////////////////////////////
     /////////////////// Accessors ///////////////////////
     /////////////////////////////////////////////////////
@@ -89,6 +96,10 @@ public class RestoreVolumeFromBackupAndAttachToVMCmd extends BaseAsyncCmd {
         return backupId;
     }
 
+    public Boolean shouldStartVM() {
+        return BooleanUtils.isTrue(startVm);
+    }
+
     @Override
     public long getEntityOwnerId() {
         return CallContext.current().getCallingAccount().getId();
@@ -101,7 +112,7 @@ public class RestoreVolumeFromBackupAndAttachToVMCmd extends BaseAsyncCmd {
     @Override
     public void execute() throws ResourceUnavailableException, InsufficientCapacityException, ServerApiException, ConcurrentOperationException, ResourceAllocationException, NetworkRuleConflictException {
         try {
-            boolean result = backupManager.restoreBackupVolumeAndAttachToVM(volumeUuid, backupId, vmId);
+            boolean result = backupManager.restoreBackupVolumeAndAttachToVM(volumeUuid, backupId, vmId, shouldStartVM());
             if (result) {
                 SuccessResponse response = new SuccessResponse(getCommandName());
                 response.setResponseName(getCommandName());
