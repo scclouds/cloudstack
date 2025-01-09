@@ -23,7 +23,7 @@
       :loading="loading"
       v-model:value="projectSelected"
       :filterOption="filterProject"
-      @change="changeProject"
+      @change="indexToProject"
       @focus="fetchData"
       showSearch>
 
@@ -54,12 +54,17 @@ export default {
   },
   data () {
     return {
+      defaultProject: null,
       projects: [],
       loading: false
     }
   },
   created () {
-    this.fetchData()
+    this.fetchData().then(response => {
+      if (this.defaultProject && !this.$store.getters?.project.name) {
+        this.changeProject(this.defaultProject)
+      }
+    })
   },
   computed: {
     projectSelected () {
@@ -79,11 +84,16 @@ export default {
       }
       var page = 1
       const projects = []
+      const defaultProjectId = (this.$store.getters?.defaultView !== {}) ? this.$store.getters.defaultView : undefined
       const getNextPage = () => {
         this.loading = true
-        api('listProjects', { listAll: true, page: page, pageSize: 500, details: 'min', showIcon: true }).then(json => {
-          if (json?.listprojectsresponse?.project) {
-            projects.push(...json.listprojectsresponse.project)
+        return api('listProjects', { listAll: true, page: page, pageSize: 500, details: 'min', showIcon: true }).then(json => {
+          const projectBatch = json?.listprojectsresponse?.project
+          if (projectBatch) {
+            projects.push(...projectBatch)
+            if (!this.defaultProject) {
+              this.defaultProject = projectBatch.find((project) => project.id === defaultProjectId)
+            }
           }
           if (projects.length < json.listprojectsresponse.count) {
             page++
@@ -94,16 +104,19 @@ export default {
           this.$store.commit('RELOAD_ALL_PROJECTS', projects)
         })
       }
-      getNextPage()
+      return getNextPage()
     },
     isDisabled () {
       return !Object.prototype.hasOwnProperty.call(store.getters.apis, 'listProjects')
     },
-    changeProject (index) {
-      const project = this.projects[index]
+    changeProject (project) {
       this.$store.dispatch('ProjectView', project.id)
       this.$store.dispatch('SetProject', project)
       this.$store.dispatch('ToggleTheme', project.id === undefined ? 'light' : 'dark')
+    },
+    indexToProject (index) {
+      const project = this.projects[index]
+      this.changeProject(project)
       this.$message.success(`${this.$t('message.switch.to')} "${project.displaytext || project.name}"`)
       if (this.$route.name !== 'dashboard') {
         this.$router.push({ name: 'dashboard' })
@@ -119,7 +132,7 @@ export default {
       (newValue, oldValue) => {
         if (oldValue !== newValue && newValue !== undefined) {
           this.projects = _.orderBy(newValue, ['displaytext'], ['asc'])
-          this.projects.unshift({ name: this.$t('label.default.view') })
+          this.projects.unshift({ name: this.$t('label.account.view') })
         }
       }
     )

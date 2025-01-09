@@ -23,6 +23,7 @@ const getters = {
   metrics: state => state.app.metrics,
   token: state => state.user.token,
   project: state => state.user.project,
+  defaultView: state => state.user.defaultView,
   avatar: state => state.user.avatar,
   nickname: state => state.user.name,
   apis: state => state.user.apis,

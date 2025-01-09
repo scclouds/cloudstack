@@ -77,6 +77,10 @@ public interface User extends OwnedBy, InternalIdentity {
 
     public void setTimezone(String timezone);
 
+    Long getDefaultProjectId();
+
+    void setDefaultProjectId(Long defaultProjectId);
+
     String getRegistrationToken();
 
     boolean isRegistered();

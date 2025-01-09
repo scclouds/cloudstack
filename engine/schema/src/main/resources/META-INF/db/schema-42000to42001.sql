@@ -104,6 +104,13 @@ FROM
 GROUP BY
   rp.role_id;
 
+-- Add column default_project_id in cloud_usage.account table
+CALL `cloud_usage`.`IDEMPOTENT_ADD_COLUMN`('cloud_usage.account','default_project_id', 'bigint(20) unsigned DEFAULT NULL');
+
+-- Add default_project_id to account and user tables;
+CALL `cloud`.`IDEMPOTENT_ADD_COLUMN`('cloud.account','default_project_id', 'bigint(20) unsigned DEFAULT NULL');
+CALL `cloud`.`IDEMPOTENT_ADD_COLUMN`('cloud.user','default_project_id', 'bigint(20) unsigned DEFAULT NULL');
+
 -- PR #6589 - [Veeam] disable jobs but keep backups
 
 -- Populate column backed_volumes in table backups with a GSON

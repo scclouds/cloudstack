@@ -95,6 +95,14 @@ public class UserResponse extends BaseResponse implements SetResourceIconRespons
     @Param(description = "the timezone user was created in")
     private String timezone;
 
+    @SerializedName(ApiConstants.DEFAULT_PROJECT_ID)
+    @Param(description = "uuid of project view shown when first logging in")
+    private String defaultProjectId;
+
+    @SerializedName(ApiConstants.DEFAULT_PROJECT)
+    @Param(description = "name of project view shown when first logging in")
+    private String defaultProject;
+
     @SerializedName("apikey")
     @Param(description = "the api key of the user", isSensitive = true)
     private String apiKey;
@@ -241,6 +249,14 @@ public class UserResponse extends BaseResponse implements SetResourceIconRespons
 
     public void setTimezone(String timezone) {
         this.timezone = timezone;
+    }
+
+    public void setDefaultProjectId(String defaultProjectId) {
+        this.defaultProjectId = defaultProjectId;
+    }
+
+    public void setDefaultProject(String defaultProject) {
+        this.defaultProject = defaultProject;
     }
 
     public String getApiKey() {

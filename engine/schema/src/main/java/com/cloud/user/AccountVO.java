@@ -74,6 +74,9 @@ public class AccountVO implements Account {
     @Column(name = "default_zone_id")
     private Long defaultZoneId = null;
 
+    @Column(name = "default_project_id")
+    private Long defaultProjectId = null;
+
     @Column(name = "default")
     boolean isDefault;
 
@@ -209,6 +212,16 @@ public class AccountVO implements Account {
 
     public void setUuid(String uuid) {
         this.uuid = uuid;
+    }
+
+    @Override
+    public Long getDefaultProjectId() {
+        return defaultProjectId;
+    }
+
+    @Override
+    public void setDefaultProjectId(Long defaultProjectId) {
+        this.defaultProjectId = defaultProjectId;
     }
 
     @Override

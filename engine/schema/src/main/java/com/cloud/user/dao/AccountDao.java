@@ -45,6 +45,8 @@ public interface AccountDao extends GenericDao<AccountVO, Long> {
 
     List<AccountVO> findAccountsByRole(Long roleId);
 
+    List<AccountVO> findAccountsByDefaultProject(Long defaultProjectId);
+
     void markForCleanup(long accountId);
 
     List<AccountVO> listAccounts(String accountName, Long domainId, Filter filter);

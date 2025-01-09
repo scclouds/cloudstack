@@ -35,6 +35,10 @@ public interface ProjectManager extends ProjectService {
 
     boolean canModifyProjectAccount(Account caller, long accountId);
 
+    boolean canAccountAccessProject(long accountId, long projectId);
+
+    boolean canUserAccessProject(long userId, long accountId, long projectId);
+
     boolean deleteAccountFromProject(long projectId, long accountId);
 
     List<Long> listPermittedProjectAccounts(long accountId);

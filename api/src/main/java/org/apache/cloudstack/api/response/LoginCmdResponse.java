@@ -62,6 +62,10 @@ public class LoginCmdResponse extends AuthenticationCmdResponse {
     @Param(description = "user time zoneoffset")
     private String timeZoneOffset;
 
+    @SerializedName(ApiConstants.DEFAULT_PROJECT_ID)
+    @Param(description = "login user default project uuid")
+    private String defaultProjectId;
+
     @SerializedName(value = ApiConstants.REGISTERED)
     @Param(description = "Is user registered")
     private String registered;
@@ -160,6 +164,14 @@ public class LoginCmdResponse extends AuthenticationCmdResponse {
 
     public String getTimeZoneOffset() {
         return timeZoneOffset;
+    }
+
+    public String getDefaultProjectId() {
+        return defaultProjectId;
+    }
+
+    public void setDefaultProjectId(String defaultProjectId) {
+        this.defaultProjectId = defaultProjectId;
     }
 
     public void setTimeZoneOffset(String timeZoneOffset) { this.timeZoneOffset = timeZoneOffset; }

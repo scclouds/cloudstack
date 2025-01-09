@@ -24,3 +24,7 @@ export function isAdmin () {
 export function isAdminOrDomainAdmin () {
   return ['Admin', 'DomainAdmin'].includes(store.getters.userInfo.roletype)
 }
+
+export function isDomainAdmin () {
+  return ['DomainAdmin'].includes(store.getters.userInfo.roletype)
+}

@@ -384,15 +384,15 @@ public class MockAccountManagerImpl extends ManagerBase implements Manager, Acco
     }
 
     @Override
-    public User createUser(String userName, String password, String firstName,
-            String lastName, String email, String timeZone, String accountName,
-            Long domainId, String userUUID) {
+    public User createUser(String userName, String password, String firstName, String lastName, String email, String timeZone, String accountName, Long domainId, String userUUID,
+                           String defaultProjectUuid) {
         // TODO Auto-generated method stub
         return null;
     }
 
-    @Override public User createUser(String userName, String password, String firstName, String lastName, String email, String timeZone, String accountName, Long domainId,
-                                     String userUUID, User.Source source) {
+    @Override
+    public User createUser(String userName, String password, String firstName, String lastName, String email, String timeZone, String accountName, Long domainId, String userUUID,
+                           String defaultProjectUuid, User.Source source) {
         // TODO Auto-generated method stub
         return null;
     }
@@ -473,6 +473,17 @@ public class MockAccountManagerImpl extends ManagerBase implements Manager, Acco
     public void checkApiAccess(Account account, String command) throws PermissionDeniedException {
 
     }
+
+    @Override
+    public boolean cleanupAccountDefaultProject(AccountVO account) {
+        return false;
+    }
+
+    @Override
+    public boolean cleanupUserDefaultProject(UserVO user) {
+        return false;
+    }
+
     @Override
     public void checkAccess(User user, ControlledEntity entity)
         throws PermissionDeniedException {

@@ -96,6 +96,9 @@ public class UserVO implements User, Identity, InternalIdentity {
     @Column(name = "uuid")
     private String uuid;
 
+    @Column(name = "default_project_id")
+    private Long defaultProjectId = null;
+
     @Column(name = "default")
     boolean isDefault;
 
@@ -271,6 +274,16 @@ public class UserVO implements User, Identity, InternalIdentity {
     @Override
     public void setTimezone(String timezone) {
         this.timezone = timezone;
+    }
+
+    @Override
+    public Long getDefaultProjectId() {
+        return defaultProjectId;
+    }
+
+    @Override
+    public void setDefaultProjectId(Long defaultProjectId) {
+        this.defaultProjectId = defaultProjectId;
     }
 
     @Override

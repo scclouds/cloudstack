@@ -88,6 +88,10 @@ public interface Account extends ControlledEntity, InternalIdentity, Identity {
 
     public Long getDefaultZoneId();
 
+    Long getDefaultProjectId();
+
+    void setDefaultProjectId(Long defaultProjectId);
+
     @Override
     public String getUuid();
 

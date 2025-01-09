@@ -39,6 +39,7 @@ public class UserDaoImpl extends GenericDaoBase<UserVO, Long> implements UserDao
     protected SearchBuilder<UserVO> AccountIdSearch;
     protected SearchBuilder<UserVO> SecretKeySearch;
     protected SearchBuilder<UserVO> RegistrationTokenSearch;
+    protected SearchBuilder<UserVO> UserByDefaultProjectSearch;
 
     @Inject
     private AccountDao accountDao;
@@ -72,6 +73,10 @@ public class UserDaoImpl extends GenericDaoBase<UserVO, Long> implements UserDao
         RegistrationTokenSearch = createSearchBuilder();
         RegistrationTokenSearch.and("registrationToken", RegistrationTokenSearch.entity().getRegistrationToken(), SearchCriteria.Op.EQ);
         RegistrationTokenSearch.done();
+
+        UserByDefaultProjectSearch = createSearchBuilder();
+        UserByDefaultProjectSearch.and("defaultProjectId", UserByDefaultProjectSearch.entity().getDefaultProjectId(), SearchCriteria.Op.EQ);
+        UserByDefaultProjectSearch.done();
     }
 
     @Override
@@ -140,6 +145,13 @@ public class UserDaoImpl extends GenericDaoBase<UserVO, Long> implements UserDao
         SearchCriteria<UserVO> sc = UsernameSearch.create();
         sc.setParameters("username", username);
         return listBy(sc);
+    }
+
+    @Override
+    public List<UserVO> findUsersByDefaultProject(Long defaultProjectId) {
+        SearchCriteria<UserVO> sc = UserByDefaultProjectSearch.create();
+        sc.setParameters("defaultProjectId", defaultProjectId);
+        return listBy(sc, null);
     }
 
 }
