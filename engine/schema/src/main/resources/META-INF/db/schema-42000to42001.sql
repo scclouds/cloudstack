@@ -104,6 +104,23 @@ FROM
 GROUP BY
   rp.role_id;
 
+-- PR #6589 - [Veeam] disable jobs but keep backups
+
+-- Populate column backed_volumes in table backups with a GSON
+-- formed by concatenating the UUID, type, size, path and deviceId
+-- of the volumes of VMs that have some backup offering.
+-- Required for the restore process of a backup using Veeam
+-- The Gson result can be in one of this formats:
+-- When VM has only ROOT disk: [{"uuid":"<uuid>","type":"<type>","size":<size>,"path":"<path>","deviceId":<deviceId>}]
+-- When VM has more than one disk: [{"uuid":"<uuid>","type":"<type>","size":<size>,"path":"<path>","deviceId":<deviceId>}, {"uuid":"<uuid>","type":"<type>","size":<size>,"path":"<path>","deviceId":<deviceId>}, <>]
+UPDATE `cloud`.`backups` b INNER JOIN `cloud`.`vm_instance` vm ON b.vm_id = vm.id SET b.backed_volumes = (SELECT CONCAT("[", GROUP_CONCAT( CONCAT("{\"uuid\":\"", v.uuid, "\",\"type\":\"", v.volume_type, "\",\"size\":", v.`size`, ",\"path\":\"", v.path, "\",\"deviceId\":", v.device_id, "}") SEPARATOR ","), "]") FROM `cloud`.`volumes` v WHERE v.instance_id = vm.id);
+
+CALL `cloud`.`IDEMPOTENT_ADD_COLUMN`('cloud.vm_instance', 'backup_name', 'varchar(255) NULL COMMENT "backup job name when using Veeam provider"');
+
+UPDATE `cloud`.`vm_instance` vm INNER JOIN `cloud`.`backup_offering` bo ON vm.backup_offering_id = bo.id SET vm.backup_name = CONCAT(vm.instance_name, "-CSBKP-", vm.uuid);
+
+--
+
 --- KVM Incremental Snapshots
 CALL `cloud`.`IDEMPOTENT_ADD_COLUMN`('cloud.snapshot_store_ref', 'kvm_checkpoint_path', 'varchar(255)');
 

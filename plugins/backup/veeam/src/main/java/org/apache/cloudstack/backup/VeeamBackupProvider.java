@@ -53,6 +53,7 @@ import com.cloud.hypervisor.vmware.VmwareDatacenterZoneMap;
 import com.cloud.dc.dao.VmwareDatacenterDao;
 import com.cloud.hypervisor.vmware.dao.VmwareDatacenterZoneMapDao;
 import com.cloud.user.User;
+import com.cloud.storage.dao.VolumeDao;
 import com.cloud.utils.Pair;
 import com.cloud.utils.component.AdapterBase;
 import com.cloud.utils.db.Transaction;
@@ -111,6 +112,8 @@ public class VeeamBackupProvider extends AdapterBase implements BackupProvider, 
     private AgentManager agentMgr;
     @Inject
     private VirtualMachineManager virtualMachineManager;
+    @Inject
+    private VolumeDao volumeDao;
 
     protected VeeamClient getClient(final Long zoneId) {
         try {
@@ -188,6 +191,7 @@ public class VeeamBackupProvider extends AdapterBase implements BackupProvider, 
                 final VmwareDatacenter vmwareDC = findVmwareDatacenterForVM(vm);
                 if (client.addVMToVeeamJob(job.getExternalId(), vm.getInstanceName(), vmwareDC.getVcenterHost())) {
                     ((VMInstanceVO) vm).setBackupExternalId(job.getExternalId());
+                    ((VMInstanceVO) vm).setBackupName(clonedJobName);
                     return true;
                 }
             }
@@ -196,21 +200,22 @@ public class VeeamBackupProvider extends AdapterBase implements BackupProvider, 
     }
 
     @Override
-    public boolean removeVMFromBackupOffering(final VirtualMachine vm) {
+    public boolean removeVMFromBackupOffering(final VirtualMachine vm, boolean removeBackups) {
         final VeeamClient client = getClient(vm.getDataCenterId());
         final VmwareDatacenter vmwareDC = findVmwareDatacenterForVM(vm);
-        try {
-            if (!client.removeVMFromVeeamJob(vm.getBackupExternalId(), vm.getInstanceName(), vmwareDC.getVcenterHost())) {
-                logger.warn("Failed to remove VM from Veeam Job id: " + vm.getBackupExternalId());
-            }
-        } catch (Exception e) {
-            logger.debug("VM was removed from the job so could not remove again, trying to delete the veeam job now.", e);
+
+        final String clonedJobName = vm.getBackupName();
+        boolean result = false;
+
+        if (removeBackups) {
+            result = client.deleteJobAndBackup(clonedJobName);
+        } else {
+            result = client.disableJob(clonedJobName);
         }
 
-        final String clonedJobName = getGuestBackupName(vm.getInstanceName(), vm.getUuid());
-        if (!client.deleteJobAndBackup(clonedJobName)) {
-            logger.warn("Failed to remove Veeam job and backup for job: " + clonedJobName);
-            throw new CloudRuntimeException("Failed to delete Veeam B&R job and backup, an operation may be in progress. Please try again after some time.");
+        if (!result) {
+            logger.warn("Failed to remove Veeam {} for job: [name: {}].", removeBackups ? "job and backup" : "job", clonedJobName);
+            throw new CloudRuntimeException("Failed to delete Veeam B&R job, an operation may be in progress. Please try again after some time.");
         }
         client.syncBackupRepository();
         return true;
@@ -325,8 +330,7 @@ public class VeeamBackupProvider extends AdapterBase implements BackupProvider, 
     }
 
     private List<Backup.RestorePoint> listRestorePoints(VirtualMachine vm) {
-        String backupName = getGuestBackupName(vm.getInstanceName(), vm.getUuid());
-        return getClient(vm.getDataCenterId()).listRestorePoints(backupName, vm.getInstanceName());
+        return getClient(vm.getDataCenterId()).listRestorePoints(vm.getBackupName(), vm.getInstanceName());
     }
 
     private Backup checkAndUpdateIfBackupEntryExistsForRestorePoint(List<Backup> backupsInDb, Backup.RestorePoint restorePoint, Backup.Metric metric) {
@@ -371,6 +375,7 @@ public class VeeamBackupProvider extends AdapterBase implements BackupProvider, 
                         backup.setExternalId(restorePoint.getId());
                         backup.setType(restorePoint.getType());
                         backup.setDate(restorePoint.getCreated());
+                        backup.setBackedUpVolumes(BackupManagerImpl.createVolumeInfoFromVolumes(volumeDao.findByInstance(vm.getId())));
                         backup.setStatus(Backup.Status.BackedUp);
                         if (metric != null) {
                             backup.setSize(metric.getBackupSize());
