@@ -17,11 +17,15 @@
 
 package org.apache.cloudstack.quota.activationrule.presetvariables;
 
+import com.google.gson.Gson;
 import org.apache.cloudstack.utils.reflectiontostringbuilderutils.ReflectionToStringBuilderUtils;
 import org.junit.Assert;
 import org.junit.Test;
 import org.junit.runner.RunWith;
+import org.mockito.Mockito;
 import org.mockito.junit.MockitoJUnitRunner;
+
+import java.lang.reflect.Field;
 
 @RunWith(MockitoJUnitRunner.class)
 public class GenericPresetVariableTest {
@@ -69,5 +73,35 @@ public class GenericPresetVariableTest {
         result = variable.toString();
 
         Assert.assertEquals(expected, result);
+    }
+
+    @Test
+    public void includeFieldInToStringIfNotNullAndNonTransientTestDoNothingWhenFieldIsNull() throws IllegalAccessException, NoSuchFieldException {
+        GenericPresetVariable gpv = new Gson().fromJson("{}", GenericPresetVariable.class);
+        Field field = gpv.getClass().getDeclaredField("id");
+
+        gpv.includeFieldInToStringIfNotNullAndNonTransient(field);
+
+        Assert.assertTrue(gpv.fieldNamesToIncludeInToString.isEmpty());
+    }
+
+    @Test
+    public void includeFieldInToStringIfNotNullAndNonTransientTestIncludeFieldInToStringWhenFieldIsNotNull() throws IllegalAccessException, NoSuchFieldException {
+        GenericPresetVariable gpv = new Gson().fromJson("{id: \"test\"}", GenericPresetVariable.class);
+        Field field = gpv.getClass().getDeclaredField("id");
+
+        gpv.includeFieldInToStringIfNotNullAndNonTransient(field);
+
+        Assert.assertArrayEquals(new String[]{"id"}, gpv.fieldNamesToIncludeInToString.toArray());
+    }
+
+    @Test
+    public void includeAllNotNullAndNonTransientFieldsInToStringTestIncludeAllFields() throws IllegalAccessException {
+        Host hostSpy = Mockito.spy(Host.class);
+        int qtFields = hostSpy.getClass().getDeclaredFields().length + hostSpy.getClass().getSuperclass().getDeclaredFields().length;
+
+        hostSpy.includeAllNotNullAndNonTransientFieldsInToString();
+
+        Mockito.verify(hostSpy, Mockito.times(qtFields)).includeFieldInToStringIfNotNullAndNonTransient(Mockito.any());
     }
 }

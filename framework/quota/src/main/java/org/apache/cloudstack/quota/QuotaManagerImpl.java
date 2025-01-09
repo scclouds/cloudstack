@@ -16,8 +16,12 @@
 //under the License.
 package org.apache.cloudstack.quota;
 
+import java.lang.reflect.Field;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.time.LocalDate;
+import java.time.Month;
+import java.time.YearMonth;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Comparator;
@@ -27,6 +31,7 @@ import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.TimeZone;
 import java.util.stream.Collectors;
 
@@ -57,6 +62,7 @@ import org.apache.cloudstack.quota.vo.QuotaBalanceVO;
 import org.apache.cloudstack.quota.vo.QuotaTariffVO;
 import org.apache.cloudstack.quota.vo.QuotaUsageDetailVO;
 import org.apache.cloudstack.quota.vo.QuotaUsageVO;
+import org.apache.cloudstack.quota.vo.ResourcesToQuoteVO;
 import org.apache.cloudstack.usage.UsageUnitTypes;
 import org.apache.cloudstack.utils.bytescale.ByteScaleUtils;
 import org.apache.cloudstack.utils.jsinterpreter.JsInterpreter;
@@ -156,7 +162,7 @@ public class QuotaManagerImpl extends ManagerBase implements QuotaManager {
     }
 
     protected void processQuotaBalanceForAccount(AccountVO accountVo, List<QuotaUsageVO> accountQuotaUsages) {
-        String accountToString = accountVo.reflectionToString();
+        String accountToString = accountVo.toString();
 
         if (CollectionUtils.isEmpty(accountQuotaUsages)) {
             logger.info(String.format("Account [%s] does not have quota usages to process. Skipping it.", accountToString));
@@ -289,7 +295,7 @@ public class QuotaManagerImpl extends ManagerBase implements QuotaManager {
             List<UsageVO> usageRecords = getPendingUsageRecordsForQuotaAggregation(account);
 
             if (usageRecords == null) {
-                logger.debug(String.format("Account [%s] does not have pending usage records. Skipping to next account.", account.reflectionToString()));
+                logger.debug(String.format("Account [%s] does not have pending usage records. Skipping to next account.", account.toString()));
                 continue;
             }
 
@@ -312,15 +318,14 @@ public class QuotaManagerImpl extends ManagerBase implements QuotaManager {
         if (CollectionUtils.isEmpty(records)) {
             return null;
         }
-
-        logger.debug(String.format("Retrieved [%s] pending usage records for account [%s].", usageRecords.second(), account.reflectionToString()));
+        logger.debug(String.format("Retrieved [%s] pending usage records for account [%s].", usageRecords.second(), account.toString()));
 
         return records;
     }
 
     protected List<QuotaUsageVO> createQuotaUsagesAccordingToQuotaTariffs(AccountVO account, List<UsageVO> usageRecords,
             Map<Integer, Pair<List<QuotaTariffVO>, Boolean>> mapQuotaTariffsPerUsageType) {
-        String accountToString = account.reflectionToString();
+        String accountToString = account.toString();
         logger.info("Calculating quota usage of [{}] usage records for account [{}].", usageRecords.size(), accountToString);
 
         Map<UsageVO, Pair<QuotaUsageVO, List<QuotaUsageDetailVO>>> mapUsageAndQuotaUsage = new LinkedHashMap<>();
@@ -369,7 +374,7 @@ public class QuotaManagerImpl extends ManagerBase implements QuotaManager {
         boolean calculateUsageRecord = findConfigurationValue(accountVO, QuotaConfig.QuotaAccountEnabled);
         if (!calculateUsageRecord && usageRecord != null) {
             logger.debug("Considering usage record [{}] as calculated and skipping it because account [{}] has the quota plugin disabled.",
-                    usageRecord.toString(usageAggregationTimeZone), accountVO.reflectionToString());
+                    usageRecord.toString(usageAggregationTimeZone), accountVO.toString());
             return false;
         }
         return calculateUsageRecord;
@@ -522,8 +527,13 @@ public class QuotaManagerImpl extends ManagerBase implements QuotaManager {
         String scriptResult = jsInterpreter.executeScript(activationRule).toString();
 
         if (NumberUtils.isParsable(scriptResult)) {
-            logger.debug(String.format("The script [%s] of quota tariff [%s] had a numeric value [%s], therefore we will use it in the calculation.", activationRule,
+            if (logger.isTraceEnabled()) {
+                logger.trace(String.format("The activation rule [%s] of quota tariff [%s] resulted in a numeric value [%s], therefore we will use it in the calculation.",
+                    activationRule, quotaTariffToString, scriptResult));
+            } else {
+                logger.debug(String.format("The activation rule of quota tariff [%s] resulted in a numeric value [%s], therefore we will use it in the calculation.",
                     quotaTariffToString, scriptResult));
+            }
 
             return new BigDecimal(scriptResult);
         }
@@ -531,12 +541,26 @@ public class QuotaManagerImpl extends ManagerBase implements QuotaManager {
         if (BooleanUtils.toBoolean(scriptResult)) {
             logger.debug(String.format("The script [%s] of quota tariff [%s] had a true boolean result, therefore we will use the quota tariff's value [%s] in the calculation.",
                     activationRule, quotaTariffToString, quotaTariffValue));
+            if (logger.isTraceEnabled()) {
+                logger.trace(String.format("The activation rule [%s] of quota tariff [%s] had a true boolean result, therefore we will use the quota tariff's value [%s] in " +
+                        "the calculation.", activationRule, quotaTariffToString, quotaTariffValue));
+            } else {
+                logger.debug(String.format("The activation rule of quota tariff [%s] had a true boolean result, therefore we will use the quota tariff's value [%s] in the " +
+                        "calculation.", quotaTariffToString, quotaTariffValue));
+            }
 
             return quotaTariffValue;
         }
 
         logger.debug(String.format("The script [%s] of quota tariff [%s] had the result [%s], therefore we will not use this quota tariff in the calculation.", activationRule,
                 quotaTariffToString, quotaTariffValue));
+        if (logger.isTraceEnabled()) {
+            logger.trace(String.format("The activation rule [%s] of quota tariff [%s] resulted in [%s], therefore we will not use this quota tariff in the calculation.",
+                    activationRule, quotaTariffToString, quotaTariffValue));
+        } else {
+            logger.debug(String.format("The activation rule of quota tariff [%s] resulted in [%s], therefore we will not use this quota tariff in the calculation.",
+                    quotaTariffToString, quotaTariffValue));
+        }
 
         return BigDecimal.ZERO;
     }
@@ -545,25 +569,32 @@ public class QuotaManagerImpl extends ManagerBase implements QuotaManager {
      * Injects the preset variables into the JS interpreter.
      */
     protected void injectPresetVariablesIntoJsInterpreter(JsInterpreter jsInterpreter, PresetVariables presetVariables) {
-        jsInterpreter.discardCurrentVariables();
-
-        jsInterpreter.injectVariable("account", presetVariables.getAccount().toString());
-        jsInterpreter.injectVariable("domain", presetVariables.getDomain().toString());
-
-        GenericPresetVariable project = presetVariables.getProject();
-        if (project != null) {
-            jsInterpreter.injectVariable("project", project.toString());
-
+        if (presetVariables == null) {
+            logger.trace("Not injecting variables into the JS interpreter because the presetVariables is null.");
+            return;
         }
 
+        jsInterpreter.discardCurrentVariables();
+
+        injectPresetVariableToStringIfItIsNotNull(jsInterpreter, "account", presetVariables.getAccount());
+        injectPresetVariableToStringIfItIsNotNull(jsInterpreter, "domain", presetVariables.getDomain());
+        injectPresetVariableToStringIfItIsNotNull(jsInterpreter, "project", presetVariables.getProject());
         Configuration configuration = presetVariables.getConfiguration();
         if (configuration != null) {
             jsInterpreter.injectVariable("configuration", configuration.toString());
         }
-
         jsInterpreter.injectStringVariable("resourceType", presetVariables.getResourceType());
-        jsInterpreter.injectVariable("value", presetVariables.getValue().toString());
-        jsInterpreter.injectVariable("zone", presetVariables.getZone().toString());
+        injectPresetVariableToStringIfItIsNotNull(jsInterpreter, "value", presetVariables.getValue());
+        injectPresetVariableToStringIfItIsNotNull(jsInterpreter, "zone", presetVariables.getZone());
+    }
+
+    protected void injectPresetVariableToStringIfItIsNotNull(JsInterpreter jsInterpreter, String variableName, GenericPresetVariable presetVariable) {
+        if (presetVariable == null) {
+            logger.trace(String.format("Not injecting variable [%s] into the JS interpreter because it is null.", variableName));
+            return;
+        }
+
+        jsInterpreter.injectVariable(variableName, presetVariable.toString());
     }
 
     /**
@@ -589,7 +620,20 @@ public class QuotaManagerImpl extends ManagerBase implements QuotaManager {
     }
 
     protected Map<Integer, Pair<List<QuotaTariffVO>, Boolean>> createMapQuotaTariffsPerUsageType() {
-        List<QuotaTariffVO> quotaTariffs = _quotaTariffDao.listQuotaTariffs(null, null, null, null, null, false, null, null).first();
+        return createMapQuotaTariffsPerUsageType(null);
+    }
+
+    @Override
+    public Map<Integer, Pair<List<QuotaTariffVO>, Boolean>> createMapQuotaTariffsPerUsageType(Set<Integer> usageTypes) {
+        if (usageTypes == null) {
+            logger.trace("Retrieving all active quota tariffs.");
+        } else {
+            logger.trace(String.format("Retrieving active quota tariffs for the following usage types: %s.", usageTypes));
+        }
+
+        List<QuotaTariffVO> quotaTariffs = _quotaTariffDao.listQuotaTariffs(null, null, usageTypes, null, null, false, false, null, null).first();
+
+        logger.trace(String.format("Retrieved [%s] quota tariffs [%s].", quotaTariffs.size(), quotaTariffs));
 
         Map<Integer, Pair<List<QuotaTariffVO>, Boolean>> mapQuotaTariffsPerUsageType = new HashMap<>();
 
@@ -602,6 +646,7 @@ public class QuotaManagerImpl extends ManagerBase implements QuotaManager {
             mapQuotaTariffsPerUsageType.put(quotaType, new Pair<>(quotaTariffsFiltered, hasAnyQuotaTariffWithActivationRule));
         }
 
+        logger.trace(String.format("Created a Map of quota tariffs per usage type [%s].", mapQuotaTariffsPerUsageType));
         return mapQuotaTariffsPerUsageType;
     }
 
@@ -667,8 +712,17 @@ public class QuotaManagerImpl extends ManagerBase implements QuotaManager {
 
     protected BigDecimal getCostPerHour(BigDecimal costPerMonth, Date date) {
         BigDecimal hoursInCurrentMonth = BigDecimal.valueOf(DateUtil.getHoursInCurrentMonth(date));
-        logger.trace(String.format("Dividing tariff cost per month [%s] by [%s] to get the tariffs cost per hour.", costPerMonth, hoursInCurrentMonth));
+        logger.trace("Dividing tariff cost per month [{}] by [{}] to get the tariffs cost per hour.", costPerMonth, hoursInCurrentMonth);
         return costPerMonth.divide(hoursInCurrentMonth, 8, RoundingMode.HALF_EVEN);
+    }
+
+
+    protected void setHoursInCurrentMonth() {
+        LocalDate currentDate = LocalDate.now();
+        Month currentMonth = currentDate.getMonth();
+        int hoursInMonth = YearMonth.of(currentDate.getYear(), currentMonth).lengthOfMonth() * 24;
+        hoursInCurrentMonth = new BigDecimal(hoursInMonth);
+        logger.debug(String.format("Considering [%s] as the total hours in the current month [%s] for the Quota calculation.", hoursInCurrentMonth, currentMonth));
     }
 
     @Override
@@ -676,4 +730,154 @@ public class QuotaManagerImpl extends ManagerBase implements QuotaManager {
         return lockablesAccountTypes.contains(account.getType());
     }
 
+    /**
+     * Calculate the resource's value according to the current Quota tariffs and volume to quote.
+     */
+    @Override
+    public BigDecimal getResourceRating(JsInterpreter jsInterpreter, ResourcesToQuoteVO resourceToQuote, List<QuotaTariffVO> tariffs, QuotaTypes quotaTypeObject, Date now)
+            throws IllegalAccessException {
+        PresetVariables metadata = resourceToQuote.getMetadata();
+        String quoteId = resourceToQuote.getId();
+        logger.trace(String.format("Handling quoting [%s] metadata fields presence to guarantee they will be injected correctly into the JS interpreter.", quoteId));
+
+        if (metadata == null) {
+            logger.trace(String.format("Quoting [%s] metadata is null. Skipping field presence handling.", quoteId));
+        } else {
+            handleFieldsPresenceInPresetVariableClasses(metadata, quoteId, "metadata");
+        }
+
+        BigDecimal tariffsCost = BigDecimal.ZERO;
+        List<Tariff> lastTariffs = new ArrayList<>();
+        for (QuotaTariffVO tariff : tariffs) {
+            logger.trace(String.format("Processing tariff [%s] for quoting [%s].", tariff, quoteId));
+            BigDecimal tariffValue = getQuotaTariffValueToBeApplied(tariff, jsInterpreter, metadata, lastTariffs);
+
+            logger.trace(String.format("Tariff [%s] for quoting [%s] resulted in the cost per month [%s]. Adding it to the tariffs cost aggregator.", tariff, quoteId,
+                    tariffValue));
+
+            tariffsCost = tariffsCost.add(tariffValue);
+
+            Tariff tariffPresetVariable = new Tariff();
+            tariffPresetVariable.setId(tariff.getUuid());
+            tariffPresetVariable.setValue(tariffValue);
+            lastTariffs.add(tariffPresetVariable);
+        }
+
+        BigDecimal volumeToQuote = new BigDecimal(resourceToQuote.getVolumeToQuote());
+
+        if (UsageUnitTypes.getByDescription(quotaTypeObject.getQuotaUnit()) == UsageUnitTypes.GB) {
+            logger.debug(String.format("Multiplying the final tariffs [%s] by the volume to be quoted [%s] for quoting [%s].", tariffsCost, volumeToQuote, quoteId));
+            return tariffsCost.multiply(volumeToQuote);
+        }
+
+        BigDecimal tariffsCostPerHour = getCostPerHour(tariffsCost, now);
+        logger.debug(String.format("Multiplying the final tariffs cost per hour [%s] by the volume to be quoted [%s] for quoting [%s].", tariffsCostPerHour, volumeToQuote,
+                quoteId));
+
+        return tariffsCostPerHour.multiply(volumeToQuote);
+    }
+
+    @Override
+    public Map<Integer, List<QuotaTariffVO>> getValidTariffsForQuoting(Map<Integer, Pair<List<QuotaTariffVO>, Boolean>> allTariffsOfTheInformedTypes) {
+        Date now = new Date();
+        String nowAsString = DateUtil.getOutputString(now);
+        Map<Integer, List<QuotaTariffVO>> result = new HashMap<>();
+
+        logger.debug("Filtering quota tariffs and creating a Map of valid tariffs per usage type.");
+        for (Map.Entry<Integer, Pair<List<QuotaTariffVO>, Boolean>> entry : allTariffsOfTheInformedTypes.entrySet()) {
+            Pair<QuotaTypes, List<QuotaTariffVO>> pairUsageTypeAndTariffs = getValidTariffsByUsageType(now, nowAsString, entry.getKey(), entry.getValue().first());
+            if (pairUsageTypeAndTariffs != null) {
+                QuotaTypes quotaType = pairUsageTypeAndTariffs.first();
+                List<QuotaTariffVO> filteredTariffs = pairUsageTypeAndTariffs.second();
+
+                logger.trace(String.format("Adding usage type [%s] and tariffs [%s] to the map of valid tariffs.", quotaType, filteredTariffs));
+                result.put(quotaType.getQuotaType(), filteredTariffs);
+            }
+        }
+
+        logger.debug(String.format("After filtering the tariffs we have the following map as result: [%s].", result));
+        return result;
+    }
+
+    protected Pair<QuotaTypes, List<QuotaTariffVO>> getValidTariffsByUsageType(Date now, String nowAsString, Integer usageType, List<QuotaTariffVO> tariffs) {
+        QuotaTypes quotaType = QuotaTypes.getQuotaType(usageType);
+
+        if (CollectionUtils.isEmpty(tariffs)) {
+            logger.debug(String.format("Usage type [%s] does not have quota tariffs to be processed. We will not put it in the tariffs map.",
+                    quotaType));
+            return null;
+        }
+
+        logger.debug(String.format("Filtering tariffs that have the start date before [%s] and the end date null or after [%s].", nowAsString, nowAsString));
+        List<QuotaTariffVO> filteredTariffs = tariffs.stream().filter(tariff -> isTariffValidForTheCurrentDatetime(now, nowAsString, tariff)).collect(Collectors.toList());
+
+        if (CollectionUtils.isEmpty(filteredTariffs)) {
+            logger.debug(String.format("After filtering tariffs that have the start date before [%s] and the end date null or after [%s], no tariff remained. Therefore, we" +
+                    " will not put the usage type [%s] in the tariffs map.", nowAsString, nowAsString, quotaType));
+            return null;
+        }
+
+        return new Pair<>(quotaType, filteredTariffs);
+    }
+
+    protected boolean isTariffValidForTheCurrentDatetime(Date now, String nowAsString, QuotaTariffVO tariff) {
+        Date startDate = tariff.getEffectiveOn();
+        if (startDate.after(now)) {
+            logger.trace(String.format("Ignoring Quota tariff [%s] because it will start [%s] after [%s] (now).", tariff, DateUtil.getOutputString(startDate), nowAsString));
+            return false;
+        }
+
+        Date endDate = tariff.getEndDate();
+        if (endDate != null && endDate.before(now)) {
+            logger.trace(String.format("Ignoring Quota tariff [%s] because it ended [%s] is before [%s] (now).", tariff, DateUtil.getOutputString(startDate), nowAsString));
+            return false;
+        }
+
+        return true;
+    }
+
+    /**
+     * When processing quota tariffs, a JS interpreter is instantiated and some variables are injected into it. These variables are defined via the methods "set" of the object's
+     * attributes and built via object's "toString". When converting a String containing a JSON to an object, via {@link com.google.gson.Gson}, it does not use the methods "set",
+     * consequently not defining the variables. As a workaround for this situation, we created this method to pass through all the object attributes and define the variables, when
+     * appropriate. If the object's attribute is an extension of {@link GenericPresetVariable}, it will call the method
+     * {@link GenericPresetVariable#includeAllNotNullAndNonTransientFieldsInToString()}.
+     */
+    protected void handleFieldsPresenceInPresetVariableClasses(Object presetVariable, String quoteId, String metadataField) throws IllegalAccessException {
+        Field[] fields = presetVariable.getClass().getDeclaredFields();
+
+        for (Field field : fields) {
+            handleFieldPresenceInPresetVariableClasses(presetVariable, quoteId, metadataField, field);
+        }
+    }
+
+    /**
+     * When processing quota tariffs, a JS interpreter is instantiated and some variables are injected into it. These variables are defined via the methods "set" of the object's
+     * attributes and built via object's "toString". When converting a String containing a JSON to an object, via {@link com.google.gson.Gson}, it does not use the methods "set",
+     * consequently not defining the variables. As a workaround for this situation, we created this method to pass through all the object attributes and define the variables, when
+     * appropriate. If the object's attribute is an extension of {@link GenericPresetVariable}, it will call the method
+     * {@link GenericPresetVariable#includeAllNotNullAndNonTransientFieldsInToString()}.
+     */
+    protected void handleFieldPresenceInPresetVariableClasses(Object presetVariable, String quoteId, String metadataField, Field field) throws IllegalAccessException {
+        String fieldNameDotNotation = String.format("%s.%s", metadataField, field.getName());
+        Class<?> fieldClass = field.getType();
+
+        if (!GenericPresetVariable.class.isAssignableFrom(fieldClass)) {
+            logger.trace(String.format("Field [%s], in quoting [%s], is not an extension of GenericPresetVariable. Skipping field presence handling.", fieldNameDotNotation,
+                    quoteId));
+            return;
+        }
+
+        field.setAccessible(true);
+        GenericPresetVariable fieldValue = (GenericPresetVariable) field.get(presetVariable);
+        field.setAccessible(false);
+
+        if (fieldValue == null) {
+            logger.trace(String.format("Field [%s], in quoting [%s], is null. Skipping field presence handling.", fieldNameDotNotation, quoteId));
+            return;
+        }
+
+        fieldValue.includeAllNotNullAndNonTransientFieldsInToString();
+        handleFieldsPresenceInPresetVariableClasses(fieldValue, quoteId, fieldNameDotNotation);
+    }
 }

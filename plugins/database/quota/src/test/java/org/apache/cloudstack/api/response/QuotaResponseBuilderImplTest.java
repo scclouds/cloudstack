@@ -415,7 +415,7 @@ public class QuotaResponseBuilderImplTest extends TestCase {
     @Test
     public void getNewQuotaTariffObjectTestCreateFromCurrentQuotaTariff() throws Exception {
         try (MockedConstruction<QuotaTariffVO> quotaTariffVOMockedConstruction = Mockito.mockConstruction(QuotaTariffVO.class, (mock,
-                                                                                                        context) -> {
+                                                                                                                                context) -> {
         })) {
             QuotaTariffVO result = quotaResponseBuilderSpy.getNewQuotaTariffObject(quotaTariffVoMock, "", 0);
             Assert.assertEquals(quotaTariffVOMockedConstruction.constructed().get(0), result);

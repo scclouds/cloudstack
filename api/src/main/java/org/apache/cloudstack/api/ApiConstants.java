@@ -424,6 +424,7 @@ public class ApiConstants {
     public static final String RESOURCE_NAME = "resourcename";
     public static final String RESOURCE_TYPE = "resourcetype";
     public static final String RESOURCE_TYPE_NAME = "resourcetypename";
+    public static final String RESOURCES_TO_QUOTE = "resourcestoquote";
     public static final String RESPONSE = "response";
     public static final String RETRIEVE_ONLY_RESOURCE_COUNT = "retrieveonlyresourcecount";
     public static final String REVERTABLE = "revertable";
