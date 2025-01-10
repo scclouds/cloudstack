@@ -17,19 +17,14 @@
 package org.apache.cloudstack.api.command;
 
 import com.cloud.user.Account;
-import com.cloud.utils.Pair;
 
 import org.apache.cloudstack.api.APICommand;
 import org.apache.cloudstack.api.ApiConstants;
 import org.apache.cloudstack.api.BaseListCmd;
 import org.apache.cloudstack.api.Parameter;
 import org.apache.cloudstack.api.response.DomainResponse;
-import org.apache.cloudstack.api.response.ListResponse;
 import org.apache.cloudstack.api.response.QuotaResponseBuilder;
 import org.apache.cloudstack.api.response.QuotaSummaryResponse;
-import org.apache.cloudstack.context.CallContext;
-
-import java.util.List;
 
 import javax.inject.Inject;
 
@@ -54,20 +49,7 @@ public class QuotaSummaryCmd extends BaseListCmd {
 
     @Override
     public void execute() {
-        Account caller = CallContext.current().getCallingAccount();
-        Pair<List<QuotaSummaryResponse>, Integer> responses;
-        if (caller.getType() == Account.Type.ADMIN) {
-            if (getAccountName() != null && getDomainId() != null)
-                responses = _responseBuilder.createQuotaSummaryResponse(getAccountName(), getDomainId());
-            else
-                responses = _responseBuilder.createQuotaSummaryResponse(isListAll(), getKeyword(), getStartIndex(), getPageSizeVal());
-        } else {
-            responses = _responseBuilder.createQuotaSummaryResponse(caller.getAccountName(), caller.getDomainId());
-        }
-        final ListResponse<QuotaSummaryResponse> response = new ListResponse<QuotaSummaryResponse>();
-        response.setResponses(responses.first(), responses.second());
-        response.setResponseName(getCommandName());
-        setResponseObject(response);
+        // TODO: Implementar na refatoração do quotaSummary
     }
 
     public String getAccountName() {

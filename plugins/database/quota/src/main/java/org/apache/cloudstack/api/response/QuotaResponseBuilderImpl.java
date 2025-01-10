@@ -25,17 +25,13 @@ import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.ZoneId;
 
-import java.util.Arrays;
 import java.util.ArrayList;
-import java.util.Calendar;
-import java.util.Collections;
+import java.util.Arrays;
 import java.util.Comparator;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.LinkedList;
-import java.util.Iterator;
 import java.util.List;
-import java.util.ListIterator;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
@@ -122,7 +118,7 @@ import org.apache.cloudstack.quota.vo.ResourcesToQuoteVO;
 import org.apache.cloudstack.usage.UsageTypes;
 import org.apache.cloudstack.utils.jsinterpreter.JsInterpreter;
 import org.apache.cloudstack.utils.reflectiontostringbuilderutils.ReflectionToStringBuilderUtils;
-import org.apache.commons.collections.CollectionUtils;
+import org.apache.commons.collections4.CollectionUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.reflect.FieldUtils;
 import org.apache.commons.lang3.ObjectUtils;
@@ -138,7 +134,6 @@ import com.cloud.user.AccountVO;
 import com.cloud.user.dao.AccountDao;
 import com.cloud.user.dao.UserDao;
 import com.cloud.utils.Pair;
-import com.cloud.utils.db.Filter;
 import com.cloud.event.ActionEvent;
 import com.cloud.event.EventTypes;
 
@@ -240,171 +235,31 @@ public class QuotaResponseBuilderImpl implements QuotaResponseBuilder {
     }
 
     @Override
-    public Pair<List<QuotaSummaryResponse>, Integer> createQuotaSummaryResponse(final String accountName, final Long domainId) {
-        List<QuotaSummaryResponse> result = new ArrayList<QuotaSummaryResponse>();
-
-        if (accountName != null && domainId != null) {
-            Account account = _accountDao.findActiveAccount(accountName, domainId);
-            QuotaSummaryResponse qr = getQuotaSummaryResponse(account);
-            result.add(qr);
-        }
-
-        return new Pair<>(result, result.size());
-    }
-
-    @Override
-    public Pair<List<QuotaSummaryResponse>, Integer> createQuotaSummaryResponse(Boolean listAll) {
-        return createQuotaSummaryResponse(listAll, null, null, null);
-    }
-
-    @Override
-    public Pair<List<QuotaSummaryResponse>, Integer> createQuotaSummaryResponse(Boolean listAll, final String keyword, final Long startIndex, final Long pageSize) {
-        List<QuotaSummaryResponse> result = new ArrayList<QuotaSummaryResponse>();
-        Integer count = 0;
-        if (listAll) {
-            Filter filter = new Filter(AccountVO.class, "accountName", true, startIndex, pageSize);
-            Pair<List<AccountVO>, Integer> data = _accountDao.findAccountsLike(keyword, filter);
-            count = data.second();
-            for (final AccountVO account : data.first()) {
-                QuotaSummaryResponse qr = getQuotaSummaryResponse(account);
-                result.add(qr);
-            }
-        } else {
-            Pair<List<QuotaAccountVO>, Integer> data = quotaAccountDao.listAllQuotaAccount(startIndex, pageSize);
-            count = data.second();
-            for (final QuotaAccountVO quotaAccount : data.first()) {
-                AccountVO account = _accountDao.findById(quotaAccount.getId());
-                if (account == null) {
-                    continue;
-                }
-                QuotaSummaryResponse qr = getQuotaSummaryResponse(account);
-                result.add(qr);
-            }
-        }
-        return new Pair<>(result, count);
-    }
-
-    protected QuotaSummaryResponse getQuotaSummaryResponse(final Account account) {
-        Calendar[] period = _statement.getCurrentStatementTime();
-
-        if (account != null) {
-            QuotaSummaryResponse qr = new QuotaSummaryResponse();
-            DomainVO domain = domainDao.findById(account.getDomainId());
-            BigDecimal curBalance = _quotaBalanceDao.lastQuotaBalance(account.getAccountId(), account.getDomainId(), period[1].getTime());
-            BigDecimal quotaUsage = _quotaUsageDao.findTotalQuotaUsage(account.getAccountId(), account.getDomainId(), null, period[0].getTime(), period[1].getTime());
-
-            qr.setAccountId(account.getUuid());
-            qr.setAccountName(account.getAccountName());
-            qr.setDomainId(domain.getUuid());
-            qr.setDomainName(domain.getName());
-            qr.setBalance(curBalance);
-            qr.setQuotaUsage(quotaUsage);
-            qr.setState(account.getState());
-            qr.setStartDate(period[0].getTime());
-            qr.setEndDate(period[1].getTime());
-            qr.setCurrency(QuotaConfig.QuotaCurrencySymbol.value());
-            qr.setQuotaEnabled(QuotaConfig.QuotaAccountEnabled.valueIn(account.getId()));
-            qr.setObjectName("summary");
-            return qr;
-        } else {
-            return new QuotaSummaryResponse();
-        }
-    }
-
-    @Override
     public boolean isUserAllowedToSeeActivationRules(User user) {
         List<ApiDiscoveryResponse> apiList = (List<ApiDiscoveryResponse>) apiDiscoveryService.listApis(user, null).getResponses();
         return apiList.stream().anyMatch(response -> StringUtils.equalsAny(response.getName(), "quotaTariffCreate", "quotaTariffUpdate"));
     }
 
     @Override
-    public QuotaBalanceResponse createQuotaBalanceResponse(List<QuotaBalanceVO> quotaBalance, Date startDate, Date endDate) {
-        if (quotaBalance == null || quotaBalance.isEmpty()) {
-            throw new InvalidParameterValueException("The request period does not contain balance entries.");
-        }
-        Collections.sort(quotaBalance, new Comparator<QuotaBalanceVO>() {
-            @Override
-            public int compare(QuotaBalanceVO o1, QuotaBalanceVO o2) {
-                o1 = o1 == null ? new QuotaBalanceVO() : o1;
-                o2 = o2 == null ? new QuotaBalanceVO() : o2;
-                return o2.getUpdatedOn().compareTo(o1.getUpdatedOn()); // desc
-            }
-        });
+    public QuotaBalanceResponse createQuotaBalanceResponse(QuotaBalanceCmd cmd) {
+        List<QuotaBalanceVO> quotaBalances = _quotaService.listQuotaBalancesForAccount(cmd.getAccountId(), cmd.getAccountName(), cmd.getDomainId(), cmd.getStartDate(), cmd.getEndDate());
 
-        boolean have_balance_entries = false;
-        //check that there is at least one balance entry
-        for (Iterator<QuotaBalanceVO> it = quotaBalance.iterator(); it.hasNext();) {
-            QuotaBalanceVO entry = it.next();
-            if (entry.isBalanceEntry()) {
-                have_balance_entries = true;
-                break;
-            }
-        }
-        //if last entry is a credit deposit then remove that as that is already
-        //accounted for in the starting balance after that entry, note the sort is desc
-        if (have_balance_entries) {
-            ListIterator<QuotaBalanceVO> li = quotaBalance.listIterator(quotaBalance.size());
-            // Iterate in reverse.
-            while (li.hasPrevious()) {
-                QuotaBalanceVO entry = li.previous();
-                if (logger.isDebugEnabled()) {
-                    logger.debug("createQuotaBalanceResponse: Entry=" + entry);
-                }
-                if (entry.getCreditsId() > 0) {
-                    li.remove();
-                } else {
-                    break;
-                }
-            }
+        if (CollectionUtils.isEmpty(quotaBalances)) {
+            throw new InvalidParameterValueException(String.format("There are no quota balances for the parameters [%s].",
+                    ReflectionToStringBuilderUtils.reflectOnlySelectedFields(cmd, "accountId", "accountName", "domainId", "startDate", "endDate")));
         }
 
-        int quota_activity = quotaBalance.size();
-        QuotaBalanceResponse resp = new QuotaBalanceResponse();
-        BigDecimal lastCredits = new BigDecimal(0);
-        boolean consecutive = true;
-        for (Iterator<QuotaBalanceVO> it = quotaBalance.iterator(); it.hasNext();) {
-            QuotaBalanceVO entry = it.next();
-            if (logger.isDebugEnabled()) {
-                logger.debug("createQuotaBalanceResponse: All Credit Entry=" + entry);
-            }
-            if (entry.getCreditsId() > 0) {
-                if (consecutive) {
-                    lastCredits = lastCredits.add(entry.getCreditBalance());
-                }
-                resp.addCredits(entry);
-                it.remove();
-            } else {
-                consecutive = false;
-            }
-        }
+        List<QuotaBalanceResponse> balances =
+                quotaBalances
+                        .stream()
+                        .map(balance -> new QuotaBalanceResponse(balance.getUpdatedOn(), balance.getCreditBalance()))
+                        .collect(Collectors.toList());
 
-        if (quota_activity > 0 && quotaBalance.size() > 0) {
-            // order is desc last item is the start item
-            QuotaBalanceVO startItem = quotaBalance.get(quotaBalance.size() - 1);
-            QuotaBalanceVO endItem = quotaBalance.get(0);
-            resp.setStartDate(startDate);
-            resp.setStartQuota(startItem.getCreditBalance());
-            resp.setEndDate(endDate);
-            if (logger.isDebugEnabled()) {
-                logger.debug("createQuotaBalanceResponse: Start Entry=" + startItem);
-                logger.debug("createQuotaBalanceResponse: End Entry=" + endItem);
-            }
-            resp.setEndQuota(endItem.getCreditBalance().add(lastCredits));
-        } else if (quota_activity > 0) {
-            // order is desc last item is the start item
-            resp.setStartDate(startDate);
-            resp.setStartQuota(new BigDecimal(0));
-            resp.setEndDate(endDate);
-            resp.setEndQuota(new BigDecimal(0).add(lastCredits));
-        } else {
-            resp.setStartDate(startDate);
-            resp.setEndDate(endDate);
-            resp.setStartQuota(new BigDecimal(0));
-            resp.setEndQuota(new BigDecimal(0));
-        }
-        resp.setCurrency(QuotaConfig.QuotaCurrencySymbol.value());
-        resp.setObjectName("balance");
-        return resp;
+        QuotaBalanceResponse response = new QuotaBalanceResponse();
+        response.setCurrency(QuotaConfig.QuotaCurrencySymbol.value());
+        response.setBalances(balances);
+
+        return response;
     }
 
     @Override
@@ -740,7 +595,7 @@ public class QuotaResponseBuilderImpl implements QuotaResponseBuilder {
             throw new InvalidParameterValueException("Account does not exist with account id " + accountId);
         }
         final boolean lockAccountEnforcement = "true".equalsIgnoreCase(QuotaConfig.QuotaEnableEnforcement.value());
-        final BigDecimal currentAccountBalance = _quotaBalanceDao.lastQuotaBalance(accountId, domainId, startOfNextDay(new Date(depositedOn.getTime())));
+        final BigDecimal currentAccountBalance = _quotaBalanceDao.getLastQuotaBalance(accountId, domainId);
         logger.debug("Depositing [{}] credits on adjusted date [{}]; current balance is [{}].", amount,
                 DateUtil.displayDateInTimezone(QuotaManagerImpl.getUsageAggregationTimeZone(), depositedOn), currentAccountBalance);
         // update quota account with the balance
@@ -805,38 +660,10 @@ public class QuotaResponseBuilderImpl implements QuotaResponseBuilder {
     }
 
     @Override
-    public QuotaBalanceResponse createQuotaLastBalanceResponse(List<QuotaBalanceVO> quotaBalance, Date startDate) {
-        if (quotaBalance == null) {
-            throw new InvalidParameterValueException("There are no balance entries on or before the requested date.");
-        }
-        if (startDate == null) {
-            startDate = new Date();
-        }
-        QuotaBalanceResponse resp = new QuotaBalanceResponse();
-        BigDecimal lastCredits = new BigDecimal(0);
-        for (QuotaBalanceVO entry : quotaBalance) {
-            logger.debug("createQuotaLastBalanceResponse Date={} balance={} credit={}",
-                    DateUtil.displayDateInTimezone(QuotaManagerImpl.getUsageAggregationTimeZone(), entry.getUpdatedOn()),
-                    entry.getCreditBalance(), entry.getCreditsId());
-
-            lastCredits = lastCredits.add(entry.getCreditBalance());
-        }
-        resp.setStartQuota(lastCredits);
-        resp.setStartDate(startDate);
-        resp.setCurrency(QuotaConfig.QuotaCurrencySymbol.value());
-        resp.setObjectName("balance");
-        return resp;
-    }
-
-    @Override
     public List<QuotaUsageJoinVO> getQuotaUsage(QuotaStatementCmd cmd) {
         return _quotaService.getQuotaUsage(cmd.getAccountId(), cmd.getAccountName(), cmd.getDomainId(), cmd.getUsageType(), cmd.getStartDate(), cmd.getEndDate());
     }
 
-    @Override
-    public List<QuotaBalanceVO> getQuotaBalance(QuotaBalanceCmd cmd) {
-        return _quotaService.findQuotaBalanceVO(cmd.getAccountId(), cmd.getAccountName(), cmd.getDomainId(), cmd.getStartDate(), cmd.getEndDate());
-    }
     @Override
     public Date startOfNextDay(Date date) {
         LocalDate localDate = date.toInstant().atZone(ZoneId.systemDefault()).toLocalDate();
