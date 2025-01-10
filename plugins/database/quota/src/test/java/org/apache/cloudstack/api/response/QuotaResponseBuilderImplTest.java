@@ -262,8 +262,8 @@ public class QuotaResponseBuilderImplTest extends TestCase {
         account.setState(Account.State.LOCKED);
         Mockito.when(accountDaoMock.findById(Mockito.anyLong())).thenReturn(account);
 
-        QuotaCreditsResponse resp = quotaResponseBuilderSpy.addQuotaCredits(accountId, domainId, amount, updatedBy, true, postingDate);
-        assertTrue(resp.getCredit().compareTo(credit.getCredit()) == 0);
+        QuotaCreditsResponse resp = quotaResponseBuilderSpy.addQuotaCredits(accountId, amount, updatedBy, true, postingDate);
+        assertEquals(0, resp.getCredit().compareTo(credit.getCredit()));
     }
 
     @Test

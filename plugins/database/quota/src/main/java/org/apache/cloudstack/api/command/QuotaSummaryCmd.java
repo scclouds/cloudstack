@@ -18,10 +18,12 @@ package org.apache.cloudstack.api.command;
 
 import com.cloud.user.Account;
 
+import org.apache.cloudstack.api.ACL;
 import org.apache.cloudstack.api.APICommand;
 import org.apache.cloudstack.api.ApiConstants;
 import org.apache.cloudstack.api.BaseListCmd;
 import org.apache.cloudstack.api.Parameter;
+import org.apache.cloudstack.api.response.AccountResponse;
 import org.apache.cloudstack.api.response.DomainResponse;
 import org.apache.cloudstack.api.response.QuotaResponseBuilder;
 import org.apache.cloudstack.api.response.QuotaSummaryResponse;
@@ -31,8 +33,13 @@ import javax.inject.Inject;
 @APICommand(name = "quotaSummary", responseObject = QuotaSummaryResponse.class, description = "Lists balance and quota usage for all accounts", since = "4.7.0", requestHasSensitiveInfo = false, responseHasSensitiveInfo = false)
 public class QuotaSummaryCmd extends BaseListCmd {
 
-    @Parameter(name = ApiConstants.ACCOUNT, type = CommandType.STRING, required = false, description = "Optional, Account Id for which statement needs to be generated")
+    @Parameter(name = ApiConstants.ACCOUNT, type = CommandType.STRING, description = "Account's name for which balance will be listed. Deprecated, please use " +
+            ApiConstants.ACCOUNT_ID + " instead.")
     private String accountName;
+
+    @ACL
+    @Parameter(name = ApiConstants.ACCOUNT_ID, type = CommandType.UUID, entityType = AccountResponse.class, description = "ID of the account for which balance will be listed.")
+    private Long accountId;
 
     @Parameter(name = ApiConstants.DOMAIN_ID, type = CommandType.UUID, required = false, entityType = DomainResponse.class, description = "Optional, If domain Id is given and the caller is domain admin then the statement is generated for domain.")
     private Long domainId;
@@ -74,6 +81,14 @@ public class QuotaSummaryCmd extends BaseListCmd {
 
     public void setListAll(Boolean listAll) {
         this.listAll = listAll;
+    }
+
+    public Long getAccountId() {
+        return accountId;
+    }
+
+    public void setAccountId(Long accountId) {
+        this.accountId = accountId;
     }
 
     @Override
