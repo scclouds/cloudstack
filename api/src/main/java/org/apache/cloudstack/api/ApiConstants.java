@@ -54,6 +54,7 @@ public class ApiConstants {
     public static final String BACKUP_ID = "backupid";
     public static final String BACKUP_OFFERING_NAME = "backupofferingname";
     public static final String BACKUP_OFFERING_ID = "backupofferingid";
+    public static final String BALANCE = "balance";
     public static final String BASE64_IMAGE = "base64image";
     public static final String BGP_PEERS = "bgppeers";
     public static final String BGP_PEER_IDS = "bgppeerids";
@@ -129,6 +130,7 @@ public class ApiConstants {
     public static final String CUSTOMIZED_IOPS = "customizediops";
     public static final String CUSTOM_ID = "customid";
     public static final String CUSTOM_JOB_ID = "customjobid";
+    public static final String CURRENCY = "currency";
     public static final String CURRENT_START_IP = "currentstartip";
     public static final String CURRENT_END_IP = "currentendip";
     public static final String ENCRYPT = "encrypt";
@@ -140,6 +142,7 @@ public class ApiConstants {
     public static final String HYPERVISOR_SNAPSHOT_RESERVE = "hypervisorsnapshotreserve";
     public static final String DATACENTER_NAME = "datacentername";
     public static final String DATADISK_OFFERING_LIST = "datadiskofferinglist";
+    public static final String DATE = "date";
     public static final String DEFAULT_VALUE = "defaultvalue";
     public static final String DEFAULT_PROJECT = "defaultproject";
     public static final String DEFAULT_PROJECT_ID = "defaultprojectid";
