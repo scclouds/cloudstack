@@ -402,10 +402,19 @@ public class SnapshotManagerImpl extends MutualExclusiveIdsManagerBase implement
 
         boolean result = snapshotStrategy.revertSnapshot(snapshotInfo);
         if (result) {
+            Long differenceBetweenVolumeAndSnapshotSize = new Long(volume.getSize() - snapshot.getSize());
             // update volume size and primary storage count
-            _resourceLimitMgr.decrementResourceCount(snapshot.getAccountId(), ResourceType.primary_storage, new Long(volume.getSize() - snapshot.getSize()));
-            volume.setSize(snapshot.getSize());
-            _volsDao.update(volume.getId(), volume);
+            if (differenceBetweenVolumeAndSnapshotSize != 0) {
+                if (differenceBetweenVolumeAndSnapshotSize > 0) {
+                    _resourceLimitMgr.decrementResourceCount(snapshot.getAccountId(), ResourceType.primary_storage, differenceBetweenVolumeAndSnapshotSize);
+                } else if (differenceBetweenVolumeAndSnapshotSize < 0) {
+                    _resourceLimitMgr.incrementResourceCount(snapshot.getAccountId(), ResourceType.primary_storage, differenceBetweenVolumeAndSnapshotSize * -1L);
+                }
+                volume.setSize(snapshot.getSize());
+                _volsDao.update(volume.getId(), volume);
+                UsageEventUtils.publishUsageEvent(EventTypes.EVENT_VOLUME_RESIZE, volume.getAccountId(), volume.getDataCenterId(), volume.getId(), volume.getName(),
+                        volume.getDiskOfferingId(), volume.getTemplateId(), volume.getSize(), Volume.class.getName(), volume.getUuid());
+            }
             endSnapshotChainForVolume(snapshot.getVolumeId(), snapshot.getHypervisorType());
             return snapshotInfo;
         }
@@ -851,30 +860,36 @@ public class SnapshotManagerImpl extends MutualExclusiveIdsManagerBase implement
         List<SnapshotDataStoreVO> snapshotStoreRefs = storeRefAndZones.first();
         List<Long> zoneIds = storeRefAndZones.second();
 
-        boolean result = snapshotStrategy.deleteSnapshot(snapshotId, zoneId);
-        if (result) {
-            for (Long zId : zoneIds) {
-                if (snapshotCheck.getState() == Snapshot.State.BackedUp) {
-                    UsageEventUtils.publishUsageEvent(EventTypes.EVENT_SNAPSHOT_DELETE, snapshotCheck.getAccountId(), zId, snapshotId,
-                            snapshotCheck.getName(), null, null, 0L, snapshotCheck.getClass().getName(), snapshotCheck.getUuid());
+        try {
+            boolean result = snapshotStrategy.deleteSnapshot(snapshotId, zoneId);
+            if (result) {
+                for (Long zId : zoneIds) {
+                    if (snapshotCheck.getState() == Snapshot.State.BackedUp) {
+                        UsageEventUtils.publishUsageEvent(EventTypes.EVENT_SNAPSHOT_DELETE, snapshotCheck.getAccountId(), zId, snapshotId,
+                                snapshotCheck.getName(), null, null, 0L, snapshotCheck.getClass().getName(), snapshotCheck.getUuid());
+                    }
                 }
-            }
-            final SnapshotVO postDeleteSnapshotEntry = _snapshotDao.findById(snapshotId);
-            if (postDeleteSnapshotEntry == null || Snapshot.State.Destroyed.equals(postDeleteSnapshotEntry.getState())) {
-                annotationDao.removeByEntityType(AnnotationService.EntityType.SNAPSHOT.name(), snapshotCheck.getUuid());
+                final SnapshotVO postDeleteSnapshotEntry = _snapshotDao.findById(snapshotId);
+                if (postDeleteSnapshotEntry == null || Snapshot.State.Destroyed.equals(postDeleteSnapshotEntry.getState())) {
+                    annotationDao.removeByEntityType(AnnotationService.EntityType.SNAPSHOT.name(), snapshotCheck.getUuid());
 
-                if (snapshotCheck.getState() != Snapshot.State.Error && snapshotCheck.getState() != Snapshot.State.Destroyed) {
-                    _resourceLimitMgr.decrementResourceCount(snapshotCheck.getAccountId(), ResourceType.snapshot);
+                    if (snapshotCheck.getState() != Snapshot.State.Error && snapshotCheck.getState() != Snapshot.State.Destroyed) {
+                        _resourceLimitMgr.decrementResourceCount(snapshotCheck.getAccountId(), ResourceType.snapshot);
+                    }
+                }
+                for (SnapshotDataStoreVO snapshotStoreRef : snapshotStoreRefs) {
+                    if (ObjectInDataStoreStateMachine.State.Ready.equals(snapshotStoreRef.getState()) && !DataStoreRole.Primary.equals(snapshotStoreRef.getRole())) {
+                        _resourceLimitMgr.decrementResourceCount(snapshotCheck.getAccountId(), ResourceType.secondary_storage, new Long(snapshotStoreRef.getPhysicalSize()));
+                    }
                 }
             }
-            for (SnapshotDataStoreVO snapshotStoreRef : snapshotStoreRefs) {
-                if (ObjectInDataStoreStateMachine.State.Ready.equals(snapshotStoreRef.getState()) && !DataStoreRole.Primary.equals(snapshotStoreRef.getRole())) {
-                    _resourceLimitMgr.decrementResourceCount(snapshotCheck.getAccountId(), ResourceType.secondary_storage, new Long(snapshotStoreRef.getPhysicalSize()));
-                }
-            }
+
+            return result;
+        } catch (Exception e) {
+            logger.debug("Failed to delete snapshot: " + snapshotCheck.getId() + ":" + e.toString());
+
+            throw new CloudRuntimeException("Failed to delete snapshot:" + e.toString());
         }
-
-        return result;
     }
 
     @Override
@@ -1976,7 +1991,7 @@ public class SnapshotManagerImpl extends MutualExclusiveIdsManagerBase implement
             dstSecStore = getSnapshotZoneImageStore(currentSnap.getSnapshotId(), destZone.getId());
             if (dstSecStore != null) {
                 logger.debug(String.format("Snapshot ID: %d is already present in secondary storage: %s" +
-                                " in zone %s in ready state, don't need to copy any further",
+                        " in zone %s in ready state, don't need to copy any further",
                         currentSnap.getSnapshotId(), dstSecStore.getName(), destZone));
                 if (snapshotId == currentSnap.getSnapshotId()) {
                     checkAndProcessSnapshotAlreadyExistInStore(snapshotId, dstSecStore);
