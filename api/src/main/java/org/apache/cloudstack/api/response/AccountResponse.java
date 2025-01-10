@@ -291,6 +291,10 @@ public class AccountResponse extends BaseResponse implements ResourceLimitAndCou
     @Param(description = "The tagged resource limit and count for the account", since = "4.20.0")
     List<TaggedResourceLimitAndCountResponse> taggedResources;
 
+    @SerializedName(ApiConstants.QUOTA_ENABLED)
+    @Param(description = "true if account has the Quota plugin enabled, false otherwise")
+    private boolean quotaEnabled;
+
     @Override
     public String getObjectId() {
         return id;
@@ -596,5 +600,9 @@ public class AccountResponse extends BaseResponse implements ResourceLimitAndCou
     @Override
     public void setTaggedResourceLimitsAndCounts(List<TaggedResourceLimitAndCountResponse> taggedResourceLimitsAndCounts) {
         this.taggedResources = taggedResourceLimitsAndCounts;
+    }
+
+    public void setQuotaEnabled(boolean quotaEnabled) {
+        this.quotaEnabled = quotaEnabled;
     }
 }

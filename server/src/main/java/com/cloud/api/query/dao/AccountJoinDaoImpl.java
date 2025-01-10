@@ -23,6 +23,7 @@ import java.util.List;
 import javax.inject.Inject;
 
 import org.apache.cloudstack.framework.config.dao.ConfigurationDao;
+import org.apache.cloudstack.quota.constant.QuotaConfig;
 import org.springframework.stereotype.Component;
 
 import org.apache.cloudstack.api.ApiConstants.DomainDetails;
@@ -118,6 +119,7 @@ public class AccountJoinDaoImpl extends GenericDaoBase<AccountJoinVO, Long> impl
 
         // add all the acl groups for an account
         accountResponse.setGroups(_acctMgr.listAclGroupsByAccount(account.getId()));
+        accountResponse.setQuotaEnabled(QuotaConfig.QuotaPluginEnabled.value() && QuotaConfig.QuotaAccountEnabled.valueIn(account.getId()));
 
         return accountResponse;
     }

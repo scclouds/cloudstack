@@ -316,7 +316,7 @@
                       <a-switch
                         v-model:checked="showOverrideDiskOfferingOption"
                         :checked="serviceOffering && !serviceOffering.diskofferingstrictness && showOverrideDiskOfferingOption"
-                        :disabled="(serviceOffering && serviceOffering.diskofferingstrictness)"
+                        :disabled="(serviceOffering && serviceOffering.diskofferingstrictness) || form.rootdisksizeitem"
                         @change="val => { updateOverrideRootDiskShowParam(val) }"
                         style="margin-left: 10px;"/>
                     </span>
@@ -952,6 +952,7 @@ export default {
         hypervisor: null,
         templateid: null,
         templatename: null,
+        templatesize: null,
         keyboard: null,
         keypairs: [],
         group: null,
@@ -959,10 +960,26 @@ export default {
         affinitygroup: [],
         serviceofferingid: null,
         serviceofferingname: null,
+        serviceofferingdiskid: null,
+        serviceofferingdiskname: null,
+        serviceofferingdisksize: null,
+        serviceofferingcustomized: null,
         ostypeid: null,
         ostypename: null,
         rootdisksize: null,
-        disksize: null
+        disksize: null,
+        domainid: null,
+        domainname: null,
+        domainpath: null,
+        accountid: null,
+        accountname: null,
+        accountroleid: null,
+        accountrolename: null,
+        accountroletype: null,
+        projectid: null,
+        projectname: null,
+        deployvm: true,
+        quotaenabled: false
       },
       options: {
         templates: {},
@@ -1444,7 +1461,7 @@ export default {
     },
     formModel: {
       deep: true,
-      handler (instanceConfig) {
+      async handler (instanceConfig) {
         this.instanceConfig = toRaw(instanceConfig)
         Object.keys(instanceConfig).forEach(field => {
           this.vm[field] = this.instanceConfig[field]
@@ -1476,7 +1493,12 @@ export default {
 
         instanceConfig.overridediskofferingid = this.rootDiskSelected?.id || this.serviceOffering?.diskofferingid
         if (instanceConfig.overridediskofferingid) {
-          this.overrideDiskOffering = _.find(this.options.diskOfferings, (option) => option.id === instanceConfig.overridediskofferingid)
+          this.overrideDiskOffering = await this.fetchDiskOfferingById(instanceConfig.overridediskofferingid)
+          this.vm.overridediskofferingname = this.overrideDiskOffering.name
+          this.vm.overridediskofferingprovisioningtype = this.overrideDiskOffering.provisioningtype
+          if (!this.overrideDiskOffering.iscustomized) {
+            this.vm.rootdisksize = this.overrideDiskOffering.disksize
+          }
         } else {
           this.overrideDiskOffering = null
         }
@@ -1515,6 +1537,8 @@ export default {
         if (host) {
           this.vm.hostid = host.id
           this.vm.hostname = host.name
+          this.vm.tagsofhost = host.hosttags
+          this.vm.hostistagarule = host.istagarule
         }
 
         if (this.diskSize) {
@@ -1531,6 +1555,8 @@ export default {
         if (this.template) {
           this.vm.templateid = this.template.id
           this.vm.templatename = this.template.displaytext
+          this.vm.templatesize = this.template.size
+          this.vm.hypervisor = this.template.hypervisor
           this.vm.ostypeid = this.template.ostypeid
           this.vm.ostypename = this.template.ostypename
         }
@@ -1538,6 +1564,7 @@ export default {
         if (this.iso) {
           this.vm.isoid = this.iso.id
           this.vm.templateid = this.iso.id
+          this.vm.templatesize = 0
           this.vm.templatename = this.iso.displaytext
           this.vm.ostypeid = this.iso.ostypeid
           this.vm.ostypename = this.iso.ostypename
@@ -1549,6 +1576,18 @@ export default {
         if (this.serviceOffering) {
           this.vm.serviceofferingid = this.serviceOffering.id
           this.vm.serviceofferingname = this.serviceOffering.displaytext
+          this.vm.serviceofferingdisksize = this.serviceOffering.rootdisksize
+          this.vm.serviceofferingcustomized = this.serviceOffering.iscustomized
+          this.vm.serviceofferingprovisioningtype = this.serviceOffering.provisioningtype
+
+          if (this.serviceOffering.diskofferingid) {
+            this.vm.serviceofferingdiskid = this.serviceOffering.diskofferingid
+            this.vm.serviceofferingdiskname = this.serviceOffering.diskofferingname
+          } else {
+            this.vm.serviceofferingdiskid = undefined
+            this.vm.serviceofferingdiskname = undefined
+          }
+
           if (this.serviceOffering.cpunumber) {
             this.vm.cpunumber = this.serviceOffering.cpunumber
           }
@@ -1564,10 +1603,12 @@ export default {
           this.vm.diskofferingid = ''
           this.vm.diskofferingname = ''
           this.vm.diskofferingsize = ''
+          this.vm.diskofferingprovisioningtype = ''
         } else if (this.diskOffering) {
           this.vm.diskofferingid = this.diskOffering.id
           this.vm.diskofferingname = this.diskOffering.displaytext
           this.vm.diskofferingsize = this.diskOffering.disksize
+          this.vm.diskofferingprovisioningtype = this.diskOffering.provisioningtype
         }
 
         this.vm.rootdiskofferingid = this.rootDiskOffering?.id
@@ -1612,6 +1653,50 @@ export default {
   methods: {
     updateTemplateKey () {
       this.templateKey += 1
+    },
+    prepareEstimatedCost () {
+      if (this.owner.projectid && 'listProjects' in store.getters.apis) {
+        api('listProjects', {
+          id: this.owner.projectid,
+          state: 'Active',
+          isrecursive: false
+        })
+          .then((response) => {
+            const proj = response.listprojectsresponse?.project[0]
+            this.vm.quotaenabled = proj?.quotaenabled || false
+            this.vm.projectid = this.owner.projectid
+            this.vm.projectname = proj?.name
+            this.vm.domainid = this.owner.domainid
+            this.vm.domainname = proj?.domain
+            this.vm.domainpath = proj?.domainpath
+          })
+          .catch((error) => {
+            this.$notifyError(error)
+          })
+      } else if ('listAccounts' in store.getters.apis) {
+        api('listAccounts', {
+          name: this.owner.account,
+          domainId: this.owner.domainid,
+          state: 'Enabled',
+          isrecursive: false
+        })
+          .then((response) => {
+            const acc = response.listaccountsresponse?.account[0]
+            console.log(acc)
+            this.vm.quotaenabled = acc?.quotaenabled || false
+            this.vm.accountroleid = acc?.roleid
+            this.vm.accountrolename = acc?.rolename
+            this.vm.accountroletype = acc?.roletype
+            this.vm.accountid = acc?.id
+            this.vm.accountname = this.owner.account
+            this.vm.domainid = this.owner.domainid
+            this.vm.domainname = acc?.domain
+            this.vm.domainpath = acc?.domainpath
+          })
+          .catch((error) => {
+            this.$notifyError(error)
+          })
+      }
     },
     initForm () {
       this.formRef = ref()
@@ -1742,6 +1827,7 @@ export default {
       this.fetchBootModes()
       this.fetchInstaceGroups()
       this.fetchIoPolicyTypes()
+      this.prepareEstimatedCost()
       nextTick().then(() => {
         ['name', 'keyboard', 'boottype', 'bootmode', 'userdata', 'iothreadsenabled', 'iodriverpolicy', 'nicmultiqueuenumber', 'nicpackedvirtqueues'].forEach(this.fillValue)
         this.form.boottype = this.defaultBootType ? this.defaultBootType : this.options.bootTypes && this.options.bootTypes.length > 0 ? this.options.bootTypes[0].id : undefined
@@ -1821,6 +1907,7 @@ export default {
         hypervisor: null,
         templateid: null,
         templatename: null,
+        templatesize: 0,
         keyboard: null,
         keypair: null,
         group: null,
@@ -1828,10 +1915,26 @@ export default {
         affinitygroup: [],
         serviceofferingid: null,
         serviceofferingname: null,
+        serviceofferingdiskid: null,
+        serviceofferingdiskname: null,
+        serviceofferingdisksize: null,
+        serviceofferingcustomized: null,
         ostypeid: null,
         ostypename: null,
         rootdisksize: null,
-        disksize: null
+        disksize: null,
+        domainid: null,
+        domainname: null,
+        domainpath: null,
+        accountid: null,
+        accountname: null,
+        accountroleid: null,
+        accountrolename: null,
+        accountroletype: null,
+        projectid: null,
+        projectname: null,
+        deployvm: true,
+        quotaenabled: false
       }
       this.zoneSelected = false
       this.formRef.value.resetFields()
@@ -2326,7 +2429,7 @@ export default {
           return
         }
         this.owner.account = null
-        this.owner.domainid = null
+        this.owner.domainid = OwnerOptions.selectedDomain
         this.owner.projectid = OwnerOptions.selectedProject
       }
       this.resetData()
@@ -2876,6 +2979,20 @@ export default {
           parent.$message.success(parent.$t('label.copied.clipboard'))
         }
       })
+    },
+    async fetchDiskOfferingById (diskOfferingId) {
+      const diskOffering = this.options.diskOfferings.find((diskOffering) => diskOffering.id === diskOfferingId)
+      if (diskOffering) {
+        return diskOffering
+      }
+
+      this.loading.serviceOfferings = true
+      const response = await api('listDiskOfferings', {
+        id: diskOfferingId
+      })
+      this.loading.serviceOfferings = false
+
+      return response.listdiskofferingsresponse.diskoffering[0]
     }
   }
 }
