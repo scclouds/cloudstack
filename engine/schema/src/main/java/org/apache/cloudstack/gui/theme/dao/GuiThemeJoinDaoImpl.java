@@ -50,7 +50,7 @@ public class GuiThemeJoinDaoImpl extends GenericDaoBase<GuiThemeJoinVO, Long> im
         return findOneBy(searchCriteria);
     }
 
-    public Pair<List<GuiThemeJoinVO>, Integer> listGuiThemesWithNoAuthentication(String commonName) {
+    public Pair<List<GuiThemeJoinVO>, Integer> listGuiThemesWithNoAuth(String commonName) {
         SearchCriteria<GuiThemeJoinVO> searchCriteria = createGuiThemeSearchCriteria(null, null, commonName, null, null, null, false);
         return searchOrderByCreatedDate(searchCriteria, false);
     }

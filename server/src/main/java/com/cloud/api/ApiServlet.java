@@ -35,7 +35,6 @@ import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import javax.servlet.http.HttpSession;
 
-import org.apache.cloudstack.api.APICommand;
 import org.apache.cloudstack.api.ApiConstants;
 import org.apache.cloudstack.api.ApiErrorCode;
 import org.apache.cloudstack.api.ApiServerService;
@@ -83,6 +82,8 @@ public class ApiServlet extends HttpServlet {
                     "HTTP_CLIENT_IP", "HTTP_X_FORWARDED_FOR", "Remote_Addr"));
     private static final String REPLACEMENT = "_";
     private static final String LOGGER_REPLACEMENTS = "[\n\r\t]";
+
+    protected static final String LIST_GUI_THEMES_API = BaseCmd.getCommandNameByClass(ListGuiThemesCmd.class);
 
     @Inject
     ApiServerService apiServer;
@@ -404,14 +405,12 @@ public class ApiServlet extends HttpServlet {
     }
 
     private void setGuiThemeParameterIfApiCallIsUnauthenticated(Long userId, String command, HttpServletRequest req, Map<String, Object[]> params) {
-        String listGuiThemesApiName = ListGuiThemesCmd.class.getAnnotation(APICommand.class).name();
-
-        if (userId != null || !listGuiThemesApiName.equalsIgnoreCase(command)) {
+        if (userId != null || params.containsKey("signature") || !LIST_GUI_THEMES_API.equalsIgnoreCase(command)) {
             return;
         }
 
         String serverName = req.getServerName();
-        LOGGER.info("Unauthenticated call to {} API, thus, the `commonName` parameter will be inferred as {}.", listGuiThemesApiName, serverName);
+        LOGGER.info("Unauthenticated call to {} API, thus, the `commonName` parameter will be inferred as {}.", LIST_GUI_THEMES_API, serverName);
         params.put(ApiConstants.COMMON_NAME, new String[]{serverName});
     }
 

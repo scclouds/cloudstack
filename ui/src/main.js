@@ -78,12 +78,12 @@ fetch('config.json').then(response => response.json()).then(async config => {
   }
 
   loadLanguageAsync().then(() => {
-    vueApp.use(store)
-      .use(router)
-      .use(i18n)
-      .use(bootstrap)
-      .mount('#app')
+    applyCustomGuiTheme(accountid, domainid).finally(() => {
+      vueApp.use(store)
+        .use(router)
+        .use(i18n)
+        .use(bootstrap)
+        .mount('#app')
+    })
   })
-
-  await applyCustomGuiTheme(accountid, domainid)
 })
