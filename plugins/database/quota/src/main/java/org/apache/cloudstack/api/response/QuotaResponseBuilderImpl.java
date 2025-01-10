@@ -40,6 +40,7 @@ import java.util.stream.Collectors;
 
 import javax.inject.Inject;
 
+import com.cloud.domain.Domain;
 import com.cloud.exception.PermissionDeniedException;
 import com.cloud.network.dao.IPAddressDao;
 import com.cloud.network.dao.IPAddressVO;
@@ -289,14 +290,21 @@ public class QuotaResponseBuilderImpl implements QuotaResponseBuilder {
         statement.setCurrency(QuotaConfig.QuotaCurrencySymbol.value());
         statement.setObjectName("statement");
 
-        AccountVO account = _accountDao.findAccountByNameAndDomainIncludingRemoved(cmd.getAccountName(), cmd.getDomainId());
-        DomainVO domain = domainDao.findByIdIncludingRemoved(cmd.getDomainId());
+        Account account = selectAccount(cmd.getAccountId(), cmd.getAccountName(), cmd.getDomainId());
+        Domain domain = domainDao.findByIdIncludingRemoved(account.getDomainId());
 
         statement.setAccountId(account.getUuid());
         statement.setAccountName(account.getAccountName());
         statement.setDomainId(domain.getUuid());
 
         return statement;
+    }
+
+    protected Account selectAccount(Long accountId, String accountName, Long domainId) {
+        if (accountId != null) {
+            return _accountDao.findByIdIncludingRemoved(accountId);
+        }
+        return _accountDao.findActiveAccount(accountName, domainId);
     }
 
     protected void createDummyRecordForEachQuotaTypeIfUsageTypeIsNotInformed(List<QuotaUsageJoinVO> quotaUsages, Integer usageType) {
@@ -568,8 +576,14 @@ public class QuotaResponseBuilderImpl implements QuotaResponseBuilder {
     }
 
     @Override
-    public QuotaCreditsResponse addQuotaCredits(Long accountId, Long domainId, Double amount, Long updatedBy, Boolean enforce, Date postingDate) {
+    public QuotaCreditsResponse addQuotaCredits(Long accountId, Double amount, Long updatedBy, Boolean enforce, Date postingDate) {
         Date depositedOn = new Date();
+        AccountVO account = _accountDao.findById(accountId);
+        if (account == null) {
+            throw new InvalidParameterValueException("Account does not exist with account id " + accountId);
+        }
+        Long domainId = account.getDomainId();
+
         QuotaBalanceVO qb = _quotaBalanceDao.findLaterBalanceEntry(accountId, domainId, depositedOn);
 
         if (qb != null) {
@@ -590,10 +604,6 @@ public class QuotaResponseBuilderImpl implements QuotaResponseBuilder {
             throw new CloudRuntimeException("Unable to add credits to account.");
         }
 
-        final AccountVO account = _accountDao.findById(accountId);
-        if (account == null) {
-            throw new InvalidParameterValueException("Account does not exist with account id " + accountId);
-        }
         final boolean lockAccountEnforcement = "true".equalsIgnoreCase(QuotaConfig.QuotaEnableEnforcement.value());
         final BigDecimal currentAccountBalance = _quotaBalanceDao.getLastQuotaBalance(accountId, domainId);
         logger.debug("Depositing [{}] credits on adjusted date [{}]; current balance is [{}].", amount,
