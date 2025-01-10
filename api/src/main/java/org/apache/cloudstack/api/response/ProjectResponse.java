@@ -52,6 +52,10 @@ public class ProjectResponse extends BaseResponse implements ResourceLimitAndCou
     @Param(description = "the domain name where the project belongs to")
     private String domain;
 
+    @SerializedName(ApiConstants.DOMAIN_PATH)
+    @Param(description = "path of the Domain the project belongs to")
+    private String domainPath;
+
     @SerializedName(ApiConstants.OWNER)
     @Param(description = "the account name of the project's owners")
     private List<Map<String, String>> owners;
@@ -232,6 +236,10 @@ public class ProjectResponse extends BaseResponse implements ResourceLimitAndCou
     @Param(description = "The tagged resource limit and count for the project", since = "4.20.0")
     List<TaggedResourceLimitAndCountResponse> taggedResources;
 
+    @SerializedName(ApiConstants.QUOTA_ENABLED)
+    @Param(description = "true if project has the Quota plugin enabled, false otherwise")
+    private boolean quotaEnabled;
+
     public void setId(String id) {
         this.id = id;
     }
@@ -254,6 +262,10 @@ public class ProjectResponse extends BaseResponse implements ResourceLimitAndCou
 
     public void setDomain(String domain) {
         this.domain = domain;
+    }
+
+    public void setDomainPath(String domainPath) {
+        this.domainPath = domainPath;
     }
 
     public void setProjectAccountName(String projectAccountName) {
@@ -482,5 +494,9 @@ public class ProjectResponse extends BaseResponse implements ResourceLimitAndCou
     @Override
     public void setTaggedResourceLimitsAndCounts(List<TaggedResourceLimitAndCountResponse> taggedResourceLimitsAndCounts) {
         this.taggedResources = taggedResourceLimitsAndCounts;
+    }
+
+    public void setQuotaEnabled(boolean quotaEnabled) {
+        this.quotaEnabled = quotaEnabled;
     }
 }

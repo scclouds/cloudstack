@@ -26,6 +26,7 @@ import java.util.stream.Collectors;
 
 import javax.inject.Inject;
 
+import org.apache.cloudstack.quota.constant.QuotaConfig;
 import org.springframework.stereotype.Component;
 
 import org.apache.cloudstack.api.ApiConstants.DomainDetails;
@@ -91,6 +92,7 @@ public class ProjectJoinDaoImpl extends GenericDaoBase<ProjectJoinVO, Long> impl
         }
         response.setDomainId(proj.getDomainUuid());
         response.setDomain(proj.getDomainName());
+        response.setDomainPath(proj.getDomainPath());
 
         List<ProjectAccountVO> projectAccounts = projectAccountDao.listByProjectId(proj.getId());
         projectAccounts = projectAccounts.stream().filter(projectAccount -> projectAccount.getAccountRole() == ProjectAccount.Role.Admin).collect(Collectors.toList());
@@ -123,6 +125,7 @@ public class ProjectJoinDaoImpl extends GenericDaoBase<ProjectJoinVO, Long> impl
             _accountJoinDao.setResourceLimits(accountJn, false, response);
         }
         response.setProjectAccountName(account.getAccountName());
+        response.setQuotaEnabled(QuotaConfig.QuotaPluginEnabled.value() && QuotaConfig.QuotaAccountEnabled.valueIn(account.getId()));
 
         response.setObjectName("project");
         return response;
