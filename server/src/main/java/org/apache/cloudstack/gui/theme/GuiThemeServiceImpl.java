@@ -20,7 +20,9 @@ import com.cloud.domain.Domain;
 import com.cloud.domain.dao.DomainDao;
 import com.cloud.event.ActionEvent;
 import com.cloud.event.EventTypes;
+import com.cloud.exception.PermissionDeniedException;
 import com.cloud.user.Account;
+import com.cloud.user.AccountManager;
 import com.cloud.user.dao.AccountDao;
 import com.cloud.utils.Pair;
 import com.cloud.utils.db.EntityManager;
@@ -32,6 +34,7 @@ import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import com.google.gson.JsonSyntaxException;
+import org.apache.cloudstack.api.BaseCmd;
 import org.apache.cloudstack.api.ResponseGenerator;
 import org.apache.cloudstack.api.command.user.gui.theme.CreateGuiThemeCmd;
 import org.apache.cloudstack.api.command.user.gui.theme.ListGuiThemesCmd;
@@ -50,6 +53,7 @@ import org.springframework.stereotype.Component;
 
 import javax.inject.Inject;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.Date;
 import java.util.List;
 import java.util.Map;
@@ -86,10 +90,29 @@ public class GuiThemeServiceImpl implements GuiThemeService {
     EntityManager entityManager;
 
     @Inject
+    AccountManager accountManager;
+
+    @Inject
     AccountDao accountDao;
 
     @Inject
     DomainDao domainDao;
+
+    protected boolean callerHasRolePermission () {
+        Account callingAccount = CallContext.current().getCallingAccount();
+        if (callingAccount.getId() == Account.ACCOUNT_ID_SYSTEM) {
+            logger.info("Unauthenticated call to `listGuiThemes` API, ignoring all parameters, except `commonName`.");
+            return false;
+        }
+        try {
+            accountManager.checkApiAccess(callingAccount, BaseCmd.getCommandNameByClass(ListGuiThemesCmd.class));
+            return true;
+        } catch (PermissionDeniedException ex) {
+            logger.info(String.format("Account [%s] role [%s] does not have permission to `listGuiThemes` API. Therefore, we will consider it as an unathenticated API call and ignore all parameters, except `commonName`.",
+                    callingAccount.getId(), callingAccount.getRoleId()));
+            return false;
+        }
+    }
 
     @Override
     public ListResponse<GuiThemeResponse> listGuiThemes(ListGuiThemesCmd cmd) {
@@ -99,9 +122,8 @@ public class GuiThemeServiceImpl implements GuiThemeService {
 
         if (listOnlyDefaultTheme) {
             result = retrieveDefaultTheme();
-        } else if (CallContext.current().getCallingAccountId() == Account.ACCOUNT_ID_SYSTEM) {
-            logger.info("Unauthenticated call to `listGuiThemes` API, ignoring all parameters, except `commonName`.");
-            result = listGuiThemesWithNoAuthentication(cmd);
+        } else if (!callerHasRolePermission()) {
+            result = listGuiThemesWithNoAuth(cmd);
         } else {
             result = listGuiThemesInternal(cmd);
         }
@@ -220,10 +242,12 @@ public class GuiThemeServiceImpl implements GuiThemeService {
         logger.info("The parameters `commonNames`, `domainIds` and `accountIds` were not informed. The created theme will be considered as the default theme.");
     }
 
-    protected Pair<List<GuiThemeJoinVO>, Integer> listGuiThemesWithNoAuthentication(ListGuiThemesCmd cmd) {
-        return guiThemeJoinDao.listGuiThemesWithNoAuthentication(cmd.getCommonName());
+    protected Pair<List<GuiThemeJoinVO>, Integer> listGuiThemesWithNoAuth(ListGuiThemesCmd cmd) {
+        if (StringUtils.isNotBlank(cmd.getCommonName())) {
+            return guiThemeJoinDao.listGuiThemesWithNoAuth(cmd.getCommonName());
+        }
+        return new Pair<>(Collections.emptyList(), 0);
     }
-
 
     protected Pair<List<GuiThemeJoinVO>, Integer> listGuiThemesInternal(ListGuiThemesCmd cmd) {
         Long id = cmd.getId();

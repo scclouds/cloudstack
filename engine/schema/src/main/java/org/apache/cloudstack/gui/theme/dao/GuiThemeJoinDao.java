@@ -25,7 +25,7 @@ import java.util.List;
 public interface GuiThemeJoinDao extends GenericDao<GuiThemeJoinVO, Long> {
     GuiThemeJoinVO findDefaultTheme();
 
-    Pair<List<GuiThemeJoinVO>, Integer> listGuiThemesWithNoAuthentication(String commonName);
+    Pair<List<GuiThemeJoinVO>, Integer> listGuiThemesWithNoAuth(String commonName);
 
     Pair<List<GuiThemeJoinVO>, Integer> listGuiThemes(Long id, String name, String commonName, String domainUuid, String accountUuid, boolean listAll, boolean showRemoved, Boolean showPublic);
 }

@@ -17,18 +17,17 @@
 package org.apache.cloudstack.gui.theme;
 
 import com.cloud.user.Account;
+import com.cloud.user.AccountManager;
 import com.cloud.utils.Pair;
 import com.cloud.utils.db.EntityManager;
 import com.cloud.utils.exception.CloudRuntimeException;
 import org.apache.cloudstack.api.command.user.gui.theme.ListGuiThemesCmd;
-import org.apache.cloudstack.context.CallContext;
 import org.apache.cloudstack.gui.theme.dao.GuiThemeJoinDaoImpl;
 import org.junit.Assert;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
-import org.mockito.MockedStatic;
 import org.mockito.Mockito;
 import org.mockito.Spy;
 import org.mockito.junit.MockitoJUnitRunner;
@@ -55,6 +54,12 @@ public class GuiThemeServiceImplTest {
     @Mock
     ListGuiThemesCmd listGuiThemesCmdMock;
 
+    @Mock
+    Account accountMock;
+
+    @Mock
+    AccountManager accountManagerMock;
+
     @Spy
     @InjectMocks
     GuiThemeServiceImpl guiThemeServiceSpy = new GuiThemeServiceImpl();
@@ -68,42 +73,30 @@ public class GuiThemeServiceImplTest {
     private static final String BLANK_STRING = "";
 
     @Test
-    public void listGuiThemesTestShouldIgnoreParametersWhenItIsCalledUnauthenticated() {
-        Pair<List<GuiThemeJoinVO>, Integer> emptyPair = new Pair<>(new ArrayList<>(), 0);
+    public void listGuiThemesTestCallerNoRolePermission() {
+        Pair<List<GuiThemeVO>, Integer> emptyPair = new Pair<>(new ArrayList<>(), 0);
+        Mockito.doReturn(false).when(listGuiThemesCmdMock).getListOnlyDefaultTheme();
+        Mockito.doReturn(false).when(guiThemeServiceSpy).callerHasRolePermission();
+        Mockito.doReturn(emptyPair).when(guiThemeServiceSpy).listGuiThemesWithNoAuth(Mockito.nullable(ListGuiThemesCmd.class));
 
-        Long accountId = Account.ACCOUNT_ID_SYSTEM;
-
-        try (MockedStatic<CallContext> callContextMocked = Mockito.mockStatic(CallContext.class)) {
-            CallContext callContextMock = Mockito.mock(CallContext.class);
-            callContextMocked.when(CallContext::current).thenReturn(callContextMock);
-            Mockito.doReturn(accountId).when(callContextMock).getCallingAccountId();
-            Mockito.doReturn(emptyPair).when(guiThemeServiceSpy).listGuiThemesWithNoAuthentication(Mockito.nullable(ListGuiThemesCmd.class));
-            Mockito.when(listGuiThemesCmdMock.getListOnlyDefaultTheme()).thenReturn(false);
-            guiThemeServiceSpy.listGuiThemes(listGuiThemesCmdMock);
-            Mockito.verify(guiThemeServiceSpy, Mockito.times(1)).listGuiThemesWithNoAuthentication(Mockito.nullable(ListGuiThemesCmd.class));
-        }
+        guiThemeServiceSpy.listGuiThemes(listGuiThemesCmdMock);
+        Mockito.verify(guiThemeServiceSpy, Mockito.times(1)).listGuiThemesWithNoAuth(Mockito.nullable(ListGuiThemesCmd.class));
     }
 
     @Test
-    public void listGuiThemesTestShouldCallNormalFlowWhenAuthenticated() {
+    public void listGuiThemesTestShouldCallNormalFlowWhenAuthenticatedAndRoleHasPermission() {
         Pair<List<GuiThemeVO>, Integer> emptyPair = new Pair<>(new ArrayList<>(), 0);
-
-        Long accountId = 3L;
-
-        try (MockedStatic<CallContext> callContextMocked = Mockito.mockStatic(CallContext.class)) {
-            CallContext callContextMock = Mockito.mock(CallContext.class);
-            callContextMocked.when(CallContext::current).thenReturn(callContextMock);
-            Mockito.doReturn(accountId).when(callContextMock).getCallingAccountId();
-            Mockito.doReturn(emptyPair).when(guiThemeServiceSpy).listGuiThemesInternal(Mockito.nullable(ListGuiThemesCmd.class));
-            Mockito.when(listGuiThemesCmdMock.getListOnlyDefaultTheme()).thenReturn(false);
-            guiThemeServiceSpy.listGuiThemes(listGuiThemesCmdMock);
-            Mockito.verify(guiThemeServiceSpy, Mockito.times(1)).listGuiThemesInternal(Mockito.nullable(ListGuiThemesCmd.class));
-        }
+        Mockito.doReturn(false).when(listGuiThemesCmdMock).getListOnlyDefaultTheme();
+        Mockito.doReturn(true).when(guiThemeServiceSpy).callerHasRolePermission();
+        Mockito.doReturn(emptyPair).when(guiThemeServiceSpy).listGuiThemesInternal(Mockito.nullable(ListGuiThemesCmd.class));
+        guiThemeServiceSpy.listGuiThemes(listGuiThemesCmdMock);
+        Mockito.verify(guiThemeServiceSpy, Mockito.times(1)).listGuiThemesInternal(Mockito.nullable(ListGuiThemesCmd.class));
     }
 
     @Test
     public void listGuiThemesTestListOnlyDefaultThemesShouldCallFindDefaultTheme() {
-        Mockito.when(listGuiThemesCmdMock.getListOnlyDefaultTheme()).thenReturn(true);
+        Mockito.doReturn(true).when(listGuiThemesCmdMock).getListOnlyDefaultTheme();
+
         guiThemeServiceSpy.listGuiThemes(listGuiThemesCmdMock);
         Mockito.verify(guiThemeJoinDaoMock, Mockito.times(1)).findDefaultTheme();
     }

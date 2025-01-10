@@ -204,6 +204,8 @@ public class ApiServer extends ManagerBase implements HttpRequestHandler, ApiSer
      */
     private static final String CONTROL_CHARACTERS = "[\000-\011\013-\014\016-\037\177]";
 
+    protected static final String LIST_GUI_THEMES_API = BaseCmd.getCommandNameByClass(ListGuiThemesCmd.class);
+
     @Inject
     private AccountManager accountMgr;
     @Inject
@@ -919,9 +921,6 @@ public class ApiServer extends ManagerBase implements HttpRequestHandler, ApiSer
                 final User user = ApiDBUtils.findUserById(userId);
                 return commandAvailable(remoteAddress, commandName, user);
             } else {
-                if (commandName.equalsIgnoreCase(ListGuiThemesCmd.class.getAnnotation(APICommand.class).name())) {
-                    return true;
-                }
                 // check against every available command to see if the command exists or not
                 if (!s_apiNameCmdClassMap.containsKey(commandName) && !commandName.equals("login") && !commandName.equals("logout")) {
                     final String errorMessage = "The given command " + commandName + " either does not exist, is not available" +
@@ -969,7 +968,11 @@ public class ApiServer extends ManagerBase implements HttpRequestHandler, ApiSer
 
             // if api/secret key are passed to the parameters
             if ((signature == null) || (apiKey == null)) {
-                logger.debug("Expired session, missing signature, or missing apiKey -- ignoring request. Signature: " + signature + ", apiKey: " + apiKey);
+                if (LIST_GUI_THEMES_API.equalsIgnoreCase(commandName)) {
+                    logger.debug("Unauthenticated {} call.", LIST_GUI_THEMES_API);
+                    return true;
+                }
+                logger.debug("Expired session, missing signature, or missing apiKey -- ignoring request. Signature: {}, apiKey: {}", signature, apiKey);
                 return false; // no signature, bad request
             }
 
@@ -1054,6 +1057,14 @@ public class ApiServer extends ManagerBase implements HttpRequestHandler, ApiSer
         return false;
     }
 
+    private void allowAccessIfListGuiThemes (String commandName, ApiErrorCode errorCode, String message) {
+        if (!LIST_GUI_THEMES_API.equalsIgnoreCase(commandName)) {
+            logger.debug(message);
+            throw new ServerApiException(errorCode, message);
+        }
+        logger.debug("Allowing access to retrieving the default GUI theme with [{}] even though [{}].", LIST_GUI_THEMES_API, message);
+    }
+
     private boolean commandAvailable(final InetAddress remoteAddress, final String commandName, final User user) {
         try {
             checkCommandAvailable(user, commandName, remoteAddress);
@@ -1061,12 +1072,10 @@ public class ApiServer extends ManagerBase implements HttpRequestHandler, ApiSer
             logger.debug(ex.getMessage());
             throw new ServerApiException(ApiErrorCode.API_LIMIT_EXCEED, ex.getMessage());
         }  catch (final UnavailableCommandException ex) {
-            logger.debug(ex.getMessage());
-            throw new ServerApiException(ApiErrorCode.UNSUPPORTED_ACTION_ERROR, ex.getMessage());
+            allowAccessIfListGuiThemes(commandName, ApiErrorCode.UNSUPPORTED_ACTION_ERROR, ex.getMessage());
         } catch (final PermissionDeniedException ex) {
-            final String errorMessage = "The given command '" + commandName + "' either does not exist, is not available" +
-                    " for user.";
-            throw new ServerApiException(ApiErrorCode.UNAUTHORIZED , errorMessage);
+            final String errorMessage = "The given command '" + commandName + "' either does not exist or is not available for user.";
+            allowAccessIfListGuiThemes(commandName, ApiErrorCode.UNAUTHORIZED, errorMessage);
         } catch (final OriginDeniedException ex) {
             // in this case we can remove the session with extreme prejudice
             final String errorMessage = "The user '" + user.getUsername() + "' is not allowed to execute commands from ip address '" + remoteAddress.getHostName() + "'.";
