@@ -46,6 +46,8 @@ import com.cloud.network.dao.IPAddressDao;
 import com.cloud.network.dao.IPAddressVO;
 import com.cloud.network.dao.NetworkDao;
 import com.cloud.network.dao.NetworkVO;
+import com.cloud.network.vpc.VpcVO;
+import com.cloud.network.vpc.dao.VpcDao;
 import com.cloud.offerings.NetworkOfferingVO;
 import com.cloud.offerings.dao.NetworkOfferingDao;
 import com.cloud.storage.SnapshotVO;
@@ -205,6 +207,9 @@ public class QuotaResponseBuilderImpl implements QuotaResponseBuilder {
 
     @Inject
     private IPAddressDao ipAddressDao;
+
+    @Inject
+    private VpcDao vpcDao;
 
     private final Type linkedListOfResourcesToQuoteType = new TypeToken<LinkedList<ResourcesToQuoteVO>>() {
     }.getType();
@@ -410,6 +415,7 @@ public class QuotaResponseBuilderImpl implements QuotaResponseBuilder {
                     return new QuotaUsageResourceVO(snapshot.getUuid(), snapshot.getName(), snapshot.getRemoved());
                 }
                 break;
+            case QuotaTypes.NETWORK:
             case QuotaTypes.NETWORK_BYTES_SENT:
             case QuotaTypes.NETWORK_BYTES_RECEIVED:
                 NetworkVO network = networkDao.findByIdIncludingRemoved(resourceId);
@@ -434,6 +440,12 @@ public class QuotaResponseBuilderImpl implements QuotaResponseBuilder {
                 IPAddressVO ipAddress = ipAddressDao.findByIdIncludingRemoved(resourceId);
                 if (ipAddress != null) {
                     return new QuotaUsageResourceVO(ipAddress.getUuid(), ipAddress.getName(), ipAddress.getRemoved());
+                }
+                break;
+            case QuotaTypes.VPC:
+                VpcVO vpc = vpcDao.findByIdIncludingRemoved(resourceId);
+                if (vpc != null) {
+                    return new QuotaUsageResourceVO(vpc.getUuid(), vpc.getName(), vpc.getRemoved());
                 }
                 break;
         }
@@ -1127,6 +1139,7 @@ public class QuotaResponseBuilderImpl implements QuotaResponseBuilder {
                     resourceIdAndName = new Pair<>(snapshot.getId(), snapshot.getName());
                 }
                 break;
+            case QuotaTypes.NETWORK:
             case QuotaTypes.NETWORK_BYTES_SENT:
             case QuotaTypes.NETWORK_BYTES_RECEIVED:
                 NetworkVO network = networkDao.findByUuidIncludingRemoved(resourceUuid);
@@ -1167,6 +1180,14 @@ public class QuotaResponseBuilderImpl implements QuotaResponseBuilder {
                     logger.debug("Found IP address [{}] with ID [{}] and of type [{}].", ipAddress, resourceUuid, usageType);
                     validateCallerAccessToResource(ipAddress);
                     resourceIdAndName = new Pair<>(ipAddress.getId(), ipAddress.getName());
+                }
+                break;
+            case QuotaTypes.VPC:
+                VpcVO vpc = vpcDao.findByUuidIncludingRemoved(resourceUuid);
+                if (vpc != null) {
+                    logger.debug("Found VPC [{}] with ID [{}] and of type [{}].", vpc, resourceUuid, usageType);
+                    validateCallerAccessToResource(vpc);
+                    resourceIdAndName = new Pair<>(vpc.getId(), vpc.getName());
                 }
                 break;
             case QuotaTypes.LOAD_BALANCER_POLICY:
