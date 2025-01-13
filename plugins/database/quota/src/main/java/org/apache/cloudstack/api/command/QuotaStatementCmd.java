@@ -25,15 +25,15 @@ import com.cloud.exception.InvalidParameterValueException;
 import org.apache.cloudstack.api.ACL;
 import org.apache.cloudstack.api.APICommand;
 import org.apache.cloudstack.api.ApiConstants;
-import org.apache.cloudstack.api.ApiErrorCode;
 import org.apache.cloudstack.api.BaseCmd;
 import org.apache.cloudstack.api.Parameter;
-import org.apache.cloudstack.api.ServerApiException;
 import org.apache.cloudstack.api.response.AccountResponse;
 import org.apache.cloudstack.api.response.DomainResponse;
+import org.apache.cloudstack.api.response.ProjectResponse;
 import org.apache.cloudstack.api.response.QuotaResponseBuilder;
 import org.apache.cloudstack.api.response.QuotaStatementItemResponse;
 import org.apache.cloudstack.api.response.QuotaStatementResponse;
+import org.apache.cloudstack.quota.QuotaService;
 import org.apache.cloudstack.quota.vo.QuotaUsageJoinVO;
 
 import com.cloud.user.Account;
@@ -63,14 +63,21 @@ public class QuotaStatementCmd extends BaseCmd {
     private Integer usageType;
 
     @ACL
-    @Parameter(name = ApiConstants.ACCOUNT_ID, type = CommandType.UUID, entityType = AccountResponse.class, description = "List usage records for the specified account")
+    @Parameter(name = ApiConstants.ACCOUNT_ID, type = CommandType.UUID, entityType = AccountResponse.class, description = "List usage records for the specified account. Can not be specified with projectId.")
     private Long accountId;
+
+    @ACL
+    @Parameter(name = ApiConstants.PROJECT_ID, type = CommandType.UUID, entityType = ProjectResponse.class, description = "List usage records for the specified project. Can not be specified with accountId.")
+    private Long projectId;
 
     @Parameter(name = ApiConstants.SHOW_RESOURCES, type = CommandType.BOOLEAN, description = "List the resources of each quota type in the period.")
     private boolean showResources;
 
     @Inject
     protected QuotaResponseBuilder responseBuilder;
+
+    @Inject
+    QuotaService quotaService;
 
     public Long getAccountId() {
         return accountId;
@@ -120,26 +127,16 @@ public class QuotaStatementCmd extends BaseCmd {
 
     public void setShowResources(boolean showResources) { this.showResources = showResources; }
 
+    public Long getProjectId() {
+        return projectId;
+    }
+
     @Override
     public long getEntityOwnerId() {
-        if (accountId != null) {
-            if (_accountService.getActiveAccountById(accountId) != null) {
-                return accountId;
-            }
-            return Account.ACCOUNT_ID_SYSTEM;
-        }
-        if (accountName == null && domainId == null) {
-            throw new ServerApiException(ApiErrorCode.PARAM_ERROR, String.format("%s is required.", ApiConstants.ACCOUNT_ID));
-        }
         try {
-            Account activeAccount = _accountService.getActiveAccountByName(accountName, domainId);
-            if (activeAccount != null) {
-                return activeAccount.getId();
-            }
-            return Account.ACCOUNT_ID_SYSTEM;
+            return quotaService.finalizeAccountId(accountId, accountName, domainId, projectId);
         } catch (InvalidParameterValueException exception) {
-            throw new ServerApiException(ApiErrorCode.PARAM_ERROR, String.format("Both %s and %s are needed if using either. Consider using %s instead.",
-                    ApiConstants.ACCOUNT, ApiConstants.DOMAIN_ID, ApiConstants.ACCOUNT_ID));
+            return Account.ACCOUNT_ID_SYSTEM;
         }
     }
 

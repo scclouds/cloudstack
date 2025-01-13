@@ -16,7 +16,6 @@
 //under the License.
 package org.apache.cloudstack.api.command;
 
-import com.cloud.exception.InvalidParameterValueException;
 import com.cloud.user.Account;
 
 import org.apache.cloudstack.api.ACL;
@@ -28,6 +27,7 @@ import org.apache.cloudstack.api.Parameter;
 import org.apache.cloudstack.api.ServerApiException;
 import org.apache.cloudstack.api.response.AccountResponse;
 import org.apache.cloudstack.api.response.DomainResponse;
+import org.apache.cloudstack.api.response.ProjectResponse;
 import org.apache.cloudstack.api.response.QuotaCreditsResponse;
 import org.apache.cloudstack.api.response.QuotaResponseBuilder;
 import org.apache.cloudstack.context.CallContext;
@@ -50,12 +50,16 @@ public class QuotaCreditsCmd extends BaseCmd {
     private String accountName;
 
     @ACL
-    @Parameter(name = ApiConstants.ACCOUNT_ID, type = CommandType.UUID, entityType = AccountResponse.class, description = "Account id for which quota credits need to be added")
+    @Parameter(name = ApiConstants.ACCOUNT_ID, type = CommandType.UUID, entityType = AccountResponse.class, description = "Account id for which quota credits need to be added. Can not be specified with projectId.")
     private Long accountId;
 
     @ACL
     @Parameter(name = ApiConstants.DOMAIN_ID, type = CommandType.UUID, entityType = DomainResponse.class, description = "Domain for which quota credits need to be added")
     private Long domainId;
+
+    @ACL
+    @Parameter(name = ApiConstants.PROJECT_ID, type = CommandType.UUID, entityType = ProjectResponse.class, description = "Project Id for which quota credits need to be added. Can not be specified with accountId.")
+    private Long projectId;
 
     @Parameter(name = ApiConstants.VALUE, type = CommandType.DOUBLE, required = true, description = "Value of the credits to be added+, subtracted-")
     private Double value;
@@ -133,38 +137,19 @@ public class QuotaCreditsCmd extends BaseCmd {
 
     @Override
     public void execute() {
-        Account account;
-        if (getAccountId() == null) {
-            try{
-                account = _accountService.getActiveAccountByName(getAccountName(), getDomainId());
-            } catch (InvalidParameterValueException exception) {
-                if (getAccountName() == null && getDomainId() == null) {
-                    throw new ServerApiException(ApiErrorCode.PARAM_ERROR, String.format("Please send a valid non-empty %s", ApiConstants.ACCOUNT_ID));
-                }
-                throw new ServerApiException(ApiErrorCode.PARAM_ERROR, String.format("Both %s and %s are needed if using either. Consider using %s instead.",
-                        ApiConstants.ACCOUNT, ApiConstants.DOMAIN_ID, ApiConstants.ACCOUNT_ID));
-            }
-        } else {
-            account = _accountService.getActiveAccountById(getAccountId());
-        }
+        Long ownerId = _quotaService.finalizeAccountId(accountId, accountName, domainId, projectId);
 
-        if (account == null) {
-            throw new ServerApiException(ApiErrorCode.INTERNAL_ERROR, "The account does not exist or has been removed/disabled.");
-        }
-        if (getAccountId() == null) {
-            setAccountId(account.getAccountId());
-        }
         if (getValue() == null) {
             throw new ServerApiException(ApiErrorCode.PARAM_ERROR, "Please send a valid non-empty quota value");
         }
         if (getQuotaEnforce() != null) {
-            _quotaService.setLockAccount(getAccountId(), getQuotaEnforce());
+            _quotaService.setLockAccount(ownerId, getQuotaEnforce());
         }
         if (getMinBalance() != null) {
-            _quotaService.setMinBalance(getAccountId(), getMinBalance());
+            _quotaService.setMinBalance(ownerId, getMinBalance());
         }
 
-        final QuotaCreditsResponse response = _responseBuilder.addQuotaCredits(getAccountId(), getValue(), CallContext.current().getCallingUserId(),
+        final QuotaCreditsResponse response = _responseBuilder.addQuotaCredits(ownerId, getValue(), CallContext.current().getCallingUserId(),
                 getQuotaEnforce(), getPostingDate());
         response.setResponseName(getCommandName());
         response.setObjectName("quotacredits");

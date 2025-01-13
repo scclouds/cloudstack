@@ -19,10 +19,15 @@ package org.apache.cloudstack.quota;
 import com.cloud.domain.dao.DomainDao;
 import com.cloud.exception.InvalidParameterValueException;
 import com.cloud.exception.PermissionDeniedException;
+import com.cloud.projects.Project;
+import com.cloud.projects.ProjectManager;
+import com.cloud.projects.ProjectVO;
 import com.cloud.user.Account;
+import com.cloud.user.AccountService;
 import com.cloud.user.AccountVO;
 import com.cloud.user.dao.AccountDao;
 import junit.framework.TestCase;
+import org.apache.cloudstack.api.ServerApiException;
 import org.apache.cloudstack.context.CallContext;
 import org.apache.cloudstack.quota.constant.QuotaTypes;
 import org.apache.cloudstack.quota.dao.QuotaAccountDao;
@@ -65,6 +70,12 @@ public class QuotaServiceImplTest extends TestCase {
     @Mock
     private AccountVO accountVoMock;
 
+    @Mock
+    AccountService accountService;
+
+    @Mock
+    ProjectManager projectMgr;
+
     @Spy
     @InjectMocks
     QuotaServiceImpl quotaServiceImplSpy;
@@ -82,9 +93,7 @@ public class QuotaServiceImplTest extends TestCase {
         final Date startDate = new DateTime().minusDays(2).toDate();
         final Date endDate = new Date();
 
-        Mockito.doReturn(accountId).when(quotaServiceImplSpy).getAccountToWhomQuotaBalancesWillBeListed(Mockito.anyLong(), Mockito.anyString(), Mockito.anyLong());
-
-        quotaServiceImplSpy.getQuotaUsage(accountId, accountName, domainId, QuotaTypes.IP_ADDRESS, startDate, endDate);
+        quotaServiceImplSpy.getQuotaUsage(accountId, domainId, QuotaTypes.IP_ADDRESS, startDate, endDate);
         Mockito.verify(quotaUsageJoinDaoMock, Mockito.times(1)).findQuotaUsage(Mockito.eq(accountId), Mockito.eq(domainId), Mockito.eq(QuotaTypes.IP_ADDRESS), Mockito.any(),
                 Mockito.any(), Mockito.any(), Mockito.any(Date.class), Mockito.any(Date.class), Mockito.any());
     }
@@ -206,7 +215,6 @@ public class QuotaServiceImplTest extends TestCase {
 
     @Test
     public void listQuotaBalancesForAccountTestLastQuotaBalanceIsNullReturnsNull() {
-        Mockito.doReturn(1L).when(quotaServiceImplSpy).getAccountToWhomQuotaBalancesWillBeListed(Mockito.anyLong(), Mockito.anyString(), Mockito.anyLong());
         Mockito.doNothing().when(quotaServiceImplSpy).validateStartDateAndEndDateForListQuotaBalancesForAccount(Mockito.any(), Mockito.any());
         Mockito.doReturn(null).when(quotaBalanceDaoMock).getLastQuotaBalanceEntry(Mockito.anyLong(), Mockito.anyLong(), Mockito.any());
 
@@ -219,7 +227,6 @@ public class QuotaServiceImplTest extends TestCase {
     public void listQuotaBalancesForAccountTestLastQuotaBalanceIsNotNullReturnsIt() {
         QuotaBalanceVO expected = new QuotaBalanceVO();
 
-        Mockito.doReturn(1L).when(quotaServiceImplSpy).getAccountToWhomQuotaBalancesWillBeListed(Mockito.anyLong(), Mockito.anyString(), Mockito.anyLong());
         Mockito.doNothing().when(quotaServiceImplSpy).validateStartDateAndEndDateForListQuotaBalancesForAccount(Mockito.any(), Mockito.any());
         Mockito.doReturn(expected).when(quotaBalanceDaoMock).getLastQuotaBalanceEntry(Mockito.anyLong(), Mockito.anyLong(), Mockito.any());
 
@@ -232,13 +239,84 @@ public class QuotaServiceImplTest extends TestCase {
     public void listQuotaBalancesForAccountTestReturnsQuotaBalances() {
         List<QuotaBalanceVO> expected = new ArrayList<>();
 
-        Mockito.doReturn(1L).when(quotaServiceImplSpy).getAccountToWhomQuotaBalancesWillBeListed(Mockito.anyLong(), Mockito.anyString(), Mockito.anyLong());
         Mockito.doNothing().when(quotaServiceImplSpy).validateStartDateAndEndDateForListQuotaBalancesForAccount(Mockito.any(), Mockito.any());
         Mockito.doReturn(expected).when(quotaBalanceDaoMock).listQuotaBalances(Mockito.anyLong(), Mockito.anyLong(), Mockito.any(), Mockito.any());
 
         List<QuotaBalanceVO> result = quotaServiceImplSpy.listQuotaBalancesForAccount(1L, "test", 2L, new Date(), null);
 
         Assert.assertEquals(expected, result);
+    }
+
+    @Test
+    public void finalizeAccountIdTestReturnsProjectsAccountId() {
+        Long projectsAccountId = 2L;
+
+        ProjectVO project = new ProjectVO("Test", "Test", 1L, projectsAccountId);
+        project.setState(Project.State.Active);
+
+        Mockito.when(projectMgr.getProject(Mockito.anyLong())).thenReturn(project);
+        Assert.assertEquals(projectsAccountId, quotaServiceImplSpy.finalizeAccountId(null, null, null, 1L));
+    }
+
+    @Test
+    public void finalizeAccountIdTestProjectAndAccountPassedThrowException() {
+        String expectedMessage = "Project and account can not be specified together.";
+        ServerApiException assertThrows = Assert.assertThrows(ServerApiException.class, () -> { quotaServiceImplSpy.finalizeAccountId(1L, null, null, 2L);
+        });
+
+        Assert.assertEquals(expectedMessage, assertThrows.getMessage());
+    }
+
+    @Test
+    public void finalizeAccountIdTestProjectDoesNotExistThrowException() {
+        String expectedMessage = "Unable to find project with id: [2].";
+
+        ServerApiException assertThrows = Assert.assertThrows(ServerApiException.class, () -> { quotaServiceImplSpy.finalizeAccountId(null, null, null, 2L);
+        });
+
+        Assert.assertEquals(expectedMessage, assertThrows.getMessage());
+    }
+
+    @Test
+    public void finalizeAccountIdTestProjectIsNotActiveThrowException() {
+        String expectedMessage = "Project with projectId [2] is not active.";
+        ProjectVO project = new ProjectVO("Test", "Test", 1L, 2L);
+
+        Mockito.when(projectMgr.getProject(Mockito.anyLong())).thenReturn(project);
+
+        ServerApiException assertThrows = Assert.assertThrows(ServerApiException.class, () -> { quotaServiceImplSpy.finalizeAccountId(null, null, null, 2L);
+        });
+
+        Assert.assertEquals(expectedMessage, assertThrows.getMessage());
+    }
+
+    @Test
+    public void finalizeAccountIdTestReturnsAccountId() {
+        Long accountId = 2L;
+        AccountVO acc = new AccountVO();
+        Mockito.when(accountService.getActiveAccountById(Mockito.anyLong())).thenReturn(acc);
+        Assert.assertEquals(quotaServiceImplSpy.finalizeAccountId(accountId, null, null, null), accountId);
+    }
+
+    @Test
+    public void finalizeAccountIdTestAccountByIdDoesNotExistThrowException() {
+        Assert.assertThrows(InvalidParameterValueException.class, () -> { quotaServiceImplSpy.finalizeAccountId(2L, null, null, null);
+        });
+    }
+
+    @Test
+    public void finalizeAccountIdTestReturnsIdOfAccount() {
+        AccountVO acc = new AccountVO();
+        Long accountId = 2L;
+        acc.setId(accountId);
+        Mockito.when(accountService.getActiveAccountByName(Mockito.anyString(), Mockito.anyLong())).thenReturn(acc);
+        Assert.assertEquals(quotaServiceImplSpy.finalizeAccountId(null, "account", 1L, null), accountId);
+    }
+
+    @Test
+    public void finalizeAccountIdTestAccountDoesNotExistThrowException() {
+        Assert.assertThrows(InvalidParameterValueException.class, () -> { quotaServiceImplSpy.finalizeAccountId(null, "account", 1L, null);
+        });
     }
 
 }
