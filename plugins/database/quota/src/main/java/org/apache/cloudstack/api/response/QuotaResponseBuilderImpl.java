@@ -54,6 +54,7 @@ import com.cloud.network.vpc.dao.VpcDao;
 import com.cloud.offerings.NetworkOfferingVO;
 import com.cloud.offerings.dao.NetworkOfferingDao;
 import com.cloud.projects.Project;
+import com.cloud.projects.ProjectManager;
 import com.cloud.projects.dao.ProjectDao;
 import com.cloud.storage.SnapshotVO;
 import com.cloud.storage.VMTemplateVO;
@@ -226,6 +227,9 @@ public class QuotaResponseBuilderImpl implements QuotaResponseBuilder {
     @Inject
     private VpcDao vpcDao;
 
+    @Inject
+    private ProjectManager projectMgr;
+
     private final Type linkedListOfResourcesToQuoteType = new TypeToken<LinkedList<ResourcesToQuoteVO>>() {
     }.getType();
 
@@ -265,11 +269,12 @@ public class QuotaResponseBuilderImpl implements QuotaResponseBuilder {
 
     @Override
     public QuotaBalanceResponse createQuotaBalanceResponse(QuotaBalanceCmd cmd) {
-        List<QuotaBalanceVO> quotaBalances = _quotaService.listQuotaBalancesForAccount(cmd.getAccountId(), cmd.getAccountName(), cmd.getDomainId(), cmd.getStartDate(), cmd.getEndDate());
+        Long accountId = _quotaService.finalizeAccountId(cmd.getAccountId(), cmd.getAccountName(), cmd.getDomainId(), cmd.getProjectId());
+        List<QuotaBalanceVO> quotaBalances = _quotaService.listQuotaBalancesForAccount(accountId, cmd.getAccountName(), cmd.getDomainId(), cmd.getStartDate(), cmd.getEndDate());
 
         if (CollectionUtils.isEmpty(quotaBalances)) {
             throw new InvalidParameterValueException(String.format("There are no quota balances for the parameters [%s].",
-                    ReflectionToStringBuilderUtils.reflectOnlySelectedFields(cmd, "accountId", "accountName", "domainId", "startDate", "endDate")));
+                    ReflectionToStringBuilderUtils.reflectOnlySelectedFields(cmd, "accountId", "accountName", "domainId", "startDate", "endDate", "projectId")));
         }
 
         List<QuotaBalanceResponse> balances =
@@ -411,10 +416,10 @@ public class QuotaResponseBuilderImpl implements QuotaResponseBuilder {
     public QuotaStatementResponse createQuotaStatementResponse(final List<QuotaUsageJoinVO> quotaUsages, QuotaStatementCmd cmd) {
         if (CollectionUtils.isEmpty(quotaUsages)) {
             throw new InvalidParameterValueException(String.format("There is no usage data for parameters [%s].", ReflectionToStringBuilderUtils.reflectOnlySelectedFields(cmd,
-                    "accountName", "accountId", "domainId", "startDate", "endDate", "type", "showDetails")));
+                    "accountName", "accountId", "domainId", "startDate", "endDate", "projectId", "type", "showDetails")));
         }
         logger.debug("Creating quota statement from [{}] usage records for parameters [{}].", quotaUsages.size(),
-                ReflectionToStringBuilderUtils.reflectOnlySelectedFields(cmd, "accountName", "accountId", "domainId", "startDate", "endDate", "type", "showDetails"));
+                ReflectionToStringBuilderUtils.reflectOnlySelectedFields(cmd, "accountName", "accountId", "domainId", "startDate", "endDate", "projectId", "type", "showDetails"));
 
         createDummyRecordForEachQuotaTypeIfUsageTypeIsNotInformed(quotaUsages, cmd.getUsageType());
 
@@ -434,7 +439,7 @@ public class QuotaResponseBuilderImpl implements QuotaResponseBuilder {
         statement.setCurrency(QuotaConfig.QuotaCurrencySymbol.value());
         statement.setObjectName("statement");
 
-        Account account = selectAccount(cmd.getAccountId(), cmd.getAccountName(), cmd.getDomainId());
+        Account account = selectAccount(cmd.getAccountId(), cmd.getProjectId(), cmd.getAccountName(), cmd.getDomainId());
         Domain domain = domainDao.findByIdIncludingRemoved(account.getDomainId());
 
         statement.setAccountId(account.getUuid());
@@ -444,12 +449,17 @@ public class QuotaResponseBuilderImpl implements QuotaResponseBuilder {
         return statement;
     }
 
-    protected Account selectAccount(Long accountId, String accountName, Long domainId) {
-        if (accountId != null) {
-            return _accountDao.findByIdIncludingRemoved(accountId);
+    protected Account selectAccount(Long accountId, Long projectId, String accountName, Long domainId) {
+        if (accountName != null && domainId != null) {
+            return _accountDao.findActiveAccount(accountName, domainId);
         }
-        return _accountDao.findActiveAccount(accountName, domainId);
+        if (projectId != null) {
+            final Project project = projectMgr.getProject(projectId);
+            accountId = project.getProjectAccountId();
+        }
+        return _accountDao.findByIdIncludingRemoved(accountId);
     }
+
 
     protected void createDummyRecordForEachQuotaTypeIfUsageTypeIsNotInformed(List<QuotaUsageJoinVO> quotaUsages, Integer usageType) {
         if (usageType != null) {
@@ -806,7 +816,9 @@ public class QuotaResponseBuilderImpl implements QuotaResponseBuilder {
 
     @Override
     public List<QuotaUsageJoinVO> getQuotaUsage(QuotaStatementCmd cmd) {
-        return _quotaService.getQuotaUsage(cmd.getAccountId(), cmd.getAccountName(), cmd.getDomainId(), cmd.getUsageType(), cmd.getStartDate(), cmd.getEndDate());
+        Long accountId = cmd.getEntityOwnerId();
+
+        return _quotaService.getQuotaUsage(accountId, cmd.getDomainId(), cmd.getUsageType(), cmd.getStartDate(), cmd.getEndDate());
     }
 
     @Override
@@ -1269,8 +1281,8 @@ public class QuotaResponseBuilderImpl implements QuotaResponseBuilder {
     }
 
     protected List<QuotaCreditsVO> getCreditsForQuotaCreditsList(QuotaCreditsListCmd cmd) {
-        Long accountId = cmd.getAccountId();
         Long domainId = cmd.getDomainId();
+        Long accountId = _quotaService.finalizeAccountId(cmd.getAccountId(), null, domainId, cmd.getProjectId());
         Date startDate = cmd.getStartDate();
         Date endDate = cmd.getEndDate();
         boolean isRecursive = cmd.getRecursive();

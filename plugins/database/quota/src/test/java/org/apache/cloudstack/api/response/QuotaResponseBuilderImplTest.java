@@ -1008,13 +1008,6 @@ public class QuotaResponseBuilderImplTest extends TestCase {
     }
 
     @Test(expected = InvalidParameterValueException.class)
-    public void getCreditsForQuotaCreditsListTestThrowsInvalidParameterValueExceptionWhenBothAccountIdAndDomainIdAreNull() {
-        QuotaCreditsListCmd cmd = new QuotaCreditsListCmd();
-
-        quotaResponseBuilderSpy.getCreditsForQuotaCreditsList(cmd);
-    }
-
-    @Test(expected = InvalidParameterValueException.class)
     public void getCreditsForQuotaCreditsListTestThrowsInvalidParameterValueExceptionWhenStartDateIsAfterEndDate() {
         QuotaCreditsListCmd cmd = createQuotaCreditsListCmdForTests();
         cmd.setStartDate(new Date());
