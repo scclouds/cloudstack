@@ -323,7 +323,7 @@ class VmwareVmImplementer {
         }
 
         if (vm.getType() == VirtualMachine.Type.NetScalerVm) {
-            details.put(VmDetailConstants.ROOT_DISK_CONTROLLER, "scsi");
+            details.put(VmDetailConstants.ROOT_DISK_CONTROLLER, DiskControllerType.scsi.toString());
         }
     }
 
