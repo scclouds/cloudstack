@@ -42,6 +42,7 @@ import org.apache.cloudstack.api.command.QuotaSummaryCmd;
 import org.apache.cloudstack.api.command.QuotaTariffCreateCmd;
 import org.apache.cloudstack.api.command.QuotaTariffDeleteCmd;
 import org.apache.cloudstack.api.command.QuotaTariffListCmd;
+import org.apache.cloudstack.api.command.QuotaTariffStatementCmd;
 import org.apache.cloudstack.api.command.QuotaTariffUpdateCmd;
 import org.apache.cloudstack.api.command.QuotaUpdateCmd;
 import org.apache.cloudstack.api.command.QuotaValidateActivationRuleCmd;
@@ -123,6 +124,7 @@ public class QuotaServiceImpl extends ManagerBase implements QuotaService, Confi
         cmdList.add(QuotaValidateActivationRuleCmd.class);
         cmdList.add(QuotaResourceQuotingCmd.class);
         cmdList.add(QuotaStatementDetailsCmd.class);
+        cmdList.add(QuotaTariffStatementCmd.class);
         return cmdList;
     }
 
@@ -236,7 +238,7 @@ public class QuotaServiceImpl extends ManagerBase implements QuotaService, Confi
         logger.debug("Getting quota records of type [{}] for account [{}] in domain [{}], between [{}] and [{}].",
                 usageType, accountId, domainId, startDate, endDate);
 
-        return quotaUsageJoinDao.findQuotaUsage(accountId, domainId, usageType, null, null, null, startDate, endDate);
+        return quotaUsageJoinDao.findQuotaUsage(accountId, domainId, usageType, null, null, null, startDate, endDate, null);
     }
 
     @Override

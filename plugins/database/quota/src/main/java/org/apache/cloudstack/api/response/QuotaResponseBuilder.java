@@ -28,6 +28,7 @@ import org.apache.cloudstack.api.command.QuotaStatementDetailsCmd;
 import org.apache.cloudstack.api.command.QuotaSummaryCmd;
 import org.apache.cloudstack.api.command.QuotaTariffCreateCmd;
 import org.apache.cloudstack.api.command.QuotaTariffListCmd;
+import org.apache.cloudstack.api.command.QuotaTariffStatementCmd;
 import org.apache.cloudstack.api.command.QuotaTariffUpdateCmd;
 import org.apache.cloudstack.api.command.QuotaValidateActivationRuleCmd;
 import org.apache.cloudstack.quota.vo.QuotaEmailConfigurationVO;
@@ -84,6 +85,8 @@ public interface QuotaResponseBuilder {
     QuotaConfigureEmailResponse createQuotaConfigureEmailResponse(QuotaEmailConfigurationVO quotaEmailConfigurationVO, Double minBalance, long accountId);
 
     List<QuotaConfigureEmailResponse> listEmailConfiguration(long accountId);
+
+    QuotaTariffStatementResponse listQuotaTariffUsage(QuotaTariffStatementCmd cmd);
 
     Pair<List<QuotaCreditsResponse>, Integer> createQuotaCreditsListResponse(QuotaCreditsListCmd cmd);
 

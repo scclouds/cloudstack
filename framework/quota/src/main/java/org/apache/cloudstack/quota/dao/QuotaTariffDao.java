@@ -37,6 +37,7 @@ public interface QuotaTariffDao extends GenericDao<QuotaTariffVO, Long> {
     Pair<List<QuotaTariffVO>, Integer> listQuotaTariffs(Date startDate, Date endDate, Set<Integer> usageTypes, String name, String uuid, boolean listAll, boolean listOnlyRemoved,
                                                         Long startIndex, Long pageSize);
 
+    List<QuotaTariffVO> listQuotaTariffsOrderedByNotRemovedFirst(Integer usageType, String name);
 
     QuotaTariffVO findByName(String name);
 

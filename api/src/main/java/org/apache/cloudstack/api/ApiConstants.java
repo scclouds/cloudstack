@@ -542,6 +542,7 @@ public class ApiConstants {
     public static final String VIRTUAL_MACHINE_STATE = "vmstate";
     public static final String VIRTUAL_MACHINES = "virtualmachines";
     public static final String USAGE_ID = "usageid";
+    public static final String USAGE_NAME = "usagename";
     public static final String USAGE_TYPE = "usagetype";
     public static final String INCLUDE_TAGS = "includetags";
 
@@ -1193,6 +1194,12 @@ public class ApiConstants {
 
     public static final String SHAREDFSVM_MIN_CPU_COUNT = "sharedfsvmmincpucount";
     public static final String SHAREDFSVM_MIN_RAM_SIZE = "sharedfsvmminramsize";
+
+    public static final String TARIFF_ID = "tariffid";
+    public static final String TARIFF_NAME = "tariffname";
+    public static final String TARIFF_STATEMENT = "tariffstatement";
+    public static final String UNIT = "unit";
+    public static final String QUOTA_USED = "quotaused";
 
     public static final String PARAMETER_DESCRIPTION_ACTIVATION_RULE = "Quota tariff's activation rule. It can receive a JS script that results in either " +
             "a boolean or a numeric value: if it results in a boolean value, the tariff value will be applied according to the result; if it results in a numeric value, the " +
