@@ -197,6 +197,10 @@ public class QuotaServiceImpl extends ManagerBase implements QuotaService, Confi
 
     protected Long getAccountToWhomQuotaBalancesWillBeListed(Long accountId, String accountName, Long domainId) {
         if (accountId != null) {
+            Account account = _accountDao.findByIdIncludingRemoved(accountId);
+            if (account == null) {
+                throw new InvalidParameterValueException(String.format("Unable to find account [%s].", accountId));
+            }
             return accountId;
         }
 
