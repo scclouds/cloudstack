@@ -19,16 +19,20 @@
 
 package com.cloud.agent.api;
 
+import org.apache.cloudstack.storage.DiskControllerMappingVO;
 import org.apache.cloudstack.framework.security.keystore.KeystoreManager;
 
 import com.cloud.agent.api.storage.StorageNfsVersionCommand;
 import com.cloud.agent.api.to.DataStoreTO;
+
+import java.util.List;
 
 public class SecStorageSetupCommand extends StorageNfsVersionCommand {
     private DataStoreTO store;
     private String secUrl;
     private KeystoreManager.Certificates certs;
     private String postUploadKey;
+    private List<DiskControllerMappingVO> supportedDiskControllers;
 
 
     public SecStorageSetupCommand() {
@@ -76,4 +80,11 @@ public class SecStorageSetupCommand extends StorageNfsVersionCommand {
         this.postUploadKey = postUploadKey;
     }
 
+    public List<DiskControllerMappingVO> getSupportedDiskControllers() {
+        return supportedDiskControllers;
+    }
+
+    public void setSupportedDiskControllers(List<DiskControllerMappingVO> supportedDiskControllers) {
+        this.supportedDiskControllers = supportedDiskControllers;
+    }
 }
