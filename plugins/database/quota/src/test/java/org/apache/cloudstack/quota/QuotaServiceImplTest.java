@@ -62,6 +62,9 @@ public class QuotaServiceImplTest extends TestCase {
     @Mock
     QuotaUsageJoinDao quotaUsageJoinDaoMock;
 
+    @Mock
+    private AccountVO accountVoMock;
+
     @Spy
     @InjectMocks
     QuotaServiceImpl quotaServiceImplSpy;
@@ -78,6 +81,8 @@ public class QuotaServiceImplTest extends TestCase {
         final long domainId = 1L;
         final Date startDate = new DateTime().minusDays(2).toDate();
         final Date endDate = new Date();
+
+        Mockito.doReturn(accountId).when(quotaServiceImplSpy).getAccountToWhomQuotaBalancesWillBeListed(Mockito.anyLong(), Mockito.anyString(), Mockito.anyLong());
 
         quotaServiceImplSpy.getQuotaUsage(accountId, accountName, domainId, QuotaTypes.IP_ADDRESS, startDate, endDate);
         Mockito.verify(quotaUsageJoinDaoMock, Mockito.times(1)).findQuotaUsage(Mockito.eq(accountId), Mockito.eq(domainId), Mockito.eq(QuotaTypes.IP_ADDRESS), Mockito.any(),
@@ -120,6 +125,7 @@ public class QuotaServiceImplTest extends TestCase {
     @Test
     public void getAccountToWhomQuotaBalancesWillBeListedTestAccountIdIsNotNullReturnsExistingAccount() {
         long expected = 1L;
+        Mockito.doReturn(accountVoMock).when(accountDaoMock).findByIdIncludingRemoved(Mockito.anyLong());
         long result = quotaServiceImplSpy.getAccountToWhomQuotaBalancesWillBeListed(expected, "test", 2L);
         Assert.assertEquals(expected, result);
     }
