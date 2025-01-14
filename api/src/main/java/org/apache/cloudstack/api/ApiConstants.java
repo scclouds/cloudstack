@@ -19,6 +19,7 @@ package org.apache.cloudstack.api;
 public class ApiConstants {
     public static final String ACCOUNT = "account";
     public static final String ACCOUNTS = "accounts";
+    public static final String ACCOUNT_NAME = "accountname";
     public static final String ACCOUNT_STATE_TO_SHOW = "accountstatetoshow";
     public static final String ACCOUNT_TYPE = "accounttype";
     public static final String ACCOUNT_ID = "accountid";
@@ -43,6 +44,7 @@ public class ApiConstants {
     public static final String AS_NUMBER_ID = "asnumberid";
     public static final String ASN_RANGE = "asnrange";
     public static final String ASN_RANGE_ID = "asnrangeid";
+    public static final String API_KEY_FILTER = "apikeyfilter";
     public static final String ASYNC_BACKUP = "asyncbackup";
     public static final String AUTO_SELECT = "autoselect";
     public static final String USER_API_KEY = "userapikey";
@@ -312,6 +314,7 @@ public class ApiConstants {
     public static final String JOB_STATUS = "jobstatus";
     public static final String KEEPALIVE_ENABLED = "keepaliveenabled";
     public static final String KERNEL_VERSION = "kernelversion";
+    public static final String KEYPAIR_ID = "keypairid";
     public static final String KEY = "key";
     public static final String LABEL = "label";
     public static final String LASTNAME = "lastname";
@@ -442,9 +445,9 @@ public class ApiConstants {
     public static final String QUERY_FILTER = "queryfilter";
     public static final String SCHEDULE = "schedule";
     public static final String SCOPE = "scope";
+    public static final String USER_SECRET_KEY = "usersecretkey";
     public static final String SEARCH_BASE = "searchbase";
     public static final String SECONDARY_IP = "secondaryip";
-    public static final String SECRET_KEY = "secretkey";
     public static final String SECURITY_GROUP_IDS = "securitygroupids";
     public static final String SECURITY_GROUP_NAMES = "securitygroupnames";
     public static final String SECURITY_GROUP_NAME = "securitygroupname";
@@ -460,6 +463,7 @@ public class ApiConstants {
     public static final String SHOW_RESOURCE_ICON = "showicon";
     public static final String SHOW_INACTIVE = "showinactive";
     public static final String SHOW_UNIQUE = "showunique";
+    public static final String SHOW_PERMISSIONS = "showpermissions";
     public static final String SHOW_RESOURCES = "showresources";
     public static final String SIGNATURE = "signature";
     public static final String SIGNATURE_VERSION = "signatureversion";
@@ -529,7 +533,6 @@ public class ApiConstants {
     public static final String USERNAME = "username";
     public static final String USER_CONFIGURABLE = "userconfigurable";
     public static final String USER_SECURITY_GROUP_LIST = "usersecuritygrouplist";
-    public static final String USER_SECRET_KEY = "usersecretkey";
     public static final String USE_VIRTUAL_NETWORK = "usevirtualnetwork";
     public static final String UPDATE_IN_SEQUENCE = "updateinsequence";
     public static final String VALUE = "value";
@@ -656,6 +659,7 @@ public class ApiConstants {
     public static final String ROLE_TYPE = "roletype";
     public static final String ROLE_NAME = "rolename";
     public static final String PERMISSION = "permission";
+    public static final String PERMISSIONS = "permissions";
     public static final String RULE = "rule";
     public static final String RULES = "rules";
     public static final String RULE_ID = "ruleid";
@@ -919,7 +923,7 @@ public class ApiConstants {
     public static final String NSX_PROVIDER_PORT = "nsxproviderport";
     public static final String NSX_CONTROLLER_ID = "nsxcontrollerid";
     public static final String S3_ACCESS_KEY = "accesskey";
-    public static final String S3_SECRET_KEY = "secretkey";
+    public static final String SECRET_KEY = "secretkey";
     public static final String S3_END_POINT = "endpoint";
     public static final String S3_BUCKET_NAME = "bucket";
     public static final String S3_SIGNER = "s3signer";

@@ -20,6 +20,7 @@ import java.util.List;
 
 
 import com.cloud.user.AccountManagerImpl;
+import org.apache.cloudstack.acl.ApiKeyPairVO;
 import org.springframework.stereotype.Component;
 
 import org.apache.cloudstack.api.response.UserResponse;
@@ -52,7 +53,7 @@ public class UserAccountJoinDaoImpl extends GenericDaoBase<UserAccountJoinVO, Lo
     }
 
     @Override
-    public UserResponse newUserResponse(UserAccountJoinVO usr) {
+    public UserResponse newUserResponse(UserAccountJoinVO usr, ApiKeyPairVO lastKeyPair) {
         UserResponse userResponse = new UserResponse();
         userResponse.setAccountId(usr.getAccountUuid());
         userResponse.setAccountName(usr.getAccountName());
@@ -68,10 +69,12 @@ public class UserAccountJoinDaoImpl extends GenericDaoBase<UserAccountJoinVO, Lo
         userResponse.setState(usr.getState().toString());
         userResponse.setTimezone(usr.getTimezone());
         userResponse.setUsername(usr.getUsername());
-        userResponse.setApiKey(usr.getApiKey());
-        userResponse.setSecretKey(usr.getSecretKey());
         userResponse.setIsDefault(usr.isDefault());
         userResponse.set2FAenabled(usr.isUser2faEnabled());
+        if (lastKeyPair != null) {
+            userResponse.setApiKey(lastKeyPair.getApiKey());
+            userResponse.setSecretKey(lastKeyPair.getSecretKey());
+        }
         long domainId = usr.getDomainId();
         boolean is2FAmandated = Boolean.TRUE.equals(AccountManagerImpl.enableUserTwoFactorAuthentication.valueIn(domainId)) && Boolean.TRUE.equals(AccountManagerImpl.mandateUserTwoFactorAuthentication.valueIn(domainId));
         userResponse.set2FAmandated(is2FAmandated);

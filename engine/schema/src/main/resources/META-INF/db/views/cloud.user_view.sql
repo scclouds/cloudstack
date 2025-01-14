@@ -30,8 +30,6 @@ select
     user.email,
     user.state,
     user.default_project_id,
-    user.api_key,
-    user.secret_key,
     user.created,
     user.removed,
     user.timezone,
