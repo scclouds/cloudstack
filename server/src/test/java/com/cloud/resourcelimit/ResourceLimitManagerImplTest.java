@@ -120,6 +120,8 @@ public class ResourceLimitManagerImplTest extends TestCase {
     VolumeDao volumeDao;
     @Mock
     UserVmDao userVmDao;
+    @Mock
+    private AccountVO accountVoMock;
 
     private List<String> hostTags = List.of("htag1", "htag2", "htag3");
     private List<String> storageTags = List.of("stag1", "stag2");
@@ -630,33 +632,31 @@ public class ResourceLimitManagerImplTest extends TestCase {
 
     @Test
     public void testRecalculateAccountTaggedResourceCountNegative() {
-        List<ResourceCountVO> result = resourceLimitManager.recalculateAccountTaggedResourceCount(1L, Resource.ResourceType.network, hostTags, storageTags);
+        List<ResourceCountVO> result = resourceLimitManager.recalculateAccountTaggedResourceCount(accountVoMock, Resource.ResourceType.network, hostTags, storageTags);
         CollectionUtils.isEmpty(result);
-        result = resourceLimitManager.recalculateAccountTaggedResourceCount(1L, Resource.ResourceType.cpu, null, storageTags);
+        result = resourceLimitManager.recalculateAccountTaggedResourceCount(accountVoMock, Resource.ResourceType.cpu, null, storageTags);
         CollectionUtils.isEmpty(result);
-        result = resourceLimitManager.recalculateAccountTaggedResourceCount(1L, Resource.ResourceType.volume, hostTags, null);
+        result = resourceLimitManager.recalculateAccountTaggedResourceCount(accountVoMock, Resource.ResourceType.volume, hostTags, null);
         CollectionUtils.isEmpty(result);
     }
 
     @Test
     public void testRecalculateAccountTaggedResourceCountHostTypes() {
-        long accountId = 1L;
         Resource.ResourceType type = Resource.ResourceType.cpu;
         for (String tag: hostTags) {
-            Mockito.doReturn(10L).when(resourceLimitManager).recalculateAccountResourceCount(accountId, type, tag);
+            Mockito.doReturn(10L).when(resourceLimitManager).recalculateAccountResourceCount(accountVoMock, type, tag);
         }
-        List<ResourceCountVO> result = resourceLimitManager.recalculateAccountTaggedResourceCount(accountId, type, hostTags, storageTags);
+        List<ResourceCountVO> result = resourceLimitManager.recalculateAccountTaggedResourceCount(accountVoMock, type, hostTags, storageTags);
         Assert.assertEquals(hostTags.size(), result.size());
     }
 
     @Test
     public void testRecalculateAccountTaggedResourceCountStorageTypes() {
-        long accountId = 1L;
         Resource.ResourceType type = Resource.ResourceType.volume;
         for (String tag: storageTags) {
-            Mockito.doReturn(10L).when(resourceLimitManager).recalculateAccountResourceCount(accountId, type, tag);
+            Mockito.doReturn(10L).when(resourceLimitManager).recalculateAccountResourceCount(accountVoMock, type, tag);
         }
-        List<ResourceCountVO> result = resourceLimitManager.recalculateAccountTaggedResourceCount(accountId, type, hostTags, storageTags);
+        List<ResourceCountVO> result = resourceLimitManager.recalculateAccountTaggedResourceCount(accountVoMock, type, hostTags, storageTags);
         Assert.assertEquals(storageTags.size(), result.size());
     }
 

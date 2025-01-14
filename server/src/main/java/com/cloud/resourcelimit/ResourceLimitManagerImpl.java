@@ -146,11 +146,11 @@ public class ResourceLimitManagerImpl extends ManagerBase implements ResourceLim
     @Inject
     private AlertManager _alertMgr;
     @Inject
-    AccountDao _accountDao;
+    protected AccountDao _accountDao;
     @Inject
     private ConfigurationDao _configDao;
     @Inject
-    private DomainDao _domainDao;
+    protected DomainDao _domainDao;
     @Inject
     private EntityManager _entityMgr;
     @Inject
@@ -158,11 +158,11 @@ public class ResourceLimitManagerImpl extends ManagerBase implements ResourceLim
     @Inject
     private NetworkDao _networkDao;
     @Inject
-    private ProjectDao _projectDao;
+    protected ProjectDao _projectDao;
     @Inject
     private ProjectAccountDao _projectAccountDao;
     @Inject
-    private ResourceCountDao _resourceCountDao;
+    protected ResourceCountDao _resourceCountDao;
     @Inject
     private ResourceLimitDao _resourceLimitDao;
     @Inject
@@ -592,6 +592,7 @@ public class ResourceLimitManagerImpl extends ManagerBase implements ResourceLim
 
     protected List<ResourceCountVO> lockAccountAndOwnerDomainRows(long accountId, final ResourceType type, String tag) {
         Set<Long> rowIdsToLock = _resourceCountDao.listAllRowsToUpdate(accountId, ResourceOwnerType.Account, type, tag);
+        logger.trace("Locking [{}] rows in table resource_count for [{}] and type [{}]. IDs that will be locked: [{}].", rowIdsToLock.size(), accountId, type, rowIdsToLock);
         SearchCriteria<ResourceCountVO> sc = ResourceCountSearch.create();
         sc.setParameters("id", rowIdsToLock.toArray());
         return _resourceCountDao.lockRows(sc, null, true);
@@ -1028,20 +1029,21 @@ public class ResourceLimitManagerImpl extends ManagerBase implements ResourceLim
         _resourceCountDao.removeResourceCountsForNonMatchingTags(ownerId, ownerType, StorageTagsSupportingTypes, storageTags);
     }
 
-    protected List<ResourceCountVO> recalculateAccountTaggedResourceCount(long accountId, ResourceType type, final List<String> hostTags, final List<String> storageTags) {
+    protected List<ResourceCountVO> recalculateAccountTaggedResourceCount(Account account, ResourceType type, final List<String> hostTags, final List<String> storageTags) {
         List<ResourceCountVO> result = new ArrayList<>();
+        long accountId = account.getId();
         if (isTaggedResourceCountRecalculationNotNeeded(type, hostTags, storageTags)) {
             return result;
         }
         if (HostTagsSupportingTypes.contains(type) && CollectionUtils.isNotEmpty(hostTags)) {
             for (String tag : hostTags) {
-                long count = recalculateAccountResourceCount(accountId, type, tag);
+                long count = recalculateAccountResourceCount(account, type, tag);
                 result.add(new ResourceCountVO(type, count, accountId, ResourceOwnerType.Account, tag));
             }
         }
         if (StorageTagsSupportingTypes.contains(type) && CollectionUtils.isNotEmpty(storageTags)) {
             for (String tag : storageTags) {
-                long count = recalculateAccountResourceCount(accountId, type, tag);
+                long count = recalculateAccountResourceCount(account, type, tag);
                 result.add(new ResourceCountVO(type, count, accountId, ResourceOwnerType.Account, tag));
             }
         }
@@ -1070,10 +1072,12 @@ public class ResourceLimitManagerImpl extends ManagerBase implements ResourceLim
 
     @Override
     public List<? extends ResourceCount> recalculateResourceCount(Long accountId, Long domainId, Integer typeId, String tag) throws CloudRuntimeException {
+        logger.info("Recalculating resource count according to the following parameters: account [{}], domain [{}], resource type [{}], and tag [{}].",
+                accountId, domainId, typeId, tag);
+
         Account callerAccount = CallContext.current().getCallingAccount();
-        long count = 0;
-        List<ResourceCountVO> counts = new ArrayList<ResourceCountVO>();
-        List<ResourceType> resourceTypes = new ArrayList<ResourceType>();
+        List<ResourceCountVO> counts = new ArrayList<>();
+        List<ResourceType> resourceTypes = new ArrayList<>();
 
         ResourceType resourceType = null;
 
@@ -1099,6 +1103,11 @@ public class ResourceLimitManagerImpl extends ManagerBase implements ResourceLim
         }
         _accountMgr.checkAccess(callerAccount, domain);
 
+        Account account = null;
+        if (accountId != null) {
+            account = _accountDao.findById(accountId);
+        }
+
         if (resourceType != null) {
             resourceTypes.add(resourceType);
         } else {
@@ -1109,12 +1118,14 @@ public class ResourceLimitManagerImpl extends ManagerBase implements ResourceLim
         List<String> storageTags = getResourceLimitStorageTags();
         removeResourceLimitAndCountForNonMatchingTags(accountId != null ? accountId : domainId,
                 accountId != null ? ResourceOwnerType.Account : ResourceOwnerType.Domain, hostTags, storageTags);
+
+        long count = 0;
         for (ResourceType type : resourceTypes) {
             if (accountId != null) {
-                count = recalculateAccountResourceCount(accountId, type, tag);
+                count = recalculateAccountResourceCount(account, type, tag);
                 counts.add(new ResourceCountVO(type, count, accountId, ResourceOwnerType.Account));
                 if (StringUtils.isEmpty(tag)) {
-                    counts.addAll(recalculateAccountTaggedResourceCount(accountId, type, hostTags, storageTags));
+                    counts.addAll(recalculateAccountTaggedResourceCount(account, type, hostTags, storageTags));
                 }
             } else {
                 count = recalculateDomainResourceCount(domainId, type, tag);
@@ -1172,7 +1183,7 @@ public class ResourceLimitManagerImpl extends ManagerBase implements ResourceLim
         }
         if (CollectionUtils.isNotEmpty(accounts)) {
             for (AccountVO account : accounts) {
-                recalculateAccountResourceCount(account.getId(), type, tag);
+                recalculateAccountResourceCount(account, type, tag);
             }
         }
 
@@ -1235,9 +1246,11 @@ public class ResourceLimitManagerImpl extends ManagerBase implements ResourceLim
     }
 
     @DB
-    protected long recalculateAccountResourceCount(final long accountId, final ResourceType type, String tag) {
+    protected long recalculateAccountResourceCount(Account account, final ResourceType type, String tag) {
+        logger.debug("Recalculating resource count of resource type [{}] for {}.", type, account);
+        long accountId = account.getId();
         cleanupStaleResourceReservations(accountId, type, tag);
-        final Long newCount;
+        Long newCount;
         if (type == Resource.ResourceType.user_vm) {
             newCount = calculateVmCountForAccount(accountId, tag);
         } else if (type == Resource.ResourceType.volume) {
@@ -1268,10 +1281,13 @@ public class ResourceLimitManagerImpl extends ManagerBase implements ResourceLim
             throw new InvalidParameterValueException("Unsupported resource type " + type);
         }
 
+        logger.debug("New resource count of resource type [{}] for {} is [{}].", type, account, newCount);
+
         long oldCount = 0;
         final ResourceCountVO accountRC = _resourceCountDao.findByOwnerAndTypeAndTag(accountId, ResourceOwnerType.Account, type, tag);
         if (accountRC != null) {
             oldCount = accountRC.getCount();
+            logger.trace("Found [{}] as previous resource count of resource type [{}] for {}.", oldCount, type, account);
             if (newCount == null || !newCount.equals(oldCount)) {
                 accountRC.setCount((newCount == null) ? 0 : newCount);
                 _resourceCountDao.update(accountRC.getId(), accountRC);
@@ -1280,12 +1296,9 @@ public class ResourceLimitManagerImpl extends ManagerBase implements ResourceLim
             _resourceCountDao.persist(new ResourceCountVO(type, newCount, accountId, ResourceOwnerType.Account, tag));
         }
 
-        // No need to log message for primary and secondary storage because both are recalculating the
-        // resource count which will not lead to any discrepancy.
-        if (newCount != null && !newCount.equals(oldCount) &&
-                type != Resource.ResourceType.primary_storage && type != Resource.ResourceType.secondary_storage) {
-            logger.warn("Discrepancy in the resource count " + "(original count=" + oldCount + " correct count = " + newCount + ") for type " + type +
-                    " for account ID " + accountId + " is fixed during resource count recalculation.");
+        if (newCount != null && !newCount.equals(oldCount) && type != Resource.ResourceType.primary_storage && type != Resource.ResourceType.secondary_storage) {
+            logger.info("The discrepancy in the resource count of resource type [{}] for {} was fixed during the resource recalculation. Original " +
+                    "count: [{}]; correct count: [{}].", type, account, oldCount, newCount);
         }
 
         return (newCount == null) ? 0 : newCount;
@@ -1436,20 +1449,16 @@ public class ResourceLimitManagerImpl extends ManagerBase implements ResourceLim
     }
 
     private long calculatePublicIpForAccount(long accountId) {
-        Long dedicatedCount = 0L;
-        Long allocatedCount = 0L;
+        long dedicatedCount = 0L;
 
         List<VlanVO> dedicatedVlans = _vlanDao.listDedicatedVlans(accountId);
         for (VlanVO dedicatedVlan : dedicatedVlans) {
             List<IPAddressVO> ips = _ipAddressDao.listByVlanId(dedicatedVlan.getId());
-            dedicatedCount += new Long(ips.size());
+            dedicatedCount += ips.size();
         }
-        allocatedCount = _ipAddressDao.countAllocatedIPsForAccount(accountId);
-        if (dedicatedCount > allocatedCount) {
-            return dedicatedCount;
-        } else {
-            return allocatedCount;
-        }
+
+        long allocatedCount = _ipAddressDao.countAllocatedIPsForAccount(accountId);
+        return Math.max(dedicatedCount, allocatedCount);
     }
 
     protected long calculatePrimaryStorageForAccount(long accountId, String tag) {
@@ -2226,8 +2235,8 @@ public class ResourceLimitManagerImpl extends ManagerBase implements ResourceLim
                 }
                 // run through the accounts in the root domain
                 for (AccountVO account : accounts) {
-                    recalculateAccountResourceCount(account.getId(), type, null);
-                    recalculateAccountTaggedResourceCount(account.getId(), type, getResourceLimitHostTags(), getResourceLimitStorageTags());
+                    recalculateAccountResourceCount(account, type, null);
+                    recalculateAccountTaggedResourceCount(account, type, getResourceLimitHostTags(), getResourceLimitStorageTags());
                 }
             }
             logger.info("Finished resource counters recalculation periodic task.");

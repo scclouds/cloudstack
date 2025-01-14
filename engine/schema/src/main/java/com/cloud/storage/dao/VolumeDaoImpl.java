@@ -544,13 +544,12 @@ public class VolumeDaoImpl extends GenericDaoBase<VolumeVO, Long> implements Vol
         List<ReservationVO> reservations = reservationDao.getReservationsForAccount(accountId, Resource.ResourceType.volume, null);
         List<Long> reservedResourceIds = reservations.stream().filter(reservation -> reservation.getReservedAmount() > 0).map(ReservationVO::getResourceId).collect(Collectors.toList());
 
-        SearchCriteria<SumCount> sc;
+        SearchCriteria<SumCount> sc = primaryStorageSearch.create();
         if (!virtualRouters.isEmpty()) {
             sc = primaryStorageSearch2.create();
-            sc.setParameters("virtualRouterVmIds", virtualRouters.toArray(new Object[virtualRouters.size()]));
-        } else {
-            sc = primaryStorageSearch.create();
+            sc.setParameters("virtualRouterVmIds", virtualRouters.toArray(new Object[0]));
         }
+
         sc.setParameters("accountId", accountId);
         sc.setParameters("states", State.Allocated);
         sc.setParameters("NotCountStates", State.Destroy, State.Expunged);
@@ -558,12 +557,7 @@ public class VolumeDaoImpl extends GenericDaoBase<VolumeVO, Long> implements Vol
         if (CollectionUtils.isNotEmpty(reservedResourceIds)) {
             sc.setParameters("idNIN", reservedResourceIds.toArray());
         }
-        List<SumCount> storageSpace = customSearch(sc, null);
-        if (storageSpace != null) {
-            return storageSpace.get(0).sum;
-        } else {
-            return 0;
-        }
+        return getSumCountWithDefault(customSearch(sc, null));
     }
 
     @Override
@@ -571,12 +565,11 @@ public class VolumeDaoImpl extends GenericDaoBase<VolumeVO, Long> implements Vol
         SearchCriteria<SumCount> sc = secondaryStorageSearch.create();
         sc.setParameters("accountId", accountId);
         sc.setParameters("states", State.Allocated);
-        List<SumCount> storageSpace = customSearch(sc, null);
-        if (storageSpace != null) {
-            return storageSpace.get(0).sum;
-        } else {
-            return 0;
-        }
+        return getSumCountWithDefault(customSearch(sc, null));
+    }
+
+    protected long getSumCountWithDefault(List<SumCount> sumCount) {
+        return sumCount != null ? sumCount.get(0).sum : 0;
     }
 
     public static class SumCount {
