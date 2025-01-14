@@ -33,6 +33,7 @@ import org.apache.cloudstack.context.CallContext;
 
 import com.cloud.configuration.ResourceCount;
 import com.cloud.user.Account;
+import org.apache.commons.collections.CollectionUtils;
 
 @APICommand(name = "updateResourceCount",
             description = "Recalculate and update resource count for an account or domain. " +
@@ -130,20 +131,21 @@ public class UpdateResourceCountCmd extends BaseCmd {
         List<? extends ResourceCount> result =
                 _resourceLimitService.recalculateResourceCount(_accountService.finalyzeAccountId(accountName, domainId, projectId, true), getDomainId(), getResourceType(), getTag());
 
-        if ((result != null) && (result.size() > 0)) {
-            ListResponse<ResourceCountResponse> response = new ListResponse<ResourceCountResponse>();
-            List<ResourceCountResponse> countResponses = new ArrayList<ResourceCountResponse>();
-
-            for (ResourceCount count : result) {
-                ResourceCountResponse resourceCountResponse = _responseGenerator.createResourceCountResponse(count);
-                countResponses.add(resourceCountResponse);
-            }
-
-            response.setResponses(countResponses);
-            response.setResponseName(getCommandName());
-            this.setResponseObject(response);
-        } else {
-            throw new ServerApiException(ApiErrorCode.INTERNAL_ERROR, "Failed to recalculate resource counts");
+        if (CollectionUtils.isEmpty(result)) {
+            throw new ServerApiException(ApiErrorCode.INTERNAL_ERROR, "Failed to recalculate resources counts.");
         }
+
+        ListResponse<ResourceCountResponse> response = new ListResponse<>();
+        List<ResourceCountResponse> countResponses = new ArrayList<>();
+
+        for (ResourceCount count : result) {
+            ResourceCountResponse resourceCountResponse = _responseGenerator.createResourceCountResponse(count);
+            resourceCountResponse.setObjectName("resourcecount");
+            countResponses.add(resourceCountResponse);
+        }
+
+        response.setResponses(countResponses);
+        response.setResponseName(getCommandName());
+        this.setResponseObject(response);
     }
 }
