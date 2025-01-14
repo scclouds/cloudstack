@@ -103,15 +103,6 @@ public class UserResponse extends BaseResponse implements SetResourceIconRespons
     @Param(description = "name of project view shown when first logging in")
     private String defaultProject;
 
-    @SerializedName("apikey")
-    @Param(description = "the api key of the user", isSensitive = true)
-    private String apiKey;
-
-    @Deprecated
-    @SerializedName("secretkey")
-    @Param(description = "the secret key of the user", isSensitive = true)
-    private String secretKey;
-
     @SerializedName("accountid")
     @Param(description = "the account ID of the user")
     private String accountId;
@@ -135,6 +126,16 @@ public class UserResponse extends BaseResponse implements SetResourceIconRespons
     @SerializedName(ApiConstants.IS_2FA_MANDATED)
     @Param(description = "true if user has two factor authentication is mandated", since = "4.18.0.0")
     private Boolean is2FAmandated;
+
+    @SerializedName("apikey")
+    @Param(description = "the api key of the user", isSensitive = true)
+    private String apiKey;
+
+    @Deprecated
+    @SerializedName("secretkey")
+    @Param(description = "the secret key of the user", isSensitive = true)
+    private String secretKey;
+
 
     @Override
     public String getObjectId() {
@@ -251,14 +252,6 @@ public class UserResponse extends BaseResponse implements SetResourceIconRespons
         this.timezone = timezone;
     }
 
-    public void setDefaultProjectId(String defaultProjectId) {
-        this.defaultProjectId = defaultProjectId;
-    }
-
-    public void setDefaultProject(String defaultProject) {
-        this.defaultProject = defaultProject;
-    }
-
     public String getApiKey() {
         return apiKey;
     }
@@ -272,6 +265,15 @@ public class UserResponse extends BaseResponse implements SetResourceIconRespons
     }
     public void setSecretKey(String secretKey) {
         this.secretKey = secretKey;
+    }
+
+
+    public void setDefaultProjectId(String defaultProjectId) {
+        this.defaultProjectId = defaultProjectId;
+    }
+
+    public void setDefaultProject(String defaultProject) {
+        this.defaultProject = defaultProject;
     }
 
     public String getAccountId() {

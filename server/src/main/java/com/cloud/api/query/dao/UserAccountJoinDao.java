@@ -18,6 +18,7 @@ package com.cloud.api.query.dao;
 
 import java.util.List;
 
+import org.apache.cloudstack.acl.ApiKeyPairVO;
 import org.apache.cloudstack.api.response.UserResponse;
 
 import com.cloud.api.query.vo.UserAccountJoinVO;
@@ -27,7 +28,7 @@ import com.cloud.utils.db.GenericDao;
 
 public interface UserAccountJoinDao extends GenericDao<UserAccountJoinVO, Long> {
 
-    UserResponse newUserResponse(UserAccountJoinVO usr);
+    UserResponse newUserResponse(UserAccountJoinVO usr, ApiKeyPairVO lastKeyPair);
 
     UserAccountJoinVO newUserView(User usr);
 

@@ -301,4 +301,6 @@
   <bean id="guiThemeDaoImpl" class="org.apache.cloudstack.gui.theme.dao.GuiThemeDaoImpl" />
   <bean id="guiThemeDetailsDaoImpl" class="org.apache.cloudstack.gui.theme.dao.GuiThemeDetailsDaoImpl" />
   <bean id="guiThemeJoinDaoImpl" class="org.apache.cloudstack.gui.theme.dao.GuiThemeJoinDaoImpl" />
+  <bean id="apiKeyPairDaoImpl" class="org.apache.cloudstack.acl.dao.ApiKeyPairDaoImpl" />
+  <bean id="apiKeyPairPermissionsDaoImpl" class="org.apache.cloudstack.acl.dao.ApiKeyPairPermissionsDaoImpl" />
 </beans>
