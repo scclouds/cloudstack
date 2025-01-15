@@ -20,8 +20,7 @@ import java.util.Date;
 
 import javax.inject.Inject;
 
-import com.cloud.user.AccountService;
-import com.cloud.exception.InvalidParameterValueException;
+import org.apache.cloudstack.api.ACL;
 import org.apache.cloudstack.api.APICommand;
 import org.apache.cloudstack.api.ApiConstants;
 import org.apache.cloudstack.api.BaseCmd;
@@ -32,6 +31,7 @@ import org.apache.cloudstack.api.response.ProjectResponse;
 import org.apache.cloudstack.api.response.QuotaResponseBuilder;
 import org.apache.cloudstack.api.response.QuotaTariffResponse;
 import org.apache.cloudstack.api.response.QuotaTariffStatementResponse;
+import org.apache.cloudstack.quota.QuotaService;
 
 @APICommand(name = "quotaTariffStatement", responseObject = QuotaTariffStatementResponse.class, description = "Create a quota tariff statement", since = "4.18.0.4", requestHasSensitiveInfo = false, responseHasSensitiveInfo = false)
 public class QuotaTariffStatementCmd extends BaseCmd {
@@ -39,14 +39,17 @@ public class QuotaTariffStatementCmd extends BaseCmd {
     @Parameter(name = ApiConstants.ACCOUNT, type = CommandType.STRING, description = "Account name for which the tariff statement will be generated.")
     private String accountName;
 
+    @ACL
     @Parameter(name = ApiConstants.ACCOUNT_ID, type = CommandType.UUID, entityType = AccountResponse.class, description = "Account ID for which the " +
             "tariff statement will be generated.")
     private Long accountId;
 
+    @ACL
     @Parameter(name = ApiConstants.DOMAIN_ID, type = CommandType.UUID, entityType = DomainResponse.class, description = "Domain ID for which the tariff " +
             "statement will be generated.")
     private Long domainId;
 
+    @ACL
     @Parameter(name = ApiConstants.PROJECT_ID, type = CommandType.UUID, entityType = ProjectResponse.class, description = "Project ID for which the tariff " +
             "statement will be generated.")
     private Long projectId;
@@ -73,7 +76,7 @@ public class QuotaTariffStatementCmd extends BaseCmd {
     protected QuotaResponseBuilder responseBuilder;
 
     @Inject
-    private AccountService _accountService;
+    QuotaService quotaService;
 
     public String getAccountName() {
         return accountName;
@@ -149,19 +152,7 @@ public class QuotaTariffStatementCmd extends BaseCmd {
 
     @Override
     public long getEntityOwnerId() {
-        if (accountId != null) {
-            return accountId;
-        }
-
-        if (accountName != null && projectId != null) {
-            throw new InvalidParameterValueException("Account and project can not be specified together.");
-        }
-
-        if (accountName == null && projectId == null) {
-            throw new InvalidParameterValueException("Either account or project must be specified.");
-        }
-
-        return _accountService.finalyzeAccountId(accountName, domainId, projectId, true);
+        return quotaService.finalizeAccountId(accountId, accountName, domainId, projectId);
     }
 
     @Override

@@ -16,7 +16,6 @@
 //under the License.
 package org.apache.cloudstack.api.command;
 
-import com.cloud.user.Account;
 import com.cloud.utils.Pair;
 
 import org.apache.cloudstack.api.ACL;
@@ -33,6 +32,7 @@ import org.apache.cloudstack.api.response.QuotaSummaryResponse;
 import org.apache.cloudstack.quota.QuotaAccountStateFilter;
 import org.apache.cloudstack.quota.QuotaService;
 import org.apache.commons.lang3.BooleanUtils;
+import org.apache.commons.lang3.ObjectUtils;
 import org.apache.commons.lang3.StringUtils;
 
 
@@ -52,6 +52,7 @@ public class QuotaSummaryCmd extends BaseListCmd {
     @Parameter(name = ApiConstants.ACCOUNT_ID, type = CommandType.UUID, entityType = AccountResponse.class, description = "ID of the account for which balance will be listed. Can not be specified with projectId.")
     private Long accountId;
 
+    @ACL
     @Parameter(name = ApiConstants.DOMAIN_ID, type = CommandType.UUID, required = false, entityType = DomainResponse.class, description = "Optional, If domain Id is given and the caller is domain admin then the statement is generated for domain.")
     private Long domainId;
 
@@ -132,7 +133,10 @@ public class QuotaSummaryCmd extends BaseListCmd {
 
     @Override
     public long getEntityOwnerId() {
-        return Account.ACCOUNT_ID_SYSTEM;
+        if (domainId != null && ObjectUtils.allNull(accountId, accountName)) {
+            return -1;
+        }
+        return quotaService.finalizeAccountId(accountId, accountName, domainId, projectId);
     }
 
 }

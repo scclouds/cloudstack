@@ -158,10 +158,6 @@ public class QuotaCreditsCmd extends BaseCmd {
 
     @Override
     public long getEntityOwnerId() {
-        Account account = _accountService.getActiveAccountByName(accountName, domainId);
-        if (account != null) {
-            return account.getAccountId();
-        }
         return Account.ACCOUNT_ID_SYSTEM;
     }
 
