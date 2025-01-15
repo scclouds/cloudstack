@@ -242,6 +242,9 @@ FROM `cloud`.`role_permissions` rp
 WHERE rule = 'quotaStatement'
   AND NOT EXISTS(SELECT 1 FROM `cloud`.`role_permissions` rp_ WHERE rp.role_id = rp_.role_id AND rp_.rule = 'quotaResourceQuoting');
 
+-- Increase the cache_mode column size from cloud.disk_offering table
+CALL `cloud`.`IDEMPOTENT_CHANGE_COLUMN`('cloud.disk_offering', 'cache_mode', 'cache_mode', 'varchar(18) DEFAULT "none" COMMENT "The disk cache mode to use for disks created with this offering"');
+
 -- Cria tabela api_keypairs para tokens apikey/secretkey
 CREATE TABLE IF NOT EXISTS `cloud`.`api_keypair` (
                                                      `id` bigint(20) unsigned NOT NULL auto_increment,
