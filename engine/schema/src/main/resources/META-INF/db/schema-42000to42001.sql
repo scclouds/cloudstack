@@ -277,3 +277,15 @@ CREATE TABLE IF NOT EXISTS `cloud`.`keypair_permissions` (
     PRIMARY KEY (`id`),
     CONSTRAINT `fk_keypair_permissions__api_keypair_id` FOREIGN KEY(`api_keypair_id`) REFERENCES `cloud`.`api_keypair`(`id`)
     );
+
+CALL `cloud`.`IDEMPOTENT_ADD_COLUMN`('cloud.user', 'api_key', 'VARCHAR(255) DEFAULT NULL');
+CALL `cloud`.`IDEMPOTENT_ADD_COLUMN`('cloud.user', 'secret_key', 'VARCHAR(255) DEFAULT NULL');
+
+INSERT INTO `cloud`.`api_keypair` (uuid, user_id, domain_id, account_id, api_key, secret_key, created, name)
+SELECT  uuid(), user.id, account.domain_id, account.id, user.api_key, user.secret_key, now(), 'Active key pair'
+FROM    `cloud`.`user` AS user
+JOIN    `cloud`.`account` AS account ON user.account_id = account.id
+WHERE   user.api_key IS NOT NULL
+  AND     user.secret_key IS NOT NULL;
+
+ALTER TABLE `cloud`.`user` DROP COLUMN api_key, DROP COLUMN secret_key;
