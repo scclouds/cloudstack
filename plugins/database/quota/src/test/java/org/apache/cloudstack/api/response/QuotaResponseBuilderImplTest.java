@@ -693,12 +693,12 @@ public class QuotaResponseBuilderImplTest extends TestCase {
     }
 
     @Test
-    public void getQuotaSummaryResponseWithListAllTestAccountNameAndDomainIdAreNullPassDomainIdAsNull() {
+    public void getQuotaSummaryResponseWithListAllTestDomainIdIsNullPassDomainIdAsNull() {
         Long expectedDomainId = null;
 
-        QuotaSummaryCmd cmd = new QuotaSummaryCmd();
-        cmd.setAccountName(null);
-        cmd.setDomainId(null);
+        QuotaSummaryCmd cmd = Mockito.mock(QuotaSummaryCmd.class);
+        Mockito.doReturn(null).when(cmd).getDomainId();
+        Mockito.doReturn(-1L).when(cmd).getEntityOwnerId();
 
         Mockito.doReturn(null).when(quotaResponseBuilderSpy).getDomainPathByDomainIdForDomainAdmin(Mockito.any());
         Mockito.doReturn(quotaSummaryResponseMock1).when(quotaResponseBuilderSpy).getQuotaSummaryResponse(Mockito.any(), Mockito.any(), Mockito.any(), Mockito.any(), Mockito.any());
@@ -739,12 +739,12 @@ public class QuotaResponseBuilderImplTest extends TestCase {
     }
 
     @Test
-    public void getQuotaSummaryResponseWithListAllTestAccountNameAndDomainIdAreNotNullPassDomainId() {
+    public void getQuotaSummaryResponseWithListAllTestDomainIdIsNotNullPassDomainId() {
         Long expectedDomainId = 9837l;
 
-        QuotaSummaryCmd cmd = new QuotaSummaryCmd();
-        cmd.setAccountName("test");
-        cmd.setDomainId(expectedDomainId);
+        QuotaSummaryCmd cmd = Mockito.mock(QuotaSummaryCmd.class);
+        Mockito.doReturn(expectedDomainId).when(cmd).getDomainId();
+        Mockito.doReturn(-1L).when(cmd).getEntityOwnerId();
 
         Mockito.doReturn(domainVoMock).when(domainDaoMock).findByIdIncludingRemoved(Mockito.anyLong());
 

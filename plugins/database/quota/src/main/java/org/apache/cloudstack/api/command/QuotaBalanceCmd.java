@@ -20,9 +20,6 @@ import java.util.Date;
 
 import javax.inject.Inject;
 
-import com.cloud.exception.InvalidParameterValueException;
-import com.cloud.user.Account;
-
 import org.apache.cloudstack.api.ACL;
 import org.apache.cloudstack.api.APICommand;
 import org.apache.cloudstack.api.ApiConstants;
@@ -117,11 +114,7 @@ public class QuotaBalanceCmd extends BaseCmd {
 
     @Override
     public long getEntityOwnerId() {
-        try {
-            return quotaService.finalizeAccountId(accountId, accountName, domainId, projectId);
-        } catch (InvalidParameterValueException exception) {
-            return Account.ACCOUNT_ID_SYSTEM;
-        }
+        return quotaService.finalizeAccountId(accountId, accountName, domainId, projectId);
     }
 
     @Override
