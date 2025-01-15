@@ -26,7 +26,7 @@ under the License.
 
       <!-- A time/date based rolling appender -->
       <RollingFile name="FILE" append="true" fileName="@AGENTLOG@" filePattern="@AGENTLOG@.%d{yyyy-MM-dd}.gz">
-         <ThresholdFilter level="INFO" onMatch="ACCEPT" onMismatch="DENY"/>
+         <ThresholdFilter level="DEBUG" onMatch="ACCEPT" onMismatch="DENY"/>
          <Policies>
             <TimeBasedTriggeringPolicy/>
          </Policies>
@@ -49,7 +49,9 @@ under the License.
       <!-- Limit categories -->
       <!-- ================ -->
 
-      <Logger name="com.cloud" level="INFO"/>
+      <Logger name="com.cloud" level="DEBUG"/>
+
+      <Logger name="org.apache.cloudstack" level="DEBUG"/>
 
       <Logger name="org.apache" level="INFO"/>
 
@@ -67,7 +69,7 @@ under the License.
       <!-- Setup the Root category -->
       <!-- ======================= -->
 
-      <Root level="INFO">
+      <Root level="DEBUG">
          <AppenderRef ref="CONSOLE"/>
          <AppenderRef ref="FILE"/>
       </Root>
