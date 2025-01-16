@@ -30,7 +30,7 @@
         size="small"
         :loading="loading"
         :columns="columns"
-        :dataSource="dataSource.filter(row => row.quota > 0)"
+        :dataSource="dataSource.filter(row => row.quota != 0)"
         :rowKey="record => record.name"
         :pagination="false"
         :scroll="{ y: '55vh' }">

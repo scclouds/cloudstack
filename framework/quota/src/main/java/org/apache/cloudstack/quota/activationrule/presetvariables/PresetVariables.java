@@ -39,6 +39,9 @@ public class PresetVariables {
     @PresetVariableDefinition(description = "Zone where the resource is.")
     private GenericPresetVariable zone;
 
+    @PresetVariableDefinition(description = "A list of objects containing the tariffs processed during a period. Only applied to MONTHLY tariffs.")
+    private List<ProcessedData> processedData;
+
     @PresetVariableDefinition(description = "Configurations of the resource.")
     private Configuration configuration;
 
@@ -107,5 +110,13 @@ public class PresetVariables {
 
     public void setLastTariffs(List<Tariff> lastTariffs) {
         this.lastTariffs = lastTariffs;
+    }
+
+    public List<ProcessedData> getProcessedData() {
+        return processedData;
+    }
+
+    public void setProcessedData(List<ProcessedData> processedData) {
+        this.processedData = processedData;
     }
 }

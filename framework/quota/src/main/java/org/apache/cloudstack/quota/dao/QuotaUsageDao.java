@@ -32,4 +32,8 @@ public interface QuotaUsageDao extends GenericDao<QuotaUsageVO, Long> {
     BigDecimal findTotalQuotaUsage(Long accountId, Long domainId, Integer usageType, Date startDate, Date endDate);
 
     QuotaUsageVO findLastQuotaUsageEntry(Long accountId, Long domainId, Date beforeThis);
+
+    List<QuotaUsageVO> findPeriodQuotaUsage(Long accountId, Long domainId, Integer usageType, Date startDate, Date endDate, Long resourceId);
+
+    QuotaUsageVO findByUsageItemId (final Long usageItemId);
 }
