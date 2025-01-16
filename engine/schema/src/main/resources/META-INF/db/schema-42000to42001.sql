@@ -278,6 +278,21 @@ CREATE TABLE IF NOT EXISTS `cloud`.`keypair_permissions` (
     CONSTRAINT `fk_keypair_permissions__api_keypair_id` FOREIGN KEY(`api_keypair_id`) REFERENCES `cloud`.`api_keypair`(`id`)
     );
 
+-- Make `usage_item_id` nullable.
+CALL `cloud_usage`.`IDEMPOTENT_CHANGE_COLUMN`('quota_usage', 'usage_item_id', 'usage_item_id', 'bigint(20) unsigned NULL');
+
+-- Make `zone_id` nullable.
+CALL `cloud_usage`.`IDEMPOTENT_CHANGE_COLUMN`('quota_usage', 'zone_id', 'zone_id', 'bigint(20) unsigned NULL');
+
+-- Add resource ID to Quota Usage table.
+CALL `cloud_usage`.`IDEMPOTENT_ADD_COLUMN`('quota_usage', 'resource_id', 'bigint(20) unsigned NULL');
+
+-- Add `processing_period` to Quota Tariff
+CALL `cloud_usage`.`IDEMPOTENT_ADD_COLUMN`('quota_tariff', 'processing_period', 'varchar(20) DEFAULT "BY_ENTRY" NOT NULL');
+
+-- Add `execute_on` to Quota Tariff
+CALL `cloud_usage`.`IDEMPOTENT_ADD_COLUMN`('quota_tariff', 'execute_on', 'int DEFAULT NULL NULL');
+
 CALL `cloud`.`IDEMPOTENT_ADD_COLUMN`('cloud.user', 'api_key', 'VARCHAR(255) DEFAULT NULL');
 CALL `cloud`.`IDEMPOTENT_ADD_COLUMN`('cloud.user', 'secret_key', 'VARCHAR(255) DEFAULT NULL');
 

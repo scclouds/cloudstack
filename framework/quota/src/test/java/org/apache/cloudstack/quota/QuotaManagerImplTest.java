@@ -26,7 +26,6 @@ import java.util.Date;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 
 import org.apache.cloudstack.quota.activationrule.presetvariables.Domain;
 import org.apache.cloudstack.quota.activationrule.presetvariables.GenericPresetVariable;
@@ -312,10 +311,9 @@ public class QuotaManagerImplTest {
 
     @Test
     public void createMapQuotaTariffsPerUsageTypeTestNoTariffs() {
-        Mockito.doReturn(new Pair<>(new ArrayList<>(), 0)).when(quotaTariffDaoMock).listQuotaTariffs(Mockito.any(), Mockito.any(), Mockito.<Set<Integer>>any(), Mockito.any(),
-                Mockito.any(), Mockito.anyBoolean(), Mockito.anyBoolean(), Mockito.any(), Mockito.any());
+        Mockito.doReturn(new ArrayList<>() ).when(quotaTariffDaoMock).listByEntryQuotaTariffsOfUsageTypes(Mockito.any());
 
-        Map<Integer, Pair<List<QuotaTariffVO>, Boolean>> result = quotaManagerImplSpy.createMapQuotaTariffsPerUsageType();
+        Map<Integer, Pair<List<QuotaTariffVO>, Boolean>> result = quotaManagerImplSpy.createMapQuotaTariffsPerUsageType(null);
 
         for (Map.Entry<Integer, QuotaTypes> entry : QuotaTypes.listQuotaTypes().entrySet()) {
             Pair<List<QuotaTariffVO>, Boolean> pair = result.get(entry.getKey());
@@ -331,10 +329,9 @@ public class QuotaManagerImplTest {
         tariff.setActivationRule("");
         tariffs.add(tariff);
 
-        Mockito.doReturn(new Pair<>(tariffs, tariffs.size())).when(quotaTariffDaoMock).listQuotaTariffs(Mockito.any(), Mockito.any(), Mockito.<Set<Integer>>any(), Mockito.any(),
-                Mockito.any(), Mockito.anyBoolean(), Mockito.anyBoolean(), Mockito.any(), Mockito.any());
+        Mockito.doReturn(tariffs).when(quotaTariffDaoMock).listByEntryQuotaTariffsOfUsageTypes(Mockito.any());
 
-        Map<Integer, Pair<List<QuotaTariffVO>, Boolean>> result = quotaManagerImplSpy.createMapQuotaTariffsPerUsageType();
+        Map<Integer, Pair<List<QuotaTariffVO>, Boolean>> result = quotaManagerImplSpy.createMapQuotaTariffsPerUsageType(null);
 
         for (Map.Entry<Integer, QuotaTypes> entry : QuotaTypes.listQuotaTypes().entrySet()) {
             Pair<List<QuotaTariffVO>, Boolean> pair = result.get(entry.getKey());
@@ -354,10 +351,9 @@ public class QuotaManagerImplTest {
         tariff.setActivationRule(" ");
         tariffs.add(tariff);
 
-        Mockito.doReturn(new Pair<>(tariffs, tariffs.size())).when(quotaTariffDaoMock).listQuotaTariffs(Mockito.any(), Mockito.any(), Mockito.<Set<Integer>>any(), Mockito.any(),
-                Mockito.any(), Mockito.anyBoolean(), Mockito.anyBoolean(), Mockito.any(), Mockito.any());
+        Mockito.doReturn(tariffs).when(quotaTariffDaoMock).listByEntryQuotaTariffsOfUsageTypes(Mockito.any());
 
-        Map<Integer, Pair<List<QuotaTariffVO>, Boolean>> result = quotaManagerImplSpy.createMapQuotaTariffsPerUsageType();
+        Map<Integer, Pair<List<QuotaTariffVO>, Boolean>> result = quotaManagerImplSpy.createMapQuotaTariffsPerUsageType(null);
 
         for (Map.Entry<Integer, QuotaTypes> entry : QuotaTypes.listQuotaTypes().entrySet()) {
             Pair<List<QuotaTariffVO>, Boolean> pair = result.get(entry.getKey());

@@ -19,18 +19,17 @@
 
 DROP VIEW IF EXISTS `cloud_usage`.`quota_usage_view`;
 
-CREATE VIEW `cloud_usage`.`quota_usage_view` AS
-SELECT  qu.id,
-        qu.usage_item_id,
-        qu.zone_id,
-        qu.account_id,
-        qu.domain_id,
-        qu.usage_type,
-        qu.quota_used,
-        qu.start_date,
-        qu.end_date,
-        cu.usage_id AS resource_id,
-        cu.network_id as network_id,
-        cu.offering_id as offering_id
-FROM    `cloud_usage`.`quota_usage` qu
-INNER   JOIN `cloud_usage`.`cloud_usage` cu ON (cu.id = qu.usage_item_id);
+SELECT  `qu`.`id`,
+        `qu`.`usage_item_id`,
+        `qu`.`zone_id`,
+        `qu`.`account_id`,
+        `qu`.`domain_id`,
+        `qu`.`usage_type`,
+        `qu`.`quota_used`,
+        `qu`.`start_date`,
+        `qu`.`end_date`,
+        CASE WHEN `cu`.`usage_id` IS NULL THEN `qu`.`resource_id` ELSE `cu`.`usage_id` END AS `resource_id`,
+        CASE WHEN `cu`.`network_id` IS NULL AND `qu`.`usage_type` IN (4, 5) THEN `qu`.`resource_id` ELSE `cu`.`network_id` END AS `network_id`,
+        CASE WHEN `cu`.`offering_id` IS NULL AND `qu`.`usage_type` IN (13, 28) THEN `qu`.`resource_id` ELSE `cu`.`offering_id` END AS `offering_id`
+FROM    `cloud_usage`.`quota_usage` `qu`
+LEFT JOIN `cloud_usage`.`cloud_usage` `cu` ON (`cu`.`id` = `qu`.`usage_item_id`);

@@ -1214,6 +1214,11 @@ public class ApiConstants {
             "however, the following formats are also accepted: \"yyyy-MM-dd HH:mm:ss\" (e.g.: \"2023-01-01 12:00:00\") and \"yyyy-MM-dd\" (e.g.: \"2023-01-01\" - if the time is not " +
             "added, it will be interpreted as \"00:00:00\"). If the recommended format is not used, the date will be considered in the server timezone.";
 
+    public static final String PARAMETER_DESCRIPTION_QUOTA_PROCESSING_PERIOD_POSSIBLE_FORMATS = "Value can be 'BY_ENTRY' or 'MONTHLY'.";
+
+    public static final String PARAMETER_DESCRIPTION_QUOTA_EXECUTE_ON_POSSIBLE_VALUES = "For processing period 'BY_ENTRY', it will be ignored; for 'MONTHLY', the value must " +
+        "be a number between 1 and 28 (included), indicating the day of the month the tariff will be processed.";
+
     public static final String PARAMETER_DESCRIPTION_END_DATE_POSSIBLE_FORMATS = "The recommended format is \"yyyy-MM-dd'T'HH:mm:ssZ\" (e.g.: \"2023-01-01T12:00:00+0100\"); " +
             "however, the following formats are also accepted: \"yyyy-MM-dd HH:mm:ss\" (e.g.: \"2023-01-01 12:00:00\") and \"yyyy-MM-dd\" (e.g.: \"2023-01-01\" - if the time is not " +
             "added, it will be interpreted as \"23:59:59\"). If the recommended format is not used, the date will be considered in the server timezone.";
