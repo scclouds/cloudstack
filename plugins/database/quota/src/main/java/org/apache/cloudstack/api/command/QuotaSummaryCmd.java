@@ -133,7 +133,7 @@ public class QuotaSummaryCmd extends BaseListCmd {
 
     @Override
     public long getEntityOwnerId() {
-        if (domainId != null && ObjectUtils.allNull(accountId, accountName)) {
+        if (ObjectUtils.allNull(accountId, accountName, projectId)) {
             return -1;
         }
         return quotaService.finalizeAccountId(accountId, accountName, domainId, projectId);

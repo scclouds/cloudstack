@@ -508,6 +508,7 @@ public class ApiConstants {
     public static final String TEMPLATE_TYPE = "templatetype";
     public static final String TEMPLATE_FORMAT = "templateformat";
     public static final String TIMEOUT = "timeout";
+    public static final String TIME_SORTED_QUOTA = "timesortedquota";
     public static final String TIMEZONE = "timezone";
     public static final String TIMEZONEOFFSET = "timezoneoffset";
     public static final String TOTAL = "total";
@@ -634,6 +635,7 @@ public class ApiConstants {
     public static final String LUN_ID = "lunId";
     public static final String IQN = "iqn";
     public static final String AGGREGATE_NAME = "aggregatename";
+    public static final String AGGREGATION_INTERVAL = "aggregationinterval";
     public static final String POOL_NAME = "poolname";
     public static final String VOLUME_NAME = "volumename";
     public static final String VOLUME_STATE = "volumestate";
@@ -1297,5 +1299,9 @@ public class ApiConstants {
 
     public enum DomainDetails {
         all, resource, min;
+    }
+
+    public enum AggregationInterval {
+        DAILY, HOURLY, NONE;
     }
 }

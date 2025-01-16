@@ -25,6 +25,8 @@ import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.ZoneId;
 
+import java.time.ZonedDateTime;
+import java.time.temporal.ChronoUnit;
 import java.util.Arrays;
 import java.util.ArrayList;
 import java.util.Calendar;
@@ -433,7 +435,7 @@ public class QuotaResponseBuilderImpl implements QuotaResponseBuilder {
 
         List<QuotaStatementItemResponse> items = new ArrayList<>();
 
-        recordsPerUsageTypes.forEach((key, value) -> items.add(createStatementItem(key, value, cmd.isShowResources())));
+        recordsPerUsageTypes.forEach((key, value) -> items.add(createStatementItem(key, value, cmd)));
 
         QuotaStatementResponse statement = new QuotaStatementResponse();
 
@@ -479,35 +481,88 @@ public class QuotaResponseBuilderImpl implements QuotaResponseBuilder {
         }
     }
 
-    protected QuotaStatementItemResponse createStatementItem(int usageType, List<QuotaUsageJoinVO> usageRecords, boolean showResources) {
+    protected QuotaStatementItemResponse createStatementItem(int usageType, List<QuotaUsageJoinVO> usageRecords, QuotaStatementCmd cmd) {
         QuotaUsageJoinVO firstRecord = usageRecords.get(0);
         int type = firstRecord.getUsageType();
 
         QuotaTypes quotaType = QuotaTypes.listQuotaTypes().get(type);
 
         QuotaStatementItemResponse item = new QuotaStatementItemResponse(type);
-        item.setQuotaUsed(usageRecords.stream().map(QuotaUsageJoinVO::getQuotaUsed).filter(Objects::nonNull).reduce(BigDecimal.ZERO, BigDecimal::add));
+        BigDecimal quotaUsed = usageRecords.stream().map(QuotaUsageJoinVO::getQuotaUsed).filter(Objects::nonNull).reduce(BigDecimal.ZERO, BigDecimal::add);
+        item.setQuotaUsed(quotaUsed);
+        if (!cmd.isShowResources()) {
+            item.setTimeSortedQuota(createQuotaDateMap(usageRecords, cmd, quotaUsed));
+        }
         item.setUsageUnit(quotaType.getQuotaUnit());
         item.setUsageName(quotaType.getQuotaName());
 
-        setStatementItemResources(item, usageType, usageRecords, showResources);
+        setStatementItemResources(item, usageType, usageRecords, cmd);
         return item;
     }
 
-    protected void setStatementItemResources(QuotaStatementItemResponse statementItem, int usageType, List<QuotaUsageJoinVO> quotaUsageRecords, boolean showResources) {
-        if (!showResources) {
+    /**
+     * Creates a Hash Map separated by time containing the sum of the used quota in the respective time period.
+     */
+    protected Map<String, BigDecimal> createQuotaDateMap(List<QuotaUsageJoinVO> usageRecords, QuotaStatementCmd cmd, BigDecimal quotaUsed) {
+        if (quotaUsed.equals(BigDecimal.ZERO)) {
+            logger.debug("Not aggregating quota by time because item has not used any quota in the period.");
+            return null;
+        }
+        if (cmd.getAggregationInterval() == ApiConstants.AggregationInterval.NONE) {
+            logger.debug("Not aggregating quota by time because AggregationInterval is set to None.");
+            return null;
+        }
+
+        ChronoUnit aggregationUnit = ChronoUnit.HOURS;
+        if (cmd.getAggregationInterval() == ApiConstants.AggregationInterval.DAILY) {
+            aggregationUnit = ChronoUnit.DAYS;
+        }
+
+        logger.debug("Creating a time sorted map with [{}] aggregation for the used quota.", cmd.getAggregationInterval());
+
+        String timezone = cmd.getTimezone();
+        Map<String, BigDecimal> quotaDateMap = new HashMap<>();
+
+        for (QuotaUsageJoinVO usageRecord : usageRecords) {
+            if (usageRecord.getQuotaUsed() == null) {
+                continue;
+            }
+            ZonedDateTime zonedRecordStartTime = ZonedDateTime.ofInstant(usageRecord.getStartDate().toInstant(), ZoneId.of(timezone)).truncatedTo(aggregationUnit);
+            String recordStartTime = zonedRecordStartTime.format(DateUtil.ZONED_DATETIME_FORMATTER);
+            if (quotaDateMap.containsKey(recordStartTime)) {
+                quotaDateMap.put(recordStartTime, quotaDateMap.get(recordStartTime).add(usageRecord.getQuotaUsed()));
+            } else {
+                quotaDateMap.put(recordStartTime, usageRecord.getQuotaUsed());
+            }
+        }
+        return quotaDateMap;
+    }
+
+    protected void setStatementItemResources(QuotaStatementItemResponse statementItem, int usageType, List<QuotaUsageJoinVO> quotaUsageRecords, QuotaStatementCmd cmd) {
+        if (!cmd.isShowResources()) {
+            logger.debug("Not creating resources statement for the item because isShowResources is set to false.");
             return;
         }
 
-        Map<Long, BigDecimal> quotaUsagesValuesAggregatedById = quotaUsageRecords
+        List<QuotaStatementItemResourceResponse> itemDetails = new ArrayList<>();
+        Map<Long, List<QuotaUsageJoinVO>> quotaUsagesValuesAggregatedById = quotaUsageRecords
                 .stream()
                 .filter(quotaUsageJoinVo -> getResourceIdByUsageType(quotaUsageJoinVo, usageType) != null)
                 .collect(Collectors.groupingBy(
-                        quotaUsageJoinVo -> getResourceIdByUsageType(quotaUsageJoinVo, usageType),
-                        Collectors.reducing(new BigDecimal(0), QuotaUsageJoinVO::getQuotaUsed, BigDecimal::add)
+                        quotaUsageJoinVo -> getResourceIdByUsageType(quotaUsageJoinVo, usageType)
                 ));
 
-        List<QuotaStatementItemResourceResponse> itemDetails = createQuotaStatementItemResourceResponsesFromUsageValuesAggregatedByResourceId(quotaUsagesValuesAggregatedById, usageType);
+        for (Map.Entry<Long, List<QuotaUsageJoinVO>> entry : quotaUsagesValuesAggregatedById.entrySet()) {
+            QuotaUsageResourceVO resource = getResourceFromIdAndType(entry.getKey(), usageType);
+            QuotaStatementItemResourceResponse detail = createQuotaStatementDetail(resource);
+            BigDecimal quotaUsed = entry.getValue().stream()
+                    .map(QuotaUsageJoinVO::getQuotaUsed)
+                    .reduce(BigDecimal.ZERO, BigDecimal::add);
+            detail.setTimeSortedQuota(createQuotaDateMap(entry.getValue(), cmd, quotaUsed));
+            detail.setQuotaUsed(quotaUsed);
+            itemDetails.add(detail);
+        }
+
         statementItem.setResources(itemDetails);
     }
 
@@ -1220,31 +1275,27 @@ public class QuotaResponseBuilderImpl implements QuotaResponseBuilder {
         }
 
         logger.info("Adding the calculated quota usage of [{}] resources into tariff [{}]'s response item.", quotaUsageValuesAggregatedByResourceId.size(), tariffAsString);
-        List<QuotaStatementItemResourceResponse> itemDetails = createQuotaStatementItemResourceResponsesFromUsageValuesAggregatedByResourceId(quotaUsageValuesAggregatedByResourceId, usageType);
+        List<QuotaStatementItemResourceResponse> itemDetails = new ArrayList<>();
+        for (Map.Entry<Long, BigDecimal> entry : quotaUsageValuesAggregatedByResourceId.entrySet()) {
+            QuotaUsageResourceVO resource = getResourceFromIdAndType(entry.getKey(), usageType);
+            QuotaStatementItemResourceResponse detail = createQuotaStatementDetail(resource);
+            detail.setQuotaUsed(entry.getValue());
+            itemDetails.add(detail);
+        }
         statementItem.setResources(itemDetails);
     }
 
-    protected List<QuotaStatementItemResourceResponse> createQuotaStatementItemResourceResponsesFromUsageValuesAggregatedByResourceId(Map<Long, BigDecimal> quotaUsageValuesAggregatedByResourceId, int usageType) {
-        List<QuotaStatementItemResourceResponse> itemDetails = new ArrayList<>();
-
-        for (Map.Entry<Long, BigDecimal> entry : quotaUsageValuesAggregatedByResourceId.entrySet()) {
-            QuotaStatementItemResourceResponse detail = new QuotaStatementItemResourceResponse();
-
-            detail.setQuotaUsed(entry.getValue());
-
-            QuotaUsageResourceVO resource = getResourceFromIdAndType(entry.getKey(), usageType);
-            if (resource != null) {
-                detail.setResourceId(resource.getUuid());
-                detail.setDisplayName(resource.getName());
-                detail.setRemoved(resource.isRemoved());
-            } else {
-                detail.setDisplayName("<untraceable>");
-            }
-
-            itemDetails.add(detail);
+    protected QuotaStatementItemResourceResponse createQuotaStatementDetail(QuotaUsageResourceVO resource) {
+        QuotaStatementItemResourceResponse detail = new QuotaStatementItemResourceResponse();
+        if (resource != null) {
+            detail.setResourceId(resource.getUuid());
+            detail.setDisplayName(resource.getName());
+            detail.setRemoved(resource.isRemoved());
+        } else {
+            detail.setDisplayName("<untraceable>");
         }
+        return detail;
 
-        return itemDetails;
     }
 
     protected QuotaTariffStatementResponse createQuotaTariffStatementResponse(QuotaTariffStatementCmd cmd, List<QuotaTariffStatementItemResponse> quotaTariffStatementItemResponseList, BigDecimal totalQuotaUsed) {

@@ -16,12 +16,14 @@
 //under the License.
 package org.apache.cloudstack.api.command;
 
+import java.util.Arrays;
 import java.util.Date;
 import java.util.List;
 
 import javax.inject.Inject;
 
 import com.cloud.exception.InvalidParameterValueException;
+import com.cloud.utils.StringUtils;
 import org.apache.cloudstack.api.ACL;
 import org.apache.cloudstack.api.APICommand;
 import org.apache.cloudstack.api.ApiConstants;
@@ -37,6 +39,7 @@ import org.apache.cloudstack.quota.QuotaService;
 import org.apache.cloudstack.quota.vo.QuotaUsageJoinVO;
 
 import com.cloud.user.Account;
+import org.apache.commons.lang3.ObjectUtils;
 
 @APICommand(name = "quotaStatement", responseObject = QuotaStatementItemResponse.class, description = "Create a quota statement", since = "4.7.0", requestHasSensitiveInfo = false, responseHasSensitiveInfo = false)
 public class QuotaStatementCmd extends BaseCmd {
@@ -72,6 +75,12 @@ public class QuotaStatementCmd extends BaseCmd {
 
     @Parameter(name = ApiConstants.SHOW_RESOURCES, type = CommandType.BOOLEAN, description = "List the resources of each quota type in the period.")
     private boolean showResources;
+
+    @Parameter(name = ApiConstants.AGGREGATION_INTERVAL, type = CommandType.STRING, description = "Aggregation interval for the usage records. Options are None, Hourly and Daily.")
+    private String aggregationInterval;
+
+    @Parameter(name = ApiConstants.TIMEZONE, type = CommandType.STRING, description = "Timezone to be used in the response if time aggregation is used.")
+    private String timezone;
 
     @Inject
     protected QuotaResponseBuilder responseBuilder;
@@ -111,7 +120,9 @@ public class QuotaStatementCmd extends BaseCmd {
         this.domainId = domainId;
     }
 
-    public Date getEndDate() { return endDate; }
+    public Date getEndDate() {
+        return endDate;
+    }
 
     public void setEndDate(Date endDate) {
         this.endDate = endDate;
@@ -121,14 +132,42 @@ public class QuotaStatementCmd extends BaseCmd {
         return startDate;
     }
 
-    public void setStartDate(Date startDate) { this.startDate = startDate; }
+    public void setStartDate(Date startDate) {
+        this.startDate = startDate;
+    }
 
-    public boolean isShowResources() { return showResources; }
+    public boolean isShowResources() {
+        return showResources;
+    }
 
-    public void setShowResources(boolean showResources) { this.showResources = showResources; }
+    public void setShowResources(boolean showResources) {
+        this.showResources = showResources;
+    }
 
     public Long getProjectId() {
         return projectId;
+    }
+
+    public ApiConstants.AggregationInterval getAggregationInterval() {
+        if (StringUtils.isBlank(aggregationInterval)) {
+            return ApiConstants.AggregationInterval.NONE;
+        }
+        try {
+            String type = aggregationInterval.trim().toUpperCase();
+            return ApiConstants.AggregationInterval.valueOf(type);
+        } catch (IllegalArgumentException e) {
+            logger.warn("Not setting aggregation interval because an invalid value was received [{}]." +
+                    " Valid values are: [{}].", () -> aggregationInterval, () -> Arrays.toString(ApiConstants.AggregationInterval.values()));
+            return ApiConstants.AggregationInterval.NONE;
+        }
+    }
+
+    public void setAggregationInterval(String aggregationInterval) {
+        this.aggregationInterval = aggregationInterval;
+    }
+
+    public String getTimezone() {
+        return ObjectUtils.defaultIfNull(timezone, "UTC");
     }
 
     @Override

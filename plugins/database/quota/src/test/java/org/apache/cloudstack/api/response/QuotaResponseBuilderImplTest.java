@@ -47,6 +47,7 @@ import org.apache.cloudstack.api.command.QuotaConfigureEmailCmd;
 import org.apache.cloudstack.api.command.QuotaCreditsListCmd;
 import org.apache.cloudstack.api.command.QuotaEmailTemplateListCmd;
 import org.apache.cloudstack.api.command.QuotaEmailTemplateUpdateCmd;
+import org.apache.cloudstack.api.command.QuotaStatementCmd;
 import org.apache.cloudstack.api.command.QuotaTariffStatementCmd;
 import org.apache.cloudstack.api.command.QuotaValidateActivationRuleCmd;
 import org.apache.cloudstack.context.CallContext;
@@ -308,7 +309,7 @@ public class QuotaResponseBuilderImplTest extends TestCase {
 
     @Test
     public void testStartOfNextDayWithParameter() {
-        Date anyDate = new Date(1242421545757532l);
+        Date anyDate = new Date(1242421545757532L);
 
         Date nextDayDate = quotaResponseBuilderSpy.startOfNextDay(anyDate);
 
@@ -693,12 +694,12 @@ public class QuotaResponseBuilderImplTest extends TestCase {
         Mockito.lenient().doNothing().when(accountManagerMock).checkAccess(Mockito.any(Account.class), Mockito.any(Domain.class));
         Mockito.doReturn(null).when(accountDaoMock).findAccountIncludingRemoved(Mockito.anyString(), Mockito.anyLong());
 
-        quotaResponseBuilderSpy.getAccountIdByAccountName("test", 1l, accountMock);
+        quotaResponseBuilderSpy.getAccountIdByAccountName("test", 1L, accountMock);
     }
 
     @Test
     public void getAccountIdByAccountNameTestAccountIsNotNullReturnsAccountId() {
-        Long expected = 61l;
+        Long expected = 61L;
 
         Mockito.lenient().doNothing().when(accountManagerMock).checkAccess(Mockito.any(Account.class), Mockito.any(Domain.class));
         Mockito.doReturn(accountMock).when(accountDaoMock).findAccountIncludingRemoved(Mockito.anyString(), Mockito.anyLong());
@@ -728,7 +729,7 @@ public class QuotaResponseBuilderImplTest extends TestCase {
 
     @Test
     public void getQuotaSummaryResponseWithListAllTestAccountNameIsNullAndDomainIdIsNotNullPassDomainId() {
-        Long expectedDomainId = 26l;
+        Long expectedDomainId = 26L;
 
         QuotaSummaryCmd cmd = new QuotaSummaryCmd();
         cmd.setAccountName(null);
@@ -756,8 +757,8 @@ public class QuotaResponseBuilderImplTest extends TestCase {
     }
 
     @Test
-    public void getQuotaSummaryResponseWithListAllTestDomainIdIsNotNullPassDomainId() {
-        Long expectedDomainId = 9837l;
+    public void getQuotaSummaryResponseWithListAllTestDomainIsNotNullPassDomainId() {
+        Long expectedDomainId = 9837L;
 
         QuotaSummaryCmd cmd = Mockito.mock(QuotaSummaryCmd.class);
         Mockito.doReturn(expectedDomainId).when(cmd).getDomainId();
@@ -880,29 +881,39 @@ public class QuotaResponseBuilderImplTest extends TestCase {
     @Test
     public void setTariffStatementItemResourcesTestSetsExpectedValues() {
         QuotaTariffStatementItemResponse statementItem = new QuotaTariffStatementItemResponse();
-        List<QuotaStatementItemResourceResponse> expectedResources = List.of(new QuotaStatementItemResourceResponse(), new QuotaStatementItemResourceResponse());
+        QuotaUsageResourceVO resource = new QuotaUsageResourceVO("uuid", "name", new Date());
 
-        Mockito.doReturn(expectedResources).when(quotaResponseBuilderSpy).createQuotaStatementItemResourceResponsesFromUsageValuesAggregatedByResourceId(Mockito.any(), Mockito.anyInt());
+        List<QuotaUsageDetailVO> quotaUsageDetailList = new ArrayList<>();
+        QuotaUsageDetailVO detail = new QuotaUsageDetailVO();
+        detail.setQuotaUsageId(1L);
+        quotaUsageDetailList.add(detail);
 
-        quotaResponseBuilderSpy.setTariffStatementItemResources(statementItem, 1, new ArrayList<>(), new ArrayList<>());
+        List<QuotaUsageJoinVO> quotaUsageRecords = new ArrayList<>();
+        QuotaUsageJoinVO quotaUsage = new QuotaUsageJoinVO();
+        quotaUsage.setId(1L);
+        quotaUsage.setUsageType(1);
+        quotaUsage.setQuotaUsed(BigDecimal.ZERO);
+        quotaUsageRecords.add(quotaUsage);
 
-        Assert.assertEquals(expectedResources, statementItem.getResources());
+        Mockito.doReturn(resource).when(quotaResponseBuilderSpy).getResourceFromIdAndType(Mockito.anyLong(), Mockito.anyInt());
+        Mockito.doReturn(1L).when(quotaResponseBuilderSpy).getResourceIdByUsageType(Mockito.any(), Mockito.anyInt());
+
+        QuotaStatementItemResourceResponse expectedDetail = new QuotaStatementItemResourceResponse();
+        Mockito.doReturn(expectedDetail).when(quotaResponseBuilderSpy).createQuotaStatementDetail(Mockito.any());
+
+        quotaResponseBuilderSpy.setTariffStatementItemResources(statementItem, 1, quotaUsageDetailList, quotaUsageRecords);
+
+        Assert.assertEquals(1, statementItem.getResources().size());
+        Assert.assertEquals(expectedDetail, statementItem.getResources().get(0));
     }
 
     @Test
-    public void createQuotaStatementItemResourceResponsesFromUsageValuesAggregatedByResourceIdTestReturnsListWithExpectedValues() {
+    public void createQuotaStatementDetailTestReturnsDetailWithExpectedValues() {
         QuotaUsageResourceVO resource = new QuotaUsageResourceVO("uuid", "name", new Date());
-        Mockito.doReturn(resource).when(quotaResponseBuilderSpy).getResourceFromIdAndType(Mockito.anyLong(), Mockito.anyInt());
-        Map<Long, BigDecimal> resourceIdAndQuotaUsage = new HashMap<>();
-        BigDecimal resourceQuotaUsage = BigDecimal.ONE;
-        resourceIdAndQuotaUsage.put(1L, resourceQuotaUsage);
-
-        List<QuotaStatementItemResourceResponse> response = quotaResponseBuilderSpy.createQuotaStatementItemResourceResponsesFromUsageValuesAggregatedByResourceId(resourceIdAndQuotaUsage, 1);
-
-        Assert.assertEquals(response.size(), 1);
-        Assert.assertEquals(resource.getUuid(), response.get(0).getResourceId());
-        Assert.assertEquals(resource.getName(), response.get(0).getDisplayName());
-        Assert.assertTrue(response.get(0).isRemoved());
+        QuotaStatementItemResourceResponse detail = quotaResponseBuilderSpy.createQuotaStatementDetail(resource);
+        Assert.assertEquals("uuid", detail.getResourceId());
+        Assert.assertEquals("name", resource.getName());
+        Assert.assertTrue(detail.isRemoved());
     }
 
     @Test
@@ -1224,44 +1235,44 @@ public class QuotaResponseBuilderImplTest extends TestCase {
     }
 
     private List<QuotaUsageJoinVO> getQuotaUsagesForTest() {
-        SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd");
+        SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ssZ");
 
         List<QuotaUsageJoinVO> quotaUsages = new ArrayList<>();
 
         QuotaUsageJoinVO quotaUsage = new QuotaUsageJoinVO();
-        quotaUsage.setAccountId(1l);
-        quotaUsage.setDomainId(2l);
+        quotaUsage.setAccountId(1L);
+        quotaUsage.setDomainId(2L);
         quotaUsage.setUsageType(3);
         quotaUsage.setQuotaUsed(BigDecimal.valueOf(10));
         try {
-            quotaUsage.setStartDate(sdf.parse("2022-01-01"));
-            quotaUsage.setEndDate(sdf.parse("2022-01-02"));
+            quotaUsage.setStartDate(sdf.parse("2022-01-01T00:00:00+0000"));
+            quotaUsage.setEndDate(sdf.parse("2022-01-02T00:00:00+0000"));
         } catch (ParseException e) {
             e.printStackTrace();
         }
         quotaUsages.add(quotaUsage);
 
         quotaUsage = new QuotaUsageJoinVO();
-        quotaUsage.setAccountId(4l);
-        quotaUsage.setDomainId(5l);
+        quotaUsage.setAccountId(4L);
+        quotaUsage.setDomainId(5L);
         quotaUsage.setUsageType(3);
         quotaUsage.setQuotaUsed(null);
         try {
-            quotaUsage.setStartDate(sdf.parse("2022-01-03"));
-            quotaUsage.setEndDate(sdf.parse("2022-01-04"));
+            quotaUsage.setStartDate(sdf.parse("2022-01-03T00:00:00+0000"));
+            quotaUsage.setEndDate(sdf.parse("2022-01-04T00:00:00+0000"));
         } catch (ParseException e) {
             e.printStackTrace();
         }
         quotaUsages.add(quotaUsage);
 
         quotaUsage = new QuotaUsageJoinVO();
-        quotaUsage.setAccountId(6l);
-        quotaUsage.setDomainId(7l);
+        quotaUsage.setAccountId(6L);
+        quotaUsage.setDomainId(7L);
         quotaUsage.setUsageType(3);
         quotaUsage.setQuotaUsed(BigDecimal.valueOf(5));
         try {
-            quotaUsage.setStartDate(sdf.parse("2022-01-05"));
-            quotaUsage.setEndDate(sdf.parse("2022-01-06"));
+            quotaUsage.setStartDate(sdf.parse("2022-01-05T00:00:00+0000"));
+            quotaUsage.setEndDate(sdf.parse("2022-01-06T00:00:00+0000"));
         } catch (ParseException e) {
             e.printStackTrace();
         }
@@ -1272,10 +1283,11 @@ public class QuotaResponseBuilderImplTest extends TestCase {
 
     @Test
     public void createStatementItemTestReturnItem() {
+        QuotaStatementCmd cmd =  new QuotaStatementCmd();
         List<QuotaUsageJoinVO> quotaUsages = getQuotaUsagesForTest();
-        Mockito.doNothing().when(quotaResponseBuilderSpy).setStatementItemResources(Mockito.any(), Mockito.anyInt(), Mockito.any(), Mockito.anyBoolean());
+        Mockito.doNothing().when(quotaResponseBuilderSpy).setStatementItemResources(Mockito.any(), Mockito.anyInt(), Mockito.any(), Mockito.any());
 
-        QuotaStatementItemResponse result = quotaResponseBuilderSpy.createStatementItem(0, quotaUsages, false);
+        QuotaStatementItemResponse result = quotaResponseBuilderSpy.createStatementItem(0, quotaUsages, cmd);
 
         QuotaUsageJoinVO expected = quotaUsages.get(0);
         QuotaTypes quotaTypeExpected = QuotaTypes.listQuotaTypes().get(expected.getUsageType());
@@ -1285,10 +1297,80 @@ public class QuotaResponseBuilderImplTest extends TestCase {
     }
 
     @Test
+    public void createQuotaDateMapTestWithoutSegregation() {
+        List<QuotaUsageJoinVO> quotaUsages = getQuotaUsagesForTest();
+
+        QuotaStatementCmd cmd =  new QuotaStatementCmd();
+        cmd.setAggregationInterval("none");
+
+        Map<String, BigDecimal> result = quotaResponseBuilderSpy.createQuotaDateMap(quotaUsages, cmd, BigDecimal.ONE);
+
+        assertNull(result);
+    }
+
+    @Test
+    public void createQuotaDateMapTestWithDailySegregation() {
+        List<QuotaUsageJoinVO> quotaUsages = getQuotaUsagesForTest();
+
+        QuotaStatementCmd cmd =  new QuotaStatementCmd();
+
+        cmd.setAggregationInterval("daily");
+
+        String startDate = "2022-01-01T00:00:00+0000";
+        String endDate = "2022-01-05T00:00:00+0000";
+
+        SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ssZ");
+        try {
+            cmd.setStartDate(sdf.parse(startDate));
+            cmd.setEndDate(sdf.parse(endDate));
+        }
+        catch (ParseException e) {
+            e.printStackTrace();
+        }
+
+        Map<String, BigDecimal> result = quotaResponseBuilderSpy.createQuotaDateMap(quotaUsages, cmd, BigDecimal.ONE);
+
+        Assert.assertEquals(2, result.size());
+        Assert.assertEquals(BigDecimal.valueOf(10), result.get(startDate));
+        Assert.assertEquals(BigDecimal.valueOf(5), result.get(endDate));
+    }
+
+
+    @Test
+    public void createQuotaDateMapTestWithHourlySegregation() {
+        List<QuotaUsageJoinVO> quotaUsages = getQuotaUsagesForTest();
+
+        QuotaStatementCmd cmd =  new QuotaStatementCmd();
+        cmd.setAggregationInterval("hourly");
+
+        String startDate = "2022-01-01T00:00:00+0000";
+        String endDate = "2022-01-05T00:00:00+0000";
+
+        SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ssZ");
+        try {
+            cmd.setStartDate(sdf.parse(startDate));
+            cmd.setEndDate(sdf.parse(endDate));
+        }
+        catch (ParseException e) {
+            e.printStackTrace();
+        }
+
+        Map<String, BigDecimal> result = quotaResponseBuilderSpy.createQuotaDateMap(quotaUsages, cmd, BigDecimal.ONE);
+
+        Assert.assertEquals(2, result.size());
+        Assert.assertEquals(BigDecimal.valueOf(10), result.get(startDate));
+        Assert.assertEquals(BigDecimal.valueOf(5), result.get(endDate));
+    }
+
+
+    @Test
     public void setStatementItemResourcesTestDoNotShowResourcesDoNothing() {
+        QuotaStatementCmd cmd =  new QuotaStatementCmd();
         QuotaStatementItemResponse item = new QuotaStatementItemResponse(1);
 
-        quotaResponseBuilderSpy.setStatementItemResources(item, 0, getQuotaUsagesForTest(), false);
+        cmd.setShowResources(false);
+
+        quotaResponseBuilderSpy.setStatementItemResources(item, 0, getQuotaUsagesForTest(), cmd);
 
         Assert.assertNull(item.getResources());
     }
