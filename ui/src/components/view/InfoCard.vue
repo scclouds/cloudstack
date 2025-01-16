@@ -784,7 +784,7 @@
         </div>
       </div>
 
-      <div class="account-center-tags" v-if="showKeys">
+      <div class="account-center-tags" v-if="resource.apikey">
         <a-divider/>
         <div class="user-keys">
           <key-outlined />
@@ -956,9 +956,6 @@ export default {
         this.setData()
         this.validLinks = validateLinks(this.$router, this.isStatic, this.resource)
 
-        if ('apikey' in this.resource) {
-          this.getUserKeys()
-        }
         this.updateResourceAdditionalData()
       }
     },
@@ -1128,16 +1125,6 @@ export default {
         return parseFloat(kb / 1024.0).toFixed(2) + ' MB'
       }
       return parseFloat(kb / (1024.0 * 1024.0)).toFixed(2) + ' GB'
-    },
-    getUserKeys () {
-      if (!('getUserKeys' in this.$store.getters.apis)) {
-        return
-      }
-      api('getUserKeys', { id: this.resource.id }).then(json => {
-        this.showKeys = true
-        this.newResource.secretkey = json.getuserkeysresponse.userkeys.secretkey
-        this.$emit('change-resource', this.newResource)
-      })
     },
     getTags () {
       if (!('listTags' in this.$store.getters.apis) || !this.resource || !this.resource.id) {

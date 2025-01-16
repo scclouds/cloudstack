@@ -578,6 +578,13 @@
         {{ `Selected ${selectedRowKeys.length} items` }}
       </span>
     </template>
+    <template #enddate="{ text }">
+      {{ text ? $toLocaleDate(text) : '' }}
+    </template>
+    <template #startdate="{ text }">
+      {{ text ? $toLocaleDate(text) : '' }}
+    </template>
+
   </a-table>
 </template>
 
