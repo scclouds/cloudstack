@@ -931,6 +931,10 @@ export default {
             params.name = this.$route.params.id
           }
         }
+        if (['listUserKeys'].includes(this.apiName)) {
+          delete params.listall
+          params.keypairid = this.$route.params.id
+        }
         if (['listPublicIpAddresses'].includes(this.apiName)) {
           params.allocatedonly = false
         }
@@ -1053,6 +1057,10 @@ export default {
           if (this.$route.path.startsWith('/ldapsetting')) {
             this.items[idx].id = this.items[idx].hostname
           }
+        }
+        if (this.items.length === 1 && this.apiName === 'getUserKeys') {
+          this.resource = this.items[0]
+          this.$emit('change-resource', this.resource)
         }
         if (this.items.length > 0) {
           if (!this.showAction || this.dataView) {

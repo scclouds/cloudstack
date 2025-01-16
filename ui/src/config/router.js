@@ -31,6 +31,7 @@ import image from '@/config/section/image'
 import project from '@/config/section/project'
 import event from '@/config/section/event'
 import user from '@/config/section/user'
+import keypair from '@/config/section/keypair'
 import account from '@/config/section/account'
 import domain from '@/config/section/domain'
 import role from '@/config/section/role'
@@ -57,7 +58,6 @@ function generateRouterMap (section) {
     },
     component: shallowRef(RouteView)
   }
-
   if (section.children && section.children.length > 0) {
     map.children = []
     for (const child of section.children) {
@@ -215,6 +215,7 @@ export function asyncRouterMap () {
       generateRouterMap(event),
       generateRouterMap(project),
       generateRouterMap(user),
+      generateRouterMap(keypair),
       generateRouterMap(role),
       generateRouterMap(account),
       generateRouterMap(domain),
