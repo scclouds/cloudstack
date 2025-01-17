@@ -47,7 +47,7 @@ import java.util.UUID;
 @Table(name = "quota_tariff")
 public class QuotaTariffVO implements QuotaTariff {
     private static final long serialVersionUID = -7117933766387653203L;
-    protected Logger logger = LogManager.getLogger(getClass());
+    private static final Logger LOGGER = LogManager.getLogger(QuotaTariffVO.class);
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -281,20 +281,20 @@ public class QuotaTariffVO implements QuotaTariff {
 
     public boolean setExecuteOn(Integer executeOn) {
         if (getProcessingPeriod() == ProcessingPeriod.BY_ENTRY) {
-            logger.debug("Setting tariff's 'executeon' as 'null' since 'processingPeriod' is 'BY_ENTRY'.");
+            LOGGER.debug("Setting tariff's 'executeon' as 'null' since 'processingPeriod' is 'BY_ENTRY'.");
             this.executeOn = null;
             return true;
         }
 
         if (executeOn == null) {
-            logger.debug("Tariff's 'executeOn' cannot be 'null' if 'processingPeriod' is 'MONTHLY'.");
+            LOGGER.debug("Tariff's 'executeOn' cannot be 'null' if 'processingPeriod' is 'MONTHLY'.");
             return false;
         }
         if (executeOn < 1 || executeOn > 28) {
-            logger.debug("Tariff's 'executeOn' for 'processingPeriod' as 'MONTHLY' must be between 1 and 28 (included).");
+            LOGGER.debug("Tariff's 'executeOn' for 'processingPeriod' as 'MONTHLY' must be between 1 and 28 (included).");
             return false;
         }
-        logger.debug("Tariff's 'executeOn' set as [{}].", executeOn);
+        LOGGER.debug("Tariff's 'executeOn' set as [{}].", executeOn);
         this.executeOn = executeOn;
         return true;
     }
