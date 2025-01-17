@@ -19,6 +19,7 @@
 
 DROP VIEW IF EXISTS `cloud_usage`.`quota_usage_view`;
 
+CREATE VIEW `cloud_usage`.`quota_usage_view` AS
 SELECT  `qu`.`id`,
         `qu`.`usage_item_id`,
         `qu`.`zone_id`,
