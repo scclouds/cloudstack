@@ -41,14 +41,16 @@ public class QuotaBalanceResponse extends BaseResponse {
     @Param(description = "Balance's value.")
     private BigDecimal balance;
 
-    @SerializedName(ApiConstants.BALANCE)
+    @SerializedName(ApiConstants.BALANCES)
     @Param(description = "Balances in the period.")
     private List<QuotaBalanceResponse> balances;
 
     public QuotaBalanceResponse() {
+        super("balance");
     }
 
     public QuotaBalanceResponse(Date date, BigDecimal balance) {
+        super("balance");
         this.date = date;
         this.balance = balance;
     }

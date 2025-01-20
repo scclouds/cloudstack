@@ -1129,7 +1129,7 @@ export default {
       return ['DomainAdmin', 'User'].includes(this.$store.getters.userInfo.roletype)
     },
     isNormalUserOrProject () {
-      return ['User'].includes(this.$store.getters.userInfo.roletype) || store.getters.project.id
+      return ['User'].includes(this.$store.getters.userInfo.roletype) || store.getters.project?.id
     },
     diskSize () {
       const customRootDiskSize = _.get(this.instanceConfig, 'rootdisksize', null)
@@ -1258,9 +1258,9 @@ export default {
           options: {
             zoneid: _.get(this.zone, 'id'),
             canusefordeploy: true,
-            projectid: store.getters.project.id || this.owner.projectid,
-            domainid: store.getters.project.id ? null : this.owner.domainid,
-            account: store.getters.project.id ? null : this.owner.account,
+            projectid: store.getters.project?.id || this.owner.projectid,
+            domainid: store.getters.project?.id ? null : this.owner.domainid,
+            account: store.getters.project?.id ? null : this.owner.account,
             page: 1,
             pageSize: 10,
             keyword: undefined,
