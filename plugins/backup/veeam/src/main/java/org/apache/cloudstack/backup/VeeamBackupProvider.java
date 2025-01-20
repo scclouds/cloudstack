@@ -340,11 +340,6 @@ public class VeeamBackupProvider extends AdapterBase implements BackupProvider, 
         final Map<VirtualMachine, Backup.Metric> metrics = new HashMap<>();
         final Map<String, Backup.Metric> backendMetrics = getClient(zoneId).getBackupMetrics();
 
-        if (CollectionUtils.isEmpty(vms)) {
-            logger.warn("Unable to get VM Backup Metrics because the list of VMs is empty.");
-            return metrics;
-        }
-
         if (backendMetrics.isEmpty()) {
             return metrics;
         }
