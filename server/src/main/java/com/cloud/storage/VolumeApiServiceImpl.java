@@ -351,7 +351,7 @@ public class VolumeApiServiceImpl extends ManagerBase implements VolumeApiServic
     protected StoragePoolDetailsDao storagePoolDetailsDao;
     @Inject
     private BackupDao backupDao;
-
+    @Inject
     protected VMSnapshotDetailsDao vmSnapshotDetailsDao;
 
     protected static final String KVM_FILE_BASED_STORAGE_SNAPSHOT = "kvmFileBasedStorageSnapshot";
