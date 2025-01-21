@@ -58,6 +58,7 @@ public class ApiConstants {
     public static final String BACKUP_OFFERING_NAME = "backupofferingname";
     public static final String BACKUP_OFFERING_ID = "backupofferingid";
     public static final String BALANCE = "balance";
+    public static final String BALANCES = "balances";
     public static final String BASE64_IMAGE = "base64image";
     public static final String BGP_PEERS = "bgppeers";
     public static final String BGP_PEER_IDS = "bgppeerids";
