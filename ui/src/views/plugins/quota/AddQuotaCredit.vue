@@ -150,8 +150,9 @@ export default {
 
         this.loading = true
         api('quotaCredits', values).then(response => {
+          const accountname = this.accountList.find(a => a.id === values.accountid).name
           this.$message.success(this.$t('message.action.quota.credit.add.success',
-            { credit: response.quotacreditsresponse.quotacredits.credit, account: response.quotacreditsresponse.quotacredits.creditorid }))
+            { credit: response.quotacreditsresponse.quotacredits.credit, account: accountname }))
           this.parentFetchData()
           this.closeModal()
         }).catch(error => {
