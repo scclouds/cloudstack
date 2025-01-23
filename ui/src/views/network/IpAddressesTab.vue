@@ -574,6 +574,7 @@ export default {
       this.listPublicIpAddress = []
 
       try {
+        this.getAvailableOwnersForIP()
         this.listPublicIpAddress = await networkUtils.getAvailablePublicIpAddresses(this.resource.zoneid, this.resource.domainid, this.resource.account)
         this.acquireIp = this.listPublicIpAddress && this.listPublicIpAddress.length > 0 ? this.listPublicIpAddress[0].ipaddress : null
         this.acquireLoading = false
