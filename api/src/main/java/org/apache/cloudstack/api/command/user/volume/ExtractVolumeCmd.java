@@ -34,6 +34,7 @@ import org.apache.cloudstack.context.CallContext;
 import com.cloud.event.EventTypes;
 import com.cloud.storage.Volume;
 import com.cloud.user.Account;
+import com.cloud.dc.DataCenter;
 
 @APICommand(name = "extractVolume", description = "Extracts volume", responseObject = ExtractResponse.class, entityType = {Volume.class},
         requestHasSensitiveInfo = false, responseHasSensitiveInfo = false)
@@ -114,12 +115,15 @@ public class ExtractVolumeCmd extends BaseAsyncCmd {
 
     @Override
     public String getEventDescription() {
-        return  "Extraction job";
+        String volumeId = this._uuidMgr.getUuid(Volume.class, getId());
+        String zoneId = this._uuidMgr.getUuid(DataCenter.class, getZoneId());
+
+        return String.format("Extracting volume: %s from zone: %s", volumeId, zoneId);
     }
 
     @Override
     public void execute() {
-        CallContext.current().setEventDetails("Volume Id: " + this._uuidMgr.getUuid(Volume.class, getId()));
+        CallContext.current().setEventDetails(getEventDescription());
         String uploadUrl = _volumeService.extractVolume(this);
         if (uploadUrl != null) {
             ExtractResponse response = _responseGenerator.createVolumeExtractResponse(id, zoneId, getEntityOwnerId(), mode, uploadUrl);
