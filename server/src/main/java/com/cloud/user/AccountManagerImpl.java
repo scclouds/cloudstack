@@ -1403,12 +1403,11 @@ public class AccountManagerImpl extends ManagerBase implements AccountManager, M
                 checkApiAccess(apiCheckers, requested, command);
             } catch (PermissionDeniedException pde) {
                 if (logger.isTraceEnabled()) {
-                    logger.trace(String.format("checking for permission to \"%s\" is irrelevant as it is not requested for %s [%s]",
+                    logger.trace("Checking for permission to \"{}\" is irrelevant as it is not requested for {} [{}]",
                             command,
-                            pde.getAccount().getAccountName(),
-                            pde.getAccount().getUuid(),
-                            pde.getEntitiesInViolation()
-                            ));
+                            requested.getAccountName(),
+                            requested.getUuid()
+                    );
                 }
                 continue;
             }
