@@ -959,10 +959,6 @@ public class ConfigurationManagerImpl extends ManagerBase implements Configurati
             category = config.getCategory();
         }
 
-        if (value == null) {
-            return _configDao.findByName(name);
-        }
-
         String scope = null;
         Long id = null;
         int paramCountCheck = 0;
