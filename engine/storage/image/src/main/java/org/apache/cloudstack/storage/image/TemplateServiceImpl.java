@@ -1241,9 +1241,11 @@ public class TemplateServiceImpl implements TemplateService {
                 if (_vmTemplateStoreDao.isTemplateMarkedForDirectDownload(tmplt.getId())) {
                     continue;
                 }
+                String templateDirectoryPath = TemplateConstants.DEFAULT_TMPLT_ROOT_DIR + File.separator + TemplateConstants.DEFAULT_TMPLT_FIRST_LEVEL_DIR;
+                String installPath = templateDirectoryPath + tmplt.getAccountId() + File.separator + tmplt.getId() + File.separator;
                 tmpltStore =
                         new TemplateDataStoreVO(storeId, tmplt.getId(), new Date(), 100, Status.DOWNLOADED, null, null, null,
-                                TemplateConstants.DEFAULT_SYSTEM_VM_TEMPLATE_PATH + tmplt.getId() + '/', tmplt.getUrl());
+                                installPath, tmplt.getUrl());
                 tmpltStore.setSize(0L);
                 tmpltStore.setPhysicalSize(0); // no size information for
                 // pre-seeded system vm templates
