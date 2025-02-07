@@ -858,7 +858,7 @@ public class KubernetesClusterManagerImpl extends ManagerBase implements Kuberne
             logger.debug(errorString);
             throw new InvalidParameterValueException(errorString);
         }
-        String pattern = "^[a-z][a-z0-9-]*[a-z0-9]$";
+        String pattern = "[a-z]($|[a-z\\d-]*[a-z\\d]$)";
         if (!name.matches(pattern)) {
             String errorString = String.format("%s cluster name [%s] needs to start with a letter and end with an alphanumeric character, and can contain only '-' aside from alphanumeric characters.", baseErrorString, name);
             logger.debug(errorString);

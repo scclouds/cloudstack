@@ -294,7 +294,6 @@ public class KubernetesClusterManagerImplTest {
         Assert.assertTrue(kubernetesClusterManager.removeVmsFromCluster(cmd).size() > 0);
     }
 
-
     @Test(expected = InvalidParameterValueException.class)
     public void validateKubernetesClusterNameTestThrowExceptionWhenClusterNameContainsUpperCaseLetters() {
         kubernetesClusterManager.validateKubernetesClusterName("clusterName");
@@ -311,8 +310,18 @@ public class KubernetesClusterManagerImplTest {
     }
 
     @Test(expected = InvalidParameterValueException.class)
+    public void validateKubernetesClusterNameTestThrowExceptionWhenClusterNameContainsOneDigit() {
+        kubernetesClusterManager.validateKubernetesClusterName("1");
+    }
+
+    @Test(expected = InvalidParameterValueException.class)
     public void validateKubernetesClusterNameTestThrowExceptionWhenClusterNameStartsWithNonAlphanumericCharacter() {
         kubernetesClusterManager.validateKubernetesClusterName("-clustername");
+    }
+
+    @Test(expected = InvalidParameterValueException.class)
+    public void validateKubernetesClusterNameTestThrowExceptionWhenClusterNameContainsOneHyphen() {
+        kubernetesClusterManager.validateKubernetesClusterName("-");
     }
 
     @Test(expected = InvalidParameterValueException.class)
@@ -328,5 +337,10 @@ public class KubernetesClusterManagerImplTest {
     @Test
     public void validateKubernetesClusterNameTestValidateClusterNameWhenItCompliesWithTheNamingConvention() {
         kubernetesClusterManager.validateKubernetesClusterName("c-" + "c".repeat(41));
+    }
+
+    @Test
+    public void validateKubernetesClusterNameTestValidateClusterNameWithOneCharacter() {
+        kubernetesClusterManager.validateKubernetesClusterName("k");
     }
 }
