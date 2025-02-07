@@ -24,6 +24,7 @@ import javax.inject.Inject;
 
 import com.cloud.cpu.CPU;
 import org.apache.cloudstack.api.ApiCommandResourceType;
+import com.cloud.user.Account;
 import org.apache.cloudstack.api.ApiConstants;
 import org.apache.cloudstack.api.command.admin.kubernetes.version.AddKubernetesSupportedVersionCmd;
 import org.apache.cloudstack.api.command.admin.kubernetes.version.DeleteKubernetesSupportedVersionCmd;
@@ -117,6 +118,17 @@ public class KubernetesVersionManagerImpl extends ManagerBase implements Kuberne
             KubernetesClusterService.MIN_KUBERNETES_VERSION_HA_SUPPORT)>=0);
         response.setSupportsAutoscaling(versionSupportsAutoscaling(kubernetesSupportedVersion));
         updateTemplateDetailsInKubernetesSupportedVersionResponse(kubernetesSupportedVersion, response);
+        TemplateJoinVO template = templateJoinDao.findById(kubernetesSupportedVersion.getIsoId());
+        Account caller = CallContext.current().getCallingAccount();
+        boolean isAdmin = accountManager.isRootAdmin(caller.getId());
+        if (template != null) {
+            response.setIsoId(template.getUuid());
+            response.setIsoName(template.getName());
+            response.setIsoState(template.getState().toString());
+            if (isAdmin) {
+                response.setIsoUrl(template.getUrl());
+            }
+        }
         response.setCreated(kubernetesSupportedVersion.getCreated());
         return response;
     }
