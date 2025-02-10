@@ -85,6 +85,10 @@ public class VolumeResponse extends BaseResponseWithTagInformation implements Co
     @Param(description = " an alternate display text of the template for the virtual machine")
     private String templateDisplayText;
 
+    @SerializedName("templatestate")
+    @Param(description = "state of the template")
+    private String templateState;
+
     @SerializedName("vmname")
     @Param(description = "name of the virtual machine")
     private String virtualMachineName;
@@ -642,6 +646,14 @@ public class VolumeResponse extends BaseResponseWithTagInformation implements Co
 
     public void setTemplateDisplayText(String templateDisplayText) {
         this.templateDisplayText = templateDisplayText;
+    }
+
+    public String getTemplateState() {
+        return templateState;
+    }
+
+    public void setTemplateState(String templateState) {
+        this.templateState = templateState;
     }
 
     public void setTags(Set<ResourceTagResponse> tags) {

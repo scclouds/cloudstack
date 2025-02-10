@@ -91,6 +91,7 @@ SELECT
     `vm_template`.`type` AS `template_type`,
     `vm_template`.`name` AS `template_name`,
     `vm_template`.`display_text` AS `template_display_text`,
+    `vm_template`.`state` AS `template_state`,
     `iso`.`id` AS `iso_id`,
     `iso`.`uuid` AS `iso_uuid`,
     `iso`.`name` AS `iso_name`,

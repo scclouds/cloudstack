@@ -31,6 +31,7 @@ import com.cloud.hypervisor.Hypervisor.HypervisorType;
 import com.cloud.storage.Storage;
 import com.cloud.storage.VMTemplateStorageResourceAssoc.Status;
 import com.cloud.storage.Volume;
+import com.cloud.template.VirtualMachineTemplate.State;
 import com.cloud.user.Account;
 import com.cloud.utils.db.GenericDao;
 import com.cloud.vm.VirtualMachine;
@@ -237,6 +238,10 @@ public class VolumeJoinVO extends BaseViewWithTagInformationVO implements Contro
 
     @Column(name = "template_display_text", length = 4096)
     private String templateDisplayText;
+
+    @Column(name = "template_state")
+    @Enumerated(EnumType.STRING)
+    private State templateState;
 
     @Column(name = "extractable")
     private boolean extractable;
@@ -551,6 +556,13 @@ public class VolumeJoinVO extends BaseViewWithTagInformationVO implements Contro
 
     public String getTemplateDisplayText() {
         return templateDisplayText;
+    }
+
+    public String getTemplateState() {
+        if (templateState != null) {
+            return templateState.toString();
+        }
+        return null;
     }
 
     public long getIsoId() {
