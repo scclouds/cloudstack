@@ -422,19 +422,19 @@ public class VmwareHelper {
     }
 
     public static Pair<VirtualDevice, Boolean> prepareIsoDevice(VirtualMachineMO vmMo, String isoDatastorePath, ManagedObjectReference morDs, boolean connect,
-            boolean connectAtBoot, int deviceNumber, int contextNumber) throws Exception {
-
+            boolean connectAtBoot, Integer deviceNumber, int contextNumber) throws Exception {
         boolean newCdRom = false;
+
         VirtualCdrom cdRom = (VirtualCdrom)vmMo.getIsoDevice();
         if (cdRom == null) {
             newCdRom = true;
             cdRom = new VirtualCdrom();
 
-            assert (vmMo.getIDEDeviceControllerKey() >= 0);
-            cdRom.setControllerKey(vmMo.getIDEDeviceControllerKey());
-            if (deviceNumber < 0)
-                deviceNumber = vmMo.getNextIDEDeviceNumber();
-
+            int controllerKey = vmMo.getIDEDeviceControllerKey();
+            cdRom.setControllerKey(controllerKey);
+            if (deviceNumber == null) {
+                deviceNumber = 0;
+            }
             cdRom.setUnitNumber(deviceNumber);
             cdRom.setKey(-contextNumber);
         }
@@ -455,7 +455,7 @@ public class VmwareHelper {
             cdRom.setBacking(backingInfo);
         }
 
-        return new Pair<VirtualDevice, Boolean>(cdRom, newCdRom);
+        return new Pair<>(cdRom, newCdRom);
     }
 
     public static VirtualDisk getRootDisk(VirtualDisk[] disks) {
@@ -785,6 +785,13 @@ public class VmwareHelper {
      */
     public static boolean isControllerOsRecommended(DiskControllerMappingVO mapping) {
         return DiskControllerType.osdefault.toString().equals(mapping.getName());
+    }
+
+    /**
+     * Returns true if the provided mapping's bus name is "ide".
+     */
+    public static boolean isControllerIde(DiskControllerMappingVO mapping) {
+        return DiskControllerType.ide.toString().equals(mapping.getBusName());
     }
 
     /**
