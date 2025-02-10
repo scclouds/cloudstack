@@ -241,6 +241,8 @@ public class TemplateJoinDaoImpl extends GenericDaoBaseWithTagInformation<Templa
         templateResponse.setDisplayText(template.getDisplayText());
         templateResponse.setPublic(template.isPublicTemplate());
         templateResponse.setCreated(template.getCreatedOnStore());
+        templateResponse.setRemoved(template.getRemoved());
+        templateResponse.setCreated(template.getCreated());
         if (template.getFormat() == Storage.ImageFormat.BAREMETAL) {
             // for baremetal template, we didn't download, but is ready to use.
             templateResponse.setReady(true);
@@ -353,7 +355,6 @@ public class TemplateJoinDaoImpl extends GenericDaoBaseWithTagInformation<Templa
             templateResponse.setUserDataParams(template.getUserDataParams());
             templateResponse.setUserDataPolicy(template.getUserDataPolicy());
         }
-
         templateResponse.setObjectName("template");
         return templateResponse;
     }
