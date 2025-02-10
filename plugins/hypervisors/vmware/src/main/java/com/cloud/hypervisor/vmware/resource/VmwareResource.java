@@ -2395,7 +2395,8 @@ public class VmwareResource extends ServerResourceBase implements StoragePoolRes
 
             // prepare systemvm patch ISO
             String ideClasspath = VirtualIDEController.class.getName();
-            int ideUnitNumber = diskControllerCurrentUnitNumbers.get(ideClasspath);
+            Integer cdromUnitNumber = null;
+
             if (vmSpec.getType() != VirtualMachine.Type.User) {
                 // attach ISO (for patching of system VM)
                 Pair<String, Long> secStoreUrlAndId = mgr.getSecondaryStorageStoreUrlAndId(Long.parseLong(_dcId));
@@ -2415,39 +2416,42 @@ public class VmwareResource extends ServerResourceBase implements StoragePoolRes
 
                 deviceConfigSpecArray[i] = new VirtualDeviceConfigSpec();
                 Pair<VirtualDevice, Boolean> isoInfo = VmwareHelper.prepareIsoDevice(vmMo, null, secDsMo.getMor(),
-                        true, true, ideUnitNumber++, i + 1);
-                diskControllerCurrentUnitNumbers.replace(ideClasspath, ideUnitNumber);
-                deviceConfigSpecArray[i].setDevice(isoInfo.first());
-                boolean isIsoInfo = BooleanUtils.isTrue(isoInfo.second());
-                if (isIsoInfo) {
+                        true, true, cdromUnitNumber, i + 1);
+                VirtualDevice cdrom = isoInfo.first();
+                deviceConfigSpecArray[i].setDevice(cdrom);
+                boolean isNewCdrom = BooleanUtils.isTrue(isoInfo.second());
+                if (isNewCdrom) {
                     deviceConfigSpecArray[i].setOperation(VirtualDeviceConfigSpecOperation.ADD);
+                    cdromUnitNumber = cdrom.getUnitNumber();
                 } else {
                     deviceConfigSpecArray[i].setOperation(VirtualDeviceConfigSpecOperation.EDIT);
+                    cdromUnitNumber = vmMo.controllerKeyAndDeviceNumberToUnitNumber(cdrom.getControllerKey(), cdrom.getUnitNumber());
                 }
-                logger.debug(LogUtils.logGsonWithoutException("%s ISO volume at %s device: [%s].", isIsoInfo ? "Add" : "Edit", isIsoInfo ? "new" : "existing", isoInfo.first()));
+                logger.debug(LogUtils.logGsonWithoutException("%s ISO volume at %s device: [%s].", isNewCdrom ? "Add" : "Edit", isNewCdrom ? "new" : "existing", isoInfo.first()));
                 i++;
             } else if (!deployAsIs) {
                 // Note: we will always plug a CDROM device
                 if (volIso != null) {
                     for (DiskTO vol : disks) {
                         if (vol.getType() == Volume.Type.ISO) {
-                            configureIso(hyperHost, vmMo, vol, deviceConfigSpecArray, ideUnitNumber++, i);
-                            diskControllerCurrentUnitNumbers.replace(ideClasspath, ideUnitNumber);
+                            cdromUnitNumber = configureIso(hyperHost, vmMo, vol, deviceConfigSpecArray, cdromUnitNumber, i);
                             i++;
                         }
                     }
                 } else {
                     deviceConfigSpecArray[i] = new VirtualDeviceConfigSpec();
-                    Pair<VirtualDevice, Boolean> isoInfo = VmwareHelper.prepareIsoDevice(vmMo, null, null, true, true, ideUnitNumber++, i + 1);
-                    diskControllerCurrentUnitNumbers.replace(ideClasspath, ideUnitNumber);
-                    deviceConfigSpecArray[i].setDevice(isoInfo.first());
-                    boolean isIsoInfo = BooleanUtils.isTrue(isoInfo.second());
-                    if (isIsoInfo) {
+                    Pair<VirtualDevice, Boolean> isoInfo = VmwareHelper.prepareIsoDevice(vmMo, null, null, true, true, cdromUnitNumber, i + 1);
+                    VirtualDevice cdrom = isoInfo.first();
+                    deviceConfigSpecArray[i].setDevice(cdrom);
+                    boolean isNewCdrom = BooleanUtils.isTrue(isoInfo.second());
+                    if (isNewCdrom) {
                         deviceConfigSpecArray[i].setOperation(VirtualDeviceConfigSpecOperation.ADD);
+                        cdromUnitNumber = cdrom.getUnitNumber();
                     } else {
                         deviceConfigSpecArray[i].setOperation(VirtualDeviceConfigSpecOperation.EDIT);
+                        cdromUnitNumber = vmMo.controllerKeyAndDeviceNumberToUnitNumber(cdrom.getControllerKey(), cdrom.getUnitNumber());
                     }
-                    logger.debug(LogUtils.logGsonWithoutException("%s ISO volume at existing device: [%s].", isIsoInfo ? "Add" : "Edit", isoInfo.first()));
+                    logger.debug(LogUtils.logGsonWithoutException("%s ISO volume at existing device: [%s].", isNewCdrom ? "Add" : "Edit", cdrom));
                     i++;
                 }
             }
@@ -2462,8 +2466,7 @@ public class VmwareResource extends ServerResourceBase implements StoragePoolRes
             for (DiskTO vol : sortedDisks) {
                 if (vol.getType() == Volume.Type.ISO) {
                     if (deployAsIs) {
-                        configureIso(hyperHost, vmMo, vol, deviceConfigSpecArray, ideUnitNumber++, i);
-                        diskControllerCurrentUnitNumbers.replace(ideClasspath, ideUnitNumber);
+                        cdromUnitNumber = configureIso(hyperHost, vmMo, vol, deviceConfigSpecArray, cdromUnitNumber, i);
                         i++;
                     }
                     continue;
@@ -2477,8 +2480,19 @@ public class VmwareResource extends ServerResourceBase implements StoragePoolRes
 
                 VirtualMachineDiskInfo matchingExistingDisk = getMatchingExistingDisk(diskInfoBuilder, vol, hyperHost, context);
                 DiskControllerMappingVO diskController = getControllerForDisk(vmMo, matchingExistingDisk, vol, chosenDiskControllers, deployAsIs);
-                int unitNumber = diskControllerCurrentUnitNumbers.get(diskController.getControllerReference());
                 logger.debug("Setup disk [type: {}, diskController: {}].", vol.getType().name(), diskController);
+
+                int unitNumber = diskControllerCurrentUnitNumbers.get(diskController.getControllerReference());
+                if (VmwareHelper.isControllerIde(diskController)) {
+                    if (cdromUnitNumber != null && cdromUnitNumber == unitNumber) {
+                        unitNumber++;
+                    }
+                } else if (VmwareHelper.isControllerScsi(diskController)) {
+                    if (VmwareHelper.isReservedScsiDeviceNumber(unitNumber)) {
+                        unitNumber++;
+                    }
+                }
+                diskControllerCurrentUnitNumbers.replace(diskController.getControllerReference(), unitNumber + 1);
 
                 if (!hasSnapshot) {
                     int diskControllerNumber = unitNumber / diskController.getMaxDeviceCount();
@@ -2559,14 +2573,6 @@ public class VmwareResource extends ServerResourceBase implements StoragePoolRes
 
                     logger.debug(LogUtils.logGsonWithoutException("Prepare volume at new device: [%s].", device));
                     i++;
-                }
-
-                diskControllerCurrentUnitNumbers.replace(diskController.getControllerReference(), unitNumber + 1);
-                if (VmwareHelper.isControllerScsi(diskController)) {
-                    int scsiUnitNumber = diskControllerCurrentUnitNumbers.get(diskController.getControllerReference());
-                    if (VmwareHelper.isReservedScsiDeviceNumber(scsiUnitNumber)) {
-                        diskControllerCurrentUnitNumbers.replace(diskController.getControllerReference(), scsiUnitNumber + 1);
-                    }
                 }
             }
 
@@ -2862,8 +2868,8 @@ public class VmwareResource extends ServerResourceBase implements StoragePoolRes
                 vol.getPath().contains(ConfigDrive.CONFIGDRIVEDIR))) || (vol.getType() != Volume.Type.ISO)).toArray(DiskTO[]::new);
     }
 
-    private void configureIso(VmwareHypervisorHost hyperHost, VirtualMachineMO vmMo, DiskTO vol,
-                              VirtualDeviceConfigSpec[] deviceConfigSpecArray, int ideUnitNumber, int i) throws Exception {
+    private Integer configureIso(VmwareHypervisorHost hyperHost, VirtualMachineMO vmMo, DiskTO vol,
+                              VirtualDeviceConfigSpec[] deviceConfigSpecArray, Integer deviceNumber, int i) throws Exception {
         TemplateObjectTO iso = (TemplateObjectTO) vol.getData();
 
         if (iso.getPath() != null && !iso.getPath().isEmpty()) {
@@ -2880,18 +2886,25 @@ public class VmwareResource extends ServerResourceBase implements StoragePoolRes
 
             deviceConfigSpecArray[i] = new VirtualDeviceConfigSpec();
             Pair<VirtualDevice, Boolean> isoInfo =
-                    VmwareHelper.prepareIsoDevice(vmMo, isoDatastoreInfo.first(), isoDatastoreInfo.second(), true, true, ideUnitNumber, i + 1);
-            deviceConfigSpecArray[i].setDevice(isoInfo.first());
-            if (isoInfo.second()) {
+                    VmwareHelper.prepareIsoDevice(vmMo, isoDatastoreInfo.first(), isoDatastoreInfo.second(), true, true, deviceNumber, i + 1);
+            VirtualDevice cdrom = isoInfo.first();
+            deviceConfigSpecArray[i].setDevice(cdrom);
+            boolean isNewCdrom = BooleanUtils.isTrue(isoInfo.second());
+            if (isNewCdrom) {
                 if (logger.isDebugEnabled())
                     logger.debug("Prepare ISO volume at new device " + _gson.toJson(isoInfo.first()));
                 deviceConfigSpecArray[i].setOperation(VirtualDeviceConfigSpecOperation.ADD);
+                // New CD/DVD drivers are always associated with the first IDE controller, so we can just return its device number.
+                return cdrom.getUnitNumber();
             } else {
                 if (logger.isDebugEnabled())
                     logger.debug("Prepare ISO volume at existing device " + _gson.toJson(isoInfo.first()));
                 deviceConfigSpecArray[i].setOperation(VirtualDeviceConfigSpecOperation.EDIT);
+                return vmMo.controllerKeyAndDeviceNumberToUnitNumber(cdrom.getControllerKey(), cdrom.getUnitNumber());
             }
         }
+
+        return null;
     }
 
     private String mapAdapterType(String adapterStringFromOVF) {

@@ -3529,6 +3529,31 @@ public class VirtualMachineMO extends BaseMO {
         }
     }
 
+    public int controllerKeyAndDeviceNumberToUnitNumber(int controllerKey, int deviceNumber) throws Exception {
+        List<VirtualDevice> devices = _context.getVimClient().getDynamicProperty(_mor, "config.hardware.device");
+
+        VirtualDevice diskController = devices.stream()
+                .filter(d -> controllerKey == d.getKey())
+                .findFirst()
+                .orElseThrow(() -> new CloudRuntimeException("Could not find disk controller of virtual machine."));
+        String classpath = diskController.getClass().getName();
+        DiskControllerMappingVO mapping = VmwareHelper.getDiskControllerMapping(null, classpath);
+
+        int unitNumber = 0;
+        for (VirtualDevice device : devices) {
+            if (!classpath.equals(device.getClass().getName())) {
+                continue;
+            }
+            if (controllerKey != device.getKey()) {
+                unitNumber += mapping.getMaxDeviceCount();
+                continue;
+            }
+            unitNumber += deviceNumber;
+            break;
+        }
+        return unitNumber;
+    }
+
     @Override
     public String toString() {
         return ReflectionToStringBuilderUtils.reflectOnlySelectedFields(this, "internalCSName");
