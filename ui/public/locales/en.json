@@ -2116,7 +2116,7 @@
 "label.settings": "Settings",
 "label.setup": "Setup",
 "label.shared": "Shared",
-"label.sharedexecutable": "Shared",
+"label.sharedexecutable": "Shared Executables",
 "label.sharedmountpoint": "SharedMountPoint",
 "label.sharedrouterip": "IPv4 address for the VR in this shared Network.",
 "label.sharedrouteripv6": "IPv6 address for the VR in this shared Network.",
