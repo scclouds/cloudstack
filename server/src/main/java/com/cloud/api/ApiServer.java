@@ -199,6 +199,8 @@ import static org.apache.cloudstack.user.UserPasswordResetManager.UserPasswordRe
 @Component
 public class ApiServer extends ManagerBase implements HttpRequestHandler, ApiServerService, Configurable {
 
+    private static final Logger API_LOGGER = LogManager.getLogger("apiserver." + ApiServer.class.getName());
+
     private static final String SANITIZATION_REGEX = "[\n\r]";
 
     private static boolean encodeApiResponse = false;
@@ -579,7 +581,7 @@ public class ApiServer extends ManagerBase implements HttpRequestHandler, ApiSer
                 throw e;
             }
         } finally {
-            logger.info(sb.toString());
+            API_LOGGER.info(sb.toString());
             CallContext.unregister();
         }
     }
