@@ -77,6 +77,8 @@ import com.cloud.utils.net.NetUtils;
 @Component("apiServlet")
 public class ApiServlet extends HttpServlet {
     protected static Logger LOGGER = LogManager.getLogger(ApiServlet.class);
+    private static final Logger API_LOGGER = LogManager.getLogger("apiserver." + ApiServlet.class.getName());
+
     private final static List<String> s_clientAddressHeaders = Collections
             .unmodifiableList(Arrays.asList("X-Forwarded-For",
                     "HTTP_CLIENT_IP", "HTTP_X_FORWARDED_FOR", "Remote_Addr"));
@@ -379,7 +381,7 @@ public class ApiServlet extends HttpServlet {
             LOGGER.error("unknown exception writing api response", ex);
             auditTrailSb.append(" unknown exception writing api response");
         } finally {
-            LOGGER.info(auditTrailSb.toString());
+            API_LOGGER.info(auditTrailSb.toString());
             if (LOGGER.isDebugEnabled()) {
                 LOGGER.debug("===END=== " + reqStr);
             }
