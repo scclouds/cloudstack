@@ -52,6 +52,9 @@ public interface SAML2AuthManager extends PluggableAPIAuthenticator, PluggableSe
     ConfigKey<String> SAMLCloudStackRedirectionUrl = new ConfigKey<String>("Advanced", String.class, "saml2.redirect.url", "http://localhost:8080/client",
             "The CloudStack UI url the SSO should redirected to when successful", true);
 
+    ConfigKey<String> SAMLFailedLoginRedirectUrl = new ConfigKey<String>("Advanced", String.class, "saml2.failed.login.redirect.url", "",
+            "The target URL when redirecting after failed SAML login. If empty, it returns an XML error.", true);
+
     ConfigKey<String> SAMLUserAttributeName = new ConfigKey<String>("Advanced", String.class, "saml2.user.attribute", "uid",
             "Attribute name to be looked for in SAML response that will contain the username", true);
 

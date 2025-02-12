@@ -216,56 +216,56 @@ public class SAML2LoginAPIAuthenticatorCmdTest {
     }
 
     @Test
-    public void whenFailToAuthenticateThrowExceptionOrRedirectToUrlTestSaml2FailedLoginRedirectUrlBlank() throws IOException {
+    public void whenFailToAuthenticateThrowExceptionOrRedirectToUrlTestSaml2FailedLoginRedirectUrlBlank() throws IOException, NoSuchFieldException, IllegalAccessException {
         UserAccountVO userAccount = configureTestWhenFailToAuthenticateThrowExceptionOrRedirectToUrl("entity", " ", false);
         boolean expectServerApiException = runTestWhenFailToAuthenticateThrowExceptionOrRedirectToUrl(userAccount);
         verifyTestWhenFailToAuthenticateThrowExceptionOrRedirectToUrl(true, expectServerApiException, 0, 1);
     }
 
     @Test
-    public void whenFailToAuthenticateThrowExceptionOrRedirectToUrlTestSaml2FailedLoginRedirectUrlNull() throws IOException {
+    public void whenFailToAuthenticateThrowExceptionOrRedirectToUrlTestSaml2FailedLoginRedirectUrlNull() throws IOException, NoSuchFieldException, IllegalAccessException {
         UserAccountVO userAccount = configureTestWhenFailToAuthenticateThrowExceptionOrRedirectToUrl("entity", null, false);
         boolean expectServerApiException = runTestWhenFailToAuthenticateThrowExceptionOrRedirectToUrl(userAccount);
         verifyTestWhenFailToAuthenticateThrowExceptionOrRedirectToUrl(true, expectServerApiException, 0, 1);
     }
 
     @Test
-    public void whenFailToAuthenticateThrowExceptionOrRedirectToUrlTestSaml2FailedLoginRedirectUrlEmpty() throws IOException {
+    public void whenFailToAuthenticateThrowExceptionOrRedirectToUrlTestSaml2FailedLoginRedirectUrlEmpty() throws IOException, NoSuchFieldException, IllegalAccessException {
         UserAccountVO userAccount = configureTestWhenFailToAuthenticateThrowExceptionOrRedirectToUrl("entity", "", false);
         boolean hasThrownServerApiException = runTestWhenFailToAuthenticateThrowExceptionOrRedirectToUrl(userAccount);
         verifyTestWhenFailToAuthenticateThrowExceptionOrRedirectToUrl(true, hasThrownServerApiException, 0, 1);
     }
 
     @Test
-    public void whenFailToAuthenticateThrowExceptionOrRedirectToUrlTestSaml2FailedLoginRedirectExternalEntityNullAndUrlNotConfigured() throws IOException {
+    public void whenFailToAuthenticateThrowExceptionOrRedirectToUrlTestSaml2FailedLoginRedirectExternalEntityNullAndUrlNotConfigured() throws IOException, NoSuchFieldException, IllegalAccessException {
         UserAccountVO userAccount = configureTestWhenFailToAuthenticateThrowExceptionOrRedirectToUrl(null, " ", false);
         boolean hasThrownServerApiException = runTestWhenFailToAuthenticateThrowExceptionOrRedirectToUrl(userAccount);
         verifyTestWhenFailToAuthenticateThrowExceptionOrRedirectToUrl(true, hasThrownServerApiException, 0, 1);
     }
 
     @Test
-    public void whenFailToAuthenticateThrowExceptionOrRedirectToUrlTestSaml2FailedLoginRedirectExternalEntityNullAndUrlConfigured() throws IOException {
+    public void whenFailToAuthenticateThrowExceptionOrRedirectToUrlTestSaml2FailedLoginRedirectExternalEntityNullAndUrlConfigured() throws IOException, NoSuchFieldException, IllegalAccessException {
         UserAccountVO userAccount = configureTestWhenFailToAuthenticateThrowExceptionOrRedirectToUrl(null, "some.url", true);
         boolean hasThrownServerApiException = runTestWhenFailToAuthenticateThrowExceptionOrRedirectToUrl(userAccount);
         verifyTestWhenFailToAuthenticateThrowExceptionOrRedirectToUrl(false, hasThrownServerApiException, 1, 1);
     }
 
     @Test
-    public void whenFailToAuthenticateThrowExceptionOrRedirectToUrlTestSaml2FailedLoginRedirectUrlConfigured() throws IOException {
+    public void whenFailToAuthenticateThrowExceptionOrRedirectToUrlTestSaml2FailedLoginRedirectUrlConfigured() throws IOException, NoSuchFieldException, IllegalAccessException {
         UserAccountVO userAccount = configureTestWhenFailToAuthenticateThrowExceptionOrRedirectToUrl("entity", "some.url", false);
         boolean hasThrownServerApiException = runTestWhenFailToAuthenticateThrowExceptionOrRedirectToUrl(userAccount);
         verifyTestWhenFailToAuthenticateThrowExceptionOrRedirectToUrl(false, hasThrownServerApiException, 1, 1);
     }
 
     @Test
-    public void whenFailToAuthenticateThrowExceptionOrRedirectToUrlTestSaml2FailedLoginRedirectUrlUserAccountNull() throws IOException {
+    public void whenFailToAuthenticateThrowExceptionOrRedirectToUrlTestSaml2FailedLoginRedirectUrlUserAccountNull() throws IOException, NoSuchFieldException, IllegalAccessException {
         configureTestWhenFailToAuthenticateThrowExceptionOrRedirectToUrl("entity", "some.url", true);
         boolean hasThrownServerApiException = runTestWhenFailToAuthenticateThrowExceptionOrRedirectToUrl(null);
         verifyTestWhenFailToAuthenticateThrowExceptionOrRedirectToUrl(false, hasThrownServerApiException, 1, 1);
     }
 
     @Test
-    public void whenFailToAuthenticateThrowExceptionOrRedirectToUrlTestSaml2FailedLoginRedirectUrlIsUserAuthorized() throws IOException {
+    public void whenFailToAuthenticateThrowExceptionOrRedirectToUrlTestSaml2FailedLoginRedirectUrlIsUserAuthorized() throws IOException, NoSuchFieldException, IllegalAccessException {
         UserAccountVO userAccount = configureTestWhenFailToAuthenticateThrowExceptionOrRedirectToUrl("entity", "some.url", true);
         boolean hasThrownServerApiException = runTestWhenFailToAuthenticateThrowExceptionOrRedirectToUrl(userAccount);
         verifyTestWhenFailToAuthenticateThrowExceptionOrRedirectToUrl(false, hasThrownServerApiException, 0, 0);
@@ -296,10 +296,9 @@ public class SAML2LoginAPIAuthenticatorCmdTest {
     }
 
     private UserAccountVO configureTestWhenFailToAuthenticateThrowExceptionOrRedirectToUrl(String entity, String configurationValue, Boolean isUserAuthorized)
-            throws IOException {
+            throws IOException, NoSuchFieldException, IllegalAccessException {
         Mockito.when(samlAuthManager.isUserAuthorized(nullable(Long.class), nullable(String.class))).thenReturn(isUserAuthorized);
-        SAML2LoginAPIAuthenticatorCmd.saml2FailedLoginRedirectUrl = new ConfigKey<String>("Advanced", String.class, "saml2.failed.login.redirect.url", configurationValue,
-                "The URL to redirect the SAML2 login failed message (the default vaulue is empty).", true);
+        overrideDefaultConfigValue(SAML2AuthManager.SAMLFailedLoginRedirectUrl, "_defaultValue", configurationValue);
         UserAccountVO userAccount = new UserAccountVO();
         userAccount.setExternalEntity(entity);
         userAccount.setId(0l);
