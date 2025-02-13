@@ -80,7 +80,7 @@
                           </span>
                           <global-outlined v-else style="margin-right: 5px" />
                         </span>
-                        <span v-if="(field.name.startsWith('domain') || field.name === 'account')">
+                        <span v-if="(field.name.startsWith('domain') || field.name === 'account' || field.name.startsWith('associatednetwork'))">
                           <span v-if="opt.icon">
                             <resource-icon :image="opt.icon.base64image" size="1x" style="margin-right: 5px"/>
                           </span>
@@ -90,13 +90,6 @@
                           <status :text="opt.state" />
                         </span>
                         {{ $t((['storageid'].includes(field.name) || !opt.path) ? opt.name : opt.path) }}
-                        <span v-if="(field.name.startsWith('associatednetwork'))">
-                          <span v-if="opt.icon">
-                            <resource-icon :image="opt.icon.base64image" size="1x" style="margin-right: 5px"/>
-                          </span>
-                          <block-outlined v-else style="margin-right: 5px" />
-                        </span>
-                        {{ $t(opt.path || opt.name) }}
                       </div>
                     </a-select-option>
                   </a-select>
@@ -256,7 +249,8 @@ export default {
       this.fetchDynamicFieldData(fieldname, event.target.value)
     },
     onSelectFieldChange (fieldname) {
-      if (fieldname === 'domainid') {
+      const fetchAccountOptions = fieldname === 'domainid' && this.fields.some((field) => field.name === 'account')
+      if (fetchAccountOptions) {
         this.fetchDynamicFieldData('account')
       }
     },
@@ -695,10 +689,6 @@ export default {
         if (Array.isArray(arrayField)) {
           this.fillFormFieldValues()
         }
-        if (networkIndex > -1) {
-          this.fields[networkIndex].loading = false
-        }
-        this.fillFormFieldValues()
       })
     },
     initFormFieldData () {
@@ -766,7 +756,7 @@ export default {
           params.domainid = this.form.domainid
         }
         api('listAccounts', params).then(json => {
-          var account = json.listaccountsresponse.account
+          let account = json?.listaccountsresponse?.account || []
           if (this.form.domainid) {
             account = account.filter(a => a.domainid === this.form.domainid)
           }
@@ -1295,7 +1285,7 @@ export default {
       this.searchQuery = value
       this.$emit('search', { searchQuery: this.searchQuery })
     },
-    onClear () {
+    async onClear () {
       this.formRef.value.resetFields()
       this.form = reactive({})
       this.isFiltered = false
@@ -1303,6 +1293,14 @@ export default {
       this.inputValue = null
       this.searchQuery = null
       this.paramsFilter = {}
+
+      const fetchAccountOptions = ['account', 'domainid'].every((field) => {
+        return this.fields.some((searchViewField) => searchViewField.name === field)
+      })
+      if (fetchAccountOptions) {
+        await this.fetchDynamicFieldData('account')
+      }
+
       this.$emit('search', this.paramsFilter)
     },
     handleSubmit () {

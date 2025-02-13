@@ -426,7 +426,6 @@
               :to="{ path: '/project/' + resource.projectid }">
                 {{ resource.project || resource.projectname || resource.projectid }}
             </router-link>
-            <router-link v-if="!isStatic && resource.projectid" :to="{ path: '/project/' + resource.projectid }">{{ resource.project || resource.projectname || resource.projectid }}</router-link>
             <router-link
               v-else-if="!$route.path.includes('quotasummary') || ($route.path.includes('quotasummary') && !resource.projectremoved)"
               :to="{ path: '/project', query: { name: resource.projectname }}">
