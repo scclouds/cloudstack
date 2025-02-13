@@ -158,7 +158,7 @@ export default {
         if (values.guestosasrule === true) {
           params.guestosrule = values.guestosrule
         } else {
-          params.oscategoryid = values.oscategoryid || this.oscategoryids.filter(os => os.name === 'None')[0].id
+          params.oscategoryid = values.oscategoryid || this.osCategories.opts.filter(os => os.name === 'None')[0]?.id
         }
 
         if (values.istagarule !== undefined) {
