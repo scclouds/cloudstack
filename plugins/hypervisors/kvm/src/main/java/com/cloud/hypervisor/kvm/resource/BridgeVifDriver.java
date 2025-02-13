@@ -357,11 +357,12 @@ public class BridgeVifDriver extends VifDriverBase {
                 return;
             }
 
-            String scriptPath = null;
-            if (cmdout != null && cmdout.contains("vxlan")) {
+            String scriptPath = _modifyVlanPath;
+
+            boolean useVxLanScript = cmdout != null && cmdout.contains("vxlan");
+
+            if (useVxLanScript) {
                 scriptPath = _modifyVxlanPath;
-            } else {
-                scriptPath = _modifyVlanPath;
             }
 
             final Script command = new Script(scriptPath, _timeout, logger);
@@ -369,7 +370,8 @@ public class BridgeVifDriver extends VifDriverBase {
             command.add("-v", vNetId);
             command.add("-p", pName);
             command.add("-b", brName);
-            if (cmdout != null && !cmdout.contains("vxlan")) {
+
+            if (!useVxLanScript) {
                 command.add("-d", String.valueOf(deleteBr));
             }
 
