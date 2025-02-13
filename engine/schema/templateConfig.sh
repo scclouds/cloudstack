@@ -54,7 +54,7 @@ function getChecksum() {
 
 function createMetadataFile() {
   local fileData=$(cat $SOURCEFILE)
-  echo -e "["default"]\nversion = $VERSION.${securityversion}\n" >> $METADATAFILE
+  echo -e "["default"]\nversion = $VERSION.${securityversion}\n" >> "$METADATAFILE"
   for template in "${templates[@]}"
   do
     section="${template%%:*}"
@@ -65,7 +65,7 @@ function createMetadataFile() {
     templatename="systemvm-${section%.*}-${VERSION}-${arch}"
     checksum=$(getChecksum "$fileData" "$VERSION-${arch}-$hvName")
     filename=$(echo ${downloadurl##*'/'})
-    echo -e "["$section"]\ntemplatename = $templatename\nchecksum = $checksum\ndownloadurl = $downloadurl\nfilename = $filename\narch = $arch\n" >> $METADATAFILE
+    echo -e "["$section"]\ntemplatename = $templatename\nchecksum = $checksum\ndownloadurl = $downloadurl\nfilename = $filename\narch = $arch\n" >> "$METADATAFILE"
   done
 }
 
@@ -80,7 +80,7 @@ templates=( "kvm:https://download.cloudstack.org/systemvm/${CS_VERSION}/systemvm
 
 PARENTPATH="$( cd -- "$(dirname "$0")" >/dev/null 2>&1 ; pwd -P )/dist/systemvm-templates/"
 mkdir -p $PARENTPATH
-METADATAFILE=${PARENTPATH}"metadata.ini"
-echo > $METADATAFILE
+METADATAFILE="${PARENTPATH}metadata.ini"
+echo > "$METADATAFILE"
 SOURCEFILE=${PARENTPATH}'md5sum.txt'
 createMetadataFile
