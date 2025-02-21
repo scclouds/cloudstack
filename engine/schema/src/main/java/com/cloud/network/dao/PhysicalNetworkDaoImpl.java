@@ -16,10 +16,12 @@
 // under the License.
 package com.cloud.network.dao;
 
+import java.util.ArrayList;
 import java.util.List;
 
 import javax.inject.Inject;
 
+import com.cloud.utils.Pair;
 import org.springframework.stereotype.Component;
 
 import com.cloud.network.Networks.TrafficType;
@@ -75,5 +77,21 @@ public class PhysicalNetworkDaoImpl extends GenericDaoBase<PhysicalNetworkVO, Lo
         sc.setParameters("dataCenterId", dataCenterId);
 
         return listBy(sc);
+    }
+
+    @Override
+    public List<String> getKvmNetworkLabelsInZone(long dataCenterId) {
+        SearchCriteria<PhysicalNetworkVO> sc = ZoneSearch.create();
+        sc.setParameters("dataCenterId", dataCenterId);
+
+        List<PhysicalNetworkVO> physicalNetworks = search(sc, null);
+
+        List<String> labels = new ArrayList<>();
+        for (PhysicalNetworkVO physicalNetwork : physicalNetworks) {
+            Pair<List<PhysicalNetworkTrafficTypeVO>, Integer> trafficTypesPair = _trafficTypeDao.listAndCountBy(physicalNetwork.getId());
+            trafficTypesPair.first().forEach(trafficType -> labels.add(trafficType.getKvmNetworkLabel()));
+        }
+
+        return labels;
     }
 }

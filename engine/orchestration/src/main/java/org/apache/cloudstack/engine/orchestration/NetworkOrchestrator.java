@@ -3297,6 +3297,7 @@ public class NetworkOrchestrator extends ManagerBase implements NetworkOrchestra
                     try {
                         NicTO to = createNicTOFromNetworkAndOffering(network, offering, host);
                         CleanupPersistentNetworkResourceCommand cmd = new CleanupPersistentNetworkResourceCommand(to);
+                        cmd.setSystemTrafficLabels(_physicalNetworkDao.getKvmNetworkLabelsInZone(network.getDataCenterId()));
                         CleanupPersistentNetworkResourceAnswer answer = (CleanupPersistentNetworkResourceAnswer) _agentMgr.send(host.getId(), cmd);
                         if (answer == null) {
                             logger.warn("Unable to get an answer to the CleanupPersistentNetworkResourceCommand from agent: {}", host.getId());

@@ -30,6 +30,7 @@ import javax.naming.ConfigurationException;
 
 import com.cloud.utils.net.NetUtils;
 import com.cloud.utils.script.OutputInterpreter;
+import org.apache.commons.collections.CollectionUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.libvirt.LibvirtException;
 
@@ -261,7 +262,12 @@ public class BridgeVifDriver extends VifDriverBase {
 
     @Override
     public void unplug(LibvirtVMDef.InterfaceDef iface, boolean deleteBr) {
-        deleteVnetBr(iface.getBrName(), deleteBr);
+        unplug(iface, deleteBr, null);
+    }
+
+    @Override
+    public void unplug(LibvirtVMDef.InterfaceDef iface, boolean deleteBr, List<String> systemTrafficLabels) {
+        deleteVnetBr(iface.getBrName(), deleteBr, systemTrafficLabels);
     }
 
     @Override
@@ -320,7 +326,7 @@ public class BridgeVifDriver extends VifDriverBase {
         }
     }
 
-    private void deleteVnetBr(String brName, boolean deleteBr) {
+    private void deleteVnetBr(String brName, boolean deleteBr, List<String> systemTrafficLabels) {
         synchronized (_vnetBridgeMonitor) {
             String cmdout = Script.runSimpleBashScript("ls /sys/class/net/" + brName);
             if (cmdout == null)
@@ -363,6 +369,11 @@ public class BridgeVifDriver extends VifDriverBase {
 
             if (useVxLanScript) {
                 scriptPath = _modifyVxlanPath;
+            }
+
+            if (!useVxLanScript && CollectionUtils.isNotEmpty(systemTrafficLabels) && systemTrafficLabels.contains(brName)) {
+                logger.info("Bridge [{}] is part of the system traffic labels {}; therefore, it will not be removed.", brName, systemTrafficLabels);
+                return;
             }
 
             final Script command = new Script(scriptPath, _timeout, logger);
@@ -436,7 +447,7 @@ public class BridgeVifDriver extends VifDriverBase {
     }
 
     @Override
-    public void deleteBr(NicTO nic) {
+    public void deleteBr(NicTO nic, List<String> systemTrafficLabels) {
         String vlanId = Networks.BroadcastDomainType.getValue(nic.getBroadcastUri());
         String trafficLabel = nic.getName();
         String pifName = _pifs.get(trafficLabel);
@@ -449,7 +460,7 @@ public class BridgeVifDriver extends VifDriverBase {
         }
         if (vlanId != null && pifName != null) {
             String brName = generateVnetBrName(pifName, vlanId);
-            deleteVnetBr(brName, true);
+            deleteVnetBr(brName, true, systemTrafficLabels);
         }
     }
 }

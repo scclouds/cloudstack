@@ -19,6 +19,7 @@
 
 package com.cloud.agent.api;
 
+import java.util.List;
 import java.util.Map;
 
 import com.cloud.agent.api.to.NicTO;
@@ -27,6 +28,7 @@ public class UnPlugNicCommand extends Command {
     NicTO nic;
     String instanceName;
     Map<String, Boolean> vlanToPersistenceMap;
+    private List<String> systemTrafficLabels;
 
     public NicTO getNic() {
         return nic;
@@ -55,5 +57,13 @@ public class UnPlugNicCommand extends Command {
 
     public void setVlanToPersistenceMap(Map<String, Boolean> vlanToPersistenceMap) {
         this.vlanToPersistenceMap = vlanToPersistenceMap;
+    }
+
+    public List<String> getSystemTrafficLabels() {
+        return systemTrafficLabels;
+    }
+
+    public void setSystemTrafficLabels(List<String> systemTrafficLabels) {
+        this.systemTrafficLabels = systemTrafficLabels;
     }
 }

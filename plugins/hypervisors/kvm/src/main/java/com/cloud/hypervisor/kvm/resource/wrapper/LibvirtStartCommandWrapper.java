@@ -147,22 +147,10 @@ public final class LibvirtStartCommandWrapper extends CommandWrapper<StartComman
 
             state = DomainState.VIR_DOMAIN_RUNNING;
             return new StartAnswer(command);
-        } catch (final LibvirtException e) {
-            logger.warn("LibvirtException ", e);
+        } catch (final LibvirtException | InternalErrorException | URISyntaxException e) {
+            logger.error("Error while deploying VM.", e);
             if (conn != null) {
-                libvirtComputingResource.handleVmStartFailure(conn, vmName, vm);
-            }
-            return new StartAnswer(command, e.getMessage());
-        } catch (final InternalErrorException e) {
-            logger.warn("InternalErrorException ", e);
-            if (conn != null) {
-                libvirtComputingResource.handleVmStartFailure(conn, vmName, vm);
-            }
-            return new StartAnswer(command, e.getMessage());
-        } catch (final URISyntaxException e) {
-            logger.warn("URISyntaxException ", e);
-            if (conn != null) {
-                libvirtComputingResource.handleVmStartFailure(conn, vmName, vm);
+                libvirtComputingResource.handleVmStartFailure(conn, vm, command.getSystemTrafficLabels());
             }
             return new StartAnswer(command, e.getMessage());
         } finally {

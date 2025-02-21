@@ -33,6 +33,7 @@ import com.cloud.host.dao.HostDao;
 import com.cloud.network.NetworkModel;
 import com.cloud.network.dao.NetworkDao;
 import com.cloud.network.dao.NetworkVO;
+import com.cloud.network.dao.PhysicalNetworkDao;
 import com.cloud.offerings.NetworkOfferingVO;
 import com.cloud.offerings.dao.NetworkOfferingDao;
 import com.cloud.storage.DataStoreRole;
@@ -94,6 +95,8 @@ public class DefaultHostListener implements HypervisorHostListener {
     ConfigurationManager configManager;
     @Inject
     NetworkDao networkDao;
+    @Inject
+    private PhysicalNetworkDao physicalNetworkDao;
 
     @Override
     public boolean hostAdded(long hostId) {
@@ -223,6 +226,7 @@ public class DefaultHostListener implements HypervisorHostListener {
             NetworkOfferingVO networkOfferingVO = networkOfferingDao.findById(persistentNetworkVO.getNetworkOfferingId());
             CleanupPersistentNetworkResourceCommand cleanupCmd =
                     new CleanupPersistentNetworkResourceCommand(createNicTOFromNetworkAndOffering(persistentNetworkVO, networkOfferingVO, host));
+            cleanupCmd.setSystemTrafficLabels(physicalNetworkDao.getKvmNetworkLabelsInZone(persistentNetworkVO.getDataCenterId()));
             Answer answer = agentMgr.easySend(hostId, cleanupCmd);
             if (answer == null) {
                 logger.error("Unable to get answer to the cleanup persistent network command " + persistentNetworkVO.getId());

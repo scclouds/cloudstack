@@ -26,6 +26,7 @@ import org.joda.time.Duration;
 import org.libvirt.LibvirtException;
 
 import java.io.File;
+import java.util.List;
 import java.util.Map;
 
 import javax.naming.ConfigurationException;
@@ -78,6 +79,11 @@ public class VRouterVifDriver extends VifDriverBase {
 
     @Override
     public void unplug(final LibvirtVMDef.InterfaceDef iface, boolean deleteBr) {
+        unplug(iface, deleteBr, null);
+    }
+
+    @Override
+    public void unplug(LibvirtVMDef.InterfaceDef iface, boolean delete, List<String> systemTrafficLabels) {
         final String tapDeviceName = TungstenUtils.getTapName(iface.getMacAddress());
         final String script = deleteTapDeviceScript;
 
@@ -113,7 +119,7 @@ public class VRouterVifDriver extends VifDriverBase {
     }
 
     @Override
-    public void deleteBr(NicTO nic) {
+    public void deleteBr(NicTO nic, List<String> systemTrafficLabels) {
         // not use
     }
 }

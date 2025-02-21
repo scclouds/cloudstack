@@ -37,6 +37,7 @@ public class StopCommand extends RebootCommand {
     boolean forceStop = false;
     private Map<String, DpdkTO> dpdkInterfaceMapping;
     Map<String, Boolean> vlanToPersistenceMap;
+    private List<String> systemTrafficLabels;
 
     public Map<String, DpdkTO> getDpdkInterfaceMapping() {
         return dpdkInterfaceMapping;
@@ -137,5 +138,13 @@ public class StopCommand extends RebootCommand {
 
     public void setVlanToPersistenceMap(Map<String, Boolean> vlanToPersistenceMap) {
         this.vlanToPersistenceMap = vlanToPersistenceMap;
+    }
+
+    public List<String> getSystemTrafficLabels() {
+        return systemTrafficLabels;
+    }
+
+    public void setSystemTrafficLabels(List<String> systemTrafficLabels) {
+        this.systemTrafficLabels = systemTrafficLabels;
     }
 }

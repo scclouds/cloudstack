@@ -42,6 +42,7 @@ import java.util.stream.Collectors;
 
 import com.cloud.exception.AgentUnavailableException;
 import com.cloud.exception.OperationTimedoutException;
+import com.cloud.network.dao.PhysicalNetworkDao;
 import com.cloud.storage.snapshot.SnapshotManager;
 import org.apache.cloudstack.context.CallContext;
 import org.apache.cloudstack.engine.subsystem.api.storage.StoragePoolAllocator;
@@ -153,6 +154,9 @@ public class VirtualMachineManagerImplTest {
     @Mock
     private VMInstanceVO vmInstanceMock;
     private long vmInstanceVoMockId = 1L;
+
+    @Mock
+    private PhysicalNetworkDao physicalNetworkDaoMock;
 
     @Mock
     private ServiceOfferingVO serviceOfferingMock;

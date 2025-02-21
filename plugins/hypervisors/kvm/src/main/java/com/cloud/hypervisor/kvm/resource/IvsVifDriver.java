@@ -20,6 +20,7 @@
 package com.cloud.hypervisor.kvm.resource;
 
 import java.io.File;
+import java.util.List;
 import java.util.Map;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -136,6 +137,11 @@ public class IvsVifDriver extends VifDriverBase {
 
     @Override
     public void unplug(InterfaceDef iface, boolean deleteBr) {
+    }
+
+    @Override
+    public void unplug(InterfaceDef iface, boolean delete, List<String> systemTrafficLabels) {
+
     }
 
     @Override
@@ -282,7 +288,7 @@ public class IvsVifDriver extends VifDriverBase {
     }
 
     @Override
-    public void deleteBr(NicTO nic) {
+    public void deleteBr(NicTO nic, List<String> systemTrafficLabels) {
     }
 
     private boolean isBridgeExists(String bridgeName) {

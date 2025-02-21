@@ -199,6 +199,11 @@ public class OvsVifDriver extends VifDriverBase {
 
     @Override
     public void unplug(InterfaceDef iface, boolean deleteBr) {
+        unplug(iface, deleteBr, null);
+    }
+
+    @Override
+    public void unplug(InterfaceDef iface, boolean delete, List<String> systemTrafficLabels) {
         // Libvirt apparently takes care of this, see BridgeVifDriver unplug
         if (_libvirtComputingResource.dpdkSupport && StringUtils.isNotBlank(iface.getDpdkSourcePort())) {
             // If DPDK is enabled, we'll need to cleanup the port as libvirt won't
@@ -266,6 +271,6 @@ public class OvsVifDriver extends VifDriverBase {
     }
 
     @Override
-    public void deleteBr(NicTO nic) {
+    public void deleteBr(NicTO nic, List<String> systemTrafficLabels) {
     }
 }

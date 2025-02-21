@@ -22,6 +22,8 @@ package com.cloud.agent.api;
 import com.cloud.agent.api.to.VirtualMachineTO;
 import com.cloud.host.Host;
 
+import java.util.List;
+
 /**
  */
 public class StartCommand extends Command {
@@ -29,6 +31,7 @@ public class StartCommand extends Command {
     String hostIp;
     boolean executeInSequence = false;
     String secondaryStorage;
+    private List<String> systemTrafficLabels;
 
     public VirtualMachineTO getVirtualMachine() {
         return vm;
@@ -63,5 +66,13 @@ public class StartCommand extends Command {
 
     public void setSecondaryStorage(String secondary) {
         this.secondaryStorage = secondary;
+    }
+
+    public List<String> getSystemTrafficLabels() {
+        return systemTrafficLabels;
+    }
+
+    public void setSystemTrafficLabels(List<String> systemTrafficLabels) {
+        this.systemTrafficLabels = systemTrafficLabels;
     }
 }

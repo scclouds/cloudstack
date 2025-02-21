@@ -27,4 +27,6 @@ public interface PhysicalNetworkDao extends GenericDao<PhysicalNetworkVO, Long> 
     List<PhysicalNetworkVO> listByZoneIncludingRemoved(long zoneId);
 
     List<PhysicalNetworkVO> listByZoneAndTrafficType(long dataCenterId, TrafficType trafficType);
+
+    List<String> getKvmNetworkLabelsInZone(long zoneId);
 }

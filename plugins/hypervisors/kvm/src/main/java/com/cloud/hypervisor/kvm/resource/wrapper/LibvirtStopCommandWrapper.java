@@ -127,7 +127,7 @@ public final class LibvirtStopCommandWrapper extends CommandWrapper<StopCommand,
                         // We don't know which "traffic type" is associated with
                         // each interface at this point, so inform all vif drivers
                         for (final VifDriver vifDriver : libvirtComputingResource.getAllVifDrivers()) {
-                            vifDriver.unplug(iface, libvirtComputingResource.shouldDeleteBridge(vlanToPersistenceMap, vlanId));
+                            vifDriver.unplug(iface, libvirtComputingResource.shouldDeleteBridge(vlanToPersistenceMap, vlanId), command.getSystemTrafficLabels());
                         }
                     }
                 }

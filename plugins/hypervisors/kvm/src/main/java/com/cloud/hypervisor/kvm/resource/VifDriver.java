@@ -19,6 +19,7 @@
 
 package com.cloud.hypervisor.kvm.resource;
 
+import java.util.List;
 import java.util.Map;
 
 import javax.naming.ConfigurationException;
@@ -36,6 +37,8 @@ public interface VifDriver {
 
     public void unplug(LibvirtVMDef.InterfaceDef iface, boolean delete);
 
+    public void unplug(LibvirtVMDef.InterfaceDef iface, boolean delete, List<String> systemTrafficLabels);
+
     void attach(LibvirtVMDef.InterfaceDef iface);
 
     void detach(LibvirtVMDef.InterfaceDef iface);
@@ -44,6 +47,6 @@ public interface VifDriver {
 
     boolean isExistingBridge(String bridgeName);
 
-    void deleteBr(NicTO nic);
+    void deleteBr(NicTO nic, List<String> systemTrafficLabels);
 
 }

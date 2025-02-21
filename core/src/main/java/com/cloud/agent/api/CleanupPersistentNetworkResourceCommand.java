@@ -19,13 +19,25 @@ package com.cloud.agent.api;
 
 import com.cloud.agent.api.to.NicTO;
 
+import java.util.List;
+
 public class CleanupPersistentNetworkResourceCommand extends Command {
     NicTO nicTO;
+
+    private List<String> systemTrafficLabels;
 
     protected CleanupPersistentNetworkResourceCommand() {}
 
     public CleanupPersistentNetworkResourceCommand(NicTO nicTO) {
         this.nicTO = nicTO;
+    }
+
+    public List<String> getSystemTrafficLabels() {
+        return systemTrafficLabels;
+    }
+
+    public void setSystemTrafficLabels(List<String> systemTrafficLabels) {
+        this.systemTrafficLabels = systemTrafficLabels;
     }
 
     public NicTO getNicTO() {

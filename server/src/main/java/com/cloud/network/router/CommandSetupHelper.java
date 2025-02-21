@@ -28,6 +28,7 @@ import java.util.Set;
 
 import javax.inject.Inject;
 
+import com.cloud.network.dao.PhysicalNetworkDao;
 import com.cloud.network.rules.PortForwardingRuleVO;
 import org.apache.cloudstack.api.ApiConstants;
 import org.apache.cloudstack.engine.orchestration.service.NetworkOrchestrationService;
@@ -220,6 +221,9 @@ public class CommandSetupHelper {
     ASNumberDao asNumberDao;
     @Inject
     BgpPeerDetailsDao bgpPeerDetailsDao;
+
+    @Inject
+    private PhysicalNetworkDao physicalNetworkDao;
 
     @Autowired
     @Qualifier("networkHelper")
@@ -1045,6 +1049,7 @@ public class CommandSetupHelper {
                 cmd = new IpAssocVpcCommand(ipsToSend);
             } else {
                 cmd = new IpAssocCommand(ipsToSend);
+                cmd.setSystemTrafficLabels(physicalNetworkDao.getKvmNetworkLabelsInZone(router.getDataCenterId()));
             }
             cmd.setAccessDetail(NetworkElementCommand.ROUTER_IP, _routerControlHelper.getRouterControlIp(router.getId()));
             cmd.setAccessDetail(NetworkElementCommand.ROUTER_GUEST_IP, _routerControlHelper.getRouterIpInNetwork(ipAddrList.get(0).getNetworkId(), router.getId()));

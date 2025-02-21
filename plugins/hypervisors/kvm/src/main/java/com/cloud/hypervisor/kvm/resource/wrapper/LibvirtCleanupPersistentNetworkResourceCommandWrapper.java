@@ -35,7 +35,7 @@ public class LibvirtCleanupPersistentNetworkResourceCommandWrapper extends Comma
         NicTO nic = command.getNicTO();
         VifDriver driver = serverResource.getVifDriver(nic.getType());
         if (driver instanceof BridgeVifDriver) {
-            driver.deleteBr(nic);
+            driver.deleteBr(nic, command.getSystemTrafficLabels());
         }
         return new CleanupPersistentNetworkResourceAnswer(command, true, "Successfully deleted bridge");
     }
