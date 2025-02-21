@@ -2171,7 +2171,7 @@ public class LibvirtComputingResource extends ServerResourceBase implements Serv
     }
 
 
-    private void vifHotUnPlug (final Connect conn, final String vmName, final String macAddr) throws InternalErrorException, LibvirtException {
+    private void vifHotUnPlug (final Connect conn, final String vmName, final String macAddr, List<String> systemTrafficLabels) throws InternalErrorException, LibvirtException {
 
         Domain vm = null;
         vm = getDomain(conn, vmName);
@@ -2182,7 +2182,7 @@ public class LibvirtComputingResource extends ServerResourceBase implements Serv
                 // We don't know which "traffic type" is associated with
                 // each interface at this point, so inform all vif drivers
                 for (final VifDriver vifDriver : getAllVifDrivers()) {
-                    vifDriver.unplug(pluggedNic, true);
+                    vifDriver.unplug(pluggedNic, true, systemTrafficLabels);
                 }
             }
         }
@@ -2339,7 +2339,7 @@ public class LibvirtComputingResource extends ServerResourceBase implements Serv
                 if (StringUtils.equalsIgnoreCase(lastIp, "true") && !ip.isAdd()) {
                     // in isolated network eth2 is the default public interface. We don't want to delete it.
                     if (nicNum != 2) {
-                        vifHotUnPlug(conn, routerName, ip.getVifMacAddress());
+                        vifHotUnPlug(conn, routerName, ip.getVifMacAddress(), cmd.getSystemTrafficLabels());
                         networkUsage(routerIp, "deleteVif", "eth" + nicNum);
                     }
                 }
@@ -2515,9 +2515,9 @@ public class LibvirtComputingResource extends ServerResourceBase implements Serv
         return stats;
     }
 
-    public void handleVmStartFailure(final Connect conn, final String vmName, final LibvirtVMDef vm) {
+    public void handleVmStartFailure(final Connect conn, final LibvirtVMDef vm, List<String> systemTrafficLabels) {
         if (vm != null && vm.getDevices() != null) {
-            cleanupVMNetworks(conn, vm.getDevices().getInterfaces());
+            cleanupVMNetworks(conn, vm.getDevices().getInterfaces(), systemTrafficLabels);
         }
     }
 
@@ -4302,11 +4302,11 @@ public class LibvirtComputingResource extends ServerResourceBase implements Serv
         }
 
     }
-    private void cleanupVMNetworks(final Connect conn, final List<InterfaceDef> nics) {
+    private void cleanupVMNetworks(final Connect conn, final List<InterfaceDef> nics, List<String> systemTrafficLabels) {
         if (nics != null) {
             for (final InterfaceDef nic : nics) {
                 for (final VifDriver vifDriver : getAllVifDrivers()) {
-                    vifDriver.unplug(nic, true);
+                    vifDriver.unplug(nic, true, systemTrafficLabels);
                 }
             }
         }

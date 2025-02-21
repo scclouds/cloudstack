@@ -50,6 +50,11 @@ import javax.naming.ConfigurationException;
 import javax.persistence.EntityExistsException;
 
 import com.cloud.agent.api.RecreateCheckpointsCommand;
+import com.cloud.network.dao.NetworkDao;
+import com.cloud.network.dao.NetworkDetailVO;
+import com.cloud.network.dao.NetworkDetailsDao;
+import com.cloud.network.dao.NetworkVO;
+import com.cloud.network.dao.PhysicalNetworkDao;
 import com.cloud.storage.snapshot.SnapshotManager;
 import org.apache.cloudstack.affinity.dao.AffinityGroupVMMapDao;
 import org.apache.cloudstack.annotation.AnnotationService;
@@ -205,10 +210,6 @@ import com.cloud.hypervisor.HypervisorGuruManager;
 import com.cloud.network.Network;
 import com.cloud.network.NetworkModel;
 import com.cloud.network.Networks;
-import com.cloud.network.dao.NetworkDao;
-import com.cloud.network.dao.NetworkDetailVO;
-import com.cloud.network.dao.NetworkDetailsDao;
-import com.cloud.network.dao.NetworkVO;
 import com.cloud.network.router.VirtualRouter;
 import com.cloud.network.security.SecurityGroupManager;
 import com.cloud.network.vpc.VpcVO;
@@ -410,6 +411,8 @@ public class VirtualMachineManagerImpl extends ManagerBase implements VirtualMac
     private DomainDao domainDao;
     @Inject
     ResourceCleanupService resourceCleanupService;
+    @Inject
+    private PhysicalNetworkDao physicalNetworkDao;
 
     @Inject
     private SnapshotDataStoreDao snapshotDataStoreDao;
@@ -1299,6 +1302,7 @@ public class VirtualMachineManagerImpl extends ManagerBase implements VirtualMac
                     ipAddressDetails.remove(NetworkElementCommand.ROUTER_NAME);
 
                     StartCommand command = new StartCommand(vmTO, dest.getHost(), getExecuteInSequence(vm.getHypervisorType()));
+                    command.setSystemTrafficLabels(physicalNetworkDao.getKvmNetworkLabelsInZone(vm.getDataCenterId()));
                     cmds.addCommand(command);
 
                     vmGuru.finalizeDeployment(cmds, vmProfile, dest, ctx);
@@ -1371,6 +1375,7 @@ public class VirtualMachineManagerImpl extends ManagerBase implements VirtualMac
                             logger.info("The guru did not like the answers so stopping {}", vm);
                             StopCommand stopCmd = new StopCommand(vm, getExecuteInSequence(vm.getHypervisorType()), false);
                             stopCmd.setControlIp(getControlNicIpForVM(vm));
+                            stopCmd.setSystemTrafficLabels(physicalNetworkDao.getKvmNetworkLabelsInZone(vm.getDataCenterId()));
                             Map<String, Boolean> vlanToPersistenceMap = getVlanToPersistenceMapForVM(vm.getId());
                             if (MapUtils.isNotEmpty(vlanToPersistenceMap)) {
                                 stopCmd.setVlanToPersistenceMap(vlanToPersistenceMap);
@@ -1859,6 +1864,7 @@ public class VirtualMachineManagerImpl extends ManagerBase implements VirtualMac
         final VirtualMachine vm = profile.getVirtualMachine();
         Map<String, Boolean> vlanToPersistenceMap = getVlanToPersistenceMapForVM(vm.getId());
         StopCommand stpCmd = new StopCommand(vm, getExecuteInSequence(vm.getHypervisorType()), checkBeforeCleanup);
+        stpCmd.setSystemTrafficLabels(physicalNetworkDao.getKvmNetworkLabelsInZone(vm.getDataCenterId()));
         if (MapUtils.isNotEmpty(vlanToPersistenceMap)) {
             stpCmd.setVlanToPersistenceMap(vlanToPersistenceMap);
         }
@@ -2186,6 +2192,7 @@ public class VirtualMachineManagerImpl extends ManagerBase implements VirtualMac
         Map<String, Boolean> vlanToPersistenceMap = getVlanToPersistenceMapForVM(vm.getId());
         final StopCommand stop = new StopCommand(vm, getExecuteInSequence(vm.getHypervisorType()), false, cleanUpEvenIfUnableToStop);
         stop.setControlIp(getControlNicIpForVM(vm));
+        stop.setSystemTrafficLabels(physicalNetworkDao.getKvmNetworkLabelsInZone(vm.getDataCenterId()));
         if (MapUtils.isNotEmpty(vlanToPersistenceMap)) {
             stop.setVlanToPersistenceMap(vlanToPersistenceMap);
         }
@@ -2916,7 +2923,7 @@ public class VirtualMachineManagerImpl extends ManagerBase implements VirtualMac
         final boolean isWindows = _guestOsCategoryDao.findById(_guestOsDao.findById(vmInstance.getGuestOSId()).getCategoryId()).getName().equalsIgnoreCase("Windows");
         final MigrateCommand migrateCommand = new MigrateCommand(vmInstance.getInstanceName(), destination.getHost().getPrivateIpAddress(), isWindows, virtualMachineTO,
                 getExecuteInSequence(vmInstance.getHypervisorType()));
-
+        migrateCommand.setSystemTrafficLabels(physicalNetworkDao.getKvmNetworkLabelsInZone(vmInstance.getDataCenterId()));
         Map<String, Boolean> vlanToPersistenceMap = getVlanToPersistenceMapForVM(vmInstance.getId());
         if (MapUtils.isNotEmpty(vlanToPersistenceMap)) {
             logger.debug("Setting VLAN persistence to [{}] as part of migrate command for VM [{}].", new Gson().toJson(vlanToPersistenceMap), virtualMachineTO);
@@ -3732,6 +3739,7 @@ public class VirtualMachineManagerImpl extends ManagerBase implements VirtualMac
             cmd.setDpdkInterfaceMapping(dpdkInterfaceMapping);
         }
         Map<String, Boolean> vlanToPersistenceMap = getVlanToPersistenceMapForVM(vm.getId());
+        cmd.setSystemTrafficLabels(physicalNetworkDao.getKvmNetworkLabelsInZone(vm.getDataCenterId()));
         if (MapUtils.isNotEmpty(vlanToPersistenceMap)) {
             cmd.setVlanToPersistenceMap(vlanToPersistenceMap);
         }
@@ -3760,6 +3768,7 @@ public class VirtualMachineManagerImpl extends ManagerBase implements VirtualMac
 
         StopCommand cmd = new StopCommand(vmName, getExecuteInSequence(null), false);
         cmd.setControlIp(getControlNicIpForVM(vm));
+        cmd.setSystemTrafficLabels(physicalNetworkDao.getKvmNetworkLabelsInZone(vm.getDataCenterId()));
         Map<String, Boolean> vlanToPersistenceMap = getVlanToPersistenceMapForVM(vm.getId());
         if (MapUtils.isNotEmpty(vlanToPersistenceMap)) {
             cmd.setVlanToPersistenceMap(vlanToPersistenceMap);
@@ -4573,6 +4582,7 @@ public class VirtualMachineManagerImpl extends ManagerBase implements VirtualMac
         if (router.getState() == State.Running) {
             try {
                 final ReplugNicCommand replugNicCmd = new ReplugNicCommand(nic, vm.getName(), vm.getType(), vm.getDetails());
+                replugNicCmd.setSystemTrafficLabels(physicalNetworkDao.getKvmNetworkLabelsInZone(network.getDataCenterId()));
                 final Commands cmds = new Commands(Command.OnError.Stop);
                 cmds.addCommand("replugnic", replugNicCmd);
                 _agentMgr.send(host.getId(), cmds);
@@ -4645,6 +4655,7 @@ public class VirtualMachineManagerImpl extends ManagerBase implements VirtualMac
             try {
                 final Commands cmds = new Commands(Command.OnError.Stop);
                 final UnPlugNicCommand unplugNicCmd = new UnPlugNicCommand(nic, vm.getName());
+                unplugNicCmd.setSystemTrafficLabels(physicalNetworkDao.getKvmNetworkLabelsInZone(network.getDataCenterId()));
                 Map<String, Boolean> vlanToPersistenceMap = getVlanToPersistenceMapForVM(vm.getId());
                 if (MapUtils.isNotEmpty(vlanToPersistenceMap)) {
                     unplugNicCmd.setVlanToPersistenceMap(vlanToPersistenceMap);

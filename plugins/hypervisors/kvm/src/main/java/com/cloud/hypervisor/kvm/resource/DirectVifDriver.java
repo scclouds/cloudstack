@@ -26,6 +26,7 @@ import com.cloud.agent.api.to.NicTO;
 import com.cloud.exception.InternalErrorException;
 import com.cloud.network.Networks;
 
+import java.util.List;
 import java.util.Map;
 
 public class DirectVifDriver extends VifDriverBase {
@@ -62,6 +63,11 @@ public class DirectVifDriver extends VifDriverBase {
     }
 
     @Override
+    public void unplug(LibvirtVMDef.InterfaceDef iface, boolean delete, List<String> systemTrafficLabels) {
+
+    }
+
+    @Override
     public void attach(LibvirtVMDef.InterfaceDef iface) {
 
     }
@@ -76,6 +82,6 @@ public class DirectVifDriver extends VifDriverBase {
     }
 
     @Override
-    public void deleteBr(NicTO nic) {
+    public void deleteBr(NicTO nic, List<String> systemTrafficLabels) {
     }
 }

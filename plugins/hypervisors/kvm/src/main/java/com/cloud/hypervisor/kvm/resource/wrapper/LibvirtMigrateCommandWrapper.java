@@ -366,7 +366,7 @@ public final class LibvirtMigrateCommandWrapper extends CommandWrapper<MigrateCo
                 // each interface at this point, so inform all vif drivers
                 final List<VifDriver> allVifDrivers = libvirtComputingResource.getAllVifDrivers();
                 for (final VifDriver vifDriver : allVifDrivers) {
-                    vifDriver.unplug(iface, libvirtComputingResource.shouldDeleteBridge(vlanToPersistenceMap, vlanId));
+                    vifDriver.unplug(iface, libvirtComputingResource.shouldDeleteBridge(vlanToPersistenceMap, vlanId), command.getSystemTrafficLabels());
                 }
             }
         }

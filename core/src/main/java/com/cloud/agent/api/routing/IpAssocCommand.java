@@ -21,9 +21,12 @@ package com.cloud.agent.api.routing;
 
 import com.cloud.agent.api.to.IpAddressTO;
 
+import java.util.List;
+
 public class IpAssocCommand extends NetworkElementCommand {
 
     IpAddressTO[] ipAddresses;
+    private List<String> systemTrafficLabels;
 
     protected IpAssocCommand() {
     }
@@ -39,5 +42,13 @@ public class IpAssocCommand extends NetworkElementCommand {
 
     public IpAddressTO[] getIpAddresses() {
         return ipAddresses;
+    }
+
+    public List<String> getSystemTrafficLabels() {
+        return systemTrafficLabels;
+    }
+
+    public void setSystemTrafficLabels(List<String> systemTrafficLabels) {
+        this.systemTrafficLabels = systemTrafficLabels;
     }
 }

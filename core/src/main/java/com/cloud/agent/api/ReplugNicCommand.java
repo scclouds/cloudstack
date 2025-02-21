@@ -19,6 +19,7 @@
 
 package com.cloud.agent.api;
 
+import java.util.List;
 import java.util.Map;
 
 import com.cloud.agent.api.to.NicTO;
@@ -30,6 +31,7 @@ public class ReplugNicCommand extends Command {
     String instanceName;
     VirtualMachine.Type vmType;
     Map<String, String> details;
+    private List<String> systemTrafficLabels;
 
     public NicTO getNic() {
         return nic;
@@ -66,5 +68,13 @@ public class ReplugNicCommand extends Command {
 
     public Map<String, String> getDetails() {
         return this.details;
+    }
+
+    public List<String> getSystemTrafficLabels() {
+        return systemTrafficLabels;
+    }
+
+    public void setSystemTrafficLabels(List<String> systemTrafficLabels) {
+        this.systemTrafficLabels = systemTrafficLabels;
     }
 }

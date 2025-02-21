@@ -40,6 +40,7 @@ public class MigrateCommand extends Command {
     private boolean executeInSequence = false;
     private List<MigrateDiskInfo> migrateDiskInfoList = new ArrayList<>();
     private Map<String, DpdkTO> dpdkInterfaceMapping = new HashMap<>();
+    private List<String> systemTrafficLabels;
 
     private int newVmCpuShares;
 
@@ -232,5 +233,13 @@ public class MigrateCommand extends Command {
         public void setSourceDiskOnStorageFileSystem(boolean isDiskOnFileSystemStorage) {
             this.isSourceDiskOnStorageFileSystem = isDiskOnFileSystemStorage;
         }
+    }
+
+    public List<String> getSystemTrafficLabels() {
+        return systemTrafficLabels;
+    }
+
+    public void setSystemTrafficLabels(List<String> systemTrafficLabels) {
+        this.systemTrafficLabels = systemTrafficLabels;
     }
 }
