@@ -33,6 +33,7 @@ import java.util.concurrent.TimeUnit;
 import javax.inject.Inject;
 
 import com.cloud.agent.api.PrepareForMigrationAnswer;
+import com.cloud.network.dao.PhysicalNetworkDao;
 import org.apache.cloudstack.engine.subsystem.api.storage.ChapInfo;
 import org.apache.cloudstack.engine.subsystem.api.storage.ClusterScope;
 import org.apache.cloudstack.engine.subsystem.api.storage.CopyCommandResult;
@@ -196,6 +197,9 @@ public class StorageSystemDataMotionStrategy implements DataMotionStrategy {
     VMTemplatePoolDao templatePoolDao;
     @Inject
     private VolumeDataFactory _volFactory;
+
+    @Inject
+    private PhysicalNetworkDao physicalNetworkDao;
 
     @Override
     public StrategyPriority canHandle(DataObject srcData, DataObject destData) {
@@ -2106,6 +2110,7 @@ public class StorageSystemDataMotionStrategy implements DataMotionStrategy {
             boolean isWindows = _guestOsCategoryDao.findById(_guestOsDao.findById(vm.getGuestOSId()).getCategoryId()).getName().equalsIgnoreCase("Windows");
 
             MigrateCommand migrateCommand = new MigrateCommand(vmTO.getName(), destHost.getPrivateIpAddress(), isWindows, vmTO, true);
+            migrateCommand.setSystemTrafficLabels(physicalNetworkDao.getKvmNetworkLabelsInZone(vm.getDataCenterId()));
             migrateCommand.setWait(StorageManager.KvmStorageOnlineMigrationWait.value());
             migrateCommand.setMigrateStorage(migrateStorage);
             migrateCommand.setMigrateDiskInfoList(migrateDiskInfoList);
