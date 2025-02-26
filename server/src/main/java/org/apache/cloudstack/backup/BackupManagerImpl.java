@@ -124,6 +124,8 @@ import com.cloud.vm.VirtualMachine;
 import com.cloud.vm.dao.UserVmDao;
 import com.cloud.vm.dao.VMInstanceDao;
 import com.google.gson.Gson;
+import org.apache.commons.lang3.builder.ReflectionToStringBuilder;
+import org.apache.commons.lang3.builder.ToStringStyle;
 
 public class BackupManagerImpl extends ManagerBase implements BackupManager {
 
@@ -922,7 +924,7 @@ public class BackupManagerImpl extends ManagerBase implements BackupManager {
         }
         volumeInfo.setType(Volume.Type.DATADISK);
 
-        String volumeData = ReflectionToStringBuilderUtils.reflectOnlySelectedFields(volumeInfo, "uuid", "size", "path", "type", "deviceId");
+        String volumeData = ReflectionToStringBuilder.toString(volumeInfo, ToStringStyle.JSON_STYLE);
         String vmData = ReflectionToStringBuilderUtils.reflectOnlySelectedFields(vm, "uuid", "hostName", "instanceName");
         logger.debug("Trying to attach restored volume [{}] to VM [{}] using datastore [{}].", volumeData, vmData, datastoreUuid);
         StoragePoolVO pool = primaryDataStoreDao.findByUuid(datastoreUuid);
