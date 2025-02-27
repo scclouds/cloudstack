@@ -23,7 +23,7 @@
 <parent>
     <artifactId>cloud-engine</artifactId>
     <groupId>org.apache.cloudstack</groupId>
-    <version>4.20.0.2-scclouds</version>
+    <version>4.20.0.3-scclouds</version>
     <relativePath>../../pom.xml</relativePath>
 </parent>
 <dependencies>
