@@ -36,7 +36,9 @@
       :columns="columns"
       :dataSource="hosts"
       :pagination="false"
-      :rowKey="record => record.id">
+      :rowKey="record => record.id"
+      :rowClassName="getRowClassName"
+      >
       <template #bodyCell="{ column, record }">
         <template v-if="column.key === 'name'">
           {{ record.name }}
@@ -144,6 +146,7 @@ export default {
     return {
       loading: true,
       hosts: [],
+      hostsMetrics: [],
       selectedHost: {},
       searchQuery: '',
       totalCount: 0,
@@ -213,23 +216,31 @@ export default {
     },
     fetchData () {
       this.loading = true
-      api('findHostsForMigration', {
-        virtualmachineid: this.resource.id,
+      api('listHostsMetrics', {
+        zoneid: this.resource.zoneid,
         keyword: this.searchQuery,
         page: this.page,
         pagesize: this.pageSize
       }).then(response => {
-        this.hosts = response.findhostsformigrationresponse.host || []
-        this.hosts.sort((a, b) => {
-          return b.suitableformigration - a.suitableformigration
-        })
-        for (const key in this.hosts) {
-          if (this.hosts[key].suitableformigration && !this.hosts[key].requiresstoragemigration) {
-            this.hosts.unshift({ id: -1, name: this.$t('label.auto.assign'), suitableformigration: true, requiresstoragemigration: false })
-            break
+        this.hostsMetrics = response.listhostsmetricsresponse.host || []
+        api('findHostsForMigration', {
+          virtualmachineid: this.resource.id,
+          keyword: this.searchQuery,
+          page: this.page,
+          pagesize: this.pageSize
+        }).then(response => {
+          this.hosts = response.findhostsformigrationresponse.host || []
+          this.hosts.sort((a, b) => {
+            return b.suitableformigration - a.suitableformigration
+          })
+          for (const key in this.hosts) {
+            if (this.hosts[key].suitableformigration && !this.hosts[key].requiresstoragemigration) {
+              this.hosts.unshift({ id: -1, name: this.$t('label.auto.assign'), suitableformigration: true, requiresstoragemigration: false })
+              break
+            }
           }
-        }
-        this.totalCount = response.findhostsformigrationresponse.count
+          this.totalCount = response.findhostsformigrationresponse.count
+        })
       }).catch(error => {
         this.$message.error(`${this.$t('message.load.host.failed')}: ${error}`)
       }).finally(() => {
@@ -342,6 +353,23 @@ export default {
       }).finally(() => {
         this.loading = false
       })
+    },
+    findHostMetrics () {
+      for (const host in this.hosts) {
+        if (this.hostsMetrics[host].id === this.selectedHost.id) {
+          return this.hostsMetrics[host]
+        }
+      }
+    },
+    getRowClassName (record) {
+      if (record.id === this.selectedHost?.id && this.selectedHost?.name !== this.$t('label.auto.assign')) {
+        const host = this.findHostMetrics()
+        const hostThresholdValues = [host.memorydisablethreshold, host.memoryallocatedthreshold, host.cpudisablethreshold, host.memoryallocateddisablethreshold]
+        if (hostThresholdValues.includes(true)) {
+          return 'ant-alert-selected-item'
+        }
+      }
+      return 'light-row'
     }
   }
 }
