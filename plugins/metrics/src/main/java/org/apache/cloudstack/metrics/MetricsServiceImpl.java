@@ -645,7 +645,8 @@ public class MetricsServiceImpl extends MutualExclusiveIdsManagerBase implements
 
             Long poolClusterId = clusterUuidToIdMap.get(poolResponse.getClusterId());
             final Double storageThreshold = AlertManager.StorageCapacityThreshold.valueIn(poolClusterId);
-            final Double storageDisableThreshold = CapacityManager.StorageCapacityDisableThreshold.valueIn(poolClusterId);
+            final Double storageUsedDisableThreshold = CapacityManager.StorageCapacityDisableThreshold.valueIn(poolClusterId);
+            final Double storageAllocatedDisableThreshold = CapacityManager.StorageAllocatedCapacityDisableThreshold.valueIn(poolClusterId);
 
             metricsResponse.setHasAnnotation(poolResponse.hasAnnotation());
             metricsResponse.setDiskSizeUsedGB(poolResponse.getDiskSizeUsed());
@@ -653,9 +654,9 @@ public class MetricsServiceImpl extends MutualExclusiveIdsManagerBase implements
             metricsResponse.setDiskSizeAllocatedGB(poolResponse.getDiskSizeAllocated());
             metricsResponse.setDiskSizeUnallocatedGB(poolResponse.getDiskSizeTotal(), poolResponse.getDiskSizeAllocated(), poolResponse.getOverProvisionFactor());
             metricsResponse.setStorageUsedThreshold(poolResponse.getDiskSizeTotal(), poolResponse.getDiskSizeUsed(), poolResponse.getOverProvisionFactor(), storageThreshold);
-            metricsResponse.setStorageUsedDisableThreshold(poolResponse.getDiskSizeTotal(), poolResponse.getDiskSizeUsed(), poolResponse.getOverProvisionFactor(), storageDisableThreshold);
+            metricsResponse.setStorageUsedDisableThreshold(poolResponse.getDiskSizeTotal(), poolResponse.getDiskSizeUsed(), poolResponse.getOverProvisionFactor(), storageUsedDisableThreshold);
             metricsResponse.setStorageAllocatedThreshold(poolResponse.getDiskSizeTotal(), poolResponse.getDiskSizeAllocated(), poolResponse.getOverProvisionFactor(), storageThreshold);
-            metricsResponse.setStorageAllocatedDisableThreshold(poolResponse.getDiskSizeTotal(), poolResponse.getDiskSizeUsed(), poolResponse.getOverProvisionFactor(), storageDisableThreshold);
+            metricsResponse.setStorageAllocatedDisableThreshold(poolResponse.getDiskSizeTotal(), poolResponse.getDiskSizeAllocated(), poolResponse.getOverProvisionFactor(), storageAllocatedDisableThreshold);
             metricsResponses.add(metricsResponse);
         }
         return metricsResponses;
