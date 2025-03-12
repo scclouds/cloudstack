@@ -4065,7 +4065,8 @@ public class StorageManagerImpl extends ManagerBase implements StorageManager, C
                 MountDisabledStoragePool,
                 VmwareCreateCloneFull,
                 VmwareAllowParallelExecution,
-                DataStoreDownloadFollowRedirects
+                DataStoreDownloadFollowRedirects,
+                COPY_PUBLIC_TEMPLATES_FROM_OTHER_STORAGES
         };
     }
 
