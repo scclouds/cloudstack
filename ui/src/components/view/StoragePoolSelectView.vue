@@ -31,7 +31,9 @@
       :columns="columns"
       :dataSource="storagePools"
       :pagination="false"
-      :rowKey="record => record.id">
+      :rowKey="record => record.id"
+      :rowClassName="getRowClassName"
+    >
       <template #headerCell="{ column }">
         <template v-if="column.key === 'suitability'">
           {{ $t('label.suitability') }}
@@ -129,6 +131,7 @@ export default {
     return {
       loading: false,
       storagePools: [],
+      storagePoolsMetrics: [],
       searchQuery: '',
       totalCount: 0,
       page: 1,
@@ -183,39 +186,38 @@ export default {
   methods: {
     fetchStoragePools () {
       this.loading = true
-      if (this.suitabilityEnabled) {
-        api('findStoragePoolsForMigration', {
-          id: this.resource.id,
-          keyword: this.searchQuery,
-          page: this.page,
-          pagesize: this.pageSize
-        }).then(response => {
-          this.storagePools = response.findstoragepoolsformigrationresponse.storagepool || []
-          this.totalCount = response.findstoragepoolsformigrationresponse.count
-        }).catch(error => {
-          this.$notifyError(error)
-        }).finally(() => {
-          this.handleStoragePoolsFetchComplete()
-        })
-      } else {
-        var params = {
-          zoneid: this.resource.zoneid,
-          keyword: this.searchQuery,
-          page: this.page,
-          pagesize: this.pageSize
-        }
-        if (this.clusterId) {
-          params.clusterid = this.clusterId
-        }
-        api('listStoragePools', params).then(response => {
-          this.storagePools = response.liststoragepoolsresponse.storagepool || []
-          this.totalCount = response.liststoragepoolsresponse.count
-        }).catch(error => {
-          this.$notifyError(error)
-        }).finally(() => {
-          this.handleStoragePoolsFetchComplete()
-        })
+      const params = {
+        zoneid: this.resource.zoneid,
+        keyword: this.searchQuery,
+        page: this.page,
+        pagesize: this.pageSize
       }
+      if (this.clusterId) {
+        params.clusterid = this.clusterId
+      }
+      api('listStoragePoolsMetrics', params).then(response => {
+        this.storagePoolsMetrics = response.liststoragepoolsmetricsresponse.storagepool || []
+        this.totalCount = response.liststoragepoolsmetricsresponse.count
+        if (this.suitabilityEnabled) {
+          api('findStoragePoolsForMigration', {
+            id: this.resource.id,
+            keyword: this.searchQuery,
+            page: this.page,
+            pagesize: this.pageSize
+          }).then(response => {
+            this.storagePools = response.findstoragepoolsformigrationresponse.storagepool || []
+            this.totalCount = response.findstoragepoolsformigrationresponse.count
+          }).catch(error => {
+            this.$notifyError(error)
+          })
+        } else {
+          this.storagePools = this.storagePoolsMetrics
+        }
+      }).catch(error => {
+        this.$notifyError(error)
+      }).finally(() => {
+        this.handleStoragePoolsFetchComplete()
+      })
     },
     handleStoragePoolsFetchComplete () {
       this.$emit('storagePoolsUpdated', this.storagePools)
@@ -258,6 +260,22 @@ export default {
     updateSelection (storagePool) {
       this.selectedStoragePool = storagePool
       this.$emit('select', this.selectedStoragePool)
+    },
+    findPoolInMetrics () {
+      for (const pool in this.storagePoolsMetrics) {
+        if (this.storagePoolsMetrics[pool].id === this.selectedStoragePool.id) {
+          return this.storagePoolsMetrics[pool]
+        }
+      }
+    },
+    getRowClassName (record) {
+      if (record.id === this.selectedStoragePool?.id) {
+        const pool = this.findPoolInMetrics()
+        if (pool.storageusagedisablethreshold || pool.storageallocateddisablethreshold) {
+          return 'ant-alert-selected-item'
+        }
+      }
+      return 'light-row'
     }
   }
 }
