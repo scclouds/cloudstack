@@ -147,6 +147,8 @@ public class VMSnapshotManagerTest {
     private static VMSnapshot.Type vmSnapshotType;
     private static List<UserVmDetailVO> userVmDetails;
     private static List<VMSnapshotDetailsVO> vmSnapshotDetails;
+    private List<VMSnapshotVO> vmSnapshotsDiskOnly = new ArrayList<>();
+    private List<VMSnapshotVO> vmSnapshotsDiskAndMemory = new ArrayList<>();
 
     private static final long VM_SNAPSHOT_ID = 1L;
     private static final String VM_SNAPSHOT_NAME = "Vm-Snapshot-Name";
@@ -204,6 +206,10 @@ public class VMSnapshotManagerTest {
         _vmSnapshotMgr._userVmManager = _userVmManager;
 
         when(_userVMDao.findById(anyLong())).thenReturn(vmMock);
+
+        vmSnapshotsDiskOnly.add(vmSnapshotVO);
+        vmSnapshotsDiskAndMemory.add(vmSnapshotVO);
+
         when(_vmSnapshotDao.findByName(anyLong(), anyString())).thenReturn(null);
         when(_vmSnapshotDao.findByVm(anyLong())).thenReturn(new ArrayList<VMSnapshotVO>());
         when(_hypervisorCapabilitiesDao.isVmSnapshotEnabled(Hypervisor.HypervisorType.XenServer, "default")).thenReturn(true);
@@ -276,6 +282,18 @@ public class VMSnapshotManagerTest {
     @Test(expected = InvalidParameterValueException.class)
     public void testAllocVMSnapshotF2() throws ResourceAllocationException {
         when(vmMock.getState()).thenReturn(State.Starting);
+        _vmSnapshotMgr.allocVMSnapshot(TEST_VM_ID, "", "", true);
+    }
+
+    @Test(expected = InvalidParameterValueException.class)
+    public void allocVMSnapshotTestIfVmHasMemoryVmSnapshotShouldThrowInvalidParameterValueException() throws ResourceAllocationException {
+        when(_vmSnapshotDao.findByVmAndByType(TEST_VM_ID, VMSnapshot.Type.Disk)).thenReturn(vmSnapshotsDiskAndMemory);
+        _vmSnapshotMgr.allocVMSnapshot(TEST_VM_ID, "", "", false);
+    }
+
+    @Test(expected = InvalidParameterValueException.class)
+    public void allocVMSnapshotTestIfVmHasDiskOnlyVmSnapshotShouldThrowInvalidParameterValueException() throws ResourceAllocationException {
+        when(_vmSnapshotDao.findByVmAndByType(TEST_VM_ID, VMSnapshot.Type.Disk)).thenReturn(vmSnapshotsDiskOnly);
         _vmSnapshotMgr.allocVMSnapshot(TEST_VM_ID, "", "", true);
     }
 
