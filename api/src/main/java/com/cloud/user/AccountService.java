@@ -129,7 +129,7 @@ public interface AccountService {
 
     void validateCallingUserHasAccessToDesiredUser(Long userId);
 
-    Long finalyzeAccountId(String accountName, Long domainId, Long projectId, boolean enabledOnly);
+    Long finalizeAccountId(String accountName, Long domainId, Long projectId, boolean enabledOnly);
 
     /**
      * returns the user account object for a given user id
