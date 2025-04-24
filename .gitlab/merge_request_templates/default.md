@@ -1,4 +1,4 @@
-<!-- Título em PT/BR (deve ser colocado como título do MR - não colocar na descrição). O título deve conter formatação de negrito, itálico e code block quando necessário. -->
+<!-- Título em PT/BR (deve ser colocado como título do MR - não colocar na descrição). O título deve conter formatação de negrito, itálico e code block quando necessário. Ademais, os títulos devem ser escritos com substantivo verbal, não com o verbo. Por exemplo: modifica a propriedade -> modificação da propriedade -->
 
 
 <!-- 
