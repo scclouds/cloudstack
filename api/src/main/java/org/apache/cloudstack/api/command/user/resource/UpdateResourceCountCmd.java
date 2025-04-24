@@ -129,7 +129,7 @@ public class UpdateResourceCountCmd extends BaseCmd {
     @Override
     public void execute() {
         List<? extends ResourceCount> result =
-                _resourceLimitService.recalculateResourceCount(_accountService.finalyzeAccountId(accountName, domainId, projectId, true), getDomainId(), getResourceType(), getTag());
+                _resourceLimitService.recalculateResourceCount(_accountService.finalizeAccountId(accountName, domainId, projectId, true), getDomainId(), getResourceType(), getTag());
 
         if (CollectionUtils.isEmpty(result)) {
             throw new ServerApiException(ApiErrorCode.INTERNAL_ERROR, "Failed to recalculate resources counts.");

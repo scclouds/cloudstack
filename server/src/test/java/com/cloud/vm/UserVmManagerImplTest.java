@@ -1089,7 +1089,7 @@ public class UserVmManagerImplTest {
         ReflectionTestUtils.setField(deployVMCmd, "serviceOfferingId", serviceOfferingId);
         deployVMCmd._accountService = accountService;
 
-        when(accountService.finalyzeAccountId(nullable(String.class), nullable(Long.class), nullable(Long.class), eq(true))).thenReturn(accountId);
+        when(accountService.finalizeAccountId(nullable(String.class), nullable(Long.class), nullable(Long.class), eq(true))).thenReturn(accountId);
         when(accountService.getActiveAccountById(accountId)).thenReturn(account);
         when(entityManager.findById(DataCenter.class, zoneId)).thenReturn(_dcMock);
         when(entityManager.findById(ServiceOffering.class, serviceOfferingId)).thenReturn(serviceOffering);
@@ -1106,7 +1106,7 @@ public class UserVmManagerImplTest {
         ReflectionTestUtils.setField(deployVMCmd, "serviceOfferingId", serviceOfferingId);
         deployVMCmd._accountService = accountService;
 
-        when(accountService.finalyzeAccountId(nullable(String.class), nullable(Long.class), nullable(Long.class), eq(true))).thenReturn(accountId);
+        when(accountService.finalizeAccountId(nullable(String.class), nullable(Long.class), nullable(Long.class), eq(true))).thenReturn(accountId);
         when(accountService.getActiveAccountById(accountId)).thenReturn(account);
         when(entityManager.findById(DataCenter.class, zoneId)).thenReturn(_dcMock);
         when(entityManager.findById(ServiceOffering.class, serviceOfferingId)).thenReturn(serviceOffering);
@@ -1362,7 +1362,7 @@ public class UserVmManagerImplTest {
         ReflectionTestUtils.setField(deployVMCmd, "serviceOfferingId", serviceOfferingId);
         deployVMCmd._accountService = accountService;
 
-        when(accountService.finalyzeAccountId(nullable(String.class), nullable(Long.class), nullable(Long.class), eq(true))).thenReturn(accountId);
+        when(accountService.finalizeAccountId(nullable(String.class), nullable(Long.class), nullable(Long.class), eq(true))).thenReturn(accountId);
         when(accountService.getActiveAccountById(accountId)).thenReturn(account);
         when(entityManager.findById(DataCenter.class, zoneId)).thenReturn(_dcMock);
         when(entityManager.findById(ServiceOffering.class, serviceOfferingId)).thenReturn(serviceOffering);
