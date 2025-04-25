@@ -20,48 +20,37 @@ package com.cloud.usage.parser;
 import com.cloud.usage.UsageBackupObjectVO;
 import com.cloud.usage.UsageVO;
 import com.cloud.usage.dao.UsageBackupObjectDao;
-import com.cloud.usage.dao.UsageDao;
 import com.cloud.user.AccountVO;
 import org.apache.cloudstack.usage.UsageTypes;
 import org.apache.commons.collections.CollectionUtils;
-import org.apache.logging.log4j.Logger;
-import org.apache.logging.log4j.LogManager;
 import org.springframework.stereotype.Component;
 
-import javax.annotation.PostConstruct;
 import javax.inject.Inject;
 import java.text.DecimalFormat;
 import java.util.Date;
 import java.util.List;
 
 @Component
-public class BackupObjectUsageParser {
-    protected static Logger LOGGER = LogManager.getLogger(BackupUsageParser.class);
-
-    private static UsageDao s_usageDao;
-    private static UsageBackupObjectDao s_usageBackupObjectDao;
-
-    @Inject
-    private UsageDao usageDao;
+public class BackupObjectUsageParser extends UsageParser {
     @Inject
     private UsageBackupObjectDao usageBackupObjectDao;
 
-    @PostConstruct
-    void init() {
-        s_usageDao = usageDao;
-        s_usageBackupObjectDao = usageBackupObjectDao;
+    @Override
+    public String getParserName() {
+        return "Backup Object";
     }
 
-    public static boolean parse(AccountVO account, Date startDate, Date endDate) {
-        LOGGER.debug("Parsing all backup object usage events for account [{}].", account);
+    @Override
+    protected boolean parse(AccountVO account, Date startDate, Date endDate) {
+        logger.debug("Parsing all backup object usage events for account [{}].", account);
 
         if (endDate == null || endDate.after(new Date())) {
             endDate = new Date();
         }
 
-        final List<UsageBackupObjectVO> usageBackupObjects = s_usageBackupObjectDao.listUsageBackupObjectRecords(account.getId(), startDate, endDate);
+        final List<UsageBackupObjectVO> usageBackupObjects = usageBackupObjectDao.listUsageBackupObjectRecords(account.getId(), startDate, endDate);
         if (CollectionUtils.isEmpty(usageBackupObjects)) {
-            LOGGER.debug("No usage backup objects for account [{}] and period between [{}] and [{}].", account, startDate, endDate);
+            logger.debug("No usage backup objects for account [{}] and period between [{}] and [{}].", account, startDate, endDate);
             return true;
         }
 
@@ -89,10 +78,10 @@ public class BackupObjectUsageParser {
             final String description = String.format("Backup object usage for backup with ID: %d, backup offering: %d, and VM: %d", backupId, backupOfferingId, vmId);
 
             final UsageVO usageRecord = new UsageVO(usageBackupObject.getZoneId(), account.getAccountId(), account.getDomainId(), description,
-                    String.format("%s Hrs", usageDisplay), UsageTypes.BACKUP_OBJECT, new Double(usage), vmId, null, backupOfferingId, null, backupId, usageBackupObject.getSize(),
+                    String.format("%s Hrs", usageDisplay), UsageTypes.BACKUP_OBJECT, Double.valueOf(usage), vmId, null, backupOfferingId, null, backupId, usageBackupObject.getSize(),
                     usageBackupObject.getProtectedSize(), startDate, endDate);
 
-            s_usageDao.persist(usageRecord);
+            usageDao.persist(usageRecord);
         }
 
         return true;
