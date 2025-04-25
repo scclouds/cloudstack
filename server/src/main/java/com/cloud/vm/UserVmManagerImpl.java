@@ -7444,12 +7444,6 @@ public class UserVmManagerImpl extends ManagerBase implements UserVmManager, Vir
         validateOldAndNewAccounts(oldAccount, newAccount, oldAccountId, newAccountName, domainId);
 
         checkCallerAccessToAccounts(caller, oldAccount, newAccount);
-
-        logger.trace("Verifying if the provided domain ID [{}] is valid.", domainId);
-        if (projectId != null && domainId == null) {
-            throw new InvalidParameterValueException("Please provide a valid domain ID; cannot assign VM to a project if domain ID is NULL.");
-        }
-
         validateIfVmHasNoRules(vm, vmId);
 
         final List<VolumeVO> volumes = _volsDao.findByInstance(vmId);
@@ -7462,14 +7456,10 @@ public class UserVmManagerImpl extends ManagerBase implements UserVmManager, Vir
 
         validateIfNewOwnerHasAccessToTemplate(vm, newAccount, template);
 
-        DomainVO domain = _domainDao.findById(domainId);
-        logger.trace("Verifying if the new account [{}] has access to the specified domain [{}].", newAccount, domain);
-        _accountMgr.checkAccess(newAccount, domain);
-
         Transaction.execute(new TransactionCallbackNoReturn() {
             @Override
             public void doInTransactionWithoutResult(TransactionStatus status) {
-                executeStepsToChangeOwnershipOfVm(cmd, caller, oldAccount, newAccount, vm, offering, volumes, template, domainId);
+                executeStepsToChangeOwnershipOfVm(cmd, caller, oldAccount, newAccount, vm, offering, volumes, template);
             }
         });
 
@@ -7598,7 +7588,7 @@ public class UserVmManagerImpl extends ManagerBase implements UserVmManager, Vir
      * @param domainId The ID of the domain where the VM which will be assigned to another user is.
      */
     protected void executeStepsToChangeOwnershipOfVm(AssignVMCmd cmd, Account caller, Account oldAccount, Account newAccount, UserVmVO vm, ServiceOfferingVO offering,
-                                                     List<VolumeVO> volumes, VirtualMachineTemplate template, Long domainId) {
+                                                     List<VolumeVO> volumes, VirtualMachineTemplate template) {
 
         logger.trace("Generating destroy event for VM [{}].", vm);
         UsageEventUtils.publishUsageEvent(EventTypes.EVENT_VM_DESTROY, vm.getAccountId(), vm.getDataCenterId(), vm.getId(), vm.getHostName(), vm.getServiceOfferingId(),
@@ -7611,7 +7601,7 @@ public class UserVmManagerImpl extends ManagerBase implements UserVmManager, Vir
         removeInstanceFromInstanceGroup(vm.getId());
 
         Long newAccountId = newAccount.getAccountId();
-        updateVmOwner(newAccount, vm, domainId, newAccountId);
+        updateVmOwner(newAccount, vm);
 
         updateVolumesOwner(volumes, oldAccount, newAccount, newAccountId);
 
@@ -7631,11 +7621,11 @@ public class UserVmManagerImpl extends ManagerBase implements UserVmManager, Vir
                 vm.getTemplateId(), vm.getHypervisorType().toString(), VirtualMachine.class.getName(), vm.getUuid(), vm.isDisplayVm());
     }
 
-    protected void updateVmOwner(Account newAccount, UserVmVO vm, Long domainId, Long newAccountId) {
+    protected void updateVmOwner(Account newAccount, UserVmVO vm) {
         logger.debug("Updating VM [{}] owner to [{}].", vm, newAccount);
 
-        vm.setAccountId(newAccountId);
-        vm.setDomainId(domainId);
+        vm.setAccountId(newAccount.getId());
+        vm.setDomainId(newAccount.getDomainId());
 
         _vmDao.persist(vm);
     }
