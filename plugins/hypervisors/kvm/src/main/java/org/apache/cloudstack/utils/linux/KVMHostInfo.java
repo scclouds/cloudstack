@@ -142,7 +142,8 @@ public class KVMHostInfo {
             LOGGER.info(String.format("Command [%s] resulted in the value [%s] for CPU speed.", command, speed));
             return speed;
         } catch (NullPointerException | NumberFormatException e) {
-            LOGGER.error(String.format("Unable to retrieve the CPU speed from lscpu."), e);
+            LOGGER.debug("Unable to retrieve the CPU speed from lscpu. Trying another way to retrieve the CPU speed.");
+            LOGGER.trace(e);
             return 0L;
         }
     }
