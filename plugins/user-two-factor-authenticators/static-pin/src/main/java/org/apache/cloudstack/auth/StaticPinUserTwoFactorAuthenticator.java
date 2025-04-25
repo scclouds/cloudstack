@@ -49,7 +49,7 @@ public class StaticPinUserTwoFactorAuthenticator extends AdapterBase implements 
             logger.info("2FA matches user's input");
             return;
         }
-        throw new CloudTwoFactorAuthenticationException("two-factor authentication code provided is invalid");
+        throw new CloudTwoFactorAuthenticationException("Two-factor authentication code provided is invalid");
     }
 
     private String getStaticPin(UserAccount userAccount) {

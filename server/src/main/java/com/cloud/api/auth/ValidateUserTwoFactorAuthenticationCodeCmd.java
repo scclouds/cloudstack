@@ -108,7 +108,7 @@ public class ValidateUserTwoFactorAuthenticationCodeCmd extends BaseCmd implemen
             setupPhase = true;
         }
 
-        String serializedResponse = null;
+        String msg = null;
         try {
             accountManager.verifyUsingTwoFactorAuthenticationCode(codeFor2FA, currentUserAccount.getDomainId(), currentUserId);
             SuccessResponse response = new SuccessResponse(getCommandName());
@@ -118,16 +118,14 @@ public class ValidateUserTwoFactorAuthenticationCodeCmd extends BaseCmd implemen
             if (!setupPhase) {
                 ApiServlet.invalidateHttpSession(session, "fall through to API key,");
             }
-            String msg = String.format("%s", ex.getMessage() != null ?
+            msg = String.format("%s", ex.getMessage() != null ?
                     ex.getMessage() :
                     "failed to authenticate user, check if two factor authentication code is correct");
-            auditTrailSb.append(" " + ApiErrorCode.UNAUTHORIZED2FA + " " + msg);
-            serializedResponse = _apiServer.getSerializedApiError(ApiErrorCode.UNAUTHORIZED2FA.getHttpCode(), msg, params, responseType);
             if (logger.isTraceEnabled()) {
                 logger.trace(msg);
             }
         }
-        ServerApiException exception = new ServerApiException(ApiErrorCode.UNAUTHORIZED2FA, serializedResponse);
+        ServerApiException exception = new ServerApiException(ApiErrorCode.UNAUTHORIZED2FA, msg);
         exception.setCSErrorCode(CSExceptionErrorCode.getCSErrCode(CloudTwoFactorAuthenticationException.class.getName()));
         throw exception;
     }

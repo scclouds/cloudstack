@@ -54,7 +54,7 @@ public class TotpUserTwoFactorAuthenticator extends AdapterBase implements UserT
             logger.info("2FA matches user's input");
             return;
         }
-        throw new CloudTwoFactorAuthenticationException("two-factor authentication code provided is invalid");
+        throw new CloudTwoFactorAuthenticationException("Two-factor authentication code provided is invalid");
     }
 
     private String get2FAKey(UserAccount userAccount) {
