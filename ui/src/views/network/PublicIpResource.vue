@@ -146,6 +146,7 @@ export default {
       }
       // VPC IPs with static nat have nothing
       if (this.resource && this.resource.vpcid && this.resource.isstaticnat) {
+        this.tabs = this.defaultTabs
         return
       }
       if (this.resource && this.resource.vpcid) {
