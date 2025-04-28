@@ -153,10 +153,16 @@ export default {
     },
 
     runningVMQuoting (time, obj) {
+      let processedTags = []
+      if (this.resource.serviceofferingtags != null) {
+        processedTags = this.resource.serviceofferingtags.split(',')
+      } else if (this.resource.tagsofhost != null) {
+        processedTags = this.resource.tagsofhost.split(',')
+      }
       obj.value.host = {
         id: this.resource.hostid || '',
         name: this.resource.hostname || '',
-        tags: this.resource.tagsofhost || [],
+        tags: processedTags,
         isTagARule: this.resource.hostistagarule || null
       }
       obj.value.id = ''
@@ -205,6 +211,10 @@ export default {
     },
 
     rootVolumeQuoting (time, obj) {
+      let processedTags = []
+      if (this.resource.rootdiskstoragetags != null) {
+        processedTags = this.resource.rootdiskstoragetags.split(',')
+      }
       obj.value.diskOffering = {
         id: '',
         name: ''
@@ -224,7 +234,7 @@ export default {
       obj.value.size = 0
 
       if (this.resource.isoid) {
-        obj.value.size = this.resource.diskofferingsize * 1024 || 0
+        obj.value.size = this.resource.diskofferingsize * 1024 || this.resource.size * 1024
         obj.value.diskOffering.id = this.resource.diskofferingid || ''
         obj.value.diskOffering.name = this.resource.diskofferingname || ''
         obj.value.provisioningType = this.resource.diskofferingprovisioningtype?.toUpperCase()
@@ -239,6 +249,11 @@ export default {
           obj.value.diskOffering.id = this.resource.overridediskofferingid
           obj.value.diskOffering.name = this.resource.overridediskofferingname
           obj.value.provisioningType = this.resource.overridediskofferingprovisioningtype?.toUpperCase()
+          if (this.resource.overridediskofferingtags != null) {
+            processedTags = this.resource.overridediskofferingtags.split(',')
+          } else {
+            processedTags = []
+          }
         } else if (this.resource.serviceofferingdisksize) {
           obj.value.size = this.resource.serviceofferingdisksize * 1024 || 0
           obj.value.diskOffering.id = this.resource.serviceofferingdiskid || ''
@@ -252,10 +267,15 @@ export default {
         }
       }
 
+      obj.value.storage.tags = processedTags
       return `{"usageType":"VOLUME","volumeToQuote": ${obj.value.size / 1024 * time},"metadata": ${JSON.stringify(obj)}}`
     },
 
     dataVolumeQuoting (time, obj) {
+      let processedTags = []
+      if (this.resource.datadiskstoragetags != null) {
+        processedTags = this.resource.datadiskstoragetags.split(',')
+      }
       if (this.resource.isoid || !this.resource.diskofferingid) {
         return
       }
@@ -271,7 +291,7 @@ export default {
         id: '',
         name: '',
         scope: null,
-        tags: [],
+        tags: processedTags,
         isTagARule: null
       }
       obj.value.tags = {}
@@ -357,7 +377,7 @@ export default {
 
       api('quotaResourceQuoting', {
         resourcestoquote: this.buildResourcesToQuote(this.timevalue, 'hour')
-      }).then(json => {
+      }, 'POST').then(json => {
         const resp = json?.quotaResourceQuotingresponse?.quoting?.details || []
         const total = json?.quotaResourceQuotingresponse?.quoting?.totalquote || 0
         this.currencysymbol = json?.quotaResourceQuotingresponse?.quoting?.currencysymbol || '$'

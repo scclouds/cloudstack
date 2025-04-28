@@ -964,6 +964,9 @@ export default {
         serviceofferingdiskname: null,
         serviceofferingdisksize: null,
         serviceofferingcustomized: null,
+        serviceofferingtags: null,
+        rootdiskstoragetags: null,
+        overridediskofferingtags: null,
         ostypeid: null,
         ostypename: null,
         rootdisksize: null,
@@ -1175,10 +1178,12 @@ export default {
 
       const id = _.get(this.diskOffering, 'id', null)
       const displayText = _.get(this.diskOffering, 'displaytext', null)
+      const diskofferingtags = _.get(this.diskOffering, 'tags', null)
 
       return {
         id: id,
-        displayText: `${displayText} (Data)`
+        displayText: `${displayText} (Data)`,
+        diskofferingtags: diskofferingtags
       }
     },
     affinityGroupIds () {
@@ -1495,6 +1500,7 @@ export default {
         if (instanceConfig.overridediskofferingid) {
           this.overrideDiskOffering = await this.fetchDiskOfferingById(instanceConfig.overridediskofferingid)
           this.vm.overridediskofferingname = this.overrideDiskOffering.name
+          this.vm.overridediskofferingtags = this.overrideDiskOffering.tags
           this.vm.overridediskofferingprovisioningtype = this.overrideDiskOffering.provisioningtype
           if (!this.overrideDiskOffering.iscustomized) {
             this.vm.rootdisksize = this.overrideDiskOffering.disksize
@@ -1579,6 +1585,7 @@ export default {
           this.vm.serviceofferingdisksize = this.serviceOffering.rootdisksize
           this.vm.serviceofferingcustomized = this.serviceOffering.iscustomized
           this.vm.serviceofferingprovisioningtype = this.serviceOffering.provisioningtype
+          this.vm.serviceofferingtags = this.serviceOffering.hosttags
 
           if (this.serviceOffering.diskofferingid) {
             this.vm.serviceofferingdiskid = this.serviceOffering.diskofferingid
@@ -1587,6 +1594,7 @@ export default {
             this.vm.serviceofferingdiskid = undefined
             this.vm.serviceofferingdiskname = undefined
           }
+          this.vm.rootdiskstoragetags = this.serviceOffering.storagetags
 
           if (this.serviceOffering.cpunumber) {
             this.vm.cpunumber = this.serviceOffering.cpunumber
@@ -1615,6 +1623,11 @@ export default {
         this.vm.rootdiskofferingdisplaytext = this.rootDiskOffering?.displayText
         this.vm.datadiskofferingid = this.dataDiskOffering?.id
         this.vm.datadiskofferingdisplaytext = this.dataDiskOffering?.displayText
+
+        if (iso) {
+          this.vm.rootdiskstoragetags = this.diskOffering?.tags
+        }
+        this.vm.datadiskstoragetags = this.dataDiskOffering?.diskofferingtags
 
         if (this.affinityGroups) {
           this.vm.affinitygroup = this.affinityGroups
