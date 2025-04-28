@@ -40,6 +40,23 @@
             v-model:value="form.networkdomain"
             :placeholder="apiParams.networkdomain.description" />
         </a-form-item>
+        <a-form-item ref="roleid" name="roleid">
+          <template #label>
+            <tooltip-label :title="$t('label.role')" :tooltip="apiParams.roleid.description"/>
+          </template>
+          <a-select
+            v-model:value="form.roleid"
+            :loading="roleLoading"
+            :placeholder="apiParams.roleid.description"
+            v-focus="true"
+            showSearch
+            optionFilterProp="label"
+            :filterOption="(input, option) => {
+              return option.label.toLowerCase().indexOf(input.toLowerCase()) >= 0
+            }">
+            <a-select-option v-for="role in roles" :key="role.id" :value="role.id">{{ role.name }}</a-select-option>
+          </a-select>
+        </a-form-item>
         <a-form-item
           name="defaultprojectid"
           ref="defaultprojectid"
@@ -120,11 +137,24 @@ export default {
       this.form = reactive({})
     },
     fetchData () {
+      this.account = this.resource.name
       this.accountId = this.$route.params.id || null
       if ('listProjects' in this.$store.getters.apis) {
         this.fetchProjects()
       }
       this.fillEditFormFieldValues()
+      this.fetchRoles()
+    },
+    fetchRoles () {
+      this.roleLoading = true
+      const params = {}
+      params.state = 'enabled'
+      api('listRoles', params).then(response => {
+        this.roles = response.listrolesresponse.role || []
+        this.form.roleid = this.resource.roleid
+      }).finally(() => {
+        this.roleLoading = false
+      })
     },
     fillEditFormFieldValues () {
       const form = this.form
@@ -180,6 +210,8 @@ export default {
         this.loading = true
         const params = {
           id: this.$props.resource.id,
+          roleid: values.roleid,
+          account: this.account,
           defaultprojectid: (values.defaultprojectid) ? values.defaultprojectid : ''
         }
         if (values.newname) {
@@ -201,7 +233,7 @@ export default {
           this.$emit('refresh-data')
           this.$notification.success({
             message: this.$t('label.edit.account'),
-            description: `${this.$t('message.success.update.account')} ${params.name}`
+            description: `${this.$t('message.success.update.account')} ${params.account}`
           })
           this.closeAction()
         }).catch(error => {
