@@ -567,6 +567,9 @@ const user = {
           const result = response.listcapabilitiesresponse.capability
           resolve(result)
           commit('SET_FEATURES', result)
+          if (result && result.defaultuipagesize) {
+            commit('SET_DEFAULT_LISTVIEW_PAGE_SIZE', result.defaultuipagesize)
+          }
         }).catch(error => {
           reject(error)
         })
