@@ -32,7 +32,11 @@ export default {
   },
   params: { type: 'routing' },
   columns: () => {
-    const fields = ['name', 'state', 'resourcestate', 'ipaddress', 'hypervisor', 'instances', 'powerstate', 'version']
+    const fields = [
+      'name', 'state', 'resourcestate', 'ipaddress',
+      'hypervisor', 'instances', { field: 'systeminstances', customTitle: 'system.vms' },
+      'powerstate', 'version'
+    ]
     const metricsFields = ['cpunumber', 'cputotalghz', 'cpuusedghz', 'cpuallocatedghz', 'memorytotalgb', 'memoryusedgb', 'memoryallocatedgb', 'networkread', 'networkwrite']
     if (store.getters.metrics) {
       fields.push(...metricsFields)
