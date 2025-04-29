@@ -117,7 +117,7 @@ import org.apache.cloudstack.api.command.admin.autoscale.CreateCounterCmd;
 import org.apache.cloudstack.api.command.user.autoscale.CreateAutoScalePolicyCmd;
 import org.apache.cloudstack.api.command.user.autoscale.CreateAutoScaleVmGroupCmd;
 import org.apache.cloudstack.api.command.user.autoscale.CreateAutoScaleVmProfileCmd;
-import org.apache.cloudstack.api.command.user.autoscale.CreateConditionCmd;
+import org.apache.cloudstack.api.command.user.autoscale.CreateConditionForVmAutoScalingCmd;
 import org.apache.cloudstack.api.command.user.autoscale.ListCountersCmd;
 import org.apache.cloudstack.api.command.user.autoscale.UpdateAutoScaleVmGroupCmd;
 import org.apache.cloudstack.api.command.user.autoscale.UpdateAutoScaleVmProfileCmd;
@@ -523,8 +523,8 @@ public class AutoScaleManagerImplTest {
     }
 
     @Test
-    public void testCreateConditionCmd() throws IllegalArgumentException {
-        CreateConditionCmd cmd = new CreateConditionCmd();
+    public void testCreateConditionForVmAutoScalingCmd() throws IllegalArgumentException {
+        CreateConditionForVmAutoScalingCmd cmd = new CreateConditionForVmAutoScalingCmd();
 
         ReflectionTestUtils.setField(cmd, "counterId", counterId);
         ReflectionTestUtils.setField(cmd, "relationalOperator", String.valueOf(relationalOperator));
@@ -537,8 +537,8 @@ public class AutoScaleManagerImplTest {
     }
 
     @Test(expected = InvalidParameterValueException.class)
-    public void testCreateConditionCmdWithInvalidOperator() throws IllegalArgumentException {
-        CreateConditionCmd cmd = new CreateConditionCmd();
+    public void testCreateConditionForVmAutoScalingCmdWithInvalidOperator() throws IllegalArgumentException {
+        CreateConditionForVmAutoScalingCmd cmd = new CreateConditionForVmAutoScalingCmd();
 
         ReflectionTestUtils.setField(cmd, "counterId", counterId);
         ReflectionTestUtils.setField(cmd, "relationalOperator", INVALID);
@@ -550,8 +550,8 @@ public class AutoScaleManagerImplTest {
     }
 
     @Test(expected = InvalidParameterValueException.class)
-    public void testCreateConditionCmdWithInvalidThreshold() throws IllegalArgumentException {
-        CreateConditionCmd cmd = new CreateConditionCmd();
+    public void testCreateConditionForVmAutoScalingCmdWithInvalidThreshold() throws IllegalArgumentException {
+        CreateConditionForVmAutoScalingCmd cmd = new CreateConditionForVmAutoScalingCmd();
 
         ReflectionTestUtils.setField(cmd, "counterId", counterId);
         ReflectionTestUtils.setField(cmd, "relationalOperator", String.valueOf(relationalOperator));
