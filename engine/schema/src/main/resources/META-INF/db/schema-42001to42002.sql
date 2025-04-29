@@ -16,3 +16,5 @@
 -- under the License.
 
 -- Schema upgrade from 4.20.0.1 to 4.20.0.2
+
+UPDATE `cloud`.`vm_instance` vm INNER JOIN `cloud`.`backup_offering` bo ON vm.backup_offering_id = bo.id SET vm.backup_name = CONCAT(vm.instance_name, "-CSBKP-", bo.uuid);
