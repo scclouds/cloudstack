@@ -113,8 +113,8 @@ public class HeuristicRuleHelper {
                 accountId = ((SnapshotInfo) obj).getAccountId();
                 break;
             case VOLUME:
-                presetVariables.setVolume(setVolumePresetVariable((VolumeVO) obj));
-                accountId = ((VolumeVO) obj).getAccountId();
+                presetVariables.setVolume(setVolumePresetVariable((com.cloud.storage.Volume) obj));
+                accountId = ((com.cloud.storage.Volume) obj).getAccountId();
                 break;
         }
         presetVariables.setAccount(setAccountPresetVariable(accountId));
@@ -187,14 +187,14 @@ public class HeuristicRuleHelper {
         return template;
     }
 
-    protected Volume setVolumePresetVariable(VolumeVO volumeVO) {
-        Volume volume = new Volume();
+    protected Volume setVolumePresetVariable(com.cloud.storage.Volume volume) {
+        Volume volumePresetVariable = new Volume();
 
-        volume.setName(volumeVO.getName());
-        volume.setFormat(volumeVO.getFormat());
-        volume.setSize(volumeVO.getSize());
+        volumePresetVariable.setName(volume.getName());
+        volumePresetVariable.setFormat(volume.getFormat());
+        volumePresetVariable.setSize(volume.getSize());
 
-        return volume;
+        return volumePresetVariable;
     }
 
     protected Snapshot setSnapshotPresetVariable(SnapshotInfo snapshotInfo) {
