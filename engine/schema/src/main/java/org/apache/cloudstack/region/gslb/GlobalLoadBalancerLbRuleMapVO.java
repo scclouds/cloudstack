@@ -23,8 +23,13 @@ import javax.persistence.GeneratedValue;
 import javax.persistence.GenerationType;
 import javax.persistence.Id;
 import javax.persistence.Table;
+import javax.persistence.Temporal;
+import javax.persistence.TemporalType;
 
+import com.cloud.utils.db.GenericDao;
 import org.apache.cloudstack.api.InternalIdentity;
+
+import java.util.Date;
 
 @Entity
 @Table(name = "global_load_balancer_lb_rule_map")
@@ -45,6 +50,10 @@ public class GlobalLoadBalancerLbRuleMapVO implements InternalIdentity {
 
     @Column(name = "revoke")
     private boolean revoke = false;
+
+    @Column(name = GenericDao.REMOVED_COLUMN)
+    @Temporal(value = TemporalType.TIMESTAMP)
+    private Date removed = null;
 
     public GlobalLoadBalancerLbRuleMapVO() {
         this.weight = 1;

@@ -855,7 +855,7 @@ public class LoadBalancingRulesManagerImpl<Type> extends ManagerBase implements 
                 success = false;
             }
         } else {
-            _lb2stickinesspoliciesDao.expunge(stickinessPolicyId);
+            _lb2stickinesspoliciesDao.remove(stickinessPolicyId);
         }
         return success;
     }
@@ -1606,6 +1606,12 @@ public class LoadBalancingRulesManagerImpl<Type> extends ManagerBase implements 
                 for (LBHealthCheckPolicyVO lbHealthCheck : hcPolicies) {
                     lbHealthCheck.setRevoke(true);
                     _lb2healthcheckDao.persist(lbHealthCheck);
+                }
+
+                List<LBStickinessPolicyVO> stickinessPolicies = _lb2stickinesspoliciesDao.listByLoadBalancerId(loadBalancerId);
+                for (LBStickinessPolicyVO stickinessPolicy : stickinessPolicies) {
+                    stickinessPolicy.setRevoke(true);
+                    _lb2stickinesspoliciesDao.persist(stickinessPolicy);
                 }
 
                 if (generateUsageEvent) {
