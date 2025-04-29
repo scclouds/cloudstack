@@ -185,7 +185,7 @@ public class VeeamBackupProvider extends AdapterBase implements BackupProvider, 
     public boolean assignVMToBackupOffering(final VirtualMachine vm, final BackupOffering backupOffering) {
         final VeeamClient client = getClient(vm.getDataCenterId());
         final Job parentJob = client.listJob(backupOffering.getExternalId());
-        final String clonedJobName = getGuestBackupName(vm.getInstanceName(), vm.getUuid());
+        final String clonedJobName = getGuestBackupName(vm.getInstanceName(), backupOffering.getUuid());
 
         if (!client.cloneVeeamJob(parentJob, clonedJobName)) {
             logger.error("Failed to clone pre-defined Veeam job (backup offering) for backup offering ID: " + backupOffering.getExternalId() + " but will check the list of jobs again if it was eventually succeeded.");
@@ -346,11 +346,11 @@ public class VeeamBackupProvider extends AdapterBase implements BackupProvider, 
 
         List<VMInstanceVO> collect = vmInstanceDao.listByZoneIdAndTypeIncludingRemoved(zoneId, VirtualMachine.Type.User).stream().filter(Objects::nonNull).filter(t -> t.getHypervisorType().equals(Hypervisor.HypervisorType.VMware)).collect(Collectors.toList());
         for (final VirtualMachine vm : collect) {
-            if (vm == null || !backendMetrics.containsKey(vm.getUuid())) {
+            if (vm == null || !backendMetrics.containsKey(vm.getInstanceName())) {
                 continue;
             }
 
-            Metric metric = backendMetrics.get(vm.getUuid());
+            Metric metric = backendMetrics.get(vm.getInstanceName());
             logger.debug(String.format("Metrics for VM [uuid: %s, name: %s] is [backup size: %s, data size: %s].", vm.getUuid(),
                     vm.getInstanceName(), metric.getBackupSize(), metric.getDataSize()));
             metrics.put(vm, metric);
