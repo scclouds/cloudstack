@@ -151,14 +151,20 @@ export default {
     fetchData () {
       this.treeData = []
       this.treeSelected = {}
-      const params = { listall: true }
-      if (this.$route && this.$route.params && this.$route.params.id) {
-        this.resource = {}
-        this.dataView = true
-        params.id = this.$route.params.id
+      let params = {}
+
+      if (this.$route?.query?.length > 1 || !this.$route?.query?.tab) {
+        params = this.$route.query
       } else {
-        this.dataView = false
-        params.id = this.$store.getters.userInfo.domainid
+        params.listall = true
+        if (this.$route?.params?.id) {
+          this.resource = {}
+          this.dataView = true
+          params.id = this.$route.params.id
+        } else {
+          this.dataView = false
+          params.id = this.$store.getters.userInfo.domainid
+        }
       }
 
       this.loading = true
@@ -285,18 +291,34 @@ export default {
     generateTreeData (treeData) {
       const result = []
       const rootItem = treeData
+      const paths = []
+      for (const i in treeData) {
+        const domain = rootItem[i]
+        if (this.domainHasParentDomain(paths, domain.path)) {
+          continue
+        }
 
-      rootItem[0].title = rootItem[0].title ? rootItem[0].title : rootItem[0].name
-      rootItem[0].key = rootItem[0].id ? rootItem[0].id : 0
-      rootItem[0].resourceIcon = rootItem[0].icon || {}
-      delete rootItem[0].icon
+        domain.title = domain.title ? domain.title : domain.name
+        domain.key = domain.id ? domain.id : i
+        domain.resourceIcon = domain.icon || {}
+        delete domain.icon
 
-      if (!rootItem[0].haschild) {
-        rootItem[0].isLeaf = true
+        if (!domain.haschild) {
+          domain.isLeaf = true
+        }
+
+        paths.push(domain.path)
+        result.push(domain)
       }
-
-      result.push(rootItem[0])
       return result
+    },
+    domainHasParentDomain (paths, pathToCheck) {
+      for (const path of paths) {
+        if (pathToCheck.startsWith(path)) {
+          return true
+        }
+      }
+      return false
     },
     changeResource (resource) {
       this.treeSelected = resource

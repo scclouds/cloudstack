@@ -46,6 +46,7 @@ import org.apache.cloudstack.context.CallContext;
 import org.apache.cloudstack.gui.theme.dao.GuiThemeDao;
 import org.apache.cloudstack.gui.theme.dao.GuiThemeDetailsDao;
 import org.apache.cloudstack.gui.theme.dao.GuiThemeJoinDao;
+import org.apache.commons.lang3.ObjectUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -179,6 +180,7 @@ public class GuiThemeServiceImpl implements GuiThemeService {
         GuiThemeVO guiThemeVO = new GuiThemeVO(name, description, css, jsonConfiguration, customLabelsPath, recursiveDomains, isPublic, new Date(), null);
         guiThemeDao.persist(guiThemeVO);
         persistGuiThemeDetails(guiThemeVO.getId(), commonNames, providedDomainIds, providedAccountIds);
+        CallContext.current().setEventResourceId(guiThemeVO.getId());
         return guiThemeJoinDao.findById(guiThemeVO.getId());
     }
 
@@ -189,8 +191,8 @@ public class GuiThemeServiceImpl implements GuiThemeService {
     }
 
     protected void persistDetailValueIfNotNull(long guiThemeId, String providedParameter, String type) {
-        if (providedParameter == null) {
-            logger.trace("GUI theme provided parameter `{}` is null; therefore, it will be ignored.", type);
+        if (StringUtils.isBlank(providedParameter)) {
+            logger.trace("GUI theme provided parameter `{}` was not specified; therefore, it will be ignored.", type);
             return;
         }
         for (String splitParameter : StringUtils.deleteWhitespace(providedParameter).split(",")) {
@@ -236,7 +238,7 @@ public class GuiThemeServiceImpl implements GuiThemeService {
         GuiThemeJoinVO defaultTheme = guiThemeJoinDao.findDefaultTheme();
 
         if (defaultTheme != null && (idOfThemeToBeUpdated == null || defaultTheme.getId() != idOfThemeToBeUpdated)) {
-            throw new CloudRuntimeException(String.format("Only one default GUI theme is allowed. Remove the current default theme %s and try again.", defaultTheme));
+            throw new CloudRuntimeException(String.format("Only one default GUI theme is allowed. Remove the current default theme \"%s\" and try again.", defaultTheme.getName()));
         }
 
         logger.info("The parameters `commonNames`, `domainIds` and `accountIds` were not informed. The created theme will be considered as the default theme.");
@@ -273,7 +275,7 @@ public class GuiThemeServiceImpl implements GuiThemeService {
     }
 
     protected void validateJsonConfiguration(String jsonConfig) {
-        if (jsonConfig == null) {
+        if (StringUtils.isBlank(jsonConfig)) {
             return;
         }
 
@@ -387,17 +389,21 @@ public class GuiThemeServiceImpl implements GuiThemeService {
 
         String name = cmd.getName();
         String description = cmd.getDescription();
-        String css = cmd.getCss();
-        String jsonConfiguration = cmd.getJsonConfiguration();
+        String css = ObjectUtils.defaultIfNull(cmd.getCss(), guiThemeJoinVO.getCss());
+        String jsonConfiguration = ObjectUtils.defaultIfNull(cmd.getJsonConfiguration(), guiThemeJoinVO.getJsonConfiguration());
         String customLabelsPath = cmd.getCustomLabelsPath();
-        String commonNames = cmd.getCommonNames() == null ? guiThemeJoinVO.getCommonNames() : cmd.getCommonNames();
-        String providedDomainIds = cmd.getDomainIds() == null ? guiThemeJoinVO.getDomains() : cmd.getDomainIds();
-        String providedAccountIds = cmd.getAccountIds() == null ? guiThemeJoinVO.getAccounts() : cmd.getAccountIds();
+        String commonNames = ObjectUtils.defaultIfNull(cmd.getCommonNames(), guiThemeJoinVO.getCommonNames());
+        String providedDomainIds = ObjectUtils.defaultIfNull(cmd.getDomainIds(), guiThemeJoinVO.getDomains());
+        String providedAccountIds = ObjectUtils.defaultIfNull(cmd.getAccountIds(), guiThemeJoinVO.getAccounts());
         Boolean isPublic = cmd.getIsPublic();
         Boolean recursiveDomains = cmd.getRecursiveDomains();
 
         CallContext.current().setEventDetails(String.format("ID: %s, Name: %s, AccountIDs: %s, DomainIDs: %s, RecursiveDomains: %s, CommonNames: %s", guiThemeId, name,
                 providedAccountIds, providedDomainIds, recursiveDomains, commonNames));
+
+        if (StringUtils.isAllBlank(css, jsonConfiguration)) {
+            throw new CloudRuntimeException("Either the `css` or `jsonConfiguration` parameter must be informed.");
+        }
 
         validateParameters(jsonConfiguration, providedDomainIds, providedAccountIds, commonNames, guiThemeId);
 
@@ -422,15 +428,15 @@ public class GuiThemeServiceImpl implements GuiThemeService {
             }
 
             if (css != null) {
-                guiThemeVO.setCss(css);
+                guiThemeVO.setCss(ifBlankReturnNull(css));
             }
 
             if (jsonConfiguration != null) {
-                guiThemeVO.setJsonConfiguration(jsonConfiguration);
+                guiThemeVO.setJsonConfiguration(ifBlankReturnNull(jsonConfiguration));
             }
 
             if (customLabelsPath != null) {
-                guiThemeVO.setCustomLabelsPath(customLabelsPath);
+                guiThemeVO.setCustomLabelsPath(ifBlankReturnNull(customLabelsPath));
             }
 
             if (isPublic != null) {

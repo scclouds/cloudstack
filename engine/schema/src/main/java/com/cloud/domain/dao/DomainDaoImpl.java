@@ -20,11 +20,13 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
 
+import org.apache.commons.collections.CollectionUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.stereotype.Component;
 
@@ -48,6 +50,7 @@ public class DomainDaoImpl extends GenericDaoBase<DomainVO, Long> implements Dom
     protected SearchBuilder<DomainVO> FindAllChildrenSearch;
     protected GenericSearchBuilder<DomainVO, Long> FindIdsOfAllChildrenSearch;
     protected SearchBuilder<DomainVO> AllFieldsSearch;
+    protected SearchBuilder<DomainVO> IdsSearch;
 
     public DomainDaoImpl() {
         DomainNameLikeSearch = createSearchBuilder();
@@ -85,6 +88,9 @@ public class DomainDaoImpl extends GenericDaoBase<DomainVO, Long> implements Dom
         AllFieldsSearch.and("parent", AllFieldsSearch.entity().getParent(), SearchCriteria.Op.EQ);
         AllFieldsSearch.done();
 
+        IdsSearch = createSearchBuilder();
+        IdsSearch.and("ids", IdsSearch.entity().getId(), SearchCriteria.Op.IN);
+        IdsSearch.done();
     }
 
     private static String allocPath(DomainVO parentDomain, String name) {
@@ -322,5 +328,15 @@ public class DomainDaoImpl extends GenericDaoBase<DomainVO, Long> implements Dom
             }
         }
         return false;
+    }
+
+    @Override
+    public List<DomainVO> findByIds(List<Long> ids) {
+        if (CollectionUtils.isEmpty(ids)) {
+            return Collections.emptyList();
+        }
+        SearchCriteria<DomainVO> sc = IdsSearch.create();
+        sc.setParameters("ids", ids.toArray());
+        return listBy(sc);
     }
 }

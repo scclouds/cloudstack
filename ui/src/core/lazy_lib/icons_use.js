@@ -180,7 +180,8 @@ import {
   VerticalAlignTopOutlined,
   WarningOutlined,
   WifiOutlined,
-  SolutionOutlined
+  SolutionOutlined,
+  FormatPainterOutlined
 } from '@ant-design/icons-vue'
 import renderIcon from '@/utils/renderIcon'
 
@@ -352,5 +353,6 @@ export default {
     app.component('WifiOutlined', WifiOutlined)
     app.component('renderIcon', renderIcon)
     app.component('SolutionOutlined', SolutionOutlined)
+    app.component('FormatPainterOutlined', FormatPainterOutlined)
   }
 }

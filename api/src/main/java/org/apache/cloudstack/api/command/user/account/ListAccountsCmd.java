@@ -29,6 +29,7 @@ import org.apache.cloudstack.api.Parameter;
 import org.apache.cloudstack.api.ResponseObject.ResponseView;
 import org.apache.cloudstack.api.command.user.UserCmd;
 import org.apache.cloudstack.api.response.AccountResponse;
+import org.apache.cloudstack.api.response.DomainResponse;
 import org.apache.cloudstack.api.response.ListResponse;
 import org.apache.cloudstack.api.response.ResourceIconResponse;
 import org.apache.commons.collections.CollectionUtils;
@@ -54,6 +55,12 @@ public class ListAccountsCmd extends BaseListDomainResourcesCmd implements UserC
 
     @Parameter(name = ApiConstants.ID, type = CommandType.UUID, entityType = AccountResponse.class, description = "list account by account ID")
     private Long id;
+
+    @Parameter(name = ApiConstants.IDS, type = CommandType.LIST, collectionType = CommandType.UUID, entityType = AccountResponse.class, description = "Comma-separated list of IDs for accounts that will be listed")
+    private List<Long> ids;
+
+    @Parameter(name = ApiConstants.DOMAIN_IDS, type = CommandType.LIST, collectionType = CommandType.UUID, entityType = DomainResponse.class, description = "Comma separated list of domain IDs to list accounts belonging to them")
+    private List<Long> domainIds;
 
     @Parameter(name = ApiConstants.IS_CLEANUP_REQUIRED, type = CommandType.BOOLEAN, description = "list accounts by cleanuprequired attribute (values are true or false)")
     private Boolean cleanupRequired;
@@ -87,6 +94,18 @@ public class ListAccountsCmd extends BaseListDomainResourcesCmd implements UserC
 
     public Long getId() {
         return id;
+    }
+
+    public List<Long> getIds() {
+        return ids;
+    }
+
+    public List<Long> getDomainIds() {
+        return domainIds;
+    }
+
+    public void setDomainIds(List<Long> domainIds) {
+        this.domainIds = domainIds;
     }
 
     public Boolean isCleanupRequired() {

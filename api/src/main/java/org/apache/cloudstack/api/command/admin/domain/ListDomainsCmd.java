@@ -50,6 +50,9 @@ public class ListDomainsCmd extends BaseListCmd implements UserCmd {
     @Parameter(name = ApiConstants.ID, type = CommandType.UUID, entityType = DomainResponse.class, description = "List domain by domain ID.")
     private Long id;
 
+    @Parameter(name = ApiConstants.IDS, type = CommandType.LIST, collectionType = CommandType.UUID, entityType = DomainResponse.class, description = "Comma-separated list of IDs for domains that will be listed")
+    private List<Long> ids;
+
     @Parameter(name = ApiConstants.LEVEL, type = CommandType.INTEGER, description = "List domains by domain level.")
     private Integer level;
 
@@ -80,6 +83,10 @@ public class ListDomainsCmd extends BaseListCmd implements UserCmd {
 
     public Long getId() {
         return id;
+    }
+
+    public List<Long> getIds() {
+        return ids;
     }
 
     public Integer getLevel() {

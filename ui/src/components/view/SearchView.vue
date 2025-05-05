@@ -421,7 +421,8 @@ export default {
           { value: 'User' },
           { value: 'VirtualMachine' },
           { value: 'Volume' },
-          { value: 'QuotaTariff' }
+          { value: 'QuotaTariff' },
+          { value: 'GuiTheme' }
         ]
         this.fields[resourceTypeIndex].loading = false
       }

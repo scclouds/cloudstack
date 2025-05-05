@@ -173,6 +173,7 @@ import org.apache.cloudstack.storage.datastore.db.StoragePoolVO;
 import org.apache.cloudstack.storage.datastore.db.TemplateDataStoreDao;
 import org.apache.commons.collections.CollectionUtils;
 import org.apache.commons.collections.MapUtils;
+import org.apache.commons.collections4.ListUtils;
 import org.apache.commons.lang3.EnumUtils;
 import org.apache.commons.lang3.ObjectUtils;
 import org.apache.commons.lang3.StringUtils;
@@ -2764,20 +2765,16 @@ public class QueryManagerImpl extends MutualExclusiveIdsManagerBase implements Q
 
     private Pair<List<Long>, Integer> searchForDomainIdsAndCount(ListDomainsCmd cmd) {
         Account caller = CallContext.current().getCallingAccount();
-        Long domainId = cmd.getId();
+        List<Long> domainIds = getIdsListFromCmd(cmd.getId(), cmd.getIds());
         boolean listAll = cmd.listAll();
         boolean isRecursive = false;
-        Domain domain = null;
 
-        if (domainId != null) {
-            domain = _domainDao.findById(domainId);
-            if (domain == null) {
-                throw new InvalidParameterValueException("Domain id=" + domainId + " doesn't exist");
-            }
-            accountMgr.checkAccess(caller, domain);
+        if (CollectionUtils.isNotEmpty(domainIds)) {
+            List<DomainVO> domains = _domainDao.findByIds(domainIds);
+            domains.forEach(domain -> accountMgr.checkAccess(caller, domain));
         } else {
             if (caller.getType() != Account.Type.ADMIN) {
-                domainId = caller.getDomainId();
+                domainIds = Collections.singletonList(caller.getDomainId());
             }
             if (listAll) {
                 isRecursive = true;
@@ -2791,7 +2788,7 @@ public class QueryManagerImpl extends MutualExclusiveIdsManagerBase implements Q
 
         SearchBuilder<DomainVO> domainSearchBuilder = _domainDao.createSearchBuilder();
         domainSearchBuilder.select(null, Func.DISTINCT, domainSearchBuilder.entity().getId()); // select distinct
-        domainSearchBuilder.and("id", domainSearchBuilder.entity().getId(), SearchCriteria.Op.EQ);
+        domainSearchBuilder.and("ids", domainSearchBuilder.entity().getId(), SearchCriteria.Op.IN);
         domainSearchBuilder.and("name", domainSearchBuilder.entity().getName(), SearchCriteria.Op.EQ);
         domainSearchBuilder.and("level", domainSearchBuilder.entity().getLevel(), SearchCriteria.Op.EQ);
         domainSearchBuilder.and("path", domainSearchBuilder.entity().getPath(), SearchCriteria.Op.LIKE);
@@ -2815,15 +2812,14 @@ public class QueryManagerImpl extends MutualExclusiveIdsManagerBase implements Q
             sc.setParameters("level", level);
         }
 
-        if (domainId != null) {
+        if (CollectionUtils.isNotEmpty(domainIds)) {
             if (isRecursive) {
-                if (domain == null) {
-                    domain = _domainDao.findById(domainId);
+                for (Long id : domainIds) {
+                    domainIds = ListUtils.union(domainIds, _domainDao.getDomainAndChildrenIds(id));
                 }
-                sc.setParameters("path", domain.getPath() + "%");
-            } else {
-                sc.setParameters("id", domainId);
             }
+            Set<Long> domainIdsSet = new HashSet<>(domainIds);
+            sc.setParameters("ids", domainIdsSet.toArray());
         }
 
         // return only Active domains to the API
@@ -2831,8 +2827,8 @@ public class QueryManagerImpl extends MutualExclusiveIdsManagerBase implements Q
 
         Pair<List<DomainVO>, Integer> uniqueDomainPair = _domainDao.searchAndCount(sc, searchFilter);
         Integer count = uniqueDomainPair.second();
-        List<Long> domainIds = uniqueDomainPair.first().stream().map(DomainVO::getId).collect(Collectors.toList());
-        return new Pair<>(domainIds, count);
+        List<Long> responseDomainIds = uniqueDomainPair.first().stream().map(DomainVO::getId).collect(Collectors.toList());
+        return new Pair<>(responseDomainIds, count);
     }
 
     @Override
@@ -2868,58 +2864,49 @@ public class QueryManagerImpl extends MutualExclusiveIdsManagerBase implements Q
     private Pair<List<Long>, Integer> searchForAccountIdsAndCount(ListAccountsCmd cmd) {
         Account caller = CallContext.current().getCallingAccount();
         Long domainId = cmd.getDomainId();
-        Long accountId = cmd.getId();
+        List<Long> domainIds = getIdsListFromCmd(cmd.getDomainId(), cmd.getDomainIds());
+        List<Long> accountIds = getIdsListFromCmd(cmd.getId(), cmd.getIds());
         String accountName = cmd.getSearchName();
         boolean isRecursive = cmd.isRecursive();
         boolean listAll = cmd.listAll();
         boolean callerIsAdmin = accountMgr.isAdmin(caller.getId());
-        Account account;
-        Domain domain = null;
+        List<AccountVO> accounts = new ArrayList<>();
 
         // if "domainid" specified, perform validation
-        if (domainId != null) {
-            // ensure existence...
-            domain = _domainDao.findById(domainId);
-            if (domain == null) {
-                throw new InvalidParameterValueException("Domain id=" + domainId + " doesn't exist");
-            }
-            // ... and check access rights.
-            accountMgr.checkAccess(caller, domain);
+        if (domainIds != null) {
+            List<DomainVO> domains = _domainDao.findByIds(domainIds);
+            domains.forEach(domain -> accountMgr.checkAccess(caller, domain));
         }
 
         // if no "id" specified...
-        if (accountId == null) {
+        if (CollectionUtils.isEmpty(accountIds)) {
             // listall only has significance if they are an admin
             boolean isDomainListAllAllowed = AllowUserViewAllDomainAccounts.valueIn(caller.getDomainId());
             if ((listAll && callerIsAdmin) || isDomainListAllAllowed) {
                 // if no domain id specified, use caller's domain
-                if (domainId == null) {
-                    domainId = caller.getDomainId();
+                if (CollectionUtils.isEmpty(domainIds)) {
+                    domainIds = Collections.singletonList(caller.getDomainId());
                 }
                 // mark recursive
                 isRecursive = true;
-            } else if (!callerIsAdmin || domainId == null) {
-                accountId = caller.getAccountId();
+            } else if (!callerIsAdmin || domainIds == null) {
+                accountIds = Collections.singletonList(caller.getAccountId());
             }
-        } else if (domainId != null && accountName != null) {
+        } else if (ObjectUtils.allNotNull(domainId, accountName)) {
             // if they're looking for an account by name
-            account = _accountDao.findActiveAccount(accountName, domainId);
-            if (account == null || account.getId() == Account.ACCOUNT_ID_SYSTEM) {
+            Account account = _accountDao.findActiveAccount(accountName, domainId);
+
+            if ((account == null || account.getId() == Account.ACCOUNT_ID_SYSTEM)) {
                 throw new InvalidParameterValueException("Unable to find account by name " + accountName + " in domain " + domainId);
             }
-            accountMgr.checkAccess(caller, null, true, account);
+
+            accounts.add((AccountVO) account);
         } else {
             // if they specified an "id"...
-            if (domainId == null) {
-                account = _accountDao.findById(accountId);
-            } else {
-                account = _accountDao.findActiveAccountById(accountId, domainId);
-            }
-            if (account == null || account.getId() == Account.ACCOUNT_ID_SYSTEM) {
-                throw new InvalidParameterValueException("Unable to find account by id " + accountId + (domainId == null ? "" : " in domain " + domainId));
-            }
-            accountMgr.checkAccess(caller, null, true, account);
+            accounts = ListUtils.union(accounts, _accountDao.findByIds(accountIds));
         }
+
+        accountMgr.checkAccess(caller, null, false, accounts.toArray(new AccountVO[0]));
 
         Filter searchFilter = new Filter(AccountVO.class, "id", true, cmd.getStartIndex(), cmd.getPageSizeVal());
 
@@ -2931,20 +2918,18 @@ public class QueryManagerImpl extends MutualExclusiveIdsManagerBase implements Q
         SearchBuilder<AccountVO> accountSearchBuilder = _accountDao.createSearchBuilder();
         accountSearchBuilder.select(null, Func.DISTINCT, accountSearchBuilder.entity().getId()); // select distinct
         accountSearchBuilder.and("accountName", accountSearchBuilder.entity().getAccountName(), SearchCriteria.Op.EQ);
-        accountSearchBuilder.and("domainId", accountSearchBuilder.entity().getDomainId(), SearchCriteria.Op.EQ);
-        accountSearchBuilder.and("id", accountSearchBuilder.entity().getId(), SearchCriteria.Op.EQ);
+        accountSearchBuilder.and("ids", accountSearchBuilder.entity().getId(), SearchCriteria.Op.IN);
+        if (domainId != null) {
+            accountSearchBuilder.and("domainIds", accountSearchBuilder.entity().getDomainId(), SearchCriteria.Op.IN);
+        } else {
+            accountSearchBuilder.or("domainIds", accountSearchBuilder.entity().getDomainId(), SearchCriteria.Op.IN);
+        }
         accountSearchBuilder.and("type", accountSearchBuilder.entity().getType(), SearchCriteria.Op.EQ);
         accountSearchBuilder.and("state", accountSearchBuilder.entity().getState(), SearchCriteria.Op.EQ);
         accountSearchBuilder.and("needsCleanup", accountSearchBuilder.entity().getNeedsCleanup(), SearchCriteria.Op.EQ);
         accountSearchBuilder.and("typeNEQ", accountSearchBuilder.entity().getType(), SearchCriteria.Op.NEQ);
         accountSearchBuilder.and("idNEQ", accountSearchBuilder.entity().getId(), SearchCriteria.Op.NEQ);
         accountSearchBuilder.and("type2NEQ", accountSearchBuilder.entity().getType(), SearchCriteria.Op.NEQ);
-
-        if (domainId != null && isRecursive) {
-            SearchBuilder<DomainVO> domainSearch = _domainDao.createSearchBuilder();
-            domainSearch.and("path", domainSearch.entity().getPath(), SearchCriteria.Op.LIKE);
-            accountSearchBuilder.join("domainSearch", domainSearch, domainSearch.entity().getId(), accountSearchBuilder.entity().getDomainId(), JoinBuilder.JoinType.INNER);
-        }
 
         if (keyword != null) {
             accountSearchBuilder.and().op("keywordAccountName", accountSearchBuilder.entity().getAccountName(), SearchCriteria.Op.LIKE);
@@ -2986,26 +2971,24 @@ public class QueryManagerImpl extends MutualExclusiveIdsManagerBase implements Q
             sc.setParameters("accountName", accountName);
         }
 
-        if (accountId != null) {
-            sc.setParameters("id", accountId);
+        if (accountIds != null) {
+            sc.setParameters("ids", accountIds.toArray());
         }
 
-        if (domainId != null) {
+        if (CollectionUtils.isNotEmpty(domainIds)) {
             if (isRecursive) {
-                // will happen if no "domainid" was specified in the request...
-                if (domain == null) {
-                    domain = _domainDao.findById(domainId);
+                for (Long id : domainIds) {
+                    domainIds = ListUtils.union(domainIds, _domainDao.getDomainAndChildrenIds(id));
                 }
-                sc.setJoinParameters("domainSearch", "path", domain.getPath() + "%");
-            } else {
-                sc.setParameters("domainId", domainId);
             }
+            Set<Long> domainIdsSet = new HashSet<>(domainIds);
+            sc.setParameters("domainIds", domainIdsSet.toArray());
         }
 
         Pair<List<AccountVO>, Integer> uniqueAccountPair = _accountDao.searchAndCount(sc, searchFilter);
         Integer count = uniqueAccountPair.second();
-        List<Long> accountIds = uniqueAccountPair.first().stream().map(AccountVO::getId).collect(Collectors.toList());
-        return new Pair<>(accountIds, count);
+        List<Long> responseAccountIds = uniqueAccountPair.first().stream().map(AccountVO::getId).collect(Collectors.toList());
+        return new Pair<>(responseAccountIds, count);
     }
 
     @Override
