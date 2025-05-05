@@ -463,6 +463,7 @@ import { genericCompare } from '@/utils/sort.js'
 import { sourceToken } from '@/utils/request'
 import store from '@/store'
 import eventBus from '@/config/eventBus'
+import { applyCustomGuiTheme } from '@/utils/guiTheme'
 
 import Breadcrumb from '@/components/widgets/Breadcrumb'
 import ListView from '@/components/view/ListView'
@@ -692,7 +693,7 @@ export default {
         return this.$route.query.filter
       }
       const routeName = this.$route.name
-      if ((this.projectView && routeName === 'vm') || (['Admin', 'DomainAdmin'].includes(this.$store.getters.userInfo.roletype) && ['vm', 'iso', 'template', 'pod', 'cluster', 'host', 'systemvm', 'router', 'storagepool'].includes(routeName)) || ['account', 'guestnetwork', 'guestvlans', 'oauthsetting', 'guestos', 'guestoshypervisormapping', 'kubernetes', 'asnumbers'].includes(routeName)) {
+      if ((this.projectView && routeName === 'vm') || (['Admin', 'DomainAdmin'].includes(this.$store.getters.userInfo.roletype) && ['vm', 'iso', 'template', 'pod', 'cluster', 'host', 'systemvm', 'router', 'storagepool', 'guitheme'].includes(routeName)) || ['account', 'guestnetwork', 'guestvlans', 'oauthsetting', 'guestos', 'guestoshypervisormapping', 'kubernetes', 'asnumbers'].includes(routeName)) {
         return 'all'
       }
       if (['publicip'].includes(routeName)) {
@@ -1678,6 +1679,9 @@ export default {
           eventBus.emit('update-resource-state', { selectedItems: this.selectedItems, resource: this.getDataIdentifier(params), state: 'failed' })
           this.$notifyError(error)
         }).finally(f => {
+          if (action.api === 'removeGuiTheme') {
+            applyCustomGuiTheme(this.$store.getters.userInfo.accountid, this.$store.getters.userInfo.domainid)
+          }
           this.actionLoading = false
         })
       }).catch(error => {
@@ -1813,6 +1817,13 @@ export default {
         }
       } else if (['computeoffering', 'systemoffering', 'diskoffering'].includes(this.$route.name)) {
         query.state = filter
+      } else if (this.$route.name === 'guitheme') {
+        if (filter === 'ispublic') {
+          query.listall = false
+          query.showpublic = true
+        } else {
+          query.listall = true
+        }
       }
       query.filter = filter
       query.page = '1'

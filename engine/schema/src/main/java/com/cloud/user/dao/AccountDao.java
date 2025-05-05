@@ -85,4 +85,6 @@ public interface AccountDao extends GenericDao<AccountVO, Long> {
     long getDomainIdForGivenAccountId(long id);
 
     int getActiveDomains();
+
+    List<AccountVO> findByIds(List<Long> ids);
 }

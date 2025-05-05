@@ -29,6 +29,7 @@ import org.apache.cloudstack.api.response.PodResponse;
 import org.apache.cloudstack.api.response.ZoneResponse;
 import org.apache.cloudstack.config.Configuration;
 import org.apache.cloudstack.datacenter.DataCenterIpv4GuestSubnet;
+import org.apache.cloudstack.gui.theme.GuiTheme;
 import org.apache.cloudstack.ha.HAConfig;
 import org.apache.cloudstack.network.BgpPeer;
 import org.apache.cloudstack.network.Ipv4GuestSubnetNetworkMap;
@@ -1283,9 +1284,9 @@ public class EventTypes {
         entityEventDetails.put(EVENT_SHAREDFS_RECOVER, SharedFS.class);
 
         // GUI theme
-        entityEventDetails.put(EVENT_GUI_THEME_CREATE, "GuiTheme");
-        entityEventDetails.put(EVENT_GUI_THEME_REMOVE, "GuiTheme");
-        entityEventDetails.put(EVENT_GUI_THEME_UPDATE, "GuiTheme");
+        entityEventDetails.put(EVENT_GUI_THEME_CREATE, GuiTheme.class);
+        entityEventDetails.put(EVENT_GUI_THEME_REMOVE, GuiTheme.class);
+        entityEventDetails.put(EVENT_GUI_THEME_UPDATE, GuiTheme.class);
 
         // Management Server
         entityEventDetails.put(EVENT_MANAGEMENT_SERVER_REMOVE, "ManagementServer");

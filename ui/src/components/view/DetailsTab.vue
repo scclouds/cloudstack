@@ -92,7 +92,7 @@
           <div v-else-if="['created', 'sent', 'lastannotated', 'collectiontime', 'lastboottime', 'lastserverstart', 'lastserverstop', 'removed', 'effectiveDate', 'endDate', 'startdate', 'enddate'].includes(item)">
             {{ $toLocaleDate(dataResource[item]) }}
           </div>
-          <code-highlight v-else-if="['activationRule'].includes(item)" language="javascript">
+          <code-highlight v-else-if="['activationRule', 'jsonconfiguration', 'css'].includes(item)" :language="languages[item]">
             {{ dataResource[item] }}
           </code-highlight>
           <div style="white-space: pre-wrap;" v-else-if="$route.meta.name === 'quotatariff' && item === 'description'">{{ dataResource[item] }}</div>
@@ -209,7 +209,12 @@ export default {
       dedicatedSectionActive: false,
       projectname: '',
       dataResource: {},
-      detailsTitles: []
+      detailsTitles: [],
+      languages: {
+        activationRule: 'javascript',
+        jsonconfiguration: 'javascript',
+        css: 'css'
+      }
     }
   },
   mounted () {
@@ -423,3 +428,9 @@ export default {
   }
 }
 </script>
+
+<style>
+pre[class*="language-"] {
+  max-height: 40vh;
+}
+</style>

@@ -33,12 +33,14 @@ import com.cloud.utils.db.SearchCriteria.Func;
 import com.cloud.utils.db.SearchCriteria.Op;
 import org.apache.cloudstack.acl.ApiKeyPairVO;
 import org.apache.cloudstack.acl.apikeypair.ApiKeyPair;
+import org.apache.commons.collections.CollectionUtils;
 import org.apache.commons.lang3.StringUtils;
 import com.cloud.utils.db.TransactionLegacy;
 import org.springframework.stereotype.Component;
 
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
+import java.util.Collections;
 import java.util.Date;
 import java.util.List;
 
@@ -57,6 +59,7 @@ public class AccountDaoImpl extends GenericDaoBase<AccountVO, Long> implements A
     protected final SearchBuilder<AccountVO> NonProjectAccountSearch;
     protected final SearchBuilder<AccountVO> AccountByRoleSearch;
     protected final SearchBuilder<AccountVO> AccountByDefaultProjectSearch;
+    protected final SearchBuilder<AccountVO> IdsSearch;
     protected final GenericSearchBuilder<AccountVO, Long> AccountIdsSearch;
     protected final GenericSearchBuilder<AccountVO, Long> ActiveDomainCount;
 
@@ -117,6 +120,10 @@ public class AccountDaoImpl extends GenericDaoBase<AccountVO, Long> implements A
         ActiveDomainCount.and("state", ActiveDomainCount.entity().getState(), SearchCriteria.Op.EQ);
         ActiveDomainCount.groupBy(ActiveDomainCount.entity().getDomainId());
         ActiveDomainCount.done();
+
+        IdsSearch = createSearchBuilder();
+        IdsSearch.and("ids", IdsSearch.entity().getId(), SearchCriteria.Op.IN);
+        IdsSearch.done();
     }
 
     @Override
@@ -359,5 +366,15 @@ public class AccountDaoImpl extends GenericDaoBase<AccountVO, Long> implements A
         SearchCriteria<Long> sc = ActiveDomainCount.create();
         sc.setParameters("state", "enabled");
         return customSearch(sc, null).size();
+    }
+
+    @Override
+    public List<AccountVO> findByIds(List<Long> ids) {
+        if (CollectionUtils.isEmpty(ids)) {
+            return Collections.emptyList();
+        }
+        SearchCriteria<AccountVO> sc = IdsSearch.create();
+        sc.setParameters("ids", ids.toArray());
+        return listBy(sc);
     }
 }

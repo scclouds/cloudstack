@@ -21,7 +21,7 @@ import { updateMessages } from '../locales'
 
 export async function applyCustomGuiTheme (accountid, domainid) {
   await fetch('config.json').then(response => response.json()).then(config => {
-    vueProps.$config = config
+    Object.assign(vueProps.$config, config)
   })
 
   let guiTheme

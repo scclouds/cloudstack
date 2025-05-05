@@ -794,7 +794,7 @@
           <router-link
             v-if="(item.show === undefined || item.show(resource)) && $router.resolve('/' + item.name).matched[0].redirect !== '/exception/404'"
             :to="{ name: item.name, query: getRouterQuery(item) }">
-            <a-button style="margin-right: 10px">
+            <a-button style="margin-right: 10px" :disabled="disabled[item.name]">
               <template #icon>
                 <render-icon :icon="$router.resolve('/' + item.name).meta.icon" />
               </template>
@@ -946,6 +946,7 @@ export default {
       showKeys: false,
       loadingTags: false,
       showUpload: false,
+      disabled: {},
       images: {
         zone: '',
         template: '',
@@ -1218,6 +1219,7 @@ export default {
     },
     getRouterQuery (item) {
       const query = {}
+      this.disabled[item.name] = false
       if (item.value) {
         query[item.param] = this.resource[item.value]
       } else {
@@ -1226,6 +1228,15 @@ export default {
           query.domainid = this.resource.domainid
         } else if (item.param === 'keypair') {
           query[item.param] = this.resource.name
+        } else if (item.param === 'ids' && item.name === 'account') {
+          query[item.param] = this.resource.accountids
+          this.resource.domainids && (query.domainids = this.resource.domainids)
+        } else if (item.param === 'ids' && item.name === 'domain') {
+          if (this.resource?.domainids || this.resource?.ispublic) {
+            query[item.param] = this.resource.domainids
+          } else {
+            this.disabled[item.name] = true
+          }
         } else {
           query[item.param] = this.resource.id
         }

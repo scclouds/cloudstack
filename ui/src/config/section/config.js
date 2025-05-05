@@ -14,6 +14,8 @@
 // KIND, either express or implied.  See the License for the
 // specific language governing permissions and limitations
 // under the License.
+import { shallowRef, defineAsyncComponent } from 'vue'
+import store from '@/store'
 
 export default {
   name: 'config',
@@ -280,6 +282,64 @@ export default {
           message: 'message.action.delete.guest.os.hypervisor.mapping',
           dataView: true,
           popup: true
+        }
+      ]
+    },
+    {
+      name: 'guitheme',
+      title: 'label.gui.themes',
+      icon: 'format-painter-outlined',
+      permission: ['listGuiThemes'],
+      columns: ['name', 'created'],
+      filters: ['all', 'ispublic'],
+      details: ['name', 'description', 'css', 'jsonconfiguration', 'recursivedomains', 'ispublic', 'commonnames', 'customlabelspath'],
+      related: [
+        {
+          name: 'account',
+          title: 'label.accounts',
+          param: 'ids'
+        },
+        {
+          name: 'domain',
+          title: 'label.domains',
+          param: 'ids'
+        }
+      ],
+      tabs: [
+        {
+          name: 'details',
+          component: shallowRef(defineAsyncComponent(() => import('@/components/view/DetailsTab.vue')))
+        },
+        {
+          name: 'events',
+          resourceType: 'GuiTheme',
+          component: shallowRef(defineAsyncComponent(() => import('@/components/view/EventsTab.vue'))),
+          show: () => { return 'listEvents' in store.getters.apis }
+        }
+      ],
+      actions: [
+        {
+          api: 'createGuiTheme',
+          icon: 'plus-outlined',
+          label: 'label.add.gui.theme',
+          listView: true,
+          popup: true,
+          component: shallowRef(defineAsyncComponent(() => import('@/views/theme/CreateGuiTheme')))
+        },
+        {
+          api: 'updateGuiTheme',
+          icon: 'edit-outlined',
+          label: 'label.edit',
+          dataView: true,
+          popup: true,
+          component: shallowRef(defineAsyncComponent(() => import('@/views/theme/UpdateGuiTheme')))
+        },
+        {
+          api: 'removeGuiTheme',
+          icon: 'delete-outlined',
+          label: 'label.remove.gui.theme',
+          message: 'message.action.delete.gui.theme',
+          dataView: true
         }
       ]
     }
