@@ -87,6 +87,9 @@
             <router-link :to="{ path: $route.path + '/' + record.uuid, query: { zoneid: $route.query.zoneid } }" v-else-if="record.uuid && $route.query.zoneid">{{ $t(text.toLowerCase()) }}</router-link>
             <router-link :to="{ path: $route.path }" v-else>{{ $t(text.toLowerCase()) }}</router-link>
           </span>
+          <span v-else-if="$route.path.startsWith('/quotatariff')">
+            <router-link :to="{ path: $route.path + '/' + record.id, query: { filter:'all' } }" v-if="record.id">{{ text }}</router-link>
+          </span>
           <span v-else>
             <router-link :to="{ path: $route.path + '/' + record.id }" v-if="record.id">{{ text }}</router-link>
             <router-link :to="{ path: $route.path + '/' + record.name }" v-else>{{ text }}</router-link>
