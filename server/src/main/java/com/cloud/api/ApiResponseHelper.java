@@ -2383,6 +2383,7 @@ public class ApiResponseHelper implements ResponseGenerator {
             ServiceOffering soffering = ApiDBUtils.findServiceOfferingById(so);
             if (soffering != null) {
                 response.setServiceOfferingId(soffering.getUuid());
+                response.setServiceOfferingName(soffering.getName());
             }
         }
         Map<Service, Set<Provider>> serviceProviderMap = ApiDBUtils.listNetworkOfferingServices(offering.getId());
