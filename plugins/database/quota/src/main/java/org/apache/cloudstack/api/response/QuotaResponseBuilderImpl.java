@@ -392,6 +392,7 @@ public class QuotaResponseBuilderImpl implements QuotaResponseBuilder {
         Date startDate = period[0].getTime();
         Date endDate = period[1].getTime();
         BigDecimal quotaUsage = quotaUsageDao.findTotalQuotaUsage(account.getAccountId(), account.getDomainId(), null, startDate, endDate);
+        Boolean quotaAccountEnabled = quotaAccountDao.getQuotaAccountEnabled(account.getId());
 
         response.setQuotaUsage(quotaUsage);
         response.setStartDate(startDate);
@@ -403,7 +404,7 @@ public class QuotaResponseBuilderImpl implements QuotaResponseBuilder {
         response.setBalance(summary.getQuotaBalance());
         response.setState(summary.getAccountState());
         response.setCurrency(QuotaConfig.QuotaCurrencySymbol.value());
-        response.setQuotaEnabled(QuotaConfig.QuotaAccountEnabled.valueIn(account.getId()));
+        response.setQuotaEnabled(quotaAccountEnabled);
         response.setDomainRemoved(summary.getDomainRemoved() != null);
         response.setAccountRemoved(summary.getAccountRemoved() != null);
         response.setObjectName("summary");
