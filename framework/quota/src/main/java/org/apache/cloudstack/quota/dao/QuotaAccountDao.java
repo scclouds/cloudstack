@@ -35,4 +35,5 @@ public interface QuotaAccountDao extends GenericDao<QuotaAccountVO, Long> {
 
     boolean updateQuotaAccount(Long id, QuotaAccountVO entity);
 
+    Boolean getQuotaAccountEnabled(Long accountId);
 }

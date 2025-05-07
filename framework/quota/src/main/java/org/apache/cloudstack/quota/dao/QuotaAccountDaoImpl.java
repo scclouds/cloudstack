@@ -88,6 +88,7 @@ public class QuotaAccountDaoImpl extends GenericDaoBase<QuotaAccountVO, Long> im
         });
     }
 
+    @Override
     public Boolean getQuotaAccountEnabled(Long accountId) {
         return QuotaConfig.QuotaAccountEnabled.valueIn(accountId);
     }
