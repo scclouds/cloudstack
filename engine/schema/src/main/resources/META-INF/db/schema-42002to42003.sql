@@ -33,3 +33,27 @@ ADD UNIQUE KEY `load_balancer_id` (`load_balancer_id`, `instance_id`, `instance_
 ALTER TABLE `cloud`.`global_load_balancer_lb_rule_map`
 DROP KEY `gslb_rule_id`,
 ADD UNIQUE KEY `gslb_rule_id` (`gslb_rule_id`, `lb_rule_id`, `removed`);
+
+-- Transfer value from "vm.stats.remove.batch.size" to "delete.query.batch.size", if the first exists and the latter still has its default value.
+UPDATE `cloud`.`configuration` `cfg`
+SET `cfg`.`value` = (
+    SELECT `nested_cfg`.`value`
+    FROM `cloud`.`configuration` `nested_cfg`
+    WHERE `nested_cfg`.`name` = 'vm.stats.remove.batch.size'
+)
+WHERE `cfg`.`name` = 'delete.query.batch.size'
+AND `cfg`.`value` = `cfg`.`default_value`
+AND EXISTS (
+    SELECT *
+    FROM `cloud`.`configuration` `exists_check_cfg`
+    WHERE `exists_check_cfg`.`name` = 'vm.stats.remove.batch.size'
+);
+
+-- Delete legacy "vm.stats.remove.batch.size" if it exists
+DELETE FROM `cloud`.`configuration`
+WHERE `name` = 'vm.stats.remove.batch.size'
+AND EXISTS (
+    SELECT *
+    FROM `cloud`.`configuration` `exists_check_cfg`
+    WHERE `exists_check_cfg`.`name` = 'vm.stats.remove.batch.size'
+);
