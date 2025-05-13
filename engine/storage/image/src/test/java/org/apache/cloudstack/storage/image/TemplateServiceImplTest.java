@@ -19,10 +19,11 @@
 package org.apache.cloudstack.storage.image;
 
 import com.cloud.storage.template.TemplateProp;
+import com.cloud.template.TemplateManager;
 import org.apache.cloudstack.engine.orchestration.service.StorageOrchestrationService;
 import org.apache.cloudstack.engine.subsystem.api.storage.DataStore;
 import org.apache.cloudstack.engine.subsystem.api.storage.DataStoreManager;
-import org.apache.cloudstack.engine.subsystem.api.storage.Scope;
+import org.apache.cloudstack.engine.subsystem.api.storage.ZoneScope;
 import org.apache.cloudstack.framework.async.AsyncCallFuture;
 import org.apache.cloudstack.storage.datastore.db.TemplateDataStoreDao;
 import org.apache.cloudstack.storage.datastore.db.TemplateDataStoreVO;
@@ -53,7 +54,19 @@ public class TemplateServiceImplTest {
     TemplateServiceImpl templateService;
 
     @Mock
+    DataStore dataStoreMock;
+
+    @Mock
     TemplateDataStoreDao templateDataStoreDao;
+
+    @Mock
+    TemplateManager templateManagerMock;
+
+    @Mock
+    VMTemplateVO templateVoMock;
+
+    @Mock
+    ZoneScope zoneScopeMock;
 
     @Mock
     TemplateDataFactoryImpl templateDataFactoryMock;
@@ -77,9 +90,6 @@ public class TemplateServiceImplTest {
     DataStore destStoreMock;
 
     @Mock
-    Scope zoneScopeMock;
-
-    @Mock
     StorageOrchestrationService storageOrchestrator;
 
     Map<String, TemplateProp> templatesInSourceStore = new HashMap<>();
@@ -96,45 +106,46 @@ public class TemplateServiceImplTest {
         Mockito.doReturn(null).when(templateService).listTemplate(destStoreMock);
         Mockito.doReturn("install-path").when(templateInfoMock).getInstallPath();
         Mockito.doReturn(templateInfoMock).when(templateDataFactoryMock).getTemplate(2L, sourceStoreMock);
+        Mockito.doReturn(3L).when(dataStoreMock).getId();
+        Mockito.doReturn(4L).when(templateVoMock).getId();
+        Mockito.doReturn(zoneScopeMock).when(dataStoreMock).getScope();
     }
 
     @Test
-    public void testIsSkipTemplateStoreDownloadPublicTemplate() {
-        VMTemplateVO templateVO = Mockito.mock(VMTemplateVO.class);
-        Mockito.when(templateVO.isPublicTemplate()).thenReturn(true);
-        Assert.assertFalse(templateService.isSkipTemplateStoreDownload(templateVO, 1L));
+    public void shouldDownloadTemplateToStoreTestSkipsTemplateDirectedToAnotherStorage() {
+        DataStore destinedStore = Mockito.mock(DataStore.class);
+        Mockito.doReturn(dataStoreMock.getId() + 1L).when(destinedStore).getId();
+        Mockito.when(templateManagerMock.verifyHeuristicRulesForZone(templateVoMock, zoneScopeMock.getScopeId())).thenReturn(destinedStore);
+        Assert.assertFalse(templateService.shouldDownloadTemplateToStore(templateVoMock, dataStoreMock));
     }
 
     @Test
-    public void testIsSkipTemplateStoreDownloadFeaturedTemplate() {
-        VMTemplateVO templateVO = Mockito.mock(VMTemplateVO.class);
-        Mockito.when(templateVO.isFeatured()).thenReturn(true);
-        Assert.assertFalse(templateService.isSkipTemplateStoreDownload(templateVO, 1L));
+    public void shouldDownloadTemplateToStoreTestDownloadsPublicTemplate() {
+        Mockito.when(templateVoMock.isPublicTemplate()).thenReturn(true);
+        Assert.assertTrue(templateService.shouldDownloadTemplateToStore(templateVoMock, dataStoreMock));
     }
 
     @Test
-    public void testIsSkipTemplateStoreDownloadSystemTemplate() {
-        VMTemplateVO templateVO = Mockito.mock(VMTemplateVO.class);
-        Mockito.when(templateVO.getTemplateType()).thenReturn(Storage.TemplateType.SYSTEM);
-        Assert.assertFalse(templateService.isSkipTemplateStoreDownload(templateVO, 1L));
+    public void shouldDownloadTemplateToStoreTestDownloadsFeaturedTemplate() {
+        Mockito.when(templateVoMock.isFeatured()).thenReturn(true);
+        Assert.assertTrue(templateService.shouldDownloadTemplateToStore(templateVoMock, dataStoreMock));
     }
 
     @Test
-    public void testIsSkipTemplateStoreDownloadPrivateNoRefTemplate() {
-        VMTemplateVO templateVO = Mockito.mock(VMTemplateVO.class);
-        long id = 1L;
-        Mockito.when(templateVO.getId()).thenReturn(id);
-        Mockito.when(templateDataStoreDao.findByTemplateZone(id, id, DataStoreRole.Image)).thenReturn(null);
-        Assert.assertFalse(templateService.isSkipTemplateStoreDownload(templateVO, id));
+    public void shouldDownloadTemplateToStoreTestDownloadsSystemTemplate() {
+        Mockito.when(templateVoMock.getTemplateType()).thenReturn(Storage.TemplateType.SYSTEM);
+        Assert.assertTrue(templateService.shouldDownloadTemplateToStore(templateVoMock, dataStoreMock));
     }
 
     @Test
-    public void testIsSkipTemplateStoreDownloadPrivateExistingTemplate() {
-        VMTemplateVO templateVO = Mockito.mock(VMTemplateVO.class);
-        long id = 1L;
-        Mockito.when(templateVO.getId()).thenReturn(id);
-        Mockito.when(templateDataStoreDao.findByTemplateZone(id, id, DataStoreRole.Image)).thenReturn(Mockito.mock(TemplateDataStoreVO.class));
-        Assert.assertTrue(templateService.isSkipTemplateStoreDownload(templateVO, id));
+    public void shouldDownloadTemplateToStoreTestDownloadsPrivateNoRefTemplate() {
+        Assert.assertTrue(templateService.shouldDownloadTemplateToStore(templateVoMock, dataStoreMock));
+    }
+
+    @Test
+    public void shouldDownloadTemplateToStoreTestSkipsPrivateExistingTemplate() {
+        Mockito.when(templateDataStoreDao.findByTemplateZone(templateVoMock.getId(), zoneScopeMock.getScopeId(), DataStoreRole.Image)).thenReturn(Mockito.mock(TemplateDataStoreVO.class));
+        Assert.assertFalse(templateService.shouldDownloadTemplateToStore(templateVoMock, dataStoreMock));
     }
 
     @Test

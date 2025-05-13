@@ -87,10 +87,10 @@ public class HeuristicRuleHelper {
         HeuristicVO heuristicsVO = secondaryStorageHeuristicDao.findByZoneIdAndType(zoneId, heuristicType);
 
         if (heuristicsVO == null) {
-            logger.debug(String.format("No heuristic rules found for zone with ID [%s] and heuristic type [%s]. Returning null.", zoneId, heuristicType));
+            logger.debug("No heuristic rules found for zone with ID [{}] and heuristic type [{}]. Returning null.", zoneId, heuristicType);
             return null;
         } else {
-            logger.debug(String.format("Found the heuristic rule %s to apply for zone with ID [%s].", heuristicsVO, zoneId));
+            logger.debug("Found the heuristic rule {} to apply for zone with ID [{}].", heuristicsVO, zoneId);
             return interpretHeuristicRule(heuristicsVO.getHeuristicRule(), heuristicType, obj, zoneId);
         }
     }
