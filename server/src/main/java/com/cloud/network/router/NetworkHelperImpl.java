@@ -692,78 +692,92 @@ public class NetworkHelperImpl implements NetworkHelper {
 
     protected LinkedHashMap<Network, List<? extends NicProfile>> configurePublicNic(final RouterDeploymentDefinition routerDeploymentDefinition, final boolean hasGuestNic) throws InsufficientAddressCapacityException {
         final LinkedHashMap<Network, List<? extends NicProfile>> publicConfig = new LinkedHashMap<Network, List<? extends NicProfile>>(3);
-
-        if (routerDeploymentDefinition.isPublicNetwork()) {
-            logger.debug("Adding nic for Virtual Router in Public network ");
-            // if source nat service is supported by the network, get the source
-            // nat ip address
-            final NicProfile defaultNic = new NicProfile();
-            defaultNic.setDefaultNic(true);
-            final PublicIp sourceNatIp = routerDeploymentDefinition.getSourceNatIP();
-            defaultNic.setIPv4Address(sourceNatIp.getAddress().addr());
-            defaultNic.setIPv4Gateway(sourceNatIp.getGateway());
-            defaultNic.setIPv4Netmask(sourceNatIp.getNetmask());
-            defaultNic.setMacAddress(sourceNatIp.getMacAddress());
-            // get broadcast from public network
-            final Network pubNet = _networkDao.findById(sourceNatIp.getNetworkId());
-            if (pubNet.getBroadcastDomainType() == BroadcastDomainType.Vxlan) {
-                defaultNic.setBroadcastType(BroadcastDomainType.Vxlan);
-                defaultNic.setBroadcastUri(BroadcastDomainType.Vxlan.toUri(sourceNatIp.getVlanTag()));
-                defaultNic.setIsolationUri(BroadcastDomainType.Vxlan.toUri(sourceNatIp.getVlanTag()));
-            } else {
-                defaultNic.setBroadcastType(BroadcastDomainType.Vlan);
-                defaultNic.setBroadcastUri(sourceNatIp.getVlanTag() != null ? BroadcastDomainType.Vlan.toUri(sourceNatIp.getVlanTag()) : null);
-                defaultNic.setIsolationUri(sourceNatIp.getVlanTag() != null ?  IsolationType.Vlan.toUri(sourceNatIp.getVlanTag()) : null);
-            }
-
-            //If guest nic has already been added we will have 2 devices in the list.
-            if (hasGuestNic) {
-                defaultNic.setDeviceId(2);
-            }
-
-            final NetworkOffering publicOffering = _networkModel.getSystemAccountNetworkOfferings(NetworkOffering.SystemPublicNetwork).get(0);
-            final List<? extends Network> publicNetworks = _networkMgr.setupNetwork(s_systemAccount, publicOffering, routerDeploymentDefinition.getPlan(), null, null, false);
-
-            setPublicNicMacAddressSameAsPeerNic(defaultNic, publicNetworks.get(0));
-
-            if (routerDeploymentDefinition.getGuestNetwork() != null) {
-                ipv6Service.updateNicIpv6(defaultNic, routerDeploymentDefinition.getDest().getDataCenter(), routerDeploymentDefinition.getGuestNetwork());
-            }
-            publicConfig.put(publicNetworks.get(0), List.of(defaultNic));
+        if (!routerDeploymentDefinition.isPublicNetwork()) {
+            return publicConfig;
         }
 
+        PublicIp sourceNatIp = routerDeploymentDefinition.getSourceNatIP();
+        NicProfile defaultNic = new NicProfile();
+        configurePublicVrNicBasedOnSourceNatIp(defaultNic, sourceNatIp);
+        if (hasGuestNic) {
+            logger.debug("Guest NIC has already been configured, therefore setting device ID of new VR (with source NAT [{}]) public NIC to [2]", sourceNatIp);
+            defaultNic.setDeviceId(2);
+        }
+
+        final NetworkOffering publicOffering = _networkModel.getSystemAccountNetworkOfferings(NetworkOffering.SystemPublicNetwork).get(0);
+        final List<? extends Network> publicNetworks = _networkMgr.setupNetwork(s_systemAccount, publicOffering, routerDeploymentDefinition.getPlan(), null, null, false);
+
+        setPublicNicMacAddressSameAsPeerNic(defaultNic, publicNetworks.get(0), routerDeploymentDefinition);
+
+        if (routerDeploymentDefinition.getGuestNetwork() != null) {
+            ipv6Service.updateNicIpv6(defaultNic, routerDeploymentDefinition.getDest().getDataCenter(), routerDeploymentDefinition.getGuestNetwork());
+        }
+        publicConfig.put(publicNetworks.get(0), List.of(defaultNic));
         return publicConfig;
     }
 
     /**
-     * Sets the MAC address of the new VR's public NIC the same as the previous VR's public NIC MAC address if
-     * {@link NetworkOrchestrationService#UseSameMacAddressForPublicNicOfVirtualRoutersOnSameNetwork} is configured as {@code true} and a peer NIC is found; otherwise,
-     * does nothing.
+     * Configures the public NIC of a Virtual Router based on the provided source NAT IP.
+     * @param nic Virtual Router public NIC to be configured.
+     * @param sourceNatIp Source NAT IP which should be used to configure the Virtual Router's public NIC.
      */
-    protected void setPublicNicMacAddressSameAsPeerNic(NicProfile defaultNic, Network publicNetwork) {
-        String publicIp = defaultNic.getIPv4Address();
+    protected void configurePublicVrNicBasedOnSourceNatIp(NicProfile nic, PublicIp sourceNatIp) {
+        logger.debug("Configuring public NIC of VR with source NAT IP equal to [{}]", sourceNatIp.getAddress().addr());
+        nic.setDefaultNic(true);
+        nic.setIPv4Address(sourceNatIp.getAddress().addr());
+        nic.setIPv4Gateway(sourceNatIp.getGateway());
+        nic.setIPv4Netmask(sourceNatIp.getNetmask());
+        nic.setMacAddress(sourceNatIp.getMacAddress());
 
-        logger.info("Verifying if we will use same MAC address for public NIC of new VR (with source NAT [{}]).", publicIp);
-
-        if (!NetworkOrchestrationService.getUseSameMacAddressForPublicNicOfVirtualRoutersOnSameNetworkValue()) {
-            logger.info("Not using same MAC address for public NIC of new VR (with source NAT [{}]) as [{}] is configured as [false].", publicIp,
-                    NetworkOrchestrationService.UseSameMacAddressForPublicNicOfVirtualRoutersOnSameNetwork.key());
-            return;
-        }
-
-        logger.debug("Searching for peer NIC for public IP [{}] and network [{}].", publicIp, publicNetwork.getUuid());
-        NicVO peerNic = _nicDao.findByIp4AddressAndNetworkId(publicIp, publicNetwork.getId());
-
-        if (peerNic != null) {
-            logger.info("Found peer NIC [{}] for public IP [{}] and network [{}]. Setting MAC address [{}] on the public NIC of the VR.",
-                    peerNic.getUuid(), publicIp, publicNetwork.getUuid(), peerNic.getMacAddress());
-            defaultNic.setMacAddress(peerNic.getMacAddress());
+        Network publicNetwork = _networkDao.findById(sourceNatIp.getNetworkId());
+        if (publicNetwork.getBroadcastDomainType() == BroadcastDomainType.Vxlan) {
+            nic.setBroadcastType(BroadcastDomainType.Vxlan);
+            nic.setBroadcastUri(BroadcastDomainType.Vxlan.toUri(sourceNatIp.getVlanTag()));
+            nic.setIsolationUri(BroadcastDomainType.Vxlan.toUri(sourceNatIp.getVlanTag()));
         } else {
-            logger.info("We will not use the same MAC address for public NIC of new VR as we have not found a peer NIC for public IP [{}] and network [{}].",
-                    publicIp, publicNetwork.getUuid());
+            nic.setBroadcastType(BroadcastDomainType.Vlan);
+            nic.setBroadcastUri(sourceNatIp.getVlanTag() != null ? BroadcastDomainType.Vlan.toUri(sourceNatIp.getVlanTag()) : null);
+            nic.setIsolationUri(sourceNatIp.getVlanTag() != null ? IsolationType.Vlan.toUri(sourceNatIp.getVlanTag()) : null);
         }
     }
 
+    /**
+     * Sets the MAC address of the new VR's public NIC the same as the previous VR's public NIC MAC address if
+     * {@link RouterDeploymentDefinition#getKeepMacAddressOnPublicNic()} is set to {@code true} and a peer NIC is found; otherwise,
+     * does nothing.
+     */
+    protected void setPublicNicMacAddressSameAsPeerNic(NicProfile defaultNic, Network publicNetwork, RouterDeploymentDefinition routerDeploymentDefinition) throws InsufficientAddressCapacityException {
+        String publicIp = defaultNic.getIPv4Address();
+        logger.info("Verifying if we will use same MAC address for public NIC of new VR (with source NAT [{}]).", publicIp);
+
+        logger.debug("Searching for peer NIC for public IP [{}] and network [{}].", publicIp, publicNetwork.getUuid());
+        NicVO peerNic = _nicDao.findByIp4AddressAndNetworkId(publicIp, publicNetwork.getId());
+        if (peerNic == null) {
+            logger.info("We will not use the same MAC address for public NIC of new VR as we have not found a peer NIC for public IP [{}] and network [{}].",
+                    publicIp, publicNetwork.getUuid());
+            return;
+        }
+
+        logger.info("Found peer NIC [{}] for public IP [{}] and network [{}].", peerNic.getUuid(), publicIp, publicNetwork.getUuid());
+        boolean keepMacAddressOnPublicNic = routerDeploymentDefinition.getKeepMacAddressOnPublicNic();
+        String macAddressLog = String.format("same MAC address for public NIC of new VR (with source NAT [%s]) as the [keep_mac_address_on_public_nic] property is configured as [%s].",
+                publicIp, keepMacAddressOnPublicNic);
+        if (keepMacAddressOnPublicNic) {
+            logger.info("Using {}", macAddressLog);
+            defaultNic.setMacAddress(peerNic.getMacAddress());
+            return;
+        }
+
+        logger.info("Not using {}", macAddressLog);
+        boolean fetchNewMacAddress = peerNic.getMacAddress().equals(defaultNic.getMacAddress());
+        if (fetchNewMacAddress) {
+            logger.debug("Fetching new MAC address for public NIC of new VR, since the MAC address of the peer NIC [UUID: {}, MAC address: {}] is equal to the predefined MAC address of the current NIC.",
+                    peerNic.getUuid(), peerNic.getMacAddress()
+            );
+            routerDeploymentDefinition.findSourceNatIP();
+            configurePublicVrNicBasedOnSourceNatIp(defaultNic, routerDeploymentDefinition.getSourceNatIP());
+        }
+    }
 
     @Override
     public LinkedHashMap<Network, List<? extends NicProfile>> configureDefaultNics(final RouterDeploymentDefinition routerDeploymentDefinition) throws ConcurrentOperationException, InsufficientAddressCapacityException {

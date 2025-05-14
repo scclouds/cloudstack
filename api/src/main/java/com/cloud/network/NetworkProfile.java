@@ -380,6 +380,11 @@ public class NetworkProfile implements Network {
     }
 
     @Override
+    public Boolean getKeepMacAddressOnPublicNic() {
+        return null;
+    }
+
+    @Override
     public Integer getNetworkCidrSize() {
         return networkCidrSize;
     }

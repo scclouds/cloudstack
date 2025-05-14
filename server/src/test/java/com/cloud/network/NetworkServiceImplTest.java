@@ -448,7 +448,7 @@ public class NetworkServiceImplTest {
                 null, null, false, null, accountMock, null, phyNet,
                 1L, null, null, null, null, null,
                 true, null, null, null, null, null,
-                null, null, null, null, new Pair<>(1500, privateMtu), null);
+                null, null, null, null, new Pair<>(1500, privateMtu), null, true);
     }
     @Test
     public void testValidateMtuConfigWhenMtusExceedThreshold() {
@@ -1090,5 +1090,61 @@ public class NetworkServiceImplTest {
         } catch (InsufficientAddressCapacityException | ResourceAllocationException e) {
             Assert.fail(e.getMessage());
         }
+    }
+
+    @Test(expected = InvalidParameterValueException.class)
+    public void getAndValidateSupportForKeepMacAddressOnPublicNicParameterTestThrowExceptionWhenParamIsSpecifiedOnTiersCreation() {
+        networkOfferingVO = Mockito.mock(NetworkOfferingVO.class);
+        Mockito.when(networkOfferingVO.isForVpc()).thenReturn(true);
+
+        service.getAndValidateSupportForKeepMacAddressOnPublicNicParameter(true, networkOfferingVO);
+    }
+
+    @Test
+    public void getAndValidateSupportForKeepMacAddressOnPublicNicParameterTestReturnTrueByDefaultOnTiersCreation() {
+        networkOfferingVO = Mockito.mock(NetworkOfferingVO.class);
+        Mockito.when(networkOfferingVO.isForVpc()).thenReturn(true);
+
+        Assert.assertTrue(
+                service.getAndValidateSupportForKeepMacAddressOnPublicNicParameter(null, networkOfferingVO)
+        );
+    }
+
+    @Test(expected = InvalidParameterValueException.class)
+    public void getAndValidateSupportForKeepMacAddressOnPublicNicParameterTestThrowExceptionWhenParamIsSpecifiedOnNonIsolatedNetworksCreation() {
+        networkOfferingVO = Mockito.mock(NetworkOfferingVO.class);
+        Mockito.when(networkOfferingVO.getGuestType()).thenReturn(Network.GuestType.Shared);
+
+        service.getAndValidateSupportForKeepMacAddressOnPublicNicParameter(true, networkOfferingVO);
+    }
+
+    @Test
+    public void getAndValidateSupportForKeepMacAddressOnPublicNicParameterTestReturnTrueByDefaultOnNonIsolatedNetworksCreation() {
+        networkOfferingVO = Mockito.mock(NetworkOfferingVO.class);
+        Mockito.when(networkOfferingVO.getGuestType()).thenReturn(Network.GuestType.L2);
+
+        Assert.assertTrue(
+                service.getAndValidateSupportForKeepMacAddressOnPublicNicParameter(null, networkOfferingVO)
+        );
+    }
+
+    @Test
+    public void getAndValidateSupportForKeepMacAddressOnPublicNicParameterTestReturnTrueByDefaultOnIsolatedNetworksCreation() {
+        networkOfferingVO = Mockito.mock(NetworkOfferingVO.class);
+        Mockito.when(networkOfferingVO.getGuestType()).thenReturn(Network.GuestType.Isolated);
+
+        Assert.assertTrue(
+                service.getAndValidateSupportForKeepMacAddressOnPublicNicParameter(null, networkOfferingVO)
+        );
+    }
+
+    @Test
+    public void getAndValidateSupportForKeepMacAddressOnPublicNicParameterTestReturnSpecifiedValueOnIsolatedNetworksCreation() {
+        networkOfferingVO = Mockito.mock(NetworkOfferingVO.class);
+        Mockito.when(networkOfferingVO.getGuestType()).thenReturn(Network.GuestType.Isolated);
+
+        Assert.assertFalse(
+                service.getAndValidateSupportForKeepMacAddressOnPublicNicParameter(false, networkOfferingVO)
+        );
     }
 }

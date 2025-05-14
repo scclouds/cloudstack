@@ -20,16 +20,25 @@ import com.cloud.agent.AgentManager;
 import com.cloud.agent.api.Answer;
 import com.cloud.agent.api.Command;
 import com.cloud.agent.manager.Commands;
+import com.cloud.deploy.DeployDestination;
 import com.cloud.exception.AgentUnavailableException;
+import com.cloud.exception.InsufficientAddressCapacityException;
 import com.cloud.exception.OperationTimedoutException;
 import com.cloud.exception.ResourceUnavailableException;
+import com.cloud.network.Ipv6Service;
 import com.cloud.network.Network;
 import com.cloud.network.NetworkModel;
+import com.cloud.network.Networks;
+import com.cloud.network.addr.PublicIp;
 import com.cloud.network.dao.NetworkDao;
+import com.cloud.network.dao.NetworkVO;
+import com.cloud.offering.NetworkOffering;
+import com.cloud.utils.net.Ip;
 import com.cloud.vm.NicProfile;
 import com.cloud.vm.NicVO;
 import com.cloud.vm.dao.NicDao;
 import org.apache.cloudstack.engine.orchestration.service.NetworkOrchestrationService;
+import org.apache.cloudstack.network.router.deployment.RouterDeploymentDefinition;
 import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
@@ -43,7 +52,6 @@ import static org.junit.Assert.assertTrue;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
@@ -52,6 +60,9 @@ import static org.mockito.Mockito.when;
 import org.mockito.Mockito;
 import org.mockito.Spy;
 import org.mockito.junit.MockitoJUnitRunner;
+
+import java.util.List;
+import java.util.Map;
 
 @RunWith(MockitoJUnitRunner.class)
 public class NetworkHelperImplTest {
@@ -84,6 +95,15 @@ public class NetworkHelperImplTest {
 
     @Mock
     NetworkModel networkModel;
+
+    @Mock
+    private PublicIp publicIpMock;
+
+    @Mock
+    private RouterDeploymentDefinition routerDeploymentDefinitionMock;
+
+    @Mock
+    private Ipv6Service ipv6ServiceMock;
 
     @Before
     public void setUp() {
@@ -208,44 +228,225 @@ public class NetworkHelperImplTest {
         assertFalse(result);
     }
 
-    @Test
-    public void setPublicNicMacAddressSameAsPeerNicTestConfigurationIsFalseExpectDoNothing() {
-        when(NetworkOrchestrationService.getUseSameMacAddressForPublicNicOfVirtualRoutersOnSameNetworkValue()).thenReturn(false);
+    private NicProfile getExpectedNicProfile(boolean vxlan, String vlanTag) {
+        NicProfile nic = new NicProfile();
+        nic.setDefaultNic(true);
+        nic.setIPv4Address("192.168.0.10");
+        nic.setIPv4Gateway("192.168.0.1");
+        nic.setIPv4Netmask("255.255.255.0");
+        nic.setMacAddress("ff-ff-ff-ff-ff-ff");
 
-        NicProfile nicProfileMock = Mockito.mock(NicProfile.class);
-        Network networkMock = Mockito.mock(Network.class);
-        networkHelperSpy.setPublicNicMacAddressSameAsPeerNic(nicProfileMock, networkMock);
+        if (vxlan) {
+            nic.setBroadcastType(Networks.BroadcastDomainType.Vxlan);
+            nic.setBroadcastUri(Networks.BroadcastDomainType.Vxlan.toUri(vlanTag));
+            nic.setIsolationUri(Networks.BroadcastDomainType.Vxlan.toUri(vlanTag));
+        } else {
+            nic.setBroadcastType(Networks.BroadcastDomainType.Vlan);
+            nic.setBroadcastUri(vlanTag != null ? Networks.BroadcastDomainType.Vlan.toUri(vlanTag) : null);
+            nic.setIsolationUri(vlanTag != null ? Networks.IsolationType.Vlan.toUri(vlanTag) : null);
+        }
 
-        Mockito.verify(nicProfileMock, Mockito.never()).setMacAddress(Mockito.anyString());
+        return nic;
     }
 
     @Test
-    public void setPublicNicMacAddressSameAsPeerNicTestConfigurationIsTrueAndThereIsNoPeerNicExpectDoNothing() {
-        when(NetworkOrchestrationService.getUseSameMacAddressForPublicNicOfVirtualRoutersOnSameNetworkValue()).thenReturn(true);
+    public void configurePublicVrNicBasedOnSourceNatIpTestConfigureVxLanNic() {
+        String vlanTag = "200";
+        NicProfile expected = getExpectedNicProfile(true, vlanTag);
 
-        String expectedValue = "original";
+        Ip ipMock = Mockito.mock(Ip.class);
+        NetworkVO publicNetworkMock = Mockito.mock(NetworkVO.class);
+        long networkId = 1L;
+        Mockito.when(publicIpMock.getAddress()).thenReturn(ipMock);
+        Mockito.when(ipMock.addr()).thenReturn(expected.getIPv4Address());
+        Mockito.when(publicIpMock.getGateway()).thenReturn(expected.getIPv4Gateway());
+        Mockito.when(publicIpMock.getNetmask()).thenReturn(expected.getIPv4Netmask());
+        Mockito.when(publicIpMock.getMacAddress()).thenReturn(expected.getMacAddress());
+        Mockito.when(publicIpMock.getNetworkId()).thenReturn(networkId);
+        Mockito.when(networkDao.findById(networkId)).thenReturn(publicNetworkMock);
+        Mockito.when(publicNetworkMock.getBroadcastDomainType()).thenReturn(Networks.BroadcastDomainType.Vxlan);
+        Mockito.when(publicIpMock.getVlanTag()).thenReturn(vlanTag);
+
+        networkHelperSpy.configurePublicVrNicBasedOnSourceNatIp(nicProfile, publicIpMock);
+
+        Assert.assertTrue(nicProfile.isDefaultNic());
+        Assert.assertEquals(expected.getIPv4Address(), nicProfile.getIPv4Address());
+        Assert.assertEquals(expected.getIPv4Gateway(), nicProfile.getIPv4Gateway());
+        Assert.assertEquals(expected.getIPv4Netmask(), nicProfile.getIPv4Netmask());
+        Assert.assertEquals(expected.getMacAddress(), nicProfile.getMacAddress());
+        Assert.assertEquals(expected.getBroadcastType(), nicProfile.getBroadcastType());
+        Assert.assertEquals(expected.getBroadCastUri(), nicProfile.getBroadCastUri());
+        Assert.assertEquals(expected.getIsolationUri(), nicProfile.getIsolationUri());
+    }
+
+    @Test
+    public void configurePublicVrNicBasedOnSourceNatIpTestConfigureVlanNicWithVlanTag() {
+        String vlanTag = "200";
+        NicProfile expected = getExpectedNicProfile(false, vlanTag);
+
+        Ip ipMock = Mockito.mock(Ip.class);
+        NetworkVO publicNetworkMock = Mockito.mock(NetworkVO.class);
+        long networkId = 1L;
+        Mockito.when(publicIpMock.getAddress()).thenReturn(ipMock);
+        Mockito.when(ipMock.addr()).thenReturn(expected.getIPv4Address());
+        Mockito.when(publicIpMock.getGateway()).thenReturn(expected.getIPv4Gateway());
+        Mockito.when(publicIpMock.getNetmask()).thenReturn(expected.getIPv4Netmask());
+        Mockito.when(publicIpMock.getMacAddress()).thenReturn(expected.getMacAddress());
+        Mockito.when(publicIpMock.getNetworkId()).thenReturn(networkId);
+        Mockito.when(networkDao.findById(networkId)).thenReturn(publicNetworkMock);
+        Mockito.when(publicNetworkMock.getBroadcastDomainType()).thenReturn(Networks.BroadcastDomainType.Vlan);
+        Mockito.when(publicIpMock.getVlanTag()).thenReturn(vlanTag);
+
+        networkHelperSpy.configurePublicVrNicBasedOnSourceNatIp(nicProfile, publicIpMock);
+
+        Assert.assertTrue(nicProfile.isDefaultNic());
+        Assert.assertEquals(expected.getIPv4Address(), nicProfile.getIPv4Address());
+        Assert.assertEquals(expected.getIPv4Gateway(), nicProfile.getIPv4Gateway());
+        Assert.assertEquals(expected.getIPv4Netmask(), nicProfile.getIPv4Netmask());
+        Assert.assertEquals(expected.getMacAddress(), nicProfile.getMacAddress());
+        Assert.assertEquals(expected.getBroadcastType(), nicProfile.getBroadcastType());
+        Assert.assertEquals(expected.getBroadCastUri(), nicProfile.getBroadCastUri());
+        Assert.assertEquals(expected.getIsolationUri(), nicProfile.getIsolationUri());
+    }
+
+    @Test
+    public void configurePublicVrNicBasedOnSourceNatIpTestConfigureVlanNicWithNoVlanTag() {
+        String vlanTag = null;
+        NicProfile expected = getExpectedNicProfile(false, vlanTag);
+
+        Ip ipMock = Mockito.mock(Ip.class);
+        NetworkVO publicNetworkMock = Mockito.mock(NetworkVO.class);
+        long networkId = 1L;
+        Mockito.when(publicIpMock.getAddress()).thenReturn(ipMock);
+        Mockito.when(ipMock.addr()).thenReturn(expected.getIPv4Address());
+        Mockito.when(publicIpMock.getGateway()).thenReturn(expected.getIPv4Gateway());
+        Mockito.when(publicIpMock.getNetmask()).thenReturn(expected.getIPv4Netmask());
+        Mockito.when(publicIpMock.getMacAddress()).thenReturn(expected.getMacAddress());
+        Mockito.when(publicIpMock.getNetworkId()).thenReturn(networkId);
+        Mockito.when(networkDao.findById(networkId)).thenReturn(publicNetworkMock);
+        Mockito.when(publicNetworkMock.getBroadcastDomainType()).thenReturn(Networks.BroadcastDomainType.Vlan);
+        Mockito.when(publicIpMock.getVlanTag()).thenReturn(vlanTag);
+
+        networkHelperSpy.configurePublicVrNicBasedOnSourceNatIp(nicProfile, publicIpMock);
+
+        Assert.assertTrue(nicProfile.isDefaultNic());
+        Assert.assertEquals(expected.getIPv4Address(), nicProfile.getIPv4Address());
+        Assert.assertEquals(expected.getIPv4Gateway(), nicProfile.getIPv4Gateway());
+        Assert.assertEquals(expected.getIPv4Netmask(), nicProfile.getIPv4Netmask());
+        Assert.assertEquals(expected.getMacAddress(), nicProfile.getMacAddress());
+        Assert.assertEquals(expected.getBroadcastType(), nicProfile.getBroadcastType());
+        Assert.assertEquals(expected.getBroadCastUri(), nicProfile.getBroadCastUri());
+        Assert.assertEquals(expected.getIsolationUri(), nicProfile.getIsolationUri());
+    }
+
+    @Test
+    public void setPublicNicMacAddressSameAsPeerNicTestDoNothingWhenThereIsNoPeer() throws InsufficientAddressCapacityException {
+        String newMacAddress = "ff-ff-ff-ff-ff-ff";
         nicProfile.setIPv4Address("10.0.0.1");
-        nicProfile.setMacAddress(expectedValue);
-        Mockito.doReturn(null).when(nicDaoMock).findByIp4AddressAndNetworkId(Mockito.anyString(), Mockito.anyLong());
-        networkHelperSpy.setPublicNicMacAddressSameAsPeerNic(nicProfile, networkMock);
+        nicProfile.setMacAddress(newMacAddress);
+        Mockito.when(nicDaoMock.findByIp4AddressAndNetworkId(Mockito.anyString(), Mockito.anyLong())).thenReturn(null);
 
-        Assert.assertEquals(expectedValue, nicProfile.getMacAddress());
+        networkHelperSpy.setPublicNicMacAddressSameAsPeerNic(nicProfile, networkMock, routerDeploymentDefinitionMock);
+
+        Assert.assertEquals(newMacAddress, nicProfile.getMacAddress());
     }
 
     @Test
-    public void setPublicNicMacAddressSameAsPeerNicTestConfigurationIsTrueAndThereIsAPeerNicExpectSetMacAddress() {
-        mockStatic(NetworkOrchestrationService.class);
-        when(NetworkOrchestrationService.getUseSameMacAddressForPublicNicOfVirtualRoutersOnSameNetworkValue()).thenReturn(true);
-
-        String expectedValue = "macaddress";
+    public void setPublicNicMacAddressSameAsPeerNicTestKeepMacAddress() throws InsufficientAddressCapacityException {
+        String peerMacAddress = "ff-ff-ff-ff-ff-ff";
         nicProfile.setIPv4Address("10.0.0.1");
-        nicProfile.setMacAddress("original");
+        nicProfile.setMacAddress("ff-ff-ff-ff-ff-f1");
 
-        Mockito.doReturn(nicVoMock).when(nicDaoMock).findByIp4AddressAndNetworkId(Mockito.anyString(), Mockito.anyLong());
-        Mockito.doReturn(expectedValue).when(nicVoMock).getMacAddress();
-        networkHelperSpy.setPublicNicMacAddressSameAsPeerNic(nicProfile, networkMock);
+        Mockito.when(nicDaoMock.findByIp4AddressAndNetworkId(Mockito.anyString(), Mockito.anyLong())).thenReturn(nicVoMock);
+        Mockito.when(nicVoMock.getMacAddress()).thenReturn(peerMacAddress);
+        Mockito.when(routerDeploymentDefinitionMock.getKeepMacAddressOnPublicNic()).thenReturn(true);
 
-        Assert.assertEquals(expectedValue, nicProfile.getMacAddress());
+        networkHelperSpy.setPublicNicMacAddressSameAsPeerNic(nicProfile, networkMock, routerDeploymentDefinitionMock);
+
+        Assert.assertEquals(peerMacAddress, nicProfile.getMacAddress());
     }
 
+    @Test
+    public void setPublicNicMacAddressSameAsPeerNicTestDifferentMacAddressFetchingNewSourceNatIp() throws InsufficientAddressCapacityException {
+        String macAddress = "ff-ff-ff-ff-ff-f1";
+        nicProfile.setIPv4Address("10.0.0.1");
+        nicProfile.setMacAddress(macAddress);
+        PublicIp publicIpMock = Mockito.mock(PublicIp.class);
+
+        Mockito.when(nicDaoMock.findByIp4AddressAndNetworkId(Mockito.anyString(), Mockito.anyLong())).thenReturn(nicVoMock);
+        Mockito.when(nicVoMock.getMacAddress()).thenReturn(macAddress);
+        Mockito.when(routerDeploymentDefinitionMock.getKeepMacAddressOnPublicNic()).thenReturn(false);
+        Mockito.when(routerDeploymentDefinitionMock.getSourceNatIP()).thenReturn(publicIpMock);
+        Mockito.doNothing().when(networkHelperSpy).configurePublicVrNicBasedOnSourceNatIp(nicProfile, publicIpMock);
+
+        networkHelperSpy.setPublicNicMacAddressSameAsPeerNic(nicProfile, networkMock, routerDeploymentDefinitionMock);
+
+        Mockito.verify(routerDeploymentDefinitionMock).findSourceNatIP();
+        Mockito.verify(networkHelperSpy).configurePublicVrNicBasedOnSourceNatIp(nicProfile, publicIpMock);
+    }
+
+    @Test
+    public void setPublicNicMacAddressSameAsPeerNicTestDifferentMacAddressNotFetchingNewSourceNatIp() throws InsufficientAddressCapacityException {
+        String newMacAddress = "ff-ff-ff-ff-ff-ff";
+        nicProfile.setIPv4Address("10.0.0.1");
+        nicProfile.setMacAddress(newMacAddress);
+
+        Mockito.when(nicDaoMock.findByIp4AddressAndNetworkId(Mockito.anyString(), Mockito.anyLong())).thenReturn(nicVoMock);
+        Mockito.when(nicVoMock.getMacAddress()).thenReturn("ff-ff-ff-ff-ff-f1");
+        Mockito.when(routerDeploymentDefinitionMock.getKeepMacAddressOnPublicNic()).thenReturn(false);
+
+        networkHelperSpy.setPublicNicMacAddressSameAsPeerNic(nicProfile, networkMock, routerDeploymentDefinitionMock);
+
+        Mockito.verify(routerDeploymentDefinitionMock, Mockito.never()).findSourceNatIP();
+        Mockito.verify(networkHelperSpy, Mockito.never()).configurePublicVrNicBasedOnSourceNatIp(Mockito.any(), Mockito.any());
+        Assert.assertEquals(newMacAddress, nicProfile.getMacAddress());
+    }
+
+    @Test
+    public void configurePublicNicTestReturnEmptyMapWhenNetworkIsNotPublic() throws InsufficientAddressCapacityException {
+        Mockito.when(routerDeploymentDefinitionMock.isPublicNetwork()).thenReturn(false);
+
+        Map<Network, List<? extends NicProfile>> nic = networkHelperSpy.configurePublicNic(routerDeploymentDefinitionMock, false);
+        Assert.assertTrue(nic.isEmpty());
+    }
+
+    @Test
+    public void configurePublicNicTestConfigureDeviceId() throws InsufficientAddressCapacityException {
+        PublicIp publicIpMock = Mockito.mock(PublicIp.class);
+        NetworkOffering networkOfferingMock = Mockito.mock(NetworkOffering.class);
+
+        Mockito.when(routerDeploymentDefinitionMock.isPublicNetwork()).thenReturn(true);
+        Mockito.when(routerDeploymentDefinitionMock.getSourceNatIP()).thenReturn(publicIpMock);
+        Mockito.doNothing().when(networkHelperSpy).configurePublicVrNicBasedOnSourceNatIp(Mockito.any(), Mockito.any());
+        Mockito.doReturn(List.of(networkOfferingMock)).when(networkModel).getSystemAccountNetworkOfferings(Mockito.any());
+        Mockito.doReturn(List.of(networkMock)).when(networkOrchestrationService).setupNetwork(
+                Mockito.any(), Mockito.any(), Mockito.any(), Mockito.any(), Mockito.any(), Mockito.anyBoolean()
+        );
+        Mockito.doNothing().when(networkHelperSpy).setPublicNicMacAddressSameAsPeerNic(Mockito.any(), Mockito.any(), Mockito.any());
+
+        Map<Network, List<? extends NicProfile>> nic = networkHelperSpy.configurePublicNic(routerDeploymentDefinitionMock, true);
+        Integer nicDeviceId = nic.get(networkMock).get(0).getDeviceId();
+        Assert.assertEquals(2, nicDeviceId.intValue());
+    }
+
+    @Test
+    public void configurePublicNicTestUpdateGuestNetworksIpv6Nic() throws InsufficientAddressCapacityException {
+        PublicIp publicIpMock = Mockito.mock(PublicIp.class);
+        NetworkOffering networkOfferingMock = Mockito.mock(NetworkOffering.class);
+        DeployDestination deployDestinationMock = Mockito.mock(DeployDestination.class);
+
+        Mockito.when(routerDeploymentDefinitionMock.isPublicNetwork()).thenReturn(true);
+        Mockito.when(routerDeploymentDefinitionMock.getSourceNatIP()).thenReturn(publicIpMock);
+        Mockito.doNothing().when(networkHelperSpy).configurePublicVrNicBasedOnSourceNatIp(Mockito.any(), Mockito.any());
+        Mockito.doReturn(List.of(networkOfferingMock)).when(networkModel).getSystemAccountNetworkOfferings(Mockito.any());
+        Mockito.doReturn(List.of(networkMock)).when(networkOrchestrationService).setupNetwork(
+                Mockito.any(), Mockito.any(), Mockito.any(), Mockito.any(), Mockito.any(), Mockito.anyBoolean()
+        );
+        Mockito.doNothing().when(networkHelperSpy).setPublicNicMacAddressSameAsPeerNic(Mockito.any(), Mockito.any(), Mockito.any());
+        Mockito.when(routerDeploymentDefinitionMock.getGuestNetwork()).thenReturn(networkMock);
+        Mockito.when(routerDeploymentDefinitionMock.getDest()).thenReturn(deployDestinationMock);
+
+        Map<Network, List<? extends NicProfile>> nic = networkHelperSpy.configurePublicNic(routerDeploymentDefinitionMock, false);
+        Mockito.verify(ipv6ServiceMock).updateNicIpv6(Mockito.eq(nic.get(networkMock).get(0)), Mockito.any(), Mockito.eq(networkMock));
+    }
 }

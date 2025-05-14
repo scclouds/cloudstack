@@ -340,6 +340,10 @@ public class NetworkResponse extends BaseResponseWithAssociatedNetwork implement
     @Param(description = "The BGP peers for the network", since = "4.20.0")
     private Set<BgpPeerResponse> bgpPeers;
 
+    @SerializedName(ApiConstants.KEEP_MAC_ADDRESS_ON_PUBLIC_NIC)
+    @Param(description = ApiConstants.PARAMETER_DESCRIPTION_KEEP_MAC_ADDRESS_ON_PUBLIC_NIC, since = "4.20.0.3-scclouds")
+    private Boolean keepMacAddressOnPublicNic;
+
     public NetworkResponse() {}
 
     public Boolean getDisplayNetwork() {
@@ -722,5 +726,9 @@ public class NetworkResponse extends BaseResponseWithAssociatedNetwork implement
 
     public void setIpv6Dns2(String ipv6Dns2) {
         this.ipv6Dns2 = ipv6Dns2;
+    }
+
+    public void setKeepMacAddressOnPublicNic(Boolean keepMacAddressOnPublicNic) {
+        this.keepMacAddressOnPublicNic = keepMacAddressOnPublicNic;
     }
 }

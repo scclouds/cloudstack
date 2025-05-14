@@ -2475,6 +2475,7 @@
 "label.usagetypedescription": "Usage description",
 "label.use.kubectl.access.cluster": "<code><b>kubectl</b></code> and <code><b>kubeconfig</b></code> file to access cluster",
 "label.use.local.timezone": "Use local timezone",
+"label.keep.mac.address.on.public.nic": "Use same MAC address for public NIC of VRs",
 "label.used": "Used",
 "label.usehttps": "Use HTTPS",
 "label.usenewdiskoffering": "Replace disk offering?",
