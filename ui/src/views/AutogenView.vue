@@ -237,7 +237,13 @@
                   <tooltip-label
                     v-if="['domain', 'guestcidraddress'].includes(field.name) && ['createZone', 'updateZone'].includes(currentAction.api)"
                     :title="$t('label.default.network.' + field.name + '.isolated.network')"
-                    :tooltip="field.description"/>
+                    :tooltip="field.description"
+                  />
+                  <tooltip-label
+                    v-else-if="field.name === 'keepmacaddressonpublicnic' && currentAction.api === 'updateVPC'"
+                    :title="$t('label.keep.mac.address.on.public.nic')"
+                    :tooltip="field.description"
+                  />
                   <tooltip-label v-else :title="$t('label.' + field.name)" :tooltip="field.description"/>
                 </template>
 

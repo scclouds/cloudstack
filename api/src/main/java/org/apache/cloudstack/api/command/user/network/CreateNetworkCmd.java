@@ -199,6 +199,13 @@ public class CreateNetworkCmd extends BaseCmd implements UserCmd {
     @Parameter(name=ApiConstants.AS_NUMBER, type=CommandType.LONG, since = "4.20.0", description="the AS Number of the network")
     private Long asNumber;
 
+    @Parameter(name = ApiConstants.KEEP_MAC_ADDRESS_ON_PUBLIC_NIC,
+            description = ApiConstants.PARAMETER_DESCRIPTION_KEEP_MAC_ADDRESS_ON_PUBLIC_NIC,
+            type = CommandType.BOOLEAN,
+            since = "4.20.0.3-scclouds",
+            authorized = {RoleType.Admin})
+    private Boolean keepMacAddressOnPublicNic;
+
     /////////////////////////////////////////////////////
     /////////////////// Accessors ///////////////////////
     /////////////////////////////////////////////////////
@@ -405,6 +412,10 @@ public class CreateNetworkCmd extends BaseCmd implements UserCmd {
 
     public Long getAsNumber() {
         return asNumber;
+    }
+
+    public Boolean getKeepMacAddressOnPublicNic() {
+        return keepMacAddressOnPublicNic;
     }
 
     /////////////////////////////////////////////////////

@@ -1766,6 +1766,7 @@
 "label.usageunit": "Unidade",
 "label.use.kubectl.access.cluster": "os arquivos <code><b>kubectl</b></code> e <code><b>kubeconfig</b></code> para acessar o cluster",
 "label.use.local.timezone": "Use o fuso hor\u00e1rio local",
+"label.keep.mac.address.on.public.nic": "Utilizar o mesmo endere\u00e7o MAC para a NIC p\u00fablica dos VRs",
 "label.used": "Utilizado",
 "label.usehttps": "Utilize HTTPS",
 "label.usenewdiskoffering": "Substituir a oferta de disco?",

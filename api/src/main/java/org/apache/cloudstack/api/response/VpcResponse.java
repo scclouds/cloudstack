@@ -181,6 +181,10 @@ public class VpcResponse extends BaseResponseWithAnnotations implements Controll
     @Param(description = "The BGP peers for the VPC", since = "4.20.0")
     private Set<BgpPeerResponse> bgpPeers;
 
+    @SerializedName(ApiConstants.KEEP_MAC_ADDRESS_ON_PUBLIC_NIC)
+    @Param(description = ApiConstants.PARAMETER_DESCRIPTION_KEEP_MAC_ADDRESS_ON_PUBLIC_NIC, since = "4.20.0.3-scclouds")
+    private Boolean keepMacAddressOnPublicNic;
+
     public void setId(final String id) {
         this.id = id;
     }
@@ -357,5 +361,9 @@ public class VpcResponse extends BaseResponseWithAnnotations implements Controll
             this.setBgpPeers(new LinkedHashSet<>());
         }
         this.bgpPeers.add(bgpPeer);
+    }
+
+    public void setKeepMacAddressOnPublicNic(Boolean keepMacAddressOnPublicNic) {
+        this.keepMacAddressOnPublicNic = keepMacAddressOnPublicNic;
     }
 }

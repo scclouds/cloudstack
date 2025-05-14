@@ -57,7 +57,7 @@ public interface VpcService {
      */
     Vpc createVpc(long zoneId, long vpcOffId, long vpcOwnerId, String vpcName, String displayText, String cidr, String networkDomain,
                   String ip4Dns1, String ip4Dns2, String ip6Dns1, String ip6Dns2, Boolean displayVpc, Integer publicMtu, Integer cidrSize,
-                  Long asNumber, List<Long> bgpPeerIds)
+                  Long asNumber, List<Long> bgpPeerIds, Boolean keepMacAddressOnPublicNic)
             throws ResourceAllocationException;
 
     /**
@@ -104,7 +104,8 @@ public interface VpcService {
      * @throws ResourceUnavailableException if during restart some resources may not be available
      * @throws InsufficientCapacityException if for instance no address space, compute or storage is sufficiently available
      */
-    Vpc updateVpc(long vpcId, String vpcName, String displayText, String customId, Boolean displayVpc, Integer mtu, String sourceNatIp) throws ResourceUnavailableException, InsufficientCapacityException;
+    Vpc updateVpc(long vpcId, String vpcName, String displayText, String customId, Boolean displayVpc, Integer mtu,
+                  String sourceNatIp, Boolean keepMacAddressOnPublicNic) throws ResourceUnavailableException, InsufficientCapacityException;
 
     /**
      * Lists VPC(s) based on the parameters passed to the API call

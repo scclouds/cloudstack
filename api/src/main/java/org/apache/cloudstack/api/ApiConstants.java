@@ -1169,6 +1169,7 @@ public class ApiConstants {
     public static final String QUOTA = "quota";
     public static final String ACCESS_KEY = "accesskey";
 
+    public static final String KEEP_MAC_ADDRESS_ON_PUBLIC_NIC = "keepmacaddressonpublicnic";
     public static final String SOURCE_NAT_IP = "sourcenatipaddress";
     public static final String SOURCE_NAT_IP_ID = "sourcenatipaddressid";
     public static final String HAS_RULES = "hasrules";
@@ -1234,6 +1235,11 @@ public class ApiConstants {
 
     public static final String L2_NETWORK_UPDATE_MESSAGE = "This field is only available when updating L2 networks to allow operators to customize information about this type of" +
             " guest network, and they only affect the presentation of this field.";
+
+    public static final String PARAMETER_DESCRIPTION_KEEP_MAC_ADDRESS_ON_PUBLIC_NIC =
+            "Indicates whether to use the same MAC address for the public NIC of VRs on the same network. If \"true\", when creating redundant routers or recreating" +
+                    " a VR, CloudStack will use the same MAC address for the public NIC of all VRs. Otherwise, if \"false\", new public NICs will always have " +
+                    " a new MAC address.";
 
     public static final String CSS = "css";
 

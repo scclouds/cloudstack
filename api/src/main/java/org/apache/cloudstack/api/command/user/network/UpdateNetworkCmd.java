@@ -109,6 +109,12 @@ public class UpdateNetworkCmd extends BaseAsyncCustomIdCmd implements UserCmd {
     @Parameter(name = ApiConstants.GATEWAY, type = CommandType.STRING, description = "the gateway of the network."  + ApiConstants.L2_NETWORK_UPDATE_MESSAGE)
     private String gateway;
 
+    @Parameter(name = ApiConstants.KEEP_MAC_ADDRESS_ON_PUBLIC_NIC,
+            description = ApiConstants.PARAMETER_DESCRIPTION_KEEP_MAC_ADDRESS_ON_PUBLIC_NIC,
+            type = CommandType.BOOLEAN,
+            since = "4.20.0.3-scclouds", authorized = {RoleType.Admin})
+    private Boolean keepMacAddressOnPublicNic;
+
     /////////////////////////////////////////////////////
     /////////////////// Accessors ///////////////////////
     /////////////////////////////////////////////////////
@@ -192,6 +198,10 @@ public class UpdateNetworkCmd extends BaseAsyncCustomIdCmd implements UserCmd {
 
     public String getGateway() {
         return gateway;
+    }
+
+    public Boolean getKeepMacAddressOnPublicNic() {
+        return keepMacAddressOnPublicNic;
     }
 
     /////////////////////////////////////////////////////

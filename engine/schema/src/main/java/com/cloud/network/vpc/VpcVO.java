@@ -107,6 +107,9 @@ public class VpcVO implements Vpc {
     @Transient
     boolean rollingRestart = false;
 
+    @Column(name = "keep_mac_address_on_public_nic")
+    private Boolean keepMacAddressOnPublicNic = true;
+
     public VpcVO() {
         uuid = UUID.randomUUID().toString();
     }
@@ -306,5 +309,14 @@ public class VpcVO implements Vpc {
     @Override
     public String getIp6Dns2() {
         return ip6Dns2;
+    }
+
+    @Override
+    public Boolean getKeepMacAddressOnPublicNic() {
+        return keepMacAddressOnPublicNic;
+    }
+
+    public void setKeepMacAddressOnPublicNic(Boolean keepMacAddressOnPublicNic) {
+        this.keepMacAddressOnPublicNic = keepMacAddressOnPublicNic;
     }
 }

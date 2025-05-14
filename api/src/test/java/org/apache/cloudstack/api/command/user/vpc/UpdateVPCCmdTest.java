@@ -88,12 +88,13 @@ public class UpdateVPCCmdTest extends TestCase {
         ReflectionTestUtils.setField(cmd, "customId", null);
         ReflectionTestUtils.setField(cmd, "display", true);
         ReflectionTestUtils.setField(cmd, "publicMtu", 1450);
+        ReflectionTestUtils.setField(cmd, "keepMacAddressOnPublicNic", true);
         Vpc vpc = Mockito.mock(Vpc.class);
         VpcResponse response = Mockito.mock(VpcResponse.class);
         responseGenerator = Mockito.mock(ResponseGenerator.class);
         cmd._responseGenerator = responseGenerator;
         Mockito.verify(_vpcService, Mockito.times(0)).updateVpc(Mockito.anyLong(), Mockito.anyString(), Mockito.anyString(),
-                Mockito.anyString(), Mockito.anyBoolean(), Mockito.anyInt(), Mockito.anyString());
+                Mockito.anyString(), Mockito.anyBoolean(), Mockito.anyInt(), Mockito.anyString(), Mockito.anyBoolean());
 
     }
 }

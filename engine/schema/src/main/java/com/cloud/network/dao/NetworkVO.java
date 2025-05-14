@@ -206,6 +206,9 @@ public class NetworkVO implements Network {
     @Transient
     Integer networkCidrSize;
 
+    @Column(name = "keep_mac_address_on_public_nic")
+    private Boolean keepMacAddressOnPublicNic = true;
+
     public NetworkVO() {
         uuid = UUID.randomUUID().toString();
     }
@@ -772,5 +775,14 @@ public class NetworkVO implements Network {
 
     public void setNetworkCidrSize(Integer networkCidrSize) {
         this.networkCidrSize = networkCidrSize;
+    }
+
+    @Override
+    public Boolean getKeepMacAddressOnPublicNic() {
+        return keepMacAddressOnPublicNic;
+    }
+
+    public void setKeepMacAddressOnPublicNic(Boolean keepMacAddressOnPublicNic) {
+        this.keepMacAddressOnPublicNic = keepMacAddressOnPublicNic;
     }
 }
