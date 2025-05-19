@@ -98,14 +98,14 @@ public class GuiThemeServiceImpl implements GuiThemeService {
     @Inject
     DomainDao domainDao;
 
-    protected boolean callerHasRolePermission () {
+    protected boolean callerHasRolePermission (String apiKey) {
         Account callingAccount = CallContext.current().getCallingAccount();
         if (callingAccount.getId() == Account.ACCOUNT_ID_SYSTEM) {
             logger.info("Unauthenticated call to `listGuiThemes` API, ignoring all parameters, except `commonName`.");
             return false;
         }
         try {
-            accountManager.checkApiAccess(callingAccount, BaseCmd.getCommandNameByClass(ListGuiThemesCmd.class));
+            accountManager.checkApiAccess(callingAccount, BaseCmd.getCommandNameByClass(ListGuiThemesCmd.class), apiKey);
             return true;
         } catch (PermissionDeniedException ex) {
             logger.info(String.format("Account [%s] role [%s] does not have permission to `listGuiThemes` API. Therefore, we will consider it as an unathenticated API call and ignore all parameters, except `commonName`.",
@@ -119,10 +119,11 @@ public class GuiThemeServiceImpl implements GuiThemeService {
         ListResponse<GuiThemeResponse> response = new ListResponse<>();
         Pair<List<GuiThemeJoinVO>, Integer> result;
         boolean listOnlyDefaultTheme = cmd.getListOnlyDefaultTheme();
+        String apiKey = cmd.getFullUrlParams().get("apikey");
 
         if (listOnlyDefaultTheme) {
             result = retrieveDefaultTheme();
-        } else if (!callerHasRolePermission()) {
+        } else if (!callerHasRolePermission(apiKey)) {
             result = listGuiThemesWithNoAuth(cmd);
         } else {
             result = listGuiThemesInternal(cmd);

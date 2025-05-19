@@ -517,7 +517,7 @@ public class MockAccountManagerImpl extends ManagerBase implements Manager, Acco
     }
 
     @Override
-    public void checkApiAccess(Account account, String command) throws PermissionDeniedException {
+    public void checkApiAccess(Account account, String command, String apiKey) throws PermissionDeniedException {
 
     }
 
