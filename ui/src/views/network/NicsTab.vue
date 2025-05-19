@@ -189,6 +189,11 @@
             :placeholder="$t('label.new.secondaryip.description')"
             v-model:value="newSecondaryIp"
             v-focus="editNicResource.type!=='Shared'"></a-input>
+          <p class="modal-form__label">{{ $t('label.secondaryip.description') }}</p>
+          <a-input
+            :placeholder="$t('label.new.secondaryip.description.description')"
+            v-model:value="newSecondaryIpDescription"
+            v-focus="editNicResource.type!=='Shared'"></a-input>
         </div>
 
         <div style="margin-top: 10px; display: flex; justify-content:flex-end;">
@@ -262,6 +267,7 @@ export default {
       secondaryIPs: [],
       selectedNicId: '',
       newSecondaryIp: '',
+      newSecondaryIpDescription: '',
       editNicResource: {},
       listIps: {
         loading: false,
@@ -333,6 +339,7 @@ export default {
       this.addNetworkData.ip = ''
       this.editIpAddressValue = ''
       this.newSecondaryIp = ''
+      this.newSecondaryIpDescription = ''
     },
     onChangeIPAddress (record) {
       this.editNicResource = record.nic
@@ -493,6 +500,7 @@ export default {
       if (this.newSecondaryIp) {
         params.ipaddress = this.newSecondaryIp
       }
+      params.description = this.newSecondaryIpDescription
 
       api('addIpToNic', params).then(response => {
         this.$pollJob({
@@ -520,6 +528,7 @@ export default {
         this.loadingNic = false
       }).finally(() => {
         this.newSecondaryIp = null
+        this.newSecondaryIpDescription = null
         this.fetchPublicIps(this.editNetworkId)
       })
     },
