@@ -1429,16 +1429,23 @@ public class AccountManagerImpl extends ManagerBase implements AccountManager, M
         }
     }
 
-    private void checkApiAccess(List<APIChecker> apiCheckers, Account caller, String command) {
+    private void checkApiAccess(List<APIChecker> apiCheckers, Account caller, String command, ApiKeyPairPermission ... apiKeyPairPermissions) {
         for (final APIChecker apiChecker : apiCheckers) {
-            apiChecker.checkAccess(caller, command);
+            apiChecker.checkAccess(caller, command, apiKeyPairPermissions);
         }
     }
 
     @Override
-    public void checkApiAccess(Account caller, String command) {
+    public void checkApiAccess(Account caller, String command, String apiKey) {
         List<APIChecker> apiCheckers = getEnabledApiCheckers();
-        checkApiAccess(apiCheckers, caller, command);
+
+        List<ApiKeyPairPermission> keyPairPermissions = new ArrayList<>();
+        if (apiKey != null) {
+            ApiKeyPair keyPair = findUserByApiKey(apiKey).third();
+            keyPairPermissions = keyPairManager.findAllPermissionsByKeyPairId(keyPair.getId(), caller.getRoleId());
+        }
+
+        checkApiAccess(apiCheckers, caller, command, keyPairPermissions.toArray(new ApiKeyPairPermission[0]));
     }
 
     @NotNull

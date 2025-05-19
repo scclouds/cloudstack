@@ -76,7 +76,7 @@ public class GuiThemeServiceImplTest {
     public void listGuiThemesTestCallerNoRolePermission() {
         Pair<List<GuiThemeVO>, Integer> emptyPair = new Pair<>(new ArrayList<>(), 0);
         Mockito.doReturn(false).when(listGuiThemesCmdMock).getListOnlyDefaultTheme();
-        Mockito.doReturn(false).when(guiThemeServiceSpy).callerHasRolePermission();
+        Mockito.doReturn(false).when(guiThemeServiceSpy).callerHasRolePermission(Mockito.isNull());
         Mockito.doReturn(emptyPair).when(guiThemeServiceSpy).listGuiThemesWithNoAuth(Mockito.nullable(ListGuiThemesCmd.class));
 
         guiThemeServiceSpy.listGuiThemes(listGuiThemesCmdMock);
@@ -87,7 +87,7 @@ public class GuiThemeServiceImplTest {
     public void listGuiThemesTestShouldCallNormalFlowWhenAuthenticatedAndRoleHasPermission() {
         Pair<List<GuiThemeVO>, Integer> emptyPair = new Pair<>(new ArrayList<>(), 0);
         Mockito.doReturn(false).when(listGuiThemesCmdMock).getListOnlyDefaultTheme();
-        Mockito.doReturn(true).when(guiThemeServiceSpy).callerHasRolePermission();
+        Mockito.doReturn(true).when(guiThemeServiceSpy).callerHasRolePermission(Mockito.isNull());
         Mockito.doReturn(emptyPair).when(guiThemeServiceSpy).listGuiThemesInternal(Mockito.nullable(ListGuiThemesCmd.class));
         guiThemeServiceSpy.listGuiThemes(listGuiThemesCmdMock);
         Mockito.verify(guiThemeServiceSpy, Mockito.times(1)).listGuiThemesInternal(Mockito.nullable(ListGuiThemesCmd.class));
