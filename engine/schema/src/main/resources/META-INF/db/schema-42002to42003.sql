@@ -17,6 +17,9 @@
 
 -- Schema upgrade from 4.20.0.2 to 4.20.0.3
 
+--- Disable/enable NICs
+CALL `cloud`.`IDEMPOTENT_ADD_COLUMN`('cloud.nics','link_state', 'VARCHAR(10) NOT NULL DEFAULT ''Enabled'' COMMENT ''Indicates the link state of the NIC''');
+
 CALL `cloud`.`IDEMPOTENT_ADD_COLUMN`('cloud.firewall_rules', 'removed', 'datetime DEFAULT NULL');
 CALL `cloud`.`IDEMPOTENT_ADD_COLUMN`('cloud.load_balancer_vm_map', 'removed', 'datetime DEFAULT NULL');
 CALL `cloud`.`IDEMPOTENT_ADD_COLUMN`('cloud.load_balancer_cert_map', 'removed', 'datetime DEFAULT NULL');
