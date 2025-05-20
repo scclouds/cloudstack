@@ -42,6 +42,7 @@ import com.cloud.storage.Volume;
 import com.cloud.user.Account;
 import com.cloud.util.StoragePoolTypeConverter;
 import com.cloud.utils.db.GenericDao;
+import com.cloud.vm.Nic;
 import com.cloud.vm.VirtualMachine;
 import com.cloud.vm.VirtualMachine.State;
 import org.apache.cloudstack.util.HypervisorTypeConverter;
@@ -308,6 +309,9 @@ public class UserVmJoinVO extends BaseViewWithTagInformationVO implements Contro
 
     @Column(name = "is_default_nic")
     private boolean isDefaultNic;
+
+    @Column(name = "nic_link_state")
+    private Nic.LinkState nicLinkState;
 
     @Column(name = "ip_address")
     private String ipAddress;
@@ -976,5 +980,9 @@ public class UserVmJoinVO extends BaseViewWithTagInformationVO implements Contro
 
     public String getUserDataDetails() {
         return userDataDetails;
+    }
+
+    public Nic.LinkState getNicLinkState() {
+        return nicLinkState;
     }
 }
