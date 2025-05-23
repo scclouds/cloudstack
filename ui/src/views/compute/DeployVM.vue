@@ -1243,6 +1243,9 @@ export default {
         sshKeyPairs: {
           list: 'listSSHKeyPairs',
           options: {
+            domainid: this.owner.domainid,
+            account: this.owner.account,
+            projectid: this.owner.projectid,
             page: 1,
             pageSize: 10,
             keyword: undefined,
@@ -2430,17 +2433,11 @@ export default {
         domainid: store.getters.userInfo.domainid,
         account: store.getters.userInfo.account
       }
-      if (OwnerOptions.selectedAccountType === 'Account') {
-        if (!OwnerOptions.selectedAccount) {
-          return
-        }
+      if (OwnerOptions.selectedAccountType === 'Account' && OwnerOptions.selectedAccount) {
         this.owner.account = OwnerOptions.selectedAccount
         this.owner.domainid = OwnerOptions.selectedDomain
         this.owner.projectid = null
-      } else if (OwnerOptions.selectedAccountType === 'Project') {
-        if (!OwnerOptions.selectedProject) {
-          return
-        }
+      } else if (OwnerOptions.selectedAccountType === 'Project' && OwnerOptions.selectedProject) {
         this.owner.account = null
         this.owner.domainid = OwnerOptions.selectedDomain
         this.owner.projectid = OwnerOptions.selectedProject
