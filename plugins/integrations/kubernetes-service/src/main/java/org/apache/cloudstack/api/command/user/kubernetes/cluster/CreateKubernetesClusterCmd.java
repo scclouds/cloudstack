@@ -19,6 +19,7 @@ package org.apache.cloudstack.api.command.user.kubernetes.cluster;
 import javax.inject.Inject;
 
 import com.cloud.exception.InvalidParameterValueException;
+import com.cloud.kubernetes.cluster.KubernetesServiceHelper;
 import org.apache.cloudstack.acl.RoleType;
 import org.apache.cloudstack.acl.SecurityChecker.AccessType;
 import org.apache.cloudstack.api.ACL;
@@ -45,6 +46,8 @@ import com.cloud.kubernetes.cluster.KubernetesClusterEventTypes;
 import com.cloud.kubernetes.cluster.KubernetesClusterService;
 import com.cloud.utils.exception.CloudRuntimeException;
 
+import java.util.Map;
+
 @APICommand(name = "createKubernetesCluster",
         description = "Creates a Kubernetes cluster",
         responseObject = KubernetesClusterResponse.class,
@@ -58,6 +61,9 @@ public class CreateKubernetesClusterCmd extends BaseAsyncCreateCmd {
 
     @Inject
     public KubernetesClusterService kubernetesClusterService;
+
+    @Inject
+    protected KubernetesServiceHelper kubernetesClusterHelper;
 
     /////////////////////////////////////////////////////
     //////////////// API parameters /////////////////////
@@ -82,6 +88,11 @@ public class CreateKubernetesClusterCmd extends BaseAsyncCreateCmd {
     @Parameter(name = ApiConstants.SERVICE_OFFERING_ID, type = CommandType.UUID, entityType = ServiceOfferingResponse.class,
             description = "the ID of the service offering for the virtual machines in the cluster.")
     private Long serviceOfferingId;
+
+    @ACL(accessType = AccessType.UseEntry)
+    @Parameter(name = ApiConstants.NODE_TYPE_OFFERING_MAP, type = CommandType.MAP,
+            description = "(Optional) Node Type to Service Offering ID mapping. If provided, it overrides the serviceofferingid parameter")
+    protected Map<String, Map<String, String>> serviceOfferingNodeTypeMap;
 
     @ACL(accessType = AccessType.UseEntry)
     @Parameter(name = ApiConstants.ACCOUNT, type = CommandType.STRING, description = "an optional account for the" +
@@ -238,6 +249,10 @@ public class CreateKubernetesClusterCmd extends BaseAsyncCreateCmd {
             return KubernetesCluster.ClusterType.CloudManaged.toString();
         }
         return clusterType;
+    }
+
+    public Map<String, Long> getServiceOfferingNodeTypeMap() {
+        return kubernetesClusterHelper.getServiceOfferingNodeTypeMap(serviceOfferingNodeTypeMap);
     }
 
     /////////////////////////////////////////////////////

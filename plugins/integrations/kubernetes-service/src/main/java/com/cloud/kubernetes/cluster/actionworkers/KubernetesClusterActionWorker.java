@@ -31,6 +31,8 @@ import java.util.stream.Collectors;
 
 import javax.inject.Inject;
 
+import com.cloud.kubernetes.cluster.KubernetesServiceHelper;
+import com.cloud.offering.ServiceOffering;
 import org.apache.logging.log4j.Level;
 import org.apache.logging.log4j.Logger;
 import org.apache.logging.log4j.LogManager;
@@ -698,5 +700,30 @@ public class KubernetesClusterActionWorker {
 
     public void setKeys(String[] keys) {
         this.keys = keys;
+    }
+
+    protected ServiceOffering getServiceOfferingForNodeTypeOnCluster(KubernetesServiceHelper.KubernetesClusterNodeType nodeType,
+                                                                     KubernetesCluster cluster) {
+        Long existingOfferingIdForNodeType = manager.getExistingOfferingIdForNodeType(nodeType, cluster);
+        if (existingOfferingIdForNodeType != null) {
+            return serviceOfferingDao.findById(existingOfferingIdForNodeType);
+        }
+
+        Long offeringId = null;
+        Long defaultOfferingId = cluster.getServiceOfferingId();
+        Long controlOfferingId = cluster.getControlServiceOfferingId();
+        Long workerOfferingId = cluster.getWorkerServiceOfferingId();
+        if (KubernetesServiceHelper.KubernetesClusterNodeType.CONTROL == nodeType) {
+            offeringId = controlOfferingId != null ? controlOfferingId : defaultOfferingId;
+        } else if (KubernetesServiceHelper.KubernetesClusterNodeType.WORKER == nodeType) {
+            offeringId = workerOfferingId != null ? workerOfferingId : defaultOfferingId;
+        }
+
+        if (offeringId == null) {
+            String msg = String.format("Cannot find a service offering for the %s nodes on the Kubernetes cluster %s", nodeType.name(), cluster.getName());
+            logger.error(msg);
+            throw new CloudRuntimeException(msg);
+        }
+        return serviceOfferingDao.findById(offeringId);
     }
 }

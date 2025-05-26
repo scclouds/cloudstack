@@ -17,6 +17,8 @@
 
 package com.cloud.kubernetes.cluster.actionworkers;
 
+import static com.cloud.kubernetes.cluster.KubernetesServiceHelper.KubernetesClusterNodeType.CONTROL;
+import static com.cloud.kubernetes.cluster.KubernetesServiceHelper.KubernetesClusterNodeType.WORKER;
 import static com.cloud.utils.NumbersUtil.toHumanReadableSize;
 
 import java.io.File;
@@ -30,6 +32,7 @@ import java.util.stream.Collectors;
 
 import javax.inject.Inject;
 
+import com.cloud.kubernetes.cluster.KubernetesServiceHelper;
 import com.cloud.network.rules.FirewallManager;
 import com.cloud.offering.NetworkOffering;
 import com.cloud.offerings.dao.NetworkOfferingDao;
@@ -294,12 +297,19 @@ public class KubernetesClusterResourceModifierActionWorker extends KubernetesClu
     }
 
     protected DeployDestination plan() throws InsufficientServerCapacityException {
-        ServiceOffering offering = serviceOfferingDao.findById(kubernetesCluster.getServiceOfferingId());
         DataCenter zone = dataCenterDao.findById(kubernetesCluster.getZoneId());
-        if (logger.isDebugEnabled()) {
-            logger.debug(String.format("Checking deployment destination for Kubernetes cluster : %s in zone : %s", kubernetesCluster.getName(), zone.getName()));
+        logger.debug("Checking deployment destination for Kubernetes cluster [{}] in zone [{}, {}].", kubernetesCluster.getName(), zone.getName(), zone.getUuid());
+
+        DeployDestination destination = null;
+        for (KubernetesServiceHelper.KubernetesClusterNodeType nodeType : List.of(CONTROL, WORKER)) {
+            logger.debug("Checking deployment destination for [{}] nodes of Kubernetes cluster [{}] in zone [{}, {}]", nodeType, kubernetesCluster.getName(), zone.getName(), zone.getUuid());
+
+            ServiceOffering offering = getServiceOfferingForNodeTypeOnCluster(nodeType, kubernetesCluster);
+            long nodeCount = nodeType == CONTROL ? kubernetesCluster.getControlNodeCount() : kubernetesCluster.getNodeCount();
+            destination = plan(nodeCount, zone, offering);
         }
-        return plan(kubernetesCluster.getTotalNodeCount(), zone, offering);
+
+        return destination;
     }
 
     protected void resizeNodeVolume(final UserVm vm) throws ManagementServerException {
@@ -379,7 +389,7 @@ public class KubernetesClusterResourceModifierActionWorker extends KubernetesClu
             ResourceUnavailableException, InsufficientCapacityException {
         UserVm nodeVm = null;
         DataCenter zone = dataCenterDao.findById(kubernetesCluster.getZoneId());
-        ServiceOffering serviceOffering = serviceOfferingDao.findById(kubernetesCluster.getServiceOfferingId());
+        ServiceOffering serviceOffering = getServiceOfferingForNodeTypeOnCluster(WORKER, kubernetesCluster);
         List<Long> networkIds = new ArrayList<Long>();
         networkIds.add(kubernetesCluster.getNetworkId());
         Account owner = accountDao.findById(kubernetesCluster.getAccountId());
@@ -788,7 +798,11 @@ public class KubernetesClusterResourceModifierActionWorker extends KubernetesClu
     }
 
     protected KubernetesClusterVO updateKubernetesClusterEntry(final Long cores, final Long memory, final Long size,
-               final Long serviceOfferingId, final Boolean autoscaleEnabled, final Long minSize, final Long maxSize) {
+                                                               final Long serviceOfferingId, final Boolean autoscaleEnabled,
+                                                               final Long minSize, final Long maxSize,
+                                                               final KubernetesServiceHelper.KubernetesClusterNodeType nodeType,
+                                                               final boolean updateNodeOffering,
+                                                               final boolean updateClusterOffering) {
         return Transaction.execute((TransactionCallback<KubernetesClusterVO>) status -> {
             KubernetesClusterVO updatedCluster = kubernetesClusterDao.createForUpdate(kubernetesCluster.getId());
 
@@ -801,7 +815,14 @@ public class KubernetesClusterResourceModifierActionWorker extends KubernetesClu
             if (size != null) {
                 updatedCluster.setNodeCount(size);
             }
-            if (serviceOfferingId != null) {
+            if (updateNodeOffering && serviceOfferingId != null && nodeType != null) {
+                if (WORKER == nodeType) {
+                    updatedCluster.setWorkerServiceOfferingId(serviceOfferingId);
+                } else if (CONTROL == nodeType) {
+                    updatedCluster.setControlServiceOfferingId(serviceOfferingId);
+                }
+            }
+            if (updateClusterOffering && serviceOfferingId != null) {
                 updatedCluster.setServiceOfferingId(serviceOfferingId);
             }
             if (autoscaleEnabled != null) {
@@ -809,12 +830,13 @@ public class KubernetesClusterResourceModifierActionWorker extends KubernetesClu
             }
             updatedCluster.setMinSize(minSize);
             updatedCluster.setMaxSize(maxSize);
-            return kubernetesClusterDao.persist(updatedCluster);
+            kubernetesClusterDao.persist(updatedCluster);
+            return kubernetesClusterDao.findById(kubernetesCluster.getId());
         });
     }
 
     private KubernetesClusterVO updateKubernetesClusterEntry(final Boolean autoscaleEnabled, final Long minSize, final Long maxSize) throws CloudRuntimeException {
-        KubernetesClusterVO kubernetesClusterVO = updateKubernetesClusterEntry(null, null, null, null, autoscaleEnabled, minSize, maxSize);
+        KubernetesClusterVO kubernetesClusterVO = updateKubernetesClusterEntry(null, null, null, null, autoscaleEnabled, minSize, maxSize, null, false, false);
         if (kubernetesClusterVO == null) {
             logTransitStateAndThrow(Level.ERROR, String.format("Scaling Kubernetes cluster %s failed, unable to update Kubernetes cluster",
                     kubernetesCluster.getName()), kubernetesCluster.getId(), KubernetesCluster.Event.OperationFailed);

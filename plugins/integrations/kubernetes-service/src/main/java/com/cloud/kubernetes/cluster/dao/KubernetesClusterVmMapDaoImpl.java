@@ -18,6 +18,7 @@ package com.cloud.kubernetes.cluster.dao;
 
 import java.util.List;
 
+import com.cloud.kubernetes.cluster.KubernetesServiceHelper;
 import org.springframework.stereotype.Component;
 
 import com.cloud.kubernetes.cluster.KubernetesClusterVmMapVO;
@@ -25,6 +26,8 @@ import com.cloud.utils.db.Filter;
 import com.cloud.utils.db.GenericDaoBase;
 import com.cloud.utils.db.SearchBuilder;
 import com.cloud.utils.db.SearchCriteria;
+
+import static com.cloud.kubernetes.cluster.KubernetesServiceHelper.KubernetesClusterNodeType.CONTROL;
 
 
 @Component
@@ -37,6 +40,7 @@ public class KubernetesClusterVmMapDaoImpl extends GenericDaoBase<KubernetesClus
         clusterIdSearch = createSearchBuilder();
         clusterIdSearch.and("clusterId", clusterIdSearch.entity().getClusterId(), SearchCriteria.Op.EQ);
         clusterIdSearch.and("vmIdsIN", clusterIdSearch.entity().getVmId(), SearchCriteria.Op.IN);
+        clusterIdSearch.and("controlNode", clusterIdSearch.entity().isControlNode(), SearchCriteria.Op.EQ);
         clusterIdSearch.done();
 
         vmIdSearch = createSearchBuilder();
@@ -80,6 +84,14 @@ public class KubernetesClusterVmMapDaoImpl extends GenericDaoBase<KubernetesClus
         SearchCriteria<KubernetesClusterVmMapVO> sc = clusterIdSearch.create();
         sc.setParameters("clusterId", clusterId);
         return remove(sc);
+    }
+
+    @Override
+    public List<KubernetesClusterVmMapVO> listByClusterIdAndVmType(long clusterId, KubernetesServiceHelper.KubernetesClusterNodeType nodeType) {
+        SearchCriteria<KubernetesClusterVmMapVO> sc = clusterIdSearch.create();
+        sc.setParameters("clusterId", clusterId);
+        sc.setParameters("controlNode", CONTROL == nodeType);
+        return listBy(sc);
     }
 
     @Override

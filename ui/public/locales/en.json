@@ -2114,6 +2114,8 @@
 "label.service.lb.netscaler.servicepackages": "Netscaler service packages",
 "label.service.lb.netscaler.servicepackages.description": "Service package description",
 "label.service.offering": "Service offering",
+"label.service.offering.controlnodes": "Compute offering for Control Nodes",
+"label.service.offering.workernodes": "Compute offering for Worker Nodes",
 "label.service.staticnat.associatepublicip": "Associate public IP",
 "label.service.staticnat.elasticipcheckbox": "Elastic IP",
 "label.servicegroupuuid": "Service Group",
