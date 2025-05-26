@@ -91,6 +91,6 @@ DELETE FROM `cloud`.`configuration`
 WHERE `name` = 'use.same.mac.address.for.public.nic.of.virtual.routers.on.same.network';
 
 -- Update vmSnapshot.strategies.exclude
-UPDATE FROM `cloud`.`configuration`
+UPDATE `cloud`.`configuration`
 SET `value` = 'StorageVMSnapshotStrategy'
 WHERE `name` = 'vmSnapshot.strategies.exclude' AND `value` IS NULL;
