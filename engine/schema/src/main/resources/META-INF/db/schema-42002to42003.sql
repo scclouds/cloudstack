@@ -90,6 +90,9 @@ SET `keep_mac_address_on_public_nic` = (
 DELETE FROM `cloud`.`configuration`
 WHERE `name` = 'use.same.mac.address.for.public.nic.of.virtual.routers.on.same.network';
 
+-- Set backup offering id back to backup name
+UPDATE `cloud`.`vm_instance` vm INNER JOIN `cloud`.`backup_offering` bo ON vm.backup_offering_id = bo.id SET vm.backup_name = CONCAT(vm.instance_name, "-CSBKP-", bo.uuid);
+
 -- Update vmSnapshot.strategies.exclude
 UPDATE FROM `cloud`.`configuration`
 SET `value` = 'StorageVMSnapshotStrategy'
