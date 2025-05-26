@@ -58,6 +58,22 @@ public class KubernetesClusterResponse extends BaseResponseWithAnnotations imple
     @Param(description = "the name of the service offering of the Kubernetes cluster")
     private String serviceOfferingName;
 
+    @SerializedName(ApiConstants.WORKER_SERVICE_OFFERING_ID)
+    @Param(description = "the ID of the service offering of the worker nodes on the Kubernetes cluster")
+    private String workerOfferingId;
+
+    @SerializedName(ApiConstants.WORKER_SERVICE_OFFERING_NAME)
+    @Param(description = "the name of the service offering of the worker nodes on the Kubernetes cluster")
+    private String workerOfferingName;
+
+    @SerializedName(ApiConstants.CONTROL_SERVICE_OFFERING_ID)
+    @Param(description = "the ID of the service offering of the control nodes on the Kubernetes cluster")
+    private String controlOfferingId;
+
+    @SerializedName(ApiConstants.CONTROL_SERVICE_OFFERING_NAME)
+    @Param(description = "the name of the service offering of the control nodes on the Kubernetes cluster")
+    private String controlOfferingName;
+
     @SerializedName(ApiConstants.TEMPLATE_ID)
     @Param(description = "the ID of the template of the Kubernetes cluster")
     private String templateId;
@@ -365,6 +381,38 @@ public class KubernetesClusterResponse extends BaseResponseWithAnnotations imple
 
     public void setServiceOfferingName(String serviceOfferingName) {
         this.serviceOfferingName = serviceOfferingName;
+    }
+
+    public String getWorkerOfferingId() {
+        return workerOfferingId;
+    }
+
+    public void setWorkerOfferingId(String workerOfferingId) {
+        this.workerOfferingId = workerOfferingId;
+    }
+
+    public String getWorkerOfferingName() {
+        return workerOfferingName;
+    }
+
+    public void setWorkerOfferingName(String workerOfferingName) {
+        this.workerOfferingName = workerOfferingName;
+    }
+
+    public String getControlOfferingId() {
+        return controlOfferingId;
+    }
+
+    public void setControlOfferingId(String controlOfferingId) {
+        this.controlOfferingId = controlOfferingId;
+    }
+
+    public String getControlOfferingName() {
+        return controlOfferingName;
+    }
+
+    public void setControlOfferingName(String controlOfferingName) {
+        this.controlOfferingName = controlOfferingName;
     }
 
     public void setVirtualMachines(List<UserVmResponse> virtualMachines) {

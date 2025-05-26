@@ -1127,6 +1127,11 @@ public class ApiConstants {
     public static final String AUTOSCALING_ENABLED = "autoscalingenabled";
     public static final String MIN_SIZE = "minsize";
     public static final String MAX_SIZE = "maxsize";
+    public static final String NODE_TYPE_OFFERING_MAP = "nodeofferings";
+    public static final String WORKER_SERVICE_OFFERING_ID = "workerofferingid";
+    public static final String WORKER_SERVICE_OFFERING_NAME = "workerofferingname";
+    public static final String CONTROL_SERVICE_OFFERING_ID = "controlofferingid";
+    public static final String CONTROL_SERVICE_OFFERING_NAME = "controlofferingname";
 
     public static final String BOOT_TYPE = "boottype";
     public static final String BOOT_MODE = "bootmode";

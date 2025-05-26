@@ -21,9 +21,16 @@ import org.apache.cloudstack.acl.ControlledEntity;
 import com.cloud.uservm.UserVm;
 import com.cloud.utils.component.Adapter;
 
+import java.util.Map;
+
 public interface KubernetesServiceHelper extends Adapter {
+    enum KubernetesClusterNodeType {
+        CONTROL, WORKER, DEFAULT
+    }
 
     ControlledEntity findByUuid(String uuid);
     ControlledEntity findByVmId(long vmId);
     void checkVmCanBeDestroyed(UserVm userVm);
+    boolean isValidNodeType(String nodeType);
+    Map<String, Long> getServiceOfferingNodeTypeMap(Map<String, Map<String, String>> serviceOfferingNodeTypeMap);
 }

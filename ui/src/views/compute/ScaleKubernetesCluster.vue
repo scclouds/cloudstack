@@ -28,13 +28,14 @@
         :rules="rules"
         @finish="handleSubmit"
         layout="vertical">
-        <a-form-item name="serviceofferingid" ref="serviceofferingid">
+
+        <a-form-item name="workerofferingid" ref="workerofferingid">
           <template #label>
-            <tooltip-label :title="$t('label.serviceofferingid')" :tooltip="apiParams.serviceofferingid.description"/>
+            <tooltip-label :title="$t('label.service.offering.workernodes')" :tooltip="apiParams.serviceofferingid.description"/>
           </template>
           <a-select
-            id="offering-selection"
-            v-model:value="form.serviceofferingid"
+            id="offering-selection-worker"
+            v-model:value="form.workerofferingid"
             showSearch
             optionFilterProp="label"
             :filterOption="(input, option) => {
@@ -42,18 +43,38 @@
             }"
             :loading="serviceOfferingLoading"
             :placeholder="apiParams.serviceofferingid.description">
-            <a-select-option v-for="(opt, optIndex) in serviceOfferings" :key="optIndex" :label="opt.name || opt.description">
+            <a-select-option v-for="(opt, optIndex) in workerOfferings" :key="optIndex" :label="opt.name || opt.description">
               {{ opt.name || opt.description }}
             </a-select-option>
           </a-select>
         </a-form-item>
-        <a-form-item name="autoscalingenabled" ref="autoscalingenabled" v-if="apiParams.autoscalingenabled">
+        <a-form-item name="controlofferingid" ref="controlofferingid">
+          <template #label>
+            <tooltip-label :title="$t('label.service.offering.controlnodes')" :tooltip="apiParams.serviceofferingid.description"/>
+          </template>
+          <a-select
+            id="offering-selection-control"
+            v-model:value="form.controlofferingid"
+            showSearch
+            optionFilterProp="label"
+            :filterOption="(input, option) => {
+              return option.label.children.toLowerCase().indexOf(input.toLowerCase()) >= 0
+            }"
+            :loading="serviceOfferingLoading"
+            :placeholder="apiParams.serviceofferingid.description">
+            <a-select-option v-for="(opt, optIndex) in controlOfferings" :key="optIndex" :label="opt.name || opt.description">
+              {{ opt.name || opt.description }}
+            </a-select-option>
+          </a-select>
+        </a-form-item>
+
+        <a-form-item name="autoscalingenabled" ref="autoscalingenabled" v-if="apiParams.autoscalingenabled && ['Created', 'Running'].includes(resource.state)">
           <template #label>
             <tooltip-label :title="$t('label.cks.cluster.autoscalingenabled')" :tooltip="apiParams.autoscalingenabled.description"/>
           </template>
           <a-switch :checked="autoscalingenabled" @change="val => { autoscalingenabled = val }" />
         </a-form-item>
-        <span v-if="autoscalingenabled">
+        <span v-if="autoscalingenabled && ['Created', 'Running'].includes(resource.state)">
           <a-form-item name="minsize" ref="minsize">
             <template #label>
               <tooltip-label :title="$t('label.cks.cluster.minsize')" :tooltip="apiParams.minsize.description"/>
@@ -118,7 +139,9 @@ export default {
       originalSize: 1,
       autoscalingenabled: null,
       minsize: null,
-      maxsize: null
+      maxsize: null,
+      controlOfferings: [],
+      workerOfferings: []
     }
   },
   beforeCreate () {
@@ -152,10 +175,8 @@ export default {
       })
     },
     fetchData () {
-      if (this.resource.state === 'Running') {
-        this.fetchKubernetesClusterServiceOfferingData()
-        return
-      }
+      this.fetchKubernetesClusterServiceOfferingData(this.resource.workerofferingid, 'worker')
+      this.fetchKubernetesClusterServiceOfferingData(this.resource.controlofferingid, 'control')
       this.fetchKubernetesVersionData()
     },
     isValidValueForKey (obj, key) {
@@ -167,19 +188,23 @@ export default {
     isObjectEmpty (obj) {
       return !(obj !== null && obj !== undefined && Object.keys(obj).length > 0 && obj.constructor === Object)
     },
-    fetchKubernetesClusterServiceOfferingData () {
+    fetchKubernetesClusterServiceOfferingData (offeringId, type) {
       const params = {}
       if (!this.isObjectEmpty(this.resource)) {
-        params.id = this.resource.serviceofferingid
+        params.id = offeringId
       }
+
+      let minCpu = 0
+      let minMemory = 0
+
       api('listServiceOfferings', params).then(json => {
         var items = json?.listserviceofferingsresponse?.serviceoffering || []
         if (this.arrayHasItems(items) && !this.isObjectEmpty(items[0])) {
-          this.minCpu = items[0].cpunumber
-          this.minMemory = items[0].memory
+          minCpu = items[0].cpunumber
+          minMemory = items[0].memory
         }
       }).finally(() => {
-        this.fetchServiceOfferingData()
+        this.fetchServiceOfferingData(minCpu, minMemory, type)
       })
     },
     fetchKubernetesVersionData () {
@@ -197,11 +222,11 @@ export default {
         this.fetchServiceOfferingData()
       })
     },
-    fetchServiceOfferingData () {
-      this.serviceOfferings = []
+    fetchServiceOfferingData (minCpu, minMemory, type) {
+      const offerings = []
       const params = {
-        cpunumber: this.minCpu,
-        memory: this.minMemory
+        cpunumber: minCpu,
+        memory: minMemory
       }
       this.serviceOfferingLoading = true
       api('listServiceOfferings', params).then(json => {
@@ -209,16 +234,27 @@ export default {
         if (this.arrayHasItems(items)) {
           for (var i = 0; i < items.length; i++) {
             if (items[i].iscustomized === false) {
-              this.serviceOfferings.push(items[i])
+              offerings.push(items[i])
             }
           }
         }
       }).finally(() => {
         this.serviceOfferingLoading = false
-        if (this.arrayHasItems(this.serviceOfferings)) {
-          for (var i = 0; i < this.serviceOfferings.length; i++) {
-            if (this.serviceOfferings[i].id === this.resource.serviceofferingid) {
-              this.form.serviceofferingid = i
+        if (this.arrayHasItems(offerings)) {
+          if (type === 'default') {
+            this.serviceOfferings = offerings
+          } else if (type === 'worker') {
+            this.workerOfferings = offerings
+          } else if (type === 'control') {
+            this.controlOfferings = offerings
+          }
+
+          for (let i = 0; i < offerings.length; i++) {
+            if (type === 'worker' && offerings[i].id === this.resource.workerofferingid) {
+              this.form.workerofferingid = i
+              break
+            } else if (type === 'control' && offerings[i].id === this.resource.controlofferingid) {
+              this.form.controlofferingid = i
               break
             }
           }
@@ -241,15 +277,25 @@ export default {
         if (this.isValidValueForKey(values, 'size') && values.size > 0) {
           params.size = values.size
         }
-        if (this.isValidValueForKey(values, 'serviceofferingid') && this.arrayHasItems(this.serviceOfferings)) {
-          params.serviceofferingid = this.serviceOfferings[values.serviceofferingid].id
-        }
         if (this.isValidValueForKey(values, 'minsize')) {
           params.minsize = values.minsize
         }
         if (this.isValidValueForKey(values, 'maxsize')) {
           params.maxsize = values.maxsize
         }
+
+        let advancedOfferings = 0
+        if (this.isValidValueForKey(values, 'controlofferingid') && this.arrayHasItems(this.controlOfferings) && this.controlOfferings[values.controlofferingid].id != null) {
+          params['nodeofferings[' + advancedOfferings + '].node'] = 'control'
+          params['nodeofferings[' + advancedOfferings + '].offering'] = this.controlOfferings[values.controlofferingid].id
+          advancedOfferings++
+        }
+        if (this.isValidValueForKey(values, 'workerofferingid') && this.arrayHasItems(this.workerOfferings) && this.workerOfferings[values.workerofferingid].id != null) {
+          params['nodeofferings[' + advancedOfferings + '].node'] = 'worker'
+          params['nodeofferings[' + advancedOfferings + '].offering'] = this.workerOfferings[values.workerofferingid].id
+          advancedOfferings++
+        }
+
         api('scaleKubernetesCluster', params).then(json => {
           const jobId = json.scalekubernetesclusterresponse.jobid
           this.$pollJob({

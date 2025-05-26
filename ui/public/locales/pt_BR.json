@@ -1549,6 +1549,8 @@
 "label.service.lb.netscaler.servicepackages": "Pacotes de servi\u00e7o do Netscaler",
 "label.service.lb.netscaler.servicepackages.description": "Descri\u00e7\u00e3o dos pacotes de servi\u00e7o do Netscaler",
 "label.service.offering": "Plano",
+"label.service.offering.controlnodes": "Oferta de computa\u00e7\u00e3o para N\u00eds de Controle",
+"label.service.offering.workernodes": "Oferta de computa\u00e7\u00e3o para N\u00eds Worker",
 "label.service.staticnat.associatepublicip": "Associa IP p\u00fablico",
 "label.service.staticnat.elasticipcheckbox": "IP el\u00e1stico",
 "label.servicelist": "Servi\u00e7os",

@@ -94,3 +94,9 @@ WHERE `name` = 'use.same.mac.address.for.public.nic.of.virtual.routers.on.same.n
 UPDATE FROM `cloud`.`configuration`
 SET `value` = 'StorageVMSnapshotStrategy'
 WHERE `name` = 'vmSnapshot.strategies.exclude' AND `value` IS NULL;
+
+CALL `cloud`.`IDEMPOTENT_ADD_COLUMN`('cloud.kubernetes_cluster', 'control_service_offering_id', 'bigint unsigned COMMENT "service offering ID for Control Node(s)"');
+CALL `cloud`.`IDEMPOTENT_ADD_COLUMN`('cloud.kubernetes_cluster', 'worker_service_offering_id', 'bigint unsigned COMMENT "service offering ID for Worker Node(s)"');
+
+ALTER TABLE `cloud`.`kubernetes_cluster` ADD CONSTRAINT `fk_cluster__control_service_offering_id` FOREIGN KEY `fk_cluster__control_service_offering_id`(`control_service_offering_id`) REFERENCES `service_offering`(`id`);
+ALTER TABLE `cloud`.`kubernetes_cluster` ADD CONSTRAINT `fk_cluster__worker_service_offering_id` FOREIGN KEY `fk_cluster__worker_service_offering_id`(`worker_service_offering_id`) REFERENCES `service_offering`(`id`);
