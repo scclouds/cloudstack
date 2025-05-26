@@ -99,6 +99,7 @@ public class TransactionLegacy implements Closeable {
     }
 
     private static final String CONNECTION_POOL_LIB_DBCP = "dbcp";
+    private static final String CONNECTION_POOL_LIB_HIKARICP = "hikaricp";
 
     private final LinkedList<StackElement> _stack;
     private long _id;
@@ -1261,14 +1262,17 @@ public class TransactionLegacy implements Closeable {
                Integer maxActive, Integer maxIdle, Long maxWait, Long timeBtwnEvictionRuns, Long minEvictableIdleTime,
                Boolean testWhileIdle, Boolean testOnBorrow, String validationQuery, Integer minIdleConnections,
                Long connectionTimeout, Long keepAliveTime, Integer isolationLevel, String dsName) {
-        LOGGER.debug("Creating datasource for database: {} with connection pool lib: {}", dsName,
-                connectionPoolLib);
-        if (CONNECTION_POOL_LIB_DBCP.equals(connectionPoolLib)) {
-            return createDbcpDataSource(uri, username, password, maxActive, maxIdle, maxWait, timeBtwnEvictionRuns,
-                    minEvictableIdleTime, testWhileIdle, testOnBorrow, validationQuery, isolationLevel);
+        String logMessage = String.format("Creating datasource for database: [%s] with connection pool lib:", dsName);
+
+        if (CONNECTION_POOL_LIB_HIKARICP.equals(connectionPoolLib)) {
+            LOGGER.debug("{} [{}].", logMessage, CONNECTION_POOL_LIB_HIKARICP);
+            return createHikaricpDataSource(uri, username, password, maxActive, maxIdle, maxWait, minIdleConnections,
+                    connectionTimeout, keepAliveTime, isolationLevel, dsName);
         }
-        return createHikaricpDataSource(uri, username, password, maxActive, maxIdle, maxWait, minIdleConnections,
-                connectionTimeout, keepAliveTime, isolationLevel, dsName);
+
+        LOGGER.debug("{} [{}].", logMessage, CONNECTION_POOL_LIB_DBCP);
+        return createDbcpDataSource(uri, username, password, maxActive, maxIdle, maxWait, timeBtwnEvictionRuns,
+                minEvictableIdleTime, testWhileIdle, testOnBorrow, validationQuery, isolationLevel);
     }
 
     private static DataSource createHikaricpDataSource(String uri, String username, String password,
@@ -1363,12 +1367,14 @@ public class TransactionLegacy implements Closeable {
     }
 
     private static DataSource getDefaultDataSource(final String connectionPoolLib, final String database) {
-        LOGGER.debug("Creating default datasource for database: {} with connection pool lib: {}",
-                database, connectionPoolLib);
-        if (CONNECTION_POOL_LIB_DBCP.equalsIgnoreCase(connectionPoolLib)) {
-            return getDefaultDbcpDataSource(database);
+        String logMessage = String.format("Getting default datasource for database: [%s] with connection pool lib:", database);
+        if (CONNECTION_POOL_LIB_HIKARICP.equals(connectionPoolLib)) {
+            LOGGER.debug("{} [{}].", logMessage, CONNECTION_POOL_LIB_HIKARICP);
+            return getDefaultHikaricpDataSource(database);
         }
-        return getDefaultHikaricpDataSource(database);
+
+        LOGGER.debug("{} [{}].", logMessage, CONNECTION_POOL_LIB_DBCP);
+        return getDefaultDbcpDataSource(database);
     }
 
     @SuppressWarnings({"unchecked", "rawtypes"})
