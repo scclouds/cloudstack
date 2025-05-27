@@ -186,25 +186,6 @@ export default {
   methods: {
     fetchStoragePools () {
       this.loading = true
-      api('findStoragePoolsForMigration', {
-        id: this.resource.id,
-        keyword: this.searchQuery,
-        page: this.page,
-        pagesize: this.pageSize
-      }).then(response => {
-        this.storagePools = response.findstoragepoolsformigrationresponse.storagepool || []
-        this.totalCount = response.findstoragepoolsformigrationresponse.count
-        if (Array.isArray(this.storagePools) && this.storagePools.length) {
-          this.selectedStoragePool = this.storagePools[0].id || ''
-        }
-        this.fetchStoragePoolsMetrics()
-      }).catch(error => {
-        this.$notifyError(error)
-      }).finally(() => {
-        this.handleStoragePoolsFetchComplete()
-      })
-    },
-    fetchStoragePoolsMetrics () {
       const params = {
         zoneid: this.resource.zoneid,
         keyword: this.searchQuery,
@@ -217,8 +198,25 @@ export default {
       api('listStoragePoolsMetrics', params).then(response => {
         this.storagePoolsMetrics = response.liststoragepoolsmetricsresponse.storagepool || []
         this.totalCount = response.liststoragepoolsmetricsresponse.count
+        if (this.suitabilityEnabled) {
+          api('findStoragePoolsForMigration', {
+            id: this.resource.id,
+            keyword: this.searchQuery,
+            page: this.page,
+            pagesize: this.pageSize
+          }).then(response => {
+            this.storagePools = response.findstoragepoolsformigrationresponse.storagepool || []
+            this.totalCount = response.findstoragepoolsformigrationresponse.count
+          }).catch(error => {
+            this.$notifyError(error)
+          })
+        } else {
+          this.storagePools = this.storagePoolsMetrics
+        }
       }).catch(error => {
         this.$notifyError(error)
+      }).finally(() => {
+        this.handleStoragePoolsFetchComplete()
       })
     },
     handleStoragePoolsFetchComplete () {
