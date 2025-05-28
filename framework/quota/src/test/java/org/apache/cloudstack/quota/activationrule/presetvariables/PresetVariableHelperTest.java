@@ -1034,6 +1034,7 @@ public class PresetVariableHelperTest {
             Mockito.doReturn(expected.getStorage()).when(presetVariableHelperSpy).getPresetVariableValueStorage(Mockito.anyLong(), Mockito.anyInt());
             Mockito.doReturn(expected.getTags()).when(presetVariableHelperSpy).getPresetVariableValueResourceTags(Mockito.anyLong(), Mockito.any(ResourceObjectType.class));
             Mockito.doReturn(hypervisorType).when(snapshotVoMock).getHypervisorType();
+            Mockito.doReturn(Snapshot.State.BackedUp).when(snapshotVoMock).getState();
 
             Mockito.doReturn(UsageTypes.SNAPSHOT).when(usageVoMock).getUsageType();
 
@@ -1056,6 +1057,85 @@ public class PresetVariableHelperTest {
                 Mockito.eq(ResourceObjectType.Snapshot));
     }
 
+    @Test
+    public void loadPresetVariableValueForSnapshotTestDestroyedSnapshot() {
+        for (Hypervisor.HypervisorType hypervisorType : Hypervisor.HypervisorType.values()) {
+            Value expected = getValueForTests();
+
+            SnapshotVO snapshotVoMock = Mockito.mock(SnapshotVO.class);
+            Mockito.doReturn(snapshotVoMock).when(snapshotDaoMock).findByIdIncludingRemoved(Mockito.anyLong());
+
+            mockMethodValidateIfObjectIsNull();
+
+            Mockito.doReturn(expected.getId()).when(snapshotVoMock).getUuid();
+            Mockito.doReturn(expected.getName()).when(snapshotVoMock).getName();
+            Mockito.doReturn(expected.getSize()).when(snapshotVoMock).getSize();
+            Mockito.doReturn((short) 3).when(snapshotVoMock).getSnapshotType();
+            Mockito.doReturn(expected.getTags()).when(presetVariableHelperSpy).getPresetVariableValueResourceTags(Mockito.anyLong(), Mockito.any(ResourceObjectType.class));
+            Mockito.doReturn(hypervisorType).when(snapshotVoMock).getHypervisorType();
+            Mockito.doReturn(Snapshot.State.Destroyed).when(snapshotVoMock).getState();
+
+            Mockito.doReturn(UsageTypes.SNAPSHOT).when(usageVoMock).getUsageType();
+
+            Value result = new Value();
+            presetVariableHelperSpy.loadPresetVariableValueForSnapshot(usageVoMock, result);
+
+            Long expectedSize = ByteScaleUtils.bytesToMebibytes(expected.getSize());
+
+            assertPresetVariableIdAndName(expected, result);
+            Assert.assertEquals(expected.getSnapshotType(), result.getSnapshotType());
+            Assert.assertEquals(expected.getTags(), result.getTags());
+            Assert.assertEquals(expectedSize, result.getSize());
+            Assert.assertEquals(hypervisorType.name(), result.getHypervisorType());
+
+            validateFieldNamesToIncludeInToString(Arrays.asList("id", "name", "snapshotType", "tags", "size", "hypervisorType"), result);
+        }
+
+        Mockito.verify(presetVariableHelperSpy, Mockito.times(Hypervisor.HypervisorType.values().length)).getPresetVariableValueResourceTags(Mockito.anyLong(),
+                Mockito.eq(ResourceObjectType.Snapshot));
+    }
+
+    @Test
+    public void loadPresetVariableValueForSnapshotTestSnapshotOnPrimary() {
+        for (Hypervisor.HypervisorType hypervisorType : Hypervisor.HypervisorType.values()) {
+            Value expected = getValueForTests();
+
+            SnapshotVO snapshotVoMock = Mockito.mock(SnapshotVO.class);
+            Mockito.doReturn(snapshotVoMock).when(snapshotDaoMock).findByIdIncludingRemoved(Mockito.anyLong());
+
+            mockMethodValidateIfObjectIsNull();
+
+            Mockito.doReturn(expected.getId()).when(snapshotVoMock).getUuid();
+            Mockito.doReturn(expected.getName()).when(snapshotVoMock).getName();
+            Mockito.doReturn(expected.getSize()).when(snapshotVoMock).getSize();
+            Mockito.doReturn((short) 3).when(snapshotVoMock).getSnapshotType();
+            Mockito.doReturn(1l).when(presetVariableHelperSpy).getSnapshotDataStoreId(Mockito.anyLong(), Mockito.anyLong());
+            Mockito.doReturn(expected.getStorage()).when(presetVariableHelperSpy).getPresetVariableValueStorage(Mockito.anyLong(), Mockito.anyInt());
+            Mockito.doReturn(expected.getTags()).when(presetVariableHelperSpy).getPresetVariableValueResourceTags(Mockito.anyLong(), Mockito.any(ResourceObjectType.class));
+            Mockito.doReturn(hypervisorType).when(snapshotVoMock).getHypervisorType();
+            Mockito.doReturn(Snapshot.State.CreatedOnPrimary).when(snapshotVoMock).getState();
+            presetVariableHelperSpy.backupSnapshotAfterTakingSnapshot = false;
+
+            Mockito.doReturn(UsageTypes.SNAPSHOT).when(usageVoMock).getUsageType();
+
+            Value result = new Value();
+            presetVariableHelperSpy.loadPresetVariableValueForSnapshot(usageVoMock, result);
+
+            Long expectedSize = ByteScaleUtils.bytesToMebibytes(expected.getSize());
+
+            assertPresetVariableIdAndName(expected, result);
+            Assert.assertEquals(expected.getSnapshotType(), result.getSnapshotType());
+            Assert.assertEquals(expected.getStorage(), result.getStorage());
+            Assert.assertEquals(expected.getTags(), result.getTags());
+            Assert.assertEquals(expectedSize, result.getSize());
+            Assert.assertEquals(hypervisorType.name(), result.getHypervisorType());
+
+            validateFieldNamesToIncludeInToString(Arrays.asList("id", "name", "snapshotType", "storage", "tags", "size", "hypervisorType"), result);
+        }
+
+        Mockito.verify(presetVariableHelperSpy, Mockito.times(Hypervisor.HypervisorType.values().length)).getPresetVariableValueResourceTags(Mockito.anyLong(),
+                Mockito.eq(ResourceObjectType.Snapshot));
+    }
 
     @Test
     public void getSnapshotDataStoreIdTestDoNotBackupSnapshotToSecondaryRetrievePrimaryStorage() {
