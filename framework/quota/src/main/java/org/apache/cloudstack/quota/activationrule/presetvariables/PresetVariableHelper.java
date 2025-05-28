@@ -673,7 +673,11 @@ public class PresetVariableHelper {
         value.setName(snapshotVo.getName());
         value.setSize(ByteScaleUtils.bytesToMebibytes(snapshotVo.getSize()));
         value.setSnapshotType(Snapshot.Type.values()[snapshotVo.getSnapshotType()]);
-        value.setStorage(getPresetVariableValueStorage(getSnapshotDataStoreId(snapshotId, usageRecord.getZoneId()), usageType));
+
+        if (snapshotVo.getState() == Snapshot.State.BackedUp || (!backupSnapshotAfterTakingSnapshot && snapshotVo.getState() == Snapshot.State.CreatedOnPrimary)) {
+            value.setStorage(getPresetVariableValueStorage(getSnapshotDataStoreId(snapshotId, usageRecord.getZoneId()), usageType));
+        }
+
         value.setTags(getPresetVariableValueResourceTags(snapshotId, ResourceObjectType.Snapshot));
         Hypervisor.HypervisorType hypervisorType = snapshotVo.getHypervisorType();
         if (hypervisorType != null) {
