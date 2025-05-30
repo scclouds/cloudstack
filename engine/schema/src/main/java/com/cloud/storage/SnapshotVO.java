@@ -249,6 +249,10 @@ public class SnapshotVO implements Snapshot {
         return removed;
     }
 
+    public void setRemoved(Date removed) {
+        this.removed = removed;
+    }
+
     @Override
     public State getState() {
         return state;

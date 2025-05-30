@@ -29,6 +29,7 @@ import java.net.NetworkInterface;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.nio.file.Files;
+import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -65,6 +66,9 @@ import javax.xml.xpath.XPathConstants;
 import javax.xml.xpath.XPathExpressionException;
 import javax.xml.xpath.XPathFactory;
 
+import com.cloud.utils.exception.BackupException;
+import org.apache.cloudstack.storage.to.DeltaMergeTreeTO;
+import com.cloud.agent.api.to.DataObjectType;
 import org.apache.cloudstack.api.ApiConstants.IoDriverPolicy;
 import org.apache.cloudstack.engine.orchestration.service.NetworkOrchestrationService;
 import org.apache.cloudstack.storage.command.browser.ListDataStoreObjectsCommand;
@@ -340,6 +344,18 @@ public class LibvirtComputingResource extends ServerResourceBase implements Serv
     public static final String CHECKPOINT_CREATE_COMMAND = "virsh checkpoint-create --domain %s --xmlfile %s --redefine";
 
     public static final String CHECKPOINT_DELETE_COMMAND = "virsh checkpoint-delete --domain %s --checkpointname %s --metadata";
+
+    private static final String SNAPSHOT_XML = "<domainsnapshot>\n" +
+            "<name>%s</name>\n" +
+            "<memory snapshot='no'/>\n" +
+            "<disks> \n" +
+            "%s" +
+            "</disks> \n" +
+            "</domainsnapshot>";
+
+    private static final String TAG_DISK_SNAPSHOT = "<disk name='%s' snapshot='external'>\n" +
+            "<source file='%s'/>\n" +
+            "</disk>\n";
 
     protected int snapshotMergeTimeout;
 
@@ -4474,7 +4490,7 @@ public class LibvirtComputingResource extends ServerResourceBase implements Serv
         return disks.stream()
                 .filter(diskDef -> diskDef.getDiskPath() != null && diskDef.getDiskPath().contains(vol.getPath()))
                 .findFirst()
-                .orElseThrow(() -> new CloudRuntimeException(String.format("Unable to find volume [%s].", vol.getUuid())));
+                .orElseThrow(() -> new CloudRuntimeException(String.format("Unable to find volume [%s] with path [%s].", vol.getUuid(), vol.getPath())));
     }
 
     protected String getDiskPathFromDiskDef(DiskDef disk) {
@@ -5737,7 +5753,8 @@ public class LibvirtComputingResource extends ServerResourceBase implements Serv
         BlockCommitListener blockCommitListener = getBlockCommitListener(semaphore, vmName);
         vm.addBlockJobListener(blockCommitListener);
 
-        logger.info(String.format("Starting block commit of snapshot [%s] of VM [%s].", snapshotName, vmName));
+        logger.info("Starting block commit of snapshot [{}] of VM [{}]. Using parameters: diskLabel [{}]; baseFilePath [{}]; topFilePath [{}]; commitFlags [{}]", snapshotName,
+                vmName, diskLabel, baseFilePath, topFilePath, commitFlags);
 
         vm.blockCommit(diskLabel, baseFilePath, topFilePath, 0, commitFlags);
 
@@ -5921,4 +5938,196 @@ public class LibvirtComputingResource extends ServerResourceBase implements Serv
     public String getGuestCpuArch() {
         return guestCpuArch;
     }
+
+    public Map<String, Pair<Long, String>> createDiskOnlyVmSnapshotForRunningVm(List<VolumeObjectTO> volumeObjectTos, String vmName, String snapshotName, boolean quiesceVm) throws BackupException {
+        logger.info("Taking disk-only VM snapshot of running VM [{}].", vmName);
+
+        Domain dm = null;
+        try {
+            LibvirtUtilitiesHelper libvirtUtilitiesHelper = getLibvirtUtilitiesHelper();
+            Connect conn = libvirtUtilitiesHelper.getConnection();
+            List<LibvirtVMDef.DiskDef> disks = getDisks(conn, vmName);
+
+            dm = getDomain(conn, vmName);
+
+            if (dm == null) {
+                throw new BackupException(String.format("Creation of disk-only VM snapshot failed as we could not find the VM [%s].", vmName), true);
+            }
+
+            Pair<String, Map<String, Pair<Long, String>>> snapshotXmlAndVolumeToNewPathMap = createSnapshotXmlAndNewVolumePathMap(volumeObjectTos, disks, snapshotName);
+
+            int flagsToUseForRunningVmSnapshotCreation = getFlagsToUseForRunningVmSnapshotCreation(quiesceVm);
+            String snapshotXml = snapshotXmlAndVolumeToNewPathMap.first();
+
+            logger.info("Creating disk-only VM snapshot for VM [{}] using parameters: snapshotXml [{}]; flags [{}].", vmName, snapshotXml, flagsToUseForRunningVmSnapshotCreation);
+
+            dm.snapshotCreateXML(snapshotXml, flagsToUseForRunningVmSnapshotCreation);
+
+            return snapshotXmlAndVolumeToNewPathMap.second();
+        } catch (LibvirtException e) {
+            String errorMsg = String.format("Creation of disk-only VM snapshot for VM [%s] failed due to %s.", vmName, e.getMessage());
+            boolean isVmConsistent = false;
+            if (e.getMessage().contains("QEMU guest agent is not connected")) {
+                errorMsg = "QEMU guest agent is not connected. If the VM has been recently started, it might connect soon. Otherwise the VM does not have the" +
+                        " guest agent installed; thus the QuiesceVM parameter is not supported.";
+                isVmConsistent = true;
+            }
+            logger.error(errorMsg, e);
+            throw new BackupException(errorMsg, isVmConsistent);
+        } finally {
+            if (dm != null) {
+                try {
+                    dm.free();
+                } catch (LibvirtException l) {
+                    logger.trace("Ignoring libvirt error.", l);
+                }
+            }
+        }
+    }
+
+    public Map<String, Pair<Long, String>> createDiskOnlyVMSnapshotOfStoppedVm(List<VolumeObjectTO> volumeObjectTos, String vmName) {
+        logger.info("Creating volume deltas for stopped VM [{}].", vmName);
+
+        Map<String, Pair<Long, String>> mapVolumeToSnapshotSizeAndNewVolumePath = new HashMap<>();
+        try {
+            for (VolumeObjectTO volumeObjectTO : volumeObjectTos) {
+                PrimaryDataStoreTO primaryDataStoreTO = (PrimaryDataStoreTO) volumeObjectTO.getDataStore();
+                KVMStoragePool kvmStoragePool = getStoragePoolMgr().getStoragePool(primaryDataStoreTO.getPoolType(), primaryDataStoreTO.getUuid());
+
+                String snapshotPath = UUID.randomUUID().toString();
+                String snapshotFullPath = kvmStoragePool.getLocalPathFor(snapshotPath);
+                QemuImgFile newDelta = new QemuImgFile(snapshotFullPath, QemuImg.PhysicalDiskFormat.QCOW2);
+
+                String currentDeltaFullPath = kvmStoragePool.getLocalPathFor(volumeObjectTO.getPath());
+                QemuImgFile currentDelta = new QemuImgFile(currentDeltaFullPath, QemuImg.PhysicalDiskFormat.QCOW2);
+
+                QemuImg qemuImg = new QemuImg(0);
+
+                logger.debug("Creating new delta [{}] for volume [{}] as part of the delta creation process for VM [{}].", newDelta, volumeObjectTO.getUuid(), vmName);
+                qemuImg.create(newDelta, currentDelta);
+
+                mapVolumeToSnapshotSizeAndNewVolumePath.put(volumeObjectTO.getUuid(), new Pair<>(getFileSize(currentDeltaFullPath), snapshotPath));
+            }
+        } catch (LibvirtException | QemuImgException e) {
+            logger.error("Exception while creating volume delta for VM [{}]. Deleting leftover deltas.", vmName, e);
+            for (VolumeObjectTO volumeObjectTO : volumeObjectTos) {
+                Pair<Long, String> volSizeAndNewPath = mapVolumeToSnapshotSizeAndNewVolumePath.get(volumeObjectTO.getUuid());
+                PrimaryDataStoreTO primaryDataStoreTO = (PrimaryDataStoreTO) volumeObjectTO.getDataStore();
+                KVMStoragePool kvmStoragePool = getStoragePoolMgr().getStoragePool(primaryDataStoreTO.getPoolType(), primaryDataStoreTO.getUuid());
+
+                if (volSizeAndNewPath == null) {
+                    continue;
+                }
+                try {
+                    Files.deleteIfExists(Path.of(kvmStoragePool.getLocalPathFor(volSizeAndNewPath.second())));
+                } catch (IOException ex) {
+                    logger.warn("Tried to delete leftover delta at [{}]. Failed.", volSizeAndNewPath.second(), ex);
+                }
+            }
+            throw new BackupException(String.format("An exception was caught during the delta creation for VM [%s]. The leftover deltas have been deleted.", vmName), true);
+        }
+
+        return mapVolumeToSnapshotSizeAndNewVolumePath;
+    }
+
+    public void mergeDeltaForStoppedVm(DeltaMergeTreeTO deltaMergeTreeTO) throws QemuImgException, IOException, LibvirtException {
+        logger.debug("Merging delta [{}] for stopped VM.", deltaMergeTreeTO);
+
+        QemuImg qemuImg = new QemuImg(getCmdsTimeout());
+        DataTO parentTo = deltaMergeTreeTO.getParent();
+        PrimaryDataStoreTO primaryDataStoreTO = (PrimaryDataStoreTO) parentTo.getDataStore();
+        KVMStoragePool storagePool = storagePoolManager.getStoragePool(primaryDataStoreTO.getPoolType(), primaryDataStoreTO.getUuid());
+        String childLocalPath = storagePool.getLocalPathFor(deltaMergeTreeTO.getChild().getPath());
+
+        QemuImgFile parent = new QemuImgFile(storagePool.getLocalPathFor(parentTo.getPath()), QemuImg.PhysicalDiskFormat.QCOW2);
+        QemuImgFile child = new QemuImgFile(childLocalPath, QemuImg.PhysicalDiskFormat.QCOW2);
+
+        logger.debug("Committing child delta [{}] into parent delta [{}].", parentTo, deltaMergeTreeTO.getChild());
+        qemuImg.commit(child, parent, true);
+
+        List<QemuImgFile> grandChildren = deltaMergeTreeTO.getGrandChildren().stream()
+                .map(deltaTo -> new QemuImgFile(storagePool.getLocalPathFor(deltaTo.getPath()), QemuImg.PhysicalDiskFormat.QCOW2))
+                .collect(Collectors.toList());
+
+        logger.debug("Rebasing grand-children [{}] into parent at [{}].", grandChildren, parent.getFileName());
+        for (QemuImgFile grandChild : grandChildren) {
+            qemuImg.rebase(grandChild, parent, parent.getFormat().toString(), false);
+        }
+
+        logger.debug("Deleting child at [{}] as it is useless.", childLocalPath);
+
+        Files.deleteIfExists(Path.of(childLocalPath));
+    }
+
+    public void mergeDeltaForRunningVm(DeltaMergeTreeTO mergeTreeTO, String vmName, VolumeObjectTO volumeObjectTO) throws LibvirtException, QemuImgException {
+        logger.debug("Merging delta [{}] for running VM [{}].", mergeTreeTO, vmName);
+
+        QemuImg qemuImg = new QemuImg(getCmdsTimeout());
+        Connect conn = libvirtUtilitiesHelper.getConnection();
+        Domain domain = getDomain(conn, vmName);
+        List<LibvirtVMDef.DiskDef> disks = getDisks(conn, vmName);
+
+        DataTO childTO = mergeTreeTO.getChild();
+        DataTO parentSnapshotTO = mergeTreeTO.getParent();
+        KVMStoragePool storagePool = libvirtUtilitiesHelper.getPrimaryPoolFromDataTo(volumeObjectTO, storagePoolManager);
+
+        boolean active = DataObjectType.VOLUME.equals(childTO.getObjectType());
+        String label = getDiskWithPathOfVolumeObjectTO(disks, volumeObjectTO).getDiskLabel();
+        String parentSnapshotLocalPath = storagePool.getLocalPathFor(parentSnapshotTO.getPath());
+        String childDeltaPath = storagePool.getLocalPathFor(childTO.getPath());
+
+        logger.debug("Found label [{}] for [{}]. Will merge delta at [{}] into delta at [{}].", label, volumeObjectTO, parentSnapshotLocalPath, childDeltaPath);
+
+        mergeSnapshotIntoBaseFile(domain, label, parentSnapshotLocalPath, childDeltaPath, active, childTO.getPath(), volumeObjectTO, conn);
+
+        QemuImgFile parent = new QemuImgFile(parentSnapshotLocalPath, QemuImg.PhysicalDiskFormat.QCOW2);
+
+        logger.debug("Rebasing grand-children [{}] into parent at [{}].", mergeTreeTO.getGrandChildren(), parentSnapshotLocalPath);
+        for (DataTO grandChildTo : mergeTreeTO.getGrandChildren()) {
+            if (checkIfFileIsInActiveChainForVm(domain, grandChildTo)) {
+                logger.debug("Grand-child [{}] is on the active chain of VM [{}], thus libvirt has already rebased it, will ignore it.", grandChildTo, vmName);
+                continue;
+            }
+            QemuImgFile grandChild = new QemuImgFile(storagePool.getLocalPathFor(grandChildTo.getPath()), QemuImg.PhysicalDiskFormat.QCOW2);
+            qemuImg.rebase(grandChild, parent, parent.getFormat().toString(), false);
+        }
+    }
+
+    private boolean checkIfFileIsInActiveChainForVm(Domain vm, DataTO dataTO) throws LibvirtException {
+        String xml = vm.getXMLDesc(0);
+        KVMStoragePool storagePool = libvirtUtilitiesHelper.getPrimaryPoolFromDataTo(dataTO, storagePoolManager);
+        return xml.contains(storagePool.getLocalPathFor(dataTO.getPath()));
+    }
+
+    public int getFlagsToUseForRunningVmSnapshotCreation(boolean quiesceVm) {
+        int flags = quiesceVm ? Domain.SnapshotCreateFlags.QUIESCE : 0;
+        flags += Domain.SnapshotCreateFlags.DISK_ONLY +
+                Domain.SnapshotCreateFlags.ATOMIC +
+                Domain.SnapshotCreateFlags.NO_METADATA;
+        return flags;
+    }
+
+    public Pair<String, Map<String, Pair<Long, String>>> createSnapshotXmlAndNewVolumePathMap(List<VolumeObjectTO> volumeObjectTOS, List<LibvirtVMDef.DiskDef> disks, String snapshotName) {
+        StringBuilder stringBuilder = new StringBuilder();
+        Map<String, Pair<Long, String>> volumeObjectToNewPathMap = new HashMap<>();
+
+        for (VolumeObjectTO volumeObjectTO : volumeObjectTOS) {
+            LibvirtVMDef.DiskDef diskdef = getDiskWithPathOfVolumeObjectTO(disks, volumeObjectTO);
+            String newPath = UUID.randomUUID().toString();
+            stringBuilder.append(String.format(TAG_DISK_SNAPSHOT, diskdef.getDiskLabel(), getSnapshotTemporaryPath(diskdef.getDiskPath(), newPath)));
+
+            long snapSize = getFileSize(diskdef.getDiskPath());
+
+            volumeObjectToNewPathMap.put(volumeObjectTO.getUuid(), new Pair<>(snapSize, newPath));
+        }
+
+        String snapshotXml = String.format(SNAPSHOT_XML, snapshotName, stringBuilder);
+        return new Pair<>(snapshotXml, volumeObjectToNewPathMap);
+    }
+
+    public long getFileSize(String path) {
+        return new File(path).length();
+    }
+
+
 }

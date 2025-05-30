@@ -42,6 +42,7 @@ import com.cloud.vm.VirtualMachine;
 import com.cloud.vm.VirtualMachineProfile;
 import com.cloud.vm.dao.VMInstanceDao;
 import org.apache.cloudstack.backup.Backup;
+import org.apache.cloudstack.backup.BackupProvider;
 import org.apache.cloudstack.storage.command.CopyCommand;
 import org.apache.cloudstack.storage.command.StorageSubSystemCommand;
 import org.apache.cloudstack.utils.reflectiontostringbuilderutils.ReflectionToStringBuilderUtils;
@@ -341,7 +342,8 @@ public class KVMGuru extends HypervisorGuruBase implements HypervisorGuru {
     }
 
     @Override
-    public VirtualMachine importVirtualMachineFromBackup(long zoneId, long domainId, long accountId, long userId, String vmInternalName, Backup backup)  {
+    public VirtualMachine importVirtualMachineFromBackup(long zoneId, long domainId, long accountId, long userId, String vmInternalName, Backup backup,
+            BackupProvider backupProvider)  {
         logger.debug(String.format("Trying to import VM [vmInternalName: %s] from Backup [%s].", vmInternalName,
                 ReflectionToStringBuilderUtils.reflectOnlySelectedFields(backup, "id", "uuid", "vmId", "externalId", "backupType")));
 
@@ -359,6 +361,9 @@ public class KVMGuru extends HypervisorGuruBase implements HypervisorGuru {
                VolumeVO volume = _volumeDao.findByUuidIncludingRemoved(VMVolToRestore.getUuid());
                volume.setState(Volume.State.Ready);
                _volumeDao.update(volume.getId(), volume);
+               if (backupProvider.getName().equals("knib")) {
+                   continue;
+               }
                if (VMVolToRestore.getType() == Volume.Type.ROOT) {
                    _volumeDao.update(volume.getId(), volume);
                    _volumeDao.attachVolume(volume.getId(), vm.getId(), 0L);

@@ -53,6 +53,7 @@ import org.apache.cloudstack.api.command.user.vm.UpdateVmNicCmd;
 import org.apache.cloudstack.api.command.user.volume.ResizeVolumeCmd;
 import org.apache.cloudstack.backup.Backup;
 import org.apache.cloudstack.backup.BackupManager;
+import org.apache.cloudstack.backup.BackupProvider;
 import org.apache.cloudstack.backup.BackupVO;
 import org.apache.cloudstack.backup.dao.BackupDao;
 import org.apache.cloudstack.context.CallContext;
@@ -378,6 +379,9 @@ public class UserVmManagerImplTest {
 
     @Mock
     ServiceOfferingJoinDao serviceOfferingJoinDao;
+
+    @Mock
+    private BackupProvider backupProviderMock;
 
     @Mock
     private VMInstanceVO vmInstanceMock;
@@ -826,7 +830,8 @@ public class UserVmManagerImplTest {
         Mockito.when(userVmVoMock.getBackupOfferingId()).thenReturn(1l);
         Mockito.when(userVmVoMock.getDataCenterId()).thenReturn(2l);
         Mockito.when(userVmVoMock.getId()).thenReturn(2l);
-        Mockito.when(backupManager.getName()).thenReturn("veeam");
+        Mockito.doReturn(backupProviderMock).when(backupManager).getBackupProvider(Mockito.anyLong());
+        Mockito.doReturn("veeam").when(backupProviderMock).getName();
 
         List<Backup> backupsForVm = new ArrayList<>();
         backupsForVm.add(new BackupVO());

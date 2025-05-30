@@ -60,12 +60,22 @@ public class CreateBackupCmd extends BaseAsyncCreateCmd {
             description = "ID of the VM")
     private Long vmId;
 
+    @Parameter(name = ApiConstants.VM_SNAPSHOT_QUIESCEVM,
+            type = CommandType.BOOLEAN,
+            required = false,
+            description = "Whether the VM's file systems should be frozen for the backup. Currently only supported for KNIB")
+    private boolean quiesceVm;
+
     /////////////////////////////////////////////////////
     /////////////////// Accessors ///////////////////////
     /////////////////////////////////////////////////////
 
     public Long getVmId() {
         return vmId;
+    }
+
+    public boolean isQuiesceVm() {
+        return quiesceVm;
     }
 
     /////////////////////////////////////////////////////
@@ -75,7 +85,7 @@ public class CreateBackupCmd extends BaseAsyncCreateCmd {
     @Override
     public void execute() throws ResourceUnavailableException, InsufficientCapacityException, ServerApiException, ConcurrentOperationException, ResourceAllocationException, NetworkRuleConflictException {
         try {
-            boolean result = backupManager.createBackup(getVmId());
+            boolean result = backupManager.createBackup(getVmId(), quiesceVm);
             if (result) {
                 SuccessResponse response = new SuccessResponse(getCommandName());
                 response.setResponseName(getCommandName());

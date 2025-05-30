@@ -30,12 +30,20 @@ import java.util.stream.Collectors;
 
 import com.amazonaws.util.CollectionUtils;
 import com.cloud.storage.VolumeApiService;
+import com.cloud.utils.ReflectionUse;
 import com.cloud.utils.fsm.NoTransitionException;
 import com.cloud.vm.UserVmManager;
 import com.cloud.vm.VirtualMachineManager;
 import javax.inject.Inject;
 import javax.naming.ConfigurationException;
 
+import com.cloud.vm.VmWork;
+import com.cloud.vm.VmWorkDeleteBackup;
+import com.cloud.vm.VmWorkJobHandler;
+import com.cloud.vm.VmWorkJobHandlerProxy;
+import com.cloud.vm.VmWorkRestoreBackup;
+import com.cloud.vm.VmWorkTakeBackup;
+import com.cloud.vm.snapshot.VMSnapshot;
 import org.apache.cloudstack.api.ApiCommandResourceType;
 import org.apache.cloudstack.api.ApiConstants;
 import org.apache.cloudstack.api.command.admin.backup.DeleteBackupOfferingCmd;
@@ -67,6 +75,7 @@ import org.apache.cloudstack.framework.config.ConfigKey;
 import org.apache.cloudstack.framework.jobs.AsyncJobDispatcher;
 import org.apache.cloudstack.framework.jobs.AsyncJobManager;
 import org.apache.cloudstack.framework.jobs.impl.AsyncJobVO;
+import org.apache.cloudstack.jobs.JobInfo;
 import org.apache.cloudstack.managed.context.ManagedContextRunnable;
 import org.apache.cloudstack.managed.context.ManagedContextTimerTask;
 import org.apache.cloudstack.poll.BackgroundPollManager;
@@ -127,7 +136,7 @@ import com.google.gson.Gson;
 import org.apache.commons.lang3.builder.ReflectionToStringBuilder;
 import org.apache.commons.lang3.builder.ToStringStyle;
 
-public class BackupManagerImpl extends ManagerBase implements BackupManager {
+public class BackupManagerImpl extends ManagerBase implements BackupManager, VmWorkJobHandler {
 
     @Inject
     private BackupDao backupDao;
@@ -171,12 +180,17 @@ public class BackupManagerImpl extends ManagerBase implements BackupManager {
     @Inject
     private UserVmManager userVmManager;
 
+    @Inject
+    private AsyncJobManager jobManager;
+
     private AsyncJobDispatcher asyncJobDispatcher;
     private Timer backupTimer;
     private Date currentTimestamp;
 
     private static Map<String, BackupProvider> backupProvidersMap = new HashMap<>();
     private List<BackupProvider> backupProviders;
+
+    private VmWorkJobHandlerProxy jobHandlerProxy = new VmWorkJobHandlerProxy(this);
 
     public AsyncJobDispatcher getAsyncJobDispatcher() {
         return asyncJobDispatcher;
@@ -298,11 +312,6 @@ public class BackupManagerImpl extends ManagerBase implements BackupManager {
 
         if (!Arrays.asList(VirtualMachine.State.Running, VirtualMachine.State.Stopped, VirtualMachine.State.Shutdown).contains(vm.getState())) {
             throw new CloudRuntimeException("VM is not in running or stopped state");
-        }
-
-        if (Hypervisor.HypervisorType.KVM.equals(vm.getHypervisorType())) {
-            userVmManager.validateNoVolumeSnapshots(vm, "backups");
-            userVmManager.validateNoVmSnapshots(vm, "backups");
         }
 
         validateForZone(vm.getDataCenterId());
@@ -488,7 +497,7 @@ public class BackupManagerImpl extends ManagerBase implements BackupManager {
 
     @Override
     @ActionEvent(eventType = EventTypes.EVENT_VM_BACKUP_CREATE, eventDescription = "creating VM backup", async = true)
-    public boolean createBackup(final Long vmId) {
+    public boolean createBackup(final Long vmId, boolean quiesceVm) {
         final VMInstanceVO vm = findVmById(vmId);
         validateForZone(vm.getDataCenterId());
         accountManager.checkAccess(CallContext.current().getCallingAccount(), null, true, vm);
@@ -512,7 +521,7 @@ public class BackupManagerImpl extends ManagerBase implements BackupManager {
                 true, 0);
 
         final BackupProvider backupProvider = getBackupProvider(offering.getProvider());
-        if (backupProvider != null && backupProvider.takeBackup(vm)) {
+        if (backupProvider != null && backupProvider.takeBackup(vm, quiesceVm)) {
             return true;
         }
         throw new CloudRuntimeException("Failed to create VM backup");
@@ -581,11 +590,11 @@ public class BackupManagerImpl extends ManagerBase implements BackupManager {
     }
 
     public boolean importRestoredVM(long zoneId, long domainId, long accountId, long userId,
-                                    String vmInternalName, Hypervisor.HypervisorType hypervisorType, Backup backup) {
+                                    String vmInternalName, Hypervisor.HypervisorType hypervisorType, Backup backup, BackupOffering offering) {
         VirtualMachine vm = null;
         HypervisorGuru guru = hypervisorGuruManager.getGuru(hypervisorType);
         try {
-            vm = guru.importVirtualMachineFromBackup(zoneId, domainId, accountId, userId, vmInternalName, backup);
+            vm = guru.importVirtualMachineFromBackup(zoneId, domainId, accountId, userId, vmInternalName, backup, getBackupProvider(offering.getProvider()));
         } catch (final Exception e) {
             logger.error(String.format("Failed to import VM [vmInternalName: %s] from backup restoration [%s] with hypervisor [type: %s] due to: [%s].", vmInternalName,
                     ReflectionToStringBuilderUtils.reflectOnlySelectedFields(backup, "id", "uuid", "vmId", "externalId", "backupType"), hypervisorType, e.getMessage()), e);
@@ -627,6 +636,27 @@ public class BackupManagerImpl extends ManagerBase implements BackupManager {
                 !vm.getState().equals(VirtualMachine.State.Destroyed)) {
             throw new CloudRuntimeException("Existing VM should be stopped before being restored from backup");
         }
+
+        logger.debug("Attempting to get backup offering from VM backup");
+        BackupOffering offering = backupOfferingDao.findByIdIncludingRemoved(backup.getBackupOfferingId());
+        if (offering == null) {
+            throw new CloudRuntimeException("Failed to find backup offering of the VM backup.");
+        }
+        validateBackupVolumes(backup, vm, offering);
+        String backupDetailsInMessage = ReflectionToStringBuilderUtils.reflectOnlySelectedFields(backup, "uuid", "externalId", "vmId", "type", "status", "date");
+        tryRestoreVM(backup, vm, offering, backupDetailsInMessage);
+        updateVolumeState(vm, Volume.Event.RestoreSucceeded, Volume.State.Ready);
+        updateVmState(vm, VirtualMachine.Event.RestoringSuccess, VirtualMachine.State.Stopped);
+
+        return importRestoredVM(vm.getDataCenterId(), vm.getDomainId(), vm.getAccountId(), vm.getUserId(),
+                vm.getInstanceName(), vm.getHypervisorType(), backup, offering);
+    }
+
+    private void validateBackupVolumes(BackupVO backup, VMInstanceVO vm, BackupOffering offering) {
+        BackupProvider backupProvider = getBackupProvider(offering.getProvider());
+        if (backupProvider.getName().equals("knib")) {
+            return;
+        }
         // This is done to handle historic backups if any with Veeam / Networker plugins
         List<Backup.VolumeInfo> backupVolumes = CollectionUtils.isNullOrEmpty(backup.getBackedUpVolumes()) ?
                 vm.getBackupVolumeList() : backup.getBackedUpVolumes();
@@ -634,24 +664,6 @@ public class BackupManagerImpl extends ManagerBase implements BackupManager {
         if (vmVolumes.size() != backupVolumes.size()) {
             throw new CloudRuntimeException("Unable to restore VM with the current backup as the backup has different number of disks as the VM");
         }
-
-        BackupOffering offering = backupOfferingDao.findByIdIncludingRemoved(vm.getBackupOfferingId());
-        String errorMessage = "Failed to find backup offering of the VM backup.";
-        if (offering == null) {
-            logger.warn(errorMessage);
-        }
-        logger.debug("Attempting to get backup offering from VM backup");
-        offering = backupOfferingDao.findByIdIncludingRemoved(backup.getBackupOfferingId());
-        if (offering == null) {
-            throw new CloudRuntimeException(errorMessage);
-        }
-        String backupDetailsInMessage = ReflectionToStringBuilderUtils.reflectOnlySelectedFields(backup, "uuid", "externalId", "vmId", "type", "status", "date");
-        tryRestoreVM(backup, vm, offering, backupDetailsInMessage);
-        updateVolumeState(vm, Volume.Event.RestoreSucceeded, Volume.State.Ready);
-        updateVmState(vm, VirtualMachine.Event.RestoringSuccess, VirtualMachine.State.Stopped);
-
-        return importRestoredVM(vm.getDataCenterId(), vm.getDomainId(), vm.getAccountId(), vm.getUserId(),
-                vm.getInstanceName(), vm.getHypervisorType(), backup);
     }
 
     /**
@@ -782,6 +794,7 @@ public class BackupManagerImpl extends ManagerBase implements BackupManager {
         }
         accountManager.checkAccess(CallContext.current().getCallingAccount(), null, true, vmFromBackup);
 
+        //TODO: Check if this makes any sense... why not check state=stopped?
         if (!VirtualMachine.PowerState.PowerOff.equals(vm.getPowerState())) {
             throw new CloudRuntimeException(String.format("VM [%s] needs to be powered off to restore the volume [%s].", vm.getUuid(), backedUpVolumeUuid));
         }
@@ -1336,6 +1349,78 @@ public class BackupManagerImpl extends ManagerBase implements BackupManager {
         CallContext.current().setEventDetails(String.format("Backup Offering updated [%s].",
                 ReflectionToStringBuilderUtils.reflectOnlySelectedFields(response, "id", "name", "description", "userDrivenBackupAllowed", "externalId")));
         return response;
+    }
+
+    @Override
+    public void prepareVolumeForDetach(Volume volume, VirtualMachine virtualMachine) {
+        if (!BackupFrameworkEnabled.valueIn(virtualMachine.getDataCenterId())) {
+            return;
+        }
+        BackupProvider backupProvider = getBackupProvider(virtualMachine.getDataCenterId());
+        backupProvider.prepareVolumeForDetach(volume, virtualMachine);
+    }
+
+    @Override
+    public void prepareVolumeForMigration(Volume volume) {
+        if (volume.getInstanceId() == null) {
+            return;
+        }
+        VirtualMachine virtualMachine = virtualMachineManager.findById(volume.getInstanceId());
+        if (!BackupFrameworkEnabled.valueIn(virtualMachine.getDataCenterId())) {
+            return;
+        }
+        BackupProvider backupProvider = getBackupProvider(virtualMachine.getDataCenterId());
+        backupProvider.prepareVolumeForMigration(volume, virtualMachine);
+    }
+
+    @Override
+    public void updateVolumeId(long oldVolumeId, long newVolumeId) {
+        VolumeVO volumeVO = volumeDao.findById(newVolumeId);
+        if (volumeVO.getInstanceId() == null) {
+            return;
+        }
+        VirtualMachine virtualMachine = virtualMachineManager.findById(volumeVO.getInstanceId());
+        if (!BackupFrameworkEnabled.valueIn(virtualMachine.getDataCenterId())) {
+            return;
+        }
+        BackupProvider backupProvider = getBackupProvider(virtualMachine.getDataCenterId());
+        backupProvider.updateVolumeId(virtualMachine, oldVolumeId, newVolumeId);
+    }
+
+    @Override
+    public void prepareVmForSnapshotRevert(VMSnapshot vmSnapshot) {
+        VirtualMachine virtualMachine = virtualMachineManager.findById(vmSnapshot.getVmId());
+        if (!BackupFrameworkEnabled.valueIn(virtualMachine.getDataCenterId())) {
+            return;
+        }
+        BackupProvider backupProvider = getBackupProvider(virtualMachine.getDataCenterId());
+        backupProvider.prepareVmForSnapshotRevert(vmSnapshot, virtualMachine);
+    }
+
+    @Override
+    public Pair<JobInfo.Status, String> handleVmWorkJob(VmWork work) throws Exception {
+        return jobHandlerProxy.handleVmWorkJob(work);
+    }
+
+    @ReflectionUse
+    public Pair<JobInfo.Status, String> orchestrateTakeBackup(VmWorkTakeBackup work) {
+        BackupProvider backupProvider = getBackupProvider(work.getBackupProvider());
+        BackupVO backupVO = backupDao.findById(work.getBackupId());
+        return new Pair<>(JobInfo.Status.SUCCEEDED, jobManager.marshallResultObject(backupProvider.orchestrateTakeBackup(backupVO, work.isQuiesceVm(), work.isRunningVm())));
+    }
+
+    @ReflectionUse
+    public Pair<JobInfo.Status, String> orchestrateDeleteBackup(VmWorkDeleteBackup work) {
+        BackupProvider backupProvider = getBackupProvider(work.getBackupProvider());
+        BackupVO backupVO = backupDao.findById(work.getBackupId());
+        return new Pair<>(JobInfo.Status.SUCCEEDED, jobManager.marshallResultObject(backupProvider.orchestrateDeleteBackup(backupVO, work.isForced())));
+    }
+
+    @ReflectionUse
+    public Pair<JobInfo.Status, String> orchestrateRestoreVMFromBackup(VmWorkRestoreBackup work) {
+        BackupProvider backupProvider = getBackupProvider(work.getBackupProvider());
+        BackupVO backupVO = backupDao.findById(work.getBackupId());
+        return new Pair<>(JobInfo.Status.SUCCEEDED, jobManager.marshallResultObject(backupProvider.orchestrateRestoreVMFromBackup(backupVO, userVmDao.findById(work.getVmId()))));
     }
 
 }

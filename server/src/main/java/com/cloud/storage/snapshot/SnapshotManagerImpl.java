@@ -1151,8 +1151,7 @@ public class SnapshotManagerImpl extends MutualExclusiveIdsManagerBase implement
         if (volume.getInstanceId() != null) {
             UserVmVO userVmVO = _vmDao.findById(volume.getInstanceId());
             if (HypervisorType.KVM.equals(userVmVO.getHypervisorType())) {
-                userVmManager.validateNoVmSnapshots(userVmVO, "volume snapshots");
-                userVmManager.validateNoBackupOfferings(userVmVO, "volume snapshots");
+                userVmManager.validateNoVmSnapshots(userVmVO);
             }
         }
 

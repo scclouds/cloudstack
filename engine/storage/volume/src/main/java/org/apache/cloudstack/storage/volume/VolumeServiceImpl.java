@@ -35,6 +35,7 @@ import javax.inject.Inject;
 import org.apache.cloudstack.annotation.AnnotationService;
 import org.apache.cloudstack.annotation.dao.AnnotationDao;
 import org.apache.cloudstack.api.command.user.volume.CheckAndRepairVolumeCmd;
+import org.apache.cloudstack.backup.BackupHelper;
 import org.apache.cloudstack.engine.cloud.entity.api.VolumeEntity;
 import org.apache.cloudstack.engine.orchestration.service.VolumeOrchestrationService;
 import org.apache.cloudstack.engine.subsystem.api.storage.ChapInfo;
@@ -218,6 +219,8 @@ public class VolumeServiceImpl implements VolumeService {
     private PassphraseDao passphraseDao;
     @Inject
     protected DiskOfferingDao diskOfferingDao;
+    @Inject
+    private BackupHelper backupHelper;
 
     public VolumeServiceImpl() {
     }
@@ -487,6 +490,8 @@ public class VolumeServiceImpl implements VolumeService {
                     logger.info("Volume " + vo.getId() + " is not referred anywhere, remove it from volumes table");
                     volDao.remove(vo.getId());
                 }
+
+                backupHelper.cleanupBackupMetadata(vo.getVolumeId());
 
                 List<SnapshotDataStoreVO> snapStoreVOs = _snapshotStoreDao.listAllByVolumeAndDataStore(vo.getId(), DataStoreRole.Primary);
 

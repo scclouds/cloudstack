@@ -59,7 +59,9 @@ import org.apache.cloudstack.api.command.user.volume.UploadVolumeCmd;
 import org.apache.cloudstack.api.response.GetUploadParamsResponse;
 import org.apache.cloudstack.backup.Backup;
 import org.apache.cloudstack.backup.BackupManager;
+import org.apache.cloudstack.backup.BackupProvider;
 import org.apache.cloudstack.backup.dao.BackupDao;
+import org.apache.cloudstack.backup.dao.BackupOfferingDao;
 import org.apache.cloudstack.context.CallContext;
 import org.apache.cloudstack.direct.download.DirectDownloadHelper;
 import org.apache.cloudstack.engine.orchestration.service.VolumeOrchestrationService;
@@ -353,9 +355,13 @@ public class VolumeApiServiceImpl extends ManagerBase implements VolumeApiServic
     @Inject
     private BackupDao backupDao;
     @Inject
+    private BackupOfferingDao backupOfferingDao;
+    @Inject
+    private BackupManager backupManager;
+    @Inject
     protected VMSnapshotDetailsDao vmSnapshotDetailsDao;
 
-    protected static final String KVM_FILE_BASED_STORAGE_SNAPSHOT = "kvmFileBasedStorageSnapshot";
+    public static final String KVM_FILE_BASED_STORAGE_SNAPSHOT = "kvmFileBasedStorageSnapshot";
 
     protected Gson _gson;
 
@@ -1042,7 +1048,7 @@ public class VolumeApiServiceImpl extends ManagerBase implements VolumeApiServic
                 // if VM Id is provided, attach the volume to the VM
                 if (cmd.getVirtualMachineId() != null) {
                     try {
-                        attachVolumeToVM(cmd.getVirtualMachineId(), volume.getId(), volume.getDeviceId(), false);
+                        attachVolumeToVM(cmd.getVirtualMachineId(), volume.getId(), volume.getDeviceId(), false, false);
                     } catch (Exception ex) {
                         StringBuilder message = new StringBuilder("Volume: ");
                         message.append(volume.getUuid());
@@ -2410,7 +2416,7 @@ public class VolumeApiServiceImpl extends ManagerBase implements VolumeApiServic
     @Override
     @ActionEvent(eventType = EventTypes.EVENT_VOLUME_ATTACH, eventDescription = "attaching volume", async = true)
     public Volume attachVolumeToVM(AttachVolumeCmd command) {
-        return attachVolumeToVM(command.getVirtualMachineId(), command.getId(), command.getDeviceId(), false);
+        return attachVolumeToVM(command.getVirtualMachineId(), command.getId(), command.getDeviceId(), false, false);
     }
 
     private Volume orchestrateAttachVolumeToVM(Long vmId, Long volumeId, Long deviceId) {
@@ -2518,12 +2524,13 @@ public class VolumeApiServiceImpl extends ManagerBase implements VolumeApiServic
         return newVol;
     }
 
-    public Volume attachVolumeToVM(Long vmId, Long volumeId, Long deviceId, Boolean allowAttachForSharedFS) {
+    @Override
+    public Volume attachVolumeToVM(Long vmId, Long volumeId, Long deviceId, Boolean allowAttachForSharedFS, boolean allowAttachOnRestoring) {
         Account caller = CallContext.current().getCallingAccount();
 
         VolumeInfo volumeToAttach = getAndCheckVolumeInfo(volumeId);
 
-        UserVmVO vm = getAndCheckUserVmVO(vmId, volumeToAttach);
+        UserVmVO vm = getAndCheckUserVmVO(vmId, volumeToAttach, allowAttachOnRestoring);
 
         if (!allowAttachForSharedFS && UserVmManager.SHAREDFSVM.equals(vm.getUserVmType())) {
             throw new InvalidParameterValueException("Can't attach a volume to a Shared FileSystem Instance");
@@ -2705,15 +2712,16 @@ public class VolumeApiServiceImpl extends ManagerBase implements VolumeApiServic
      *
      * @return the user vm vo object correcponding to the vmId to attach to
      */
-    @NotNull private UserVmVO getAndCheckUserVmVO(Long vmId, VolumeInfo volumeToAttach) {
+    @NotNull private UserVmVO getAndCheckUserVmVO(Long vmId, VolumeInfo volumeToAttach, boolean allowAttachOnRestoring) {
         UserVmVO vm = _userVmDao.findById(vmId);
         if (vm == null || vm.getType() != VirtualMachine.Type.User) {
             throw new InvalidParameterValueException("Please specify a valid User VM.");
         }
 
-        // Check that the VM is in the correct state
-        if (vm.getState() != State.Running && vm.getState() != State.Stopped) {
-            throw new InvalidParameterValueException("Please specify a VM that is either running or stopped.");
+        if (allowAttachOnRestoring) {
+            validateVmState(vm, State.Running, State.Stopped, State.Restoring);
+        } else {
+            validateVmState(vm, State.Running, State.Stopped);
         }
 
         // Check that the VM and the volume are in the same zone
@@ -2721,6 +2729,13 @@ public class VolumeApiServiceImpl extends ManagerBase implements VolumeApiServic
             throw new InvalidParameterValueException("Please specify a VM that is in the same zone as the volume.");
         }
         return vm;
+    }
+
+    private void validateVmState(UserVmVO vm, State... states) {
+        List<State> allowedStates = Arrays.asList(states);
+        if (!allowedStates.contains(vm.getState())) {
+            throw new InvalidParameterValueException(String.format("Please specify a VM that is on of the following states: %s.", allowedStates));
+        }
     }
 
     /**
@@ -2752,9 +2767,11 @@ public class VolumeApiServiceImpl extends ManagerBase implements VolumeApiServic
         return volumeToAttach;
     }
 
-    protected void validateIfVmHasBackups(UserVmVO vm, boolean attach) {
-        if ((vm.getBackupOfferingId() == null || CollectionUtils.isEmpty(vm.getBackupVolumeList())) || BooleanUtils.isTrue(BackupManager.BackupEnableAttachDetachVolumes.value())) {
-            return;
+    protected boolean validateIfVmHasBackups(UserVmVO vm, boolean attach) {
+        if (vm.getBackupOfferingId() == null || CollectionUtils.isEmpty(vm.getBackupVolumeList())) {
+            return false;
+        } else if (BooleanUtils.isTrue(BackupManager.BackupEnableAttachDetachVolumes.value())) {
+            return true;
         }
         String errorMsg = String.format("Unable to detach volume, cannot detach volume from a VM that has backups. First remove the VM from the backup offering or "
                 + "set the global configuration '%s' to true.", BackupManager.BackupEnableAttachDetachVolumes.key());
@@ -2972,7 +2989,10 @@ public class VolumeApiServiceImpl extends ManagerBase implements VolumeApiServic
             throw new InvalidParameterValueException("Unable to detach volume, please specify a VM that does not have VM snapshots");
         }
 
-        validateIfVmHasBackups(vm, false);
+        boolean hasBackup = validateIfVmHasBackups(vm, false);
+        if (hasBackup) {
+            backupManager.prepareVolumeForDetach(volume, vm);
+        }
 
         AsyncJobExecutionContext asyncExecutionContext = AsyncJobExecutionContext.getCurrentExecutionContext();
         if (asyncExecutionContext != null) {
@@ -3045,6 +3065,11 @@ public class VolumeApiServiceImpl extends ManagerBase implements VolumeApiServic
                 throw new InvalidParameterValueException("Root volume detach is not supported for Managed DataStores");
             }
         }
+    }
+
+    protected void askBackupProviderToPrepareVolumeForDetach(VirtualMachine vm, VolumeVO volume) {
+        BackupProvider backupProvider = backupManager.getBackupProvider(vm.getDataCenterId());
+        backupProvider.prepareVolumeForDetach(volume, vm);
     }
 
     @ActionEvent(eventType = EventTypes.EVENT_VOLUME_DETACH, eventDescription = "detaching volume")
@@ -3898,8 +3923,7 @@ public class VolumeApiServiceImpl extends ManagerBase implements VolumeApiServic
 
         VirtualMachine attachedVm = volume.getAttachedVM();
         if (attachedVm != null && HypervisorType.KVM.equals(attachedVm.getHypervisorType())) {
-            _userVmMgr.validateNoVmSnapshots(attachedVm, "volume snapshots");
-            _userVmMgr.validateNoBackupOfferings(attachedVm, "volume snapshots");
+            _userVmMgr.validateNoVmSnapshots(attachedVm);
         }
 
         if (CollectionUtils.isNotEmpty(zoneIds)) {

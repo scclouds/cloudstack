@@ -19,6 +19,7 @@ package org.apache.cloudstack.backup;
 
 import com.cloud.utils.db.GenericDao;
 import com.google.gson.Gson;
+import org.apache.cloudstack.utils.reflectiontostringbuilderutils.ReflectionToStringBuilderUtils;
 import org.apache.commons.lang3.StringUtils;
 
 import java.util.Arrays;
@@ -56,7 +57,7 @@ public class BackupVO implements Backup {
     private String externalId;
 
     @Column(name = "type")
-    private String backupType;
+    private String type;
 
     @Column(name = "date")
     @Temporal(value = TemporalType.DATE)
@@ -94,6 +95,19 @@ public class BackupVO implements Backup {
         this.uuid = UUID.randomUUID().toString();
     }
 
+    public BackupVO(long vmId, long backupOfferingId, long accountId, long domainId, long zoneId, long virtualSize, Status status) {
+        this.vmId = vmId;
+        this.backupOfferingId = backupOfferingId;
+        this.accountId = accountId;
+        this.domainId = domainId;
+        this.zoneId = zoneId;
+        this.protectedSize = virtualSize;
+        this.status = status;
+        this.setType("FULL");
+        this.uuid = UUID.randomUUID().toString();
+        this.date = new Date();
+    }
+
     @Override
     public long getId() {
         return id;
@@ -122,12 +136,13 @@ public class BackupVO implements Backup {
         this.externalId = externalId;
     }
 
+    @Override
     public String getType() {
-        return backupType;
+        return type;
     }
 
     public void setType(String type) {
-        this.backupType = type;
+        this.type = type;
     }
 
     @Override
@@ -228,5 +243,11 @@ public class BackupVO implements Backup {
 
     public void setRemoved(Date removed) {
         this.removed = removed;
+    }
+
+    @Override
+    public String toString() {
+        return String.format("Backup %s", ReflectionToStringBuilderUtils.reflectOnlySelectedFields(
+                this, "id", "uuid", "vmId", "backupType", "externalId"));
     }
 }

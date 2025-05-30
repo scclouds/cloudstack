@@ -19,6 +19,9 @@ package org.apache.cloudstack.backup;
 
 import java.util.List;
 
+import com.cloud.storage.Volume;
+import com.cloud.vm.VirtualMachine;
+import com.cloud.vm.snapshot.VMSnapshot;
 import org.apache.cloudstack.api.command.admin.backup.ImportBackupOfferingCmd;
 import org.apache.cloudstack.api.command.admin.backup.UpdateBackupOfferingCmd;
 import org.apache.cloudstack.api.command.user.backup.CreateBackupScheduleCmd;
@@ -118,10 +121,12 @@ public interface BackupManager extends BackupService, Configurable, PluggableSer
 
     /**
      * Creates backup of a VM
-     * @param vmId Virtual Machine ID
+     *
+     * @param vmId      Virtual Machine ID
+     * @param quiesceVm
      * @return returns operation success
      */
-    boolean createBackup(final Long vmId);
+    boolean createBackup(final Long vmId, boolean quiesceVm);
 
     /**
      * List existing backups for a VM
@@ -153,4 +158,12 @@ public interface BackupManager extends BackupService, Configurable, PluggableSer
     boolean deleteBackup(final Long backupId, final Boolean forced);
 
     BackupOffering updateBackupOffering(UpdateBackupOfferingCmd updateBackupOfferingCmd);
+
+    void prepareVolumeForDetach(Volume volume, VirtualMachine virtualMachine);
+
+    void prepareVolumeForMigration(Volume volume);
+
+    void prepareVmForSnapshotRevert(VMSnapshot vmSnapshot);
+
+    void updateVolumeId(long oldVolumeId, long newVolumeId);
 }

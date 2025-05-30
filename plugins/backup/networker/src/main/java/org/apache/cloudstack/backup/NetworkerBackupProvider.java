@@ -462,7 +462,7 @@ public class NetworkerBackupProvider extends AdapterBase implements BackupProvid
     }
 
     @Override
-    public boolean takeBackup(VirtualMachine vm) {
+    public boolean takeBackup(VirtualMachine vm, boolean quiesceVm) {
         String networkerServer;
         String clusterName;
 

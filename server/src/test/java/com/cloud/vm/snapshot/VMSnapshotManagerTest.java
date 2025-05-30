@@ -287,7 +287,7 @@ public class VMSnapshotManagerTest {
 
     @Test(expected = InvalidParameterValueException.class)
     public void allocVMSnapshotTestIfVmHasMemoryVmSnapshotShouldThrowInvalidParameterValueException() throws ResourceAllocationException {
-        when(_vmSnapshotDao.findByVmAndByType(TEST_VM_ID, VMSnapshot.Type.Disk)).thenReturn(vmSnapshotsDiskAndMemory);
+        when(_vmSnapshotDao.findByVmAndByType(TEST_VM_ID, VMSnapshot.Type.DiskAndMemory)).thenReturn(vmSnapshotsDiskAndMemory);
         _vmSnapshotMgr.allocVMSnapshot(TEST_VM_ID, "", "", false);
     }
 
