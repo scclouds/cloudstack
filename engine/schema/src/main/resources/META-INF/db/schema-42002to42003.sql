@@ -55,36 +55,35 @@ AND EXISTS (
 
 -- Delete legacy "vm.stats.remove.batch.size" if it exists
 DELETE FROM `cloud`.`configuration`
-WHERE `name` = 'vm.stats.remove.batch.size'
-AND EXISTS (
-    SELECT *
-    FROM `cloud`.`configuration` `exists_check_cfg`
-    WHERE `exists_check_cfg`.`name` = 'vm.stats.remove.batch.size'
-);
+WHERE `name` = 'vm.stats.remove.batch.size';
 
 CALL `cloud`.`IDEMPOTENT_ADD_COLUMN`('cloud.networks', 'keep_mac_address_on_public_nic', 'TINYINT(1) NOT NULL DEFAULT 1');
 CALL `cloud`.`IDEMPOTENT_ADD_COLUMN`('cloud.vpc', 'keep_mac_address_on_public_nic', 'TINYINT(1) NOT NULL DEFAULT 1');
 
 UPDATE `cloud`.`networks`
-SET `keep_mac_address_on_public_nic` = (
-    SELECT
-        CASE
-            WHEN `cfg`.`value` = 'false' THEN 0
-            ELSE 1
-        END
-    FROM `cloud`.`configuration` `cfg`
-    WHERE `cfg`.`name` = 'use.same.mac.address.for.public.nic.of.virtual.routers.on.same.network'
+SET `keep_mac_address_on_public_nic` = COALESCE(
+    (
+        SELECT
+            CASE
+                WHEN `cfg`.`value` = 'false' THEN 0
+                ELSE 1
+            END
+        FROM `cloud`.`configuration` `cfg`
+        WHERE `cfg`.`name` = 'use.same.mac.address.for.public.nic.of.virtual.routers.on.same.network'
+    ), 1
 );
 
 UPDATE `cloud`.`vpc`
-SET `keep_mac_address_on_public_nic` = (
-    SELECT
-        CASE
-            WHEN `cfg`.`value` = 'false' THEN 0
-            ELSE 1
-        END
-    FROM `cloud`.`configuration` `cfg`
-    WHERE `cfg`.`name` = 'use.same.mac.address.for.public.nic.of.virtual.routers.on.same.network'
+SET `keep_mac_address_on_public_nic` = COALESCE(
+    (
+        SELECT
+            CASE
+                WHEN `cfg`.`value` = 'false' THEN 0
+                ELSE 1
+            END
+        FROM `cloud`.`configuration` `cfg`
+        WHERE `cfg`.`name` = 'use.same.mac.address.for.public.nic.of.virtual.routers.on.same.network'
+    ), 1
 );
 
 DELETE FROM `cloud`.`configuration`
