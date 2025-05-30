@@ -102,3 +102,39 @@ CALL `cloud`.`IDEMPOTENT_ADD_COLUMN`('cloud.kubernetes_cluster', 'worker_service
 
 ALTER TABLE `cloud`.`kubernetes_cluster` ADD CONSTRAINT `fk_cluster__control_service_offering_id` FOREIGN KEY `fk_cluster__control_service_offering_id`(`control_service_offering_id`) REFERENCES `service_offering`(`id`);
 ALTER TABLE `cloud`.`kubernetes_cluster` ADD CONSTRAINT `fk_cluster__worker_service_offering_id` FOREIGN KEY `fk_cluster__worker_service_offering_id`(`worker_service_offering_id`) REFERENCES `service_offering`(`id`);
+
+-- Create native backup tables
+
+CREATE TABLE IF NOT EXISTS `cloud`.`native_backup_pool_ref` (
+    `id` bigint NOT NULL UNIQUE AUTO_INCREMENT,
+    `backup_id` bigint unsigned NOT NULL COMMENT 'The backup ID. Foreign key that points to the backups table.',
+    `storage_pool_id` bigint unsigned NOT NULL COMMENT 'The storage ID. Foreign key that points to the storage_pool table.',
+    `volume_id` bigint unsigned NOT NULL COMMENT 'The volumes ID. Foreign key that points to the volumes table.',
+    `backup_delta_path` varchar(255) COMMENT 'Path of the created delta.',
+    `backup_parent_path` varchar(255) COMMENT 'Path of the created delta parent.',
+    PRIMARY KEY (`id`),
+    CONSTRAINT `fk_native_backup_pool_ref__backup_id` FOREIGN KEY (`backup_id`) REFERENCES `backups`(`id`),
+    CONSTRAINT `fk_native_backup_pool_ref__storage_pool_id` FOREIGN KEY (`storage_pool_id`) REFERENCES `storage_pool`(`id`),
+    CONSTRAINT `fk_native_backup_pool_ref__volume_id` FOREIGN KEY (`volume_id`) REFERENCES `volumes`(`id`)
+);
+
+CREATE TABLE IF NOT EXISTS `cloud`.`native_backup_store_ref` (
+    `id` bigint NOT NULL UNIQUE AUTO_INCREMENT,
+    `backup_id` bigint unsigned NOT NULL COMMENT 'The backup ID. Foreign key that points to the backups table.',
+    `volume_id` bigint unsigned NOT NULL COMMENT 'The volume ID. Foreign key that points to the volumes table.',
+    `volume_size` bigint unsigned NOT NULL COMMENT 'The volume size at the time of the backup.',
+    `path` varchar(255) COMMENT 'Path of the backup.',
+    PRIMARY KEY (`id`),
+    CONSTRAINT `fk_native_backup_store_ref__backup_id` FOREIGN KEY (`backup_id`) REFERENCES `backups`(`id`),
+    CONSTRAINT `fk_native_backup_store_ref__volume_id` FOREIGN KEY (`volume_id`) REFERENCES `volumes`(`id`)
+);
+
+CREATE TABLE IF NOT EXISTS `cloud`.`backup_details` (
+    `id` bigint NOT NULL UNIQUE AUTO_INCREMENT,
+    `backup_id` bigint unsigned NOT NULL COMMENT 'The backups ID. Foreign key that points to the backups table.',
+    `name` varchar(255)  NOT NULL COMMENT 'The detail name.',
+    `value` varchar(1024) NOT NULL COMMENT 'The detail value.',
+    `display` tinyint(1) unsigned NOT NULL DEFAULT 1,
+    PRIMARY KEY (`id`),
+    CONSTRAINT `fk_backup_details__backup_id` FOREIGN KEY (`backup_id`) REFERENCES `backups`(`id`)
+);

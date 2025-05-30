@@ -356,11 +356,11 @@ public class VMSnapshotManagerImpl extends MutualExclusiveIdsManagerBase impleme
             throw new InvalidParameterValueException("Creating VM snapshot failed due to VM snapshot with name" + vsDisplayName + "  already exists");
         }
 
-        if (CollectionUtils.isNotEmpty(_vmSnapshotDao.findByVmAndByType(vmId, VMSnapshot.Type.DiskAndMemory))) {
+        if (!snapshotMemory && CollectionUtils.isNotEmpty(_vmSnapshotDao.findByVmAndByType(vmId, VMSnapshot.Type.DiskAndMemory))) {
             throw new InvalidParameterValueException("Creating disk only VM snapshot failed as it has VM snapshots with disk and memory.");
         }
 
-        if (CollectionUtils.isNotEmpty(_vmSnapshotDao.findByVmAndByType(vmId, VMSnapshot.Type.Disk))) {
+        if (snapshotMemory && CollectionUtils.isNotEmpty(_vmSnapshotDao.findByVmAndByType(vmId, VMSnapshot.Type.Disk))) {
             throw new InvalidParameterValueException("Creating disk and memory VM snapshot failed as it has disk only VM snapshots.");
         }
 
@@ -385,8 +385,10 @@ public class VMSnapshotManagerImpl extends MutualExclusiveIdsManagerBase impleme
         }
 
         if (HypervisorType.KVM.equals(userVmVo.getHypervisorType())) {
-            _userVmManager.validateNoVolumeSnapshots(userVmVo, "VM snapshots");
-            _userVmManager.validateNoBackupOfferings(userVmVo, "VM snapshots");
+            if (snapshotMemory) {
+                _userVmManager.validateNoVolumeSnapshots(userVmVo, "Disk And Memory VM snapshots");
+                _userVmManager.validateNoBackupOfferings(userVmVo, "Disk And Memory VM snapshots");
+            }
             //DefaultVMSnapshotStrategy - allows snapshot with memory when VM is in running state and all volumes have to be in QCOW format
             //ScaleIOVMSnapshotStrategy - allows group snapshots without memory; all VM's volumes should be on same storage pool; The state of VM could be Running/Stopped; RAW image format is only supported
             //StorageVMSnapshotStrategy - allows volume snapshots without memory; VM has to be in Running state; No limitation of the image format if the storage plugin supports volume snapshots; "kvm.vmstoragesnapshot.enabled" has to be enabled

@@ -19,10 +19,14 @@ package org.apache.cloudstack.backup;
 import java.util.List;
 import java.util.Map;
 
+import com.cloud.storage.Volume;
 import com.cloud.utils.Pair;
 import com.cloud.vm.VirtualMachine;
+import com.cloud.vm.snapshot.VMSnapshot;
 
 public interface BackupProvider {
+
+    String VM_WORK_JOB_HANDLER = BackupManager.class.getSimpleName();
 
     /**
      * Returns the unique name of the provider
@@ -72,10 +76,12 @@ public interface BackupProvider {
     /**
      * Starts and creates an adhoc backup process
      * for a previously registered VM backup
-     * @param backup
+     *
+     * @param vm VirtualMachine definition
+     * @param quiesceVm whether to quiesce the VM or not.
      * @return
      */
-    boolean takeBackup(VirtualMachine vm);
+    boolean takeBackup(VirtualMachine vm, boolean quiesceVm);
 
     /**
      * Delete an existing backup
@@ -109,4 +115,53 @@ public interface BackupProvider {
      * @param metric
      */
     void syncBackups(VirtualMachine vm, Backup.Metric metric);
+
+    /**
+     * This method should be overwritten by any backup providers that want to schedule their backup jobs in the same queue as the VM jobs.
+     * Otherwise, just use the takeBackup method.
+     * */
+    default Boolean orchestrateTakeBackup(Backup backup, boolean quiesceVm, boolean runningVm) {
+        return null;
+    }
+
+    /**
+     * This method should be overwritten by any backup providers that want to schedule their backup delete jobs in the same queue as the VM jobs.
+     * Otherwise, just use the deleteBackup method.
+     * */
+    default Boolean orchestrateDeleteBackup(Backup backup, boolean forced) {
+        return null;
+    }
+
+    /**
+     * This method should be overwritten by any backup providers that want to schedule their backup restore jobs in the same queue as the VM jobs.
+     * Otherwise, just use the restoreVMFromBackup method.
+     * */
+    default Boolean orchestrateRestoreVMFromBackup(Backup backup, VirtualMachine vm) {
+        return null;
+    }
+
+    /**
+     * This method should be overwritten by any backup providers that allow volume detach but need to prepare it beforehand.
+     * */
+    default void prepareVolumeForDetach(Volume volume, VirtualMachine virtualMachine) {
+    }
+
+    /**
+     * This method should be overwritten by any backup providers that allow volume migration but need to prepare it beforehand.
+     * */
+    default void prepareVolumeForMigration(Volume volume, VirtualMachine virtualMachine) {
+    }
+
+    /**
+     * This method should be overwritten by any backup providers that must update metadata regarding a volume after certain operations (such as after a volume migration).
+     * */
+    default void updateVolumeId(VirtualMachine virtualMachine, long oldVolumeId, long newVolumeId) {
+    }
+
+    /**
+     * This method should be overwritten by any backup providers that are compatible with VM Snapshots but need to prepare the VM to be reverted.
+     * Currently, the only strategy that calls this method is the {@code KvmFileBasedStorageVmSnapshotStrategy}.
+     * */
+    default void prepareVmForSnapshotRevert(VMSnapshot vmSnapshot, VirtualMachine virtualMachine) {
+    }
 }

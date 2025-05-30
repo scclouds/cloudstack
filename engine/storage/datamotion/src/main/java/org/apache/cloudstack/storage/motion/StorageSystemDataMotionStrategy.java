@@ -34,6 +34,7 @@ import javax.inject.Inject;
 
 import com.cloud.agent.api.PrepareForMigrationAnswer;
 import com.cloud.network.dao.PhysicalNetworkDao;
+import org.apache.cloudstack.backup.BackupManager;
 import org.apache.cloudstack.engine.subsystem.api.storage.ChapInfo;
 import org.apache.cloudstack.engine.subsystem.api.storage.ClusterScope;
 import org.apache.cloudstack.engine.subsystem.api.storage.CopyCommandResult;
@@ -200,6 +201,9 @@ public class StorageSystemDataMotionStrategy implements DataMotionStrategy {
 
     @Inject
     private PhysicalNetworkDao physicalNetworkDao;
+
+    @Inject
+    private BackupManager backupManager;
 
     @Override
     public StrategyPriority canHandle(DataObject srcData, DataObject destData) {
@@ -2310,6 +2314,7 @@ public class StorageSystemDataMotionStrategy implements DataMotionStrategy {
                     _snapshotDao.updateVolumeIds(srcVolumeInfo.getId(), destVolumeInfo.getId());
                     _snapshotDataStoreDao.updateVolumeIds(srcVolumeInfo.getId(), destVolumeInfo.getId());
                 }
+                backupManager.updateVolumeId(srcVolumeInfo.getId(), destVolumeInfo.getId());
             }
             else {
                 try {

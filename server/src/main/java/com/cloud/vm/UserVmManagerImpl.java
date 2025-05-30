@@ -56,8 +56,12 @@ import javax.xml.parsers.DocumentBuilder;
 import javax.xml.parsers.ParserConfigurationException;
 
 import com.cloud.serializer.GsonHelper;
+import com.cloud.storage.VolumeApiServiceImpl;
 import com.cloud.storage.dao.SnapshotPolicyDao;
 import com.google.common.reflect.TypeToken;
+import com.cloud.vm.snapshot.VMSnapshot;
+import com.cloud.vm.snapshot.VMSnapshotDetailsVO;
+import com.cloud.vm.snapshot.dao.VMSnapshotDetailsDao;
 import org.apache.cloudstack.acl.ControlledEntity;
 import org.apache.cloudstack.acl.ControlledEntity.ACLType;
 import org.apache.cloudstack.acl.SecurityChecker.AccessType;
@@ -100,6 +104,7 @@ import org.apache.cloudstack.api.command.user.volume.ChangeOfferingForVolumeCmd;
 import org.apache.cloudstack.api.command.user.volume.ResizeVolumeCmd;
 import org.apache.cloudstack.backup.Backup;
 import org.apache.cloudstack.backup.BackupManager;
+import org.apache.cloudstack.backup.BackupProvider;
 import org.apache.cloudstack.backup.dao.BackupDao;
 import org.apache.cloudstack.context.CallContext;
 import org.apache.cloudstack.engine.cloud.entity.api.VirtualMachineEntity;
@@ -517,6 +522,8 @@ public class UserVmManagerImpl extends ManagerBase implements UserVmManager, Vir
     private VmDiskStatisticsDao _vmDiskStatsDao;
     @Inject
     private VMSnapshotDao _vmSnapshotDao;
+    @Inject
+    private VMSnapshotDetailsDao vmSnapshotDetailsDao;
     @Inject
     private VMSnapshotManager _vmSnapshotMgr;
     @Inject
@@ -2605,11 +2612,12 @@ public class UserVmManagerImpl extends ManagerBase implements UserVmManager, Vir
         logger.debug("VM [{}] has backup offering with id [{}]. Trying to remove this backup offering.",
                 () -> ReflectionToStringBuilderUtils.reflectOnlySelectedFields(vm, "uuid", "instanceName"), vm::getBackupOfferingId);
         List<Backup> backupsForVm = backupDao.listByVmId(vm.getDataCenterId(), vm.getId());
+        BackupProvider provider = backupManager.getBackupProvider(vm.getDataCenterId());
         if (CollectionUtils.isEmpty(backupsForVm)) {
             logger.debug("VM [{}] with backup offering [id: {}] does not have any backups. Trying to delete job.",
                     () -> ReflectionToStringBuilderUtils.reflectOnlySelectedFields(vm, "uuid", "instanceName"), vm::getBackupOfferingId);
             backupManager.removeVMFromBackupOffering(vm.getId(), true);
-        } else if (backupManager.getName().equalsIgnoreCase("veeam")){
+        } else if (provider != null && (provider.getName().equalsIgnoreCase("veeam") || provider.getName().equalsIgnoreCase("knib"))) {
             logger.debug("VM [uuid: {}, name: {}] has a Backup Offering [id: {}, external id: {}] with {} backups. "
                             + "Trying to disable/remove only the job, but keeping the backups.", vm.getUuid(), vm.getInstanceName(), vm.getBackupOfferingId(),
                     vm.getBackupExternalId(), backupsForVm.size());
@@ -9112,13 +9120,20 @@ public class UserVmManagerImpl extends ManagerBase implements UserVmManager, Vir
     /**
      * Validates that the VM does not have any VM snapshots.
      * @param userVm VM being validated
-     * @param volumeSnapshotOrBackup Whether the validation is being made because of backups or volume snapshots.
      * */
     @Override
-    public void validateNoVmSnapshots(VirtualMachine userVm, String volumeSnapshotOrBackup) {
-        if (CollectionUtils.isNotEmpty(_vmSnapshotDao.findByVm(userVm.getId()))) {
-            throw new CloudRuntimeException(String.format("VM [%s] already has VM snapshots. VM snapshots and %s are not supported together for KVM. " +
-                    "As restoring %s will erase VM snapshots and cause data loss.", userVm.getUuid(), volumeSnapshotOrBackup, volumeSnapshotOrBackup));
+    public void validateNoVmSnapshots(VirtualMachine userVm) {
+        if (CollectionUtils.isNotEmpty(_vmSnapshotDao.findByVmAndByType(userVm.getId(), VMSnapshot.Type.DiskAndMemory))) {
+            throw new CloudRuntimeException(String.format("VM [%s] already has Disk And Memory VM snapshots. Disk And Memory VM snapshots and volume snapshots are not supported " +
+                    "together for KVM. As restoring volume snapshots will erase Disk And Memory VM snapshots and cause data loss.", userVm.getUuid()));
+        }
+
+        for (VMSnapshotVO vmSnapshotVO : _vmSnapshotDao.findByVmAndByType(userVm.getId(), VMSnapshot.Type.Disk)) {
+            List<VMSnapshotDetailsVO> vmSnapshotDetails = vmSnapshotDetailsDao.listDetails(vmSnapshotVO.getId());
+            if (vmSnapshotDetails.stream().anyMatch(vmSnapshotDetailsVO -> vmSnapshotDetailsVO.getName().equals(VolumeApiServiceImpl.KVM_FILE_BASED_STORAGE_SNAPSHOT))) {
+                throw new CloudRuntimeException(String.format("VM [%s] already has KVM File-Based storage VM snapshots. These VM snapshots and volume snapshots are not supported " +
+                        "together for KVM. As restoring volume snapshots will erase the VM snapshots and cause data loss.", userVm.getUuid()));
+            }
         }
     }
 

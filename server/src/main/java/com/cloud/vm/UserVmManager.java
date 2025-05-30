@@ -178,6 +178,6 @@ public interface UserVmManager extends UserVmService {
 
     void validateNoBackupOfferings(VirtualMachine userVm, String volumeOrVmSnapshot);
 
-    void validateNoVmSnapshots(VirtualMachine userVm, String volumeSnapshotOrBackup);
+    void validateNoVmSnapshots(VirtualMachine userVm);
 
 }
