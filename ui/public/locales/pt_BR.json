@@ -1604,6 +1604,7 @@
 "label.templates": "Templates",
 "label.templatesubject": "Assunto",
 "label.templatetype": "Tipo de template",
+"label.templateremoved": "Este template foi removido",
 "label.tftpdir": "Diret\u00f3rio raiz do TFTP",
 "label.theme.alert": "O painel de configura\u00e7\u00e3o \u00e9 apenas vis\u00edvel no ambiente de desenvolvimento, por favor, salve as configura\u00e7\u00f5es para que as mudan\u00e7as tenham efeito.",
 "label.theme.color": "Cor do tema",

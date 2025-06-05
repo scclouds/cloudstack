@@ -49,9 +49,19 @@
             <slot name="name">
               <div v-if="['USER.LOGIN', 'USER.LOGOUT', 'ROUTER.HEALTH.CHECKS', 'FIREWALL.CLOSE', 'ALERT.SERVICE.DOMAINROUTER'].includes(resource.name)">{{ $t(resource.name.toLowerCase()) }}</div>
               <div v-else>
-                <h4 class="name">
-                  {{ name }}
-                </h4>
+                <span v-if="resource.removed && $route.path.includes('template')">
+                  <h4 class="name">
+                    {{ name }}
+                  </h4>
+                  <span class="info-state-template">
+                    {{ $t('label.templateremoved') }}
+                  </span>
+                </span>
+                <span v-else>
+                  <h4 class="name">
+                    {{ name }}
+                  </h4>
+                </span>
               </div>
             </slot>
           </div>
@@ -544,14 +554,19 @@
           <div class="resource-detail-item__details">
             <resource-icon v-if="resource.icon" :image="getImage(resource.icon.base64image)" size="1x" style="margin-right: 5px"/>
             <SaveOutlined v-else />
-            <router-link :to="{ path: (resource.templateformat === 'ISO' ? '/iso/' : '/template/') + resource.templateid }">{{ resource.templatedisplaytext || resource.templatename || resource.templateid }} </router-link>
+              <div v-if="resource.templateformat === 'ISO'">
+                <router-link :to="{ path: '/iso/' + resource.templateid }">{{ resource.templatedisplaytext || resource.templatename || resource.templateid }} </router-link>
+              </div>
+              <div v-else>
+                <router-link :to="{ path: '/template/' + resource.templateid, query:{showremoved:'true'} }">{{ resource.templatedisplaytext || resource.templatename || resource.templateid }} </router-link>
+              </div>
+            </div>
           </div>
-        </div>
-        <div class="resource-detail-item" v-if="resource.isoid">
-          <div class="resource-detail-item__label">{{ $t('label.isoname') }}</div>
-          <div class="resource-detail-item__details">
-            <resource-icon v-if="resource.icon" :image="getImage(resource.icon.base64image)" size="1x" style="margin-right: 5px"/>
-            <UsbOutlined v-else />
+          <div class="resource-detail-item" v-if="resource.isoid">
+            <div class="resource-detail-item__label">{{ $t('label.isoname') }}</div>
+            <div class="resource-detail-item__details">
+              <resource-icon v-if="resource.icon" :image="getImage(resource.icon.base64image)" size="1x" style="margin-right: 5px"/>
+              <UsbOutlined v-else />
               <router-link :to="{ path: '/iso/' + resource.isoid }">{{ resource.isodisplaytext || resource.isoname || resource.isoid }} </router-link>
           </div>
         </div>
@@ -704,6 +719,12 @@
           <div class="resource-detail-item__label">{{ $t('label.created') }}</div>
           <div class="resource-detail-item__details">
             <calendar-outlined />{{ $toLocaleDate(resource.created) }}
+          </div>
+        </div>
+        <div class="resource-detail-item" v-if="resource.removed">
+          <div class="resource-detail-item__label">{{ $t('label.removed') }}</div>
+          <div class="resource-detail-item__details">
+            <calendar-outlined />{{ $toLocaleDate(resource.removed) }}
           </div>
         </div>
         <div class="resource-detail-item" v-if="resource.lastupdated">
@@ -880,8 +901,7 @@ export default {
         vpc: '',
         network: ''
       },
-      newResource: {},
-      validLinks: {}
+      newResource: {}
     }
   },
   watch: {
@@ -1210,6 +1230,13 @@ export default {
       font-size: 18px;
       line-height: 1;
       word-break: break-all;
+      text-align: left;
+    }
+
+    .info-state-template {
+      font-style: italic;
+      word-break: break-word;
+      overflow-wrap: break-word;
       text-align: left;
     }
 

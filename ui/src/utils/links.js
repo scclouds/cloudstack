@@ -25,11 +25,7 @@ export function validateLinks (router, isStatic, resource) {
   }
 
   if (resource.volumeid && router.resolve('/volume/' + resource.volumeid).matched[0].redirect !== '/exception/404') {
-    if (resource.volumestate) {
-      validLinks.volume = resource.volumestate !== 'Expunged'
-    } else {
-      validLinks.volume = true
-    }
+    validLinks.volume = resource.volumestate !== 'Expunged'
   }
 
   return validLinks

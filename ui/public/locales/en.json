@@ -2103,6 +2103,7 @@
 "label.templateiso": "Template/ISO",
 "label.templatelimit": "Template limits",
 "label.templatename": "Template",
+"label.templateremoved": "This template has been removed",
 "label.templates": "Templates",
 "label.templatesubject": "Subject",
 "label.templatetype": "Template type",

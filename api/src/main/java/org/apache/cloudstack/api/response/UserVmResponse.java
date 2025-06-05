@@ -513,6 +513,10 @@ public class UserVmResponse extends BaseResponseWithTagInformation implements Co
         return passwordEnabled;
     }
 
+    public String getTemplateFormat() {
+        return templateFormat;
+    }
+
     public String getIsoId() {
         return isoId;
     }
@@ -765,6 +769,10 @@ public class UserVmResponse extends BaseResponseWithTagInformation implements Co
 
     public void setPasswordEnabled(Boolean passwordEnabled) {
         this.passwordEnabled = passwordEnabled;
+    }
+
+    public void setTemplateFormat(String templateFormat) {
+        this.templateFormat = templateFormat;
     }
 
     public void setIsoId(String isoId) {
@@ -1102,14 +1110,6 @@ public class UserVmResponse extends BaseResponseWithTagInformation implements Co
 
     public void setTemplateType(String templateType) {
         this.templateType = templateType;
-    }
-
-    public String getTemplateFormat() {
-        return templateFormat;
-    }
-
-    public void setTemplateFormat(String templateFormat) {
-        this.templateFormat = templateFormat;
     }
 
     public List<VnfNicResponse> getVnfNics() {
