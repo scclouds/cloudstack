@@ -60,7 +60,7 @@ export default {
       details: () => {
         var fields = ['name', 'id', 'displaytext', 'checksum', 'hypervisor', 'arch', 'format', 'ostypename', 'size', 'physicalsize', 'isready', 'passwordenabled',
           'crossZones', 'templatetype', 'directdownload', 'deployasis', 'ispublic', 'isfeatured', 'isextractable', 'isdynamicallyscalable', 'crosszones', 'type',
-          'account', 'domain', 'created', 'userdatadetails', 'userdatapolicy', 'forcks']
+          'account', 'domain', 'created', 'userdatadetails', 'userdatapolicy', 'url', 'forcks']
         if (['Admin'].includes(store.getters.userInfo.roletype)) {
           fields.push('templatetag', 'templatetype', 'url')
         }
@@ -372,7 +372,7 @@ export default {
       permission: ['listKubernetesSupportedVersions'],
       searchFilters: ['zoneid', 'minimumsemanticversion', 'arch'],
       columns: ['name', 'state', 'semanticversion', 'isostate', 'mincpunumber', 'minmemory', 'arch', 'zonename'],
-      details: ['name', 'semanticversion', 'supportsautoscaling', 'zoneid', 'zonename', 'isoid', 'isoname', 'isostate', 'arch', 'mincpunumber', 'minmemory', 'supportsha', 'state', 'created'],
+      details: ['name', 'semanticversion', 'supportsautoscaling', 'zoneid', 'zonename', 'isoid', 'isoname', 'isostate', 'mincpunumber', 'minmemory', 'supportsha', 'state', 'created', 'isourl'],
       tabs: [
         {
           name: 'details',
