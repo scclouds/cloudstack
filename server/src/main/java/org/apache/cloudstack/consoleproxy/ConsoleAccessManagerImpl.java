@@ -28,7 +28,9 @@ import javax.crypto.spec.SecretKeySpec;
 import javax.inject.Inject;
 import javax.naming.ConfigurationException;
 
+import com.cloud.domain.Domain;
 import com.cloud.domain.dao.DomainDao;
+import com.cloud.exception.InvalidParameterValueException;
 import org.apache.cloudstack.api.ResponseGenerator;
 import org.apache.cloudstack.api.ResponseObject;
 import org.apache.cloudstack.api.command.admin.consoleproxy.ListConsoleSessionsCmd;
@@ -215,7 +217,7 @@ public class ConsoleAccessManagerImpl extends ManagerBase implements ConsoleAcce
 
     protected Pair<List<ConsoleSessionVO>, Integer> listConsoleSessionsInternal(ListConsoleSessionsCmd cmd) {
         CallContext caller = CallContext.current();
-        long domainId = cmd.getDomainId() != null ? cmd.getDomainId() : caller.getCallingAccount().getDomainId();
+        long domainId = getBaseDomainIdToListConsoleSessions(cmd.getDomainId());
         Long accountId = cmd.getAccountId();
         Long userId = cmd.getUserId();
         boolean isRecursive = cmd.isRecursive();
@@ -239,8 +241,33 @@ public class ConsoleAccessManagerImpl extends ManagerBase implements ConsoleAcce
                 cmd.getPageSizeVal(), cmd.getStartIndex());
     }
 
+    /**
+     * Determines the base domain ID for listing console sessions.
+     *
+     * If no domain ID is provided, returns the caller's domain ID. Otherwise,
+     * checks if the caller has access to that domain and returns the provided domain ID.
+     *
+     * @param domainId The domain ID to check, can be null
+     * @return The base domain ID to use for listing console sessions
+     * @throws PermissionDeniedException if the caller does not have access to the specified domain
+     */
+    protected long getBaseDomainIdToListConsoleSessions(Long domainId) {
+        Account caller = CallContext.current().getCallingAccount();
+        if (domainId == null) {
+            return caller.getDomainId();
+        }
+
+        Domain domain = domainDao.findById(domainId);
+        if (domain == null) {
+            throw new InvalidParameterValueException(String.format("Unable to find domain with ID [%s]. Verify the informed domain and try again.", domainId));
+        }
+
+        accountManager.checkAccess(caller, domain);
+        return domainId;
+    }
+
     public ConsoleSession listConsoleSessionById(long id) {
-        return consoleSessionDao.findById(id);
+        return consoleSessionDao.findByIdIncludingRemoved(id);
     }
 
     @Override

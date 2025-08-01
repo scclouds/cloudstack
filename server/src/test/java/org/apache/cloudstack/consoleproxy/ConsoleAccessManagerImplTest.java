@@ -17,6 +17,7 @@
 package org.apache.cloudstack.consoleproxy;
 
 import com.cloud.agent.AgentManager;
+import com.cloud.domain.DomainVO;
 import com.cloud.domain.dao.DomainDao;
 import com.cloud.exception.PermissionDeniedException;
 import com.cloud.server.ManagementServer;
@@ -80,6 +81,8 @@ public class ConsoleAccessManagerImplTest {
     private CallContext callContextMock;
     @Mock
     private DomainDao domainDaoMock;
+    @Mock
+    private DomainVO domainMock;
     @Mock
     private ConsoleSessionVO consoleSessionMock;
     @Mock
@@ -170,6 +173,7 @@ public class ConsoleAccessManagerImplTest {
         try (MockedStatic<CallContext> callContextStaticMock = Mockito.mockStatic(CallContext.class)) {
             callContextStaticMock.when(CallContext::current).thenReturn(callContextMock);
             Mockito.when(listConsoleSessionsCmdMock.getDomainId()).thenReturn(callerDomainId);
+            Mockito.doReturn(callerDomainId).when(consoleAccessManager).getBaseDomainIdToListConsoleSessions(callerDomainId);
             Mockito.when(listConsoleSessionsCmdMock.getAccountId()).thenReturn(callerAccountId);
             Mockito.when(listConsoleSessionsCmdMock.getUserId()).thenReturn(callerUserId);
             Mockito.when(listConsoleSessionsCmdMock.isRecursive()).thenReturn(isRecursive);
@@ -197,6 +201,7 @@ public class ConsoleAccessManagerImplTest {
         try (MockedStatic<CallContext> callContextStaticMock = Mockito.mockStatic(CallContext.class)) {
             callContextStaticMock.when(CallContext::current).thenReturn(callContextMock);
             Mockito.when(listConsoleSessionsCmdMock.getDomainId()).thenReturn(callerDomainId);
+            Mockito.doReturn(callerDomainId).when(consoleAccessManager).getBaseDomainIdToListConsoleSessions(callerDomainId);
             Mockito.when(listConsoleSessionsCmdMock.getAccountId()).thenReturn(callerAccountId);
             Mockito.when(listConsoleSessionsCmdMock.getUserId()).thenReturn(callerUserId);
             Mockito.when(listConsoleSessionsCmdMock.isRecursive()).thenReturn(isRecursive);
@@ -224,6 +229,7 @@ public class ConsoleAccessManagerImplTest {
         try (MockedStatic<CallContext> callContextStaticMock = Mockito.mockStatic(CallContext.class)) {
             callContextStaticMock.when(CallContext::current).thenReturn(callContextMock);
             Mockito.when(listConsoleSessionsCmdMock.getDomainId()).thenReturn(callerDomainId);
+            Mockito.doReturn(callerDomainId).when(consoleAccessManager).getBaseDomainIdToListConsoleSessions(callerDomainId);
             Mockito.when(listConsoleSessionsCmdMock.getAccountId()).thenReturn(callerAccountId);
             Mockito.when(listConsoleSessionsCmdMock.getUserId()).thenReturn(callerUserId);
             Mockito.when(listConsoleSessionsCmdMock.isRecursive()).thenReturn(isRecursive);
@@ -243,7 +249,9 @@ public class ConsoleAccessManagerImplTest {
 
     @Test
     public void listConsoleSessionsTestShouldCreateResponsesWithFullViewForRootAdmins() {
-        Mockito.when(consoleAccessManager.listConsoleSessionsInternal(listConsoleSessionsCmdMock)).thenReturn(new Pair<>(List.of(consoleSessionMock), 1));
+        Mockito.doReturn(new Pair<>(List.of(consoleSessionMock), 1))
+                .when(consoleAccessManager)
+                .listConsoleSessionsInternal(listConsoleSessionsCmdMock);
 
         try (MockedStatic<CallContext> callContextStaticMock = Mockito.mockStatic(CallContext.class)) {
             callContextStaticMock.when(CallContext::current).thenReturn(callContextMock);
@@ -258,7 +266,9 @@ public class ConsoleAccessManagerImplTest {
 
     @Test
     public void listConsoleSessionsTestShouldCreateResponsesWithRestrictedViewForNonRootAdmins() {
-        Mockito.when(consoleAccessManager.listConsoleSessionsInternal(listConsoleSessionsCmdMock)).thenReturn(new Pair<>(List.of(consoleSessionMock), 1));
+        Mockito.doReturn(new Pair<>(List.of(consoleSessionMock), 1))
+                .when(consoleAccessManager)
+                .listConsoleSessionsInternal(listConsoleSessionsCmdMock);
 
         try (MockedStatic<CallContext> callContextStaticMock = Mockito.mockStatic(CallContext.class)) {
             callContextStaticMock.when(CallContext::current).thenReturn(callContextMock);
@@ -275,6 +285,31 @@ public class ConsoleAccessManagerImplTest {
     @Test
     public void listConsoleSessionByIdTestShouldCallDbLayer() {
         consoleAccessManager.listConsoleSessionById(1L);
-        Mockito.verify(consoleSessionDaoMock).findById(1L);
+        Mockito.verify(consoleSessionDaoMock).findByIdIncludingRemoved(1L);
+    }
+
+    @Test
+    public void getBaseDomainIdToListConsoleSessionsTestIfNoDomainIdIsProvidedReturnCallersDomainId() {
+        long callerDomainId = 5L;
+
+        try (MockedStatic<CallContext> callContextStaticMock = Mockito.mockStatic(CallContext.class)) {
+            callContextStaticMock.when(CallContext::current).thenReturn(callContextMock);
+            Mockito.when(callContextMock.getCallingAccount()).thenReturn(account);
+            Mockito.when(account.getDomainId()).thenReturn(callerDomainId);
+            Assert.assertEquals(callerDomainId, consoleAccessManager.getBaseDomainIdToListConsoleSessions(null));
+        }
+    }
+
+    @Test
+    public void getBaseDomainIdToListConsoleSessionsTestPerformAccessValidationWhenDomainIsProvided() {
+        long domainId = 5L;
+
+        try (MockedStatic<CallContext> callContextStaticMock = Mockito.mockStatic(CallContext.class)) {
+            callContextStaticMock.when(CallContext::current).thenReturn(callContextMock);
+            Mockito.when(callContextMock.getCallingAccount()).thenReturn(account);
+            Mockito.when(domainDaoMock.findById(domainId)).thenReturn(domainMock);
+            Assert.assertEquals(domainId, consoleAccessManager.getBaseDomainIdToListConsoleSessions(domainId));
+            Mockito.verify(accountManager).checkAccess(account, domainMock);
+        }
     }
 }
