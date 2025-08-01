@@ -41,7 +41,7 @@ public class RestoreKnibBackupCommand extends Command {
 
     @Override
     public boolean executeInSequence() {
-        return true;
+        return false;
     }
 
     public Set<BackupDeltaTO> getDeltasToRemove() {

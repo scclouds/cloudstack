@@ -16,3 +16,9 @@
 -- under the License.
 
 -- Schema upgrade from 4.20.0.3 to 4.20.0.4
+
+-- Normalize metadata on KNIB
+
+DELETE FROM `cloud`.`native_backup_pool_ref` WHERE `backup_id` NOT IN (
+    SELECT `id` from `native_backup_view` nbv WHERE nbv.`current` = 'true'
+);
