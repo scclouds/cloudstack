@@ -953,7 +953,7 @@ public class KnibBackupProvider extends AdapterBase implements BackupProvider, C
             nativeBackupStoragePoolDao.expunge(oldBackupDelta.getId());
             SnapshotDataStoreVO snapshotDataStoreVO = snapshotRefs.stream().filter(ref -> ref.getVolumeId() == oldBackupDelta.getVolumeId()).findFirst().orElse(null);
             if (snapshotDataStoreVO == null) {
-                return;
+                continue;
             }
             snapshotDataStoreVO.setInstallPath(oldBackupDelta.getBackupDeltaParentPath());
             logger.debug("Updating snapshot delta [{}] path to [{}].", snapshotDataStoreVO.getId(), oldBackupDelta.getBackupDeltaParentPath());

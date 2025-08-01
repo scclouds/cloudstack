@@ -80,6 +80,6 @@ public class TakeKnibBackupCommand extends Command {
 
     @Override
     public boolean executeInSequence() {
-        return true;
+        return false;
     }
 }
