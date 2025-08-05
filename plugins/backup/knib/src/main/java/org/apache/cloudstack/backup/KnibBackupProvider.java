@@ -116,11 +116,13 @@ import static org.apache.cloudstack.backup.dao.BackupDetailDao.IMAGE_STORE_ID;
 import static org.apache.cloudstack.backup.dao.BackupDetailDao.PARENT_ID;
 
 public class KnibBackupProvider extends AdapterBase implements BackupProvider, Configurable {
-
     protected ConfigKey<Integer> backupChainSize = new ConfigKey<>("Advanced", Integer.class, "backup.chain.size", "8", "Determines the max size of a backup chain." +
             " Currently only used by the KNIB provider. If cloud admins set it to 1 , all the backups will be full backups. With values lower than 1, the backup chain will be " +
             "unlimited, unless it is stopped by another process. Please note that unlimited backup chains have a higher chance of getting corrupted, as new backups will be" +
             " dependant on all of the older ones.", true, ConfigKey.Scope.Zone);
+
+    protected ConfigKey<Integer> backupTimeout = new ConfigKey<>("Advanced", Integer.class, "knib.timeout", "43200", "Timeout, in seconds, to execute KNIB commands. After the " +
+            "command times out, the Management Server will still wait for another knib.timeout seconds to receive a response from the Agent.", true, ConfigKey.Scope.Zone);
 
     @Inject
     private AsyncJobManager jobManager;
@@ -194,6 +196,8 @@ public class KnibBackupProvider extends AdapterBase implements BackupProvider, C
 
     private static final String KNIB_PROVIDER_NAME = "knib";
 
+    protected static final List<Backup.Status> VALID_CHILD_STATES_TO_REMOVE_BACKUP = List.of(Backup.Status.Expunged, Backup.Status.Error, Backup.Status.Failed);
+
     // Return only the standard until the others are implemented
     List<BackupOffering> backupOfferings = Arrays.asList(
             new KnibBackupOffering("Standard", STANDARD_BACKUP_UUID, "Standard backup offering.")
@@ -255,6 +259,7 @@ public class KnibBackupProvider extends AdapterBase implements BackupProvider, C
     public boolean removeVMFromBackupOffering(VirtualMachine vm, boolean removeBackups) {
         logger.info("Removing VM [{}] from KNIB backup offering.", vm.getUuid());
 
+        validateVmState(vm, "remove backup offering", VirtualMachine.State.Expunging, VirtualMachine.State.Destroyed);
         NativeBackupJoinVO current = nativeBackupJoinDao.findCurrent(vm.getId());
         if (current == null) {
             logger.debug("There is no current active chain, no need to do anything.");
@@ -262,7 +267,6 @@ public class KnibBackupProvider extends AdapterBase implements BackupProvider, C
         }
 
         BackupVO backupVO = backupDao.findById(current.getId());
-        validateVmState(vm, "remove backup offering", VirtualMachine.State.Expunging, VirtualMachine.State.Destroyed);
         if (mergeCurrentBackupDeltas(current, backupVO)) {
             backupDetailDao.removeDetail(current.getId(), CURRENT);
             return true;
@@ -347,9 +351,9 @@ public class KnibBackupProvider extends AdapterBase implements BackupProvider, C
         TakeKnibBackupCommand command = new TakeKnibBackupCommand(quiesceVm, runningVm, newBackupJoin.getEndOfChain(), userVm.getInstanceName(), imageStore.getUri(),
                 parentImageStoreUrl, knibTOs);
 
-        Answer answer = agentManager.easySend(hostId, command);
+        Answer answer = sendBackupCommand(hostId, command);
 
-        if (!answer.getResult()) {
+        if (answer == null || !answer.getResult()) {
             processBackupFailure(answer, userVm, hostId, runningVm, backupVO);
             return false;
         }
@@ -405,9 +409,9 @@ public class KnibBackupProvider extends AdapterBase implements BackupProvider, C
 
         NativeBackupJoinVO childBackup = nativeBackupJoinDao.findByParentId(backup.getId());
 
-        if (childBackup != null && !Backup.Status.Expunged.equals(childBackup.getStatus())) {
-            logger.debug("Backup [{}] has children that are not expunged, will mark it as removed on the database but the files will not be deleted from secondary storage " +
-                    "until the children are also expunged.");
+        if (childBackup != null && !VALID_CHILD_STATES_TO_REMOVE_BACKUP.contains(childBackup.getStatus())) {
+            logger.debug("Backup [{}] has children that are not in one of the following states [{}]; will mark it as removed on the database but the files will not be deleted " +
+                    "from secondary storage until the children are also expunged.", backup.getUuid(), VALID_CHILD_STATES_TO_REMOVE_BACKUP);
             backupVO.setStatus(Backup.Status.Removed);
             backupDao.update(backupVO.getId(), backupVO);
             return true;
@@ -432,7 +436,7 @@ public class KnibBackupProvider extends AdapterBase implements BackupProvider, C
         }
         Answer[] deleteAnswers;
         try {
-            deleteAnswers = agentManager.send(endPoint.getId(), deleteCommands);
+            deleteAnswers = sendBackupCommands(endPoint.getId(), deleteCommands);
         } catch (AgentUnavailableException | OperationTimedoutException e) {
             throw new CloudRuntimeException(e);
         }
@@ -514,9 +518,9 @@ public class KnibBackupProvider extends AdapterBase implements BackupProvider, C
         Answer[] answers = null;
 
         try {
-            answers = agentManager.send(hostId, commands);
+            answers = sendBackupCommands(hostId, commands);
         } catch (OperationTimedoutException | AgentUnavailableException e) {
-            throw new RuntimeException(e);
+            throw new CloudRuntimeException(e);
         }
 
         if (answers == null) {
@@ -599,7 +603,7 @@ public class KnibBackupProvider extends AdapterBase implements BackupProvider, C
 
         Answer[] answers;
         try {
-            answers = agentManager.send(hostId, commands);
+            answers = sendBackupCommands(hostId, commands);
         } catch (AgentUnavailableException | OperationTimedoutException e) {
             throw new CloudRuntimeException(e);
         }
@@ -635,7 +639,7 @@ public class KnibBackupProvider extends AdapterBase implements BackupProvider, C
 
     @Override
     public ConfigKey<?>[] getConfigKeys() {
-        return new ConfigKey[] {backupChainSize};
+        return new ConfigKey[] {backupChainSize, backupTimeout};
     }
 
     private Outcome<Boolean> createBackupThroughJobQueue(VirtualMachine vm, boolean quiesceVm) {
@@ -750,7 +754,7 @@ public class KnibBackupProvider extends AdapterBase implements BackupProvider, C
         DeltaMergeTreeTO deltaMergeTreeTO = createDeltaMergeTree(succeedingVmSnapshotVO == null, isVmRunning, delta, (VolumeObjectTO)volumeObject.getTO(), succeedingVmSnapshotVO);
         MergeDiskOnlyVmSnapshotCommand cmd = new MergeDiskOnlyVmSnapshotCommand(List.of(deltaMergeTreeTO), isVmRunning, virtualMachine.getInstanceName());
 
-        Answer answer = agentManager.easySend(vmSnapshotHelper.pickRunningHost(virtualMachine.getId()), cmd);
+        Answer answer = sendBackupCommand(vmSnapshotHelper.pickRunningHost(virtualMachine.getId()), cmd);
 
         if (answer == null || !answer.getResult()) {
             logger.error("Error while trying to prepare volume [{}] for {}. Got [{}] as answer from host.", volume.getUuid(), operation, answer != null ? answer.getDetails() : null);
@@ -1335,7 +1339,7 @@ public class KnibBackupProvider extends AdapterBase implements BackupProvider, C
         MergeDiskOnlyVmSnapshotCommand cmd = buildMergeDiskOnlyVmSnapshotCommandForCurrentBackup(backupJoinVO, userVm, succeedingVmSnapshot);
         Long hostId = vmSnapshotHelper.pickRunningHost(backupVO.getVmId());
 
-        Answer answer = agentManager.easySend(hostId, cmd);
+        Answer answer = sendBackupCommand(hostId, cmd);
         if (answer == null || !answer.getResult()) {
             logger.error("Failed to remove backup [{}]. Tried to merge the current deltas to cleanup the VM but failed due to [{}].",
                     backupVO, answer != null ? answer.getDetails() : "no answer");
@@ -1531,6 +1535,18 @@ public class KnibBackupProvider extends AdapterBase implements BackupProvider, C
         }
 
         setEndOfChainAndRemoveCurrentForBackup(backupVO);
+    }
+
+    protected Answer sendBackupCommand(long hostId, Command cmd) {
+        cmd.setWait(backupTimeout.value());
+        return agentManager.easySend(hostId, cmd);
+    }
+
+    protected Answer[] sendBackupCommands(Long hostId, Commands cmds) throws OperationTimedoutException, AgentUnavailableException {
+        for (Command cmd : cmds) {
+            cmd.setWait(backupTimeout.value());
+        }
+        return agentManager.send(hostId, cmds);
     }
 
     private void validateVmState(VirtualMachine vm, String operation, VirtualMachine.State... additionalStates) {

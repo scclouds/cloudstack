@@ -19,8 +19,6 @@
 package com.cloud.hypervisor.kvm.resource.wrapper;
 
 import com.cloud.agent.api.Answer;
-import com.cloud.agent.properties.AgentProperties;
-import com.cloud.agent.properties.AgentPropertiesFileHandler;
 import com.cloud.hypervisor.kvm.resource.LibvirtComputingResource;
 import com.cloud.hypervisor.kvm.storage.KVMStoragePool;
 import com.cloud.hypervisor.kvm.storage.KVMStoragePoolManager;
@@ -60,7 +58,7 @@ public class LibvirtRestoreKnibBackupCommandWrapper extends CommandWrapper<Resto
             secondaryStorage = storagePoolManager.getStoragePoolByURI(backupToAndVolumeObjectPairs.stream().findFirst().get().first().getDataStore().getUrl());
             parentSecondaryStorages = secondaryStorageUrls.stream().map(storagePoolManager::getStoragePoolByURI).collect(Collectors.toList());
 
-            restoreVolumes(backupToAndVolumeObjectPairs, secondaryStorage, storagePoolManager);
+            restoreVolumes(backupToAndVolumeObjectPairs, secondaryStorage, storagePoolManager, cmd.getWait() * 1000);
 
             deleteDeltas(deltasToRemove, storagePoolManager);
 
@@ -77,7 +75,8 @@ public class LibvirtRestoreKnibBackupCommandWrapper extends CommandWrapper<Resto
         return new Answer(cmd);
     }
 
-    private void restoreVolumes(Set<Pair<BackupDeltaTO, VolumeObjectTO>> backupToAndVolumeObjectPairs, KVMStoragePool secondaryStorage, KVMStoragePoolManager storagePoolManager)
+    private void restoreVolumes(Set<Pair<BackupDeltaTO, VolumeObjectTO>> backupToAndVolumeObjectPairs, KVMStoragePool secondaryStorage, KVMStoragePoolManager storagePoolManager,
+            int timeoutInMillis)
             throws LibvirtException, QemuImgException {
         for (Pair<BackupDeltaTO, VolumeObjectTO> backupToVolumeToPair : backupToAndVolumeObjectPairs) {
             String fullBackupPath = secondaryStorage.getLocalPathFor(backupToVolumeToPair.first().getPath());
@@ -90,7 +89,7 @@ public class LibvirtRestoreKnibBackupCommandWrapper extends CommandWrapper<Resto
             QemuImgFile backup = new QemuImgFile(fullBackupPath, QemuImg.PhysicalDiskFormat.QCOW2);
             QemuImgFile volume = new QemuImgFile(fullVolumePath, QemuImg.PhysicalDiskFormat.QCOW2);
 
-            QemuImg qemuImg = new QemuImg(AgentPropertiesFileHandler.getPropertyValue(AgentProperties.REVERT_SNAPSHOT_TIMEOUT) * 1000);
+            QemuImg qemuImg = new QemuImg(timeoutInMillis);
 
             logger.info("Restoring volume [{}] at [{}] with backup stored at [{}].", volumeObjectTO.getUuid(), fullVolumePath, fullBackupPath);
             qemuImg.convert(backup, volume);
