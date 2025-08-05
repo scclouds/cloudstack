@@ -20,6 +20,7 @@ package org.apache.cloudstack.storage.to;
 
 import com.cloud.agent.api.to.DataTO;
 import org.apache.commons.lang3.builder.ReflectionToStringBuilder;
+import org.apache.commons.lang3.builder.ToStringStyle;
 
 import java.util.List;
 
@@ -59,6 +60,6 @@ public class DeltaMergeTreeTO {
 
     @Override
     public String toString() {
-        return ReflectionToStringBuilder.toString(this);
+        return ReflectionToStringBuilder.toString(this, ToStringStyle.JSON_STYLE);
     }
 }

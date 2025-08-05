@@ -22,6 +22,7 @@ import com.cloud.agent.api.to.DataTO;
 import com.cloud.hypervisor.Hypervisor;
 import com.cloud.storage.Storage;
 import org.apache.commons.lang3.builder.ReflectionToStringBuilder;
+import org.apache.commons.lang3.builder.ToStringStyle;
 
 public class BackupDeltaTO implements DataTO {
     private DataStoreTO dataStoreTO;
@@ -76,6 +77,6 @@ public class BackupDeltaTO implements DataTO {
     }
     @Override
     public String toString() {
-        return ReflectionToStringBuilder.toStringExclude(this, "id");
+        return new ReflectionToStringBuilder(this, ToStringStyle.JSON_STYLE).setExcludeFieldNames("id").toString();
     }
 }

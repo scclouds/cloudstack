@@ -50,6 +50,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import java.util.concurrent.TimeoutException;
 import java.util.stream.Collectors;
 
 @ResourceWrapper(handles = TakeKnibBackupCommand.class)
@@ -76,42 +77,10 @@ public class LibvirtTakeKnibBackupCommandWrapper extends CommandWrapper<TakeKnib
                 mapVolumeUuidToDeltaSizeAndNewVolumePath = resource.createDiskOnlyVMSnapshotOfStoppedVm(volumeObjectTOs, vmName);
             }
 
-            for (KnibTO knibTO : knibTOs) {
-                VolumeObjectTO volumeObjectTO = knibTO.getVolumeObjectTO();
-                String currentVolumePath = volumeObjectTO.getPath();
-                String volumeUuid = volumeObjectTO.getUuid();
-                List<String> snapshotDataStoreVos = knibTO.getVmSnapshotDeltaPaths();
+            backupVolumes(command, resource, storagePoolManager, knibTOs, mapVolumeUuidToDeltaSizeAndNewVolumePath, volumeObjectTOs, imageStoreUrl, vmName, runningVM,
+                    mapVolumeUuidToDeltaPathOnSecondaryAndDeltaSize);
 
-                try {
-                    Pair<String, Long> deltaPathOnSecondaryAndSize = copyBackupDeltaToSecondary(storagePoolManager, command.getBackupParentImageStoreUrl(), imageStoreUrl,
-                            command.getWait(), knibTO);
-
-                    mapVolumeUuidToDeltaPathOnSecondaryAndDeltaSize.put(volumeUuid, deltaPathOnSecondaryAndSize);
-                } catch (Exception ex) {
-                    recoverPreviousVmStateAndDeletePartialBackup(resource, volumeObjectTOs, mapVolumeUuidToDeltaSizeAndNewVolumePath, vmName, runningVM,
-                            mapVolumeUuidToDeltaPathOnSecondaryAndDeltaSize, storagePoolManager, imageStoreUrl);
-                    throw new BackupException(String.format("There was an exception during the backup process for VM [%s], but the VM has been successfully normalized.", vmName),
-                            ex, true);
-                }
-
-                DeltaMergeTreeTO deltaMergeTreeTO = knibTO.getDeltaMergeTreeTO();
-                volumeObjectTO.setPath(mapVolumeUuidToDeltaSizeAndNewVolumePath.get(volumeUuid).second());
-
-                if (deltaMergeTreeTO != null) {
-                    mergeBackupDelta(resource, deltaMergeTreeTO, volumeObjectTO, vmName, runningVM, volumeUuid, snapshotDataStoreVos.isEmpty());
-                }
-
-                if (command.isEndChain()) {
-                    String baseVolumePath = currentVolumePath;
-                    if (deltaMergeTreeTO != null && deltaMergeTreeTO.getChild().getPath().equals(baseVolumePath)) {
-                        baseVolumePath = deltaMergeTreeTO.getParent().getPath();
-                    }
-                    endChainForVolume(resource, volumeObjectTO, vmName, runningVM, volumeUuid, baseVolumePath);
-                    mapVolumeUuidToNewVolumePath.put(volumeUuid, baseVolumePath);
-                } else {
-                    mapVolumeUuidToNewVolumePath.put(volumeUuid, mapVolumeUuidToDeltaSizeAndNewVolumePath.get(volumeUuid).second());
-                }
-            }
+            cleanupVm(command, resource, knibTOs, mapVolumeUuidToDeltaSizeAndNewVolumePath, vmName, runningVM, mapVolumeUuidToNewVolumePath);
         } catch (BackupException ex) {
             return new TakeKnibBackupAnswer(command, ex);
         }
@@ -120,10 +89,81 @@ public class LibvirtTakeKnibBackupCommandWrapper extends CommandWrapper<TakeKnib
     }
 
     /**
+     * Backup (copy) volumes to secondary storage. Will also populate the mapVolumeUuidToDeltaPathOnSecondaryAndDeltaSize argument.
+     * The timeout for this method is guided by the wait time for the given command, if the wait time is bigger than 24 days, there will be an overflow on the timeout.
+     * <br/>
+     * If an exception is caught while copying the volumes, will try to recover the VM to the previous state so that it is consistent.
+     * */
+    private void backupVolumes(TakeKnibBackupCommand command, LibvirtComputingResource resource, KVMStoragePoolManager storagePoolManager, List<KnibTO> knibTOs,
+            Map<String, Pair<Long, String>> mapVolumeUuidToDeltaSizeAndNewVolumePath, List<VolumeObjectTO> volumeObjectTOs, String imageStoreUrl, String vmName, boolean runningVM,
+            Map<String, Pair<String, Long>> mapVolumeUuidToDeltaPathOnSecondaryAndDeltaSize) {
+        try {
+            int maxWaitInMillis = command.getWait() * 1000;
+            for (KnibTO knibTO : knibTOs) {
+                long startTimeMillis = System.currentTimeMillis();
+                VolumeObjectTO volumeObjectTO = knibTO.getVolumeObjectTO();
+                String volumeUuid = volumeObjectTO.getUuid();
+
+                logger.debug("Backing up volume [{}].", volumeUuid);
+                Pair<String, Long> deltaPathOnSecondaryAndSize = copyBackupDeltaToSecondary(storagePoolManager, knibTO, command.getBackupParentImageStoreUrl(), imageStoreUrl,
+                        maxWaitInMillis);
+
+                mapVolumeUuidToDeltaPathOnSecondaryAndDeltaSize.put(volumeUuid, deltaPathOnSecondaryAndSize);
+                maxWaitInMillis = calculateRemainingTime(maxWaitInMillis, startTimeMillis);
+            }
+        } catch (Exception ex) {
+            recoverPreviousVmStateAndDeletePartialBackup(resource, volumeObjectTOs, mapVolumeUuidToDeltaSizeAndNewVolumePath, vmName, runningVM,
+                    mapVolumeUuidToDeltaPathOnSecondaryAndDeltaSize, storagePoolManager, imageStoreUrl);
+            throw new BackupException(String.format("There was an exception during the backup process for VM [%s], but the VM has been successfully normalized.", vmName),
+                    ex, true);
+        }
+    }
+
+    private int calculateRemainingTime(int maxWaitInMillis, long startTimeMillis) throws TimeoutException {
+        maxWaitInMillis -= (int)(System.currentTimeMillis() - startTimeMillis);
+        if (maxWaitInMillis < 0) {
+            throw new TimeoutException("Timeout while converting backups to secondary storage.");
+        }
+        return maxWaitInMillis;
+    }
+
+    /**
+     * For each KnibTO, will merge its DeltaMergeTreeTO (if it exists). Also, if this is the end of the chain, will also end the chain for the volume.
+     * Will populate the mapVolumeUuidToNewVolumePath argument.
+     * */
+    private void cleanupVm(TakeKnibBackupCommand command, LibvirtComputingResource resource, List<KnibTO> knibTOs,
+            Map<String, Pair<Long, String>> mapVolumeUuidToDeltaSizeAndNewVolumePath, String vmName, boolean runningVM, Map<String, String> mapVolumeUuidToNewVolumePath) {
+        for (KnibTO knibTO : knibTOs) {
+            VolumeObjectTO volumeObjectTO = knibTO.getVolumeObjectTO();
+            String currentVolumePath = volumeObjectTO.getPath();
+            String volumeUuid = volumeObjectTO.getUuid();
+            DeltaMergeTreeTO deltaMergeTreeTO = knibTO.getDeltaMergeTreeTO();
+            volumeObjectTO.setPath(mapVolumeUuidToDeltaSizeAndNewVolumePath.get(volumeUuid).second());
+
+            if (deltaMergeTreeTO != null) {
+                List<String> snapshotDataStoreVos = knibTO.getVmSnapshotDeltaPaths();
+                mergeBackupDelta(resource, deltaMergeTreeTO, volumeObjectTO, vmName, runningVM, volumeUuid, snapshotDataStoreVos.isEmpty());
+            }
+
+            if (command.isEndChain()) {
+                String baseVolumePath = currentVolumePath;
+                if (deltaMergeTreeTO != null && deltaMergeTreeTO.getChild().getPath().equals(baseVolumePath)) {
+                    baseVolumePath = deltaMergeTreeTO.getParent().getPath();
+                }
+                endChainForVolume(resource, volumeObjectTO, vmName, runningVM, volumeUuid, baseVolumePath);
+                mapVolumeUuidToNewVolumePath.put(volumeUuid, baseVolumePath);
+            } else {
+                mapVolumeUuidToNewVolumePath.put(volumeUuid, mapVolumeUuidToDeltaSizeAndNewVolumePath.get(volumeUuid).second());
+            }
+        }
+    }
+
+    /**
      * Copy the backup delta to the secondary storage. Since we created a snapshot on top of the volume, the volume is now the backup delta.
      * If there were snapshots created after the last backup, they'll be copied alongside and merged in the secondary storage.
      * */
-    private Pair<String, Long> copyBackupDeltaToSecondary(KVMStoragePoolManager storagePoolManager, String backupParentImageStoreUrl, String imageStoreUrl, int wait, KnibTO knibTO) {
+    private Pair<String, Long> copyBackupDeltaToSecondary(KVMStoragePoolManager storagePoolManager, KnibTO knibTO, String backupParentImageStoreUrl, String imageStoreUrl,
+            int waitInMillis) {
         VolumeObjectTO delta = knibTO.getVolumeObjectTO();
         String parentDeltaPathOnSecondary = knibTO.getPathBackupParentOnSecondary();
         List<String> deltaPathsToCopy = knibTO.getVmSnapshotDeltaPaths();
@@ -133,6 +173,8 @@ public class LibvirtTakeKnibBackupCommandWrapper extends CommandWrapper<TakeKnib
         KVMStoragePool imagePool = null;
         long backupSize;
         final String backupOnSecondary = getRelativePathOnSecondaryForBackup(delta.getAccountId(), delta.getVolumeId(), UUID.randomUUID().toString());
+        ArrayList<String> temporaryDeltasToRemove = new ArrayList<>();
+        boolean result = false;
         try {
             imagePool = storagePoolManager.getStoragePoolByURI(imageStoreUrl);
             if (backupParentImageStoreUrl != null) {
@@ -143,7 +185,6 @@ public class LibvirtTakeKnibBackupCommandWrapper extends CommandWrapper<TakeKnib
             KVMStoragePool primaryPool = storagePoolManager.getStoragePool(primaryDataStoreTO.getPoolType(), primaryDataStoreTO.getUuid());
 
             String topDelta = backupOnSecondary;
-            ArrayList<String> temporaryDeltasToRemove = new ArrayList<>();
             while (!deltaPathsToCopy.isEmpty()) {
                 String backupDeltaFullPathOnSecondary = imagePool.getLocalPathFor(topDelta);
                 temporaryDeltasToRemove.add(backupDeltaFullPathOnSecondary);
@@ -154,7 +195,7 @@ public class LibvirtTakeKnibBackupCommandWrapper extends CommandWrapper<TakeKnib
                 }
 
                 String backupDeltaFullPathOnPrimary = primaryPool.getLocalPathFor(deltaPathsToCopy.remove(0));
-                convertDeltaToSecondary(backupDeltaFullPathOnPrimary, backupDeltaFullPathOnSecondary, parentBackupFullPath, delta.getUuid(), wait);
+                convertDeltaToSecondary(backupDeltaFullPathOnPrimary, backupDeltaFullPathOnSecondary, parentBackupFullPath, delta.getUuid(), waitInMillis);
 
                 if (!deltaPathsToCopy.isEmpty()) {
                     parentDeltaPathOnSecondary = topDelta;
@@ -162,18 +203,19 @@ public class LibvirtTakeKnibBackupCommandWrapper extends CommandWrapper<TakeKnib
                     parentImagePool = imagePool;
                 }
             }
-            // The base should not be removed
-            temporaryDeltasToRemove.remove(0);
 
             String backupOnSecondaryFullPath = imagePool.getLocalPathFor(backupOnSecondary);
 
-            commitTopDeltaOnBaseBackupOnSecondaryIfNeeded(wait, topDelta, backupOnSecondary, imagePool, backupOnSecondaryFullPath, temporaryDeltasToRemove);
+            commitTopDeltaOnBaseBackupOnSecondaryIfNeeded(topDelta, backupOnSecondary, imagePool, backupOnSecondaryFullPath, waitInMillis);
 
             backupSize = Files.size(Path.of(backupOnSecondaryFullPath));
+            result = true;
         } catch (LibvirtException | QemuImgException | IOException e) {
             logger.error("Exception while converting backup [{}] to secondary storage [{}] due to: [{}].", delta.getPath(), imagePool, e.getMessage(), e);
             throw new BackupException("Exception while converting backup to secondary storage.", e, true);
         } finally {
+            removeTemporaryDeltas(temporaryDeltasToRemove, result);
+
             if (parentImagePool != null) {
                 storagePoolManager.deleteStoragePool(parentImagePool.getType(), parentImagePool.getUuid());
             }
@@ -184,20 +226,36 @@ public class LibvirtTakeKnibBackupCommandWrapper extends CommandWrapper<TakeKnib
         return new Pair<>(backupOnSecondary, backupSize);
     }
 
-    private void commitTopDeltaOnBaseBackupOnSecondaryIfNeeded(int wait, String topDelta, String backupOnSecondary, KVMStoragePool imagePool, String backupOnSecondaryFullPath,
-            List<String> temporaryDeltasToRemove)
-            throws LibvirtException, QemuImgException {
+    /**
+     * If there were VM snapshots created after the last backup, we will have copied them alongside the backup delta. If this is the case, we will commit all of them into a single
+     * base file so that we are left with one file per volume per backup.
+     * */
+    private void commitTopDeltaOnBaseBackupOnSecondaryIfNeeded(String topDelta, String backupOnSecondary, KVMStoragePool imagePool, String backupOnSecondaryFullPath,
+            int waitInMillis) throws LibvirtException, QemuImgException {
         if (topDelta.equals(backupOnSecondary)) {
             return;
         }
 
-        QemuImg qemuImg = new QemuImg(wait);
+        QemuImg qemuImg = new QemuImg(waitInMillis);
         QemuImgFile topDeltaImg = new QemuImgFile(imagePool.getLocalPathFor(topDelta), QemuImg.PhysicalDiskFormat.QCOW2);
         QemuImgFile baseDeltaImg = new QemuImgFile(backupOnSecondaryFullPath, QemuImg.PhysicalDiskFormat.QCOW2);
 
         logger.debug("Committing top delta [{}] on base delta [{}].", topDeltaImg, baseDeltaImg);
         qemuImg.commit(topDeltaImg, baseDeltaImg, true);
+    }
 
+    /**
+     * Will remove any temporary deltas created on secondary storage. If result is true, this means that the backup was a success and the first "temporary delta" is our backup, so
+     * it will not be removed.
+     * <br/>
+     * There are two uses for this method:<br/>
+     * - If we fail to backup we have to clean up the secondary storage.<br/>
+     * - If we had VM snapshots created after the last backup, we copied multiple files to secondary storage, and thus we have to clean them up after merging them.
+     * */
+    private void removeTemporaryDeltas(List<String> temporaryDeltasToRemove, boolean result) {
+        if (result) {
+            temporaryDeltasToRemove.remove(0);
+        }
         logger.debug("Removing temporary deltas [{}].", temporaryDeltasToRemove);
         for (String delta : temporaryDeltasToRemove) {
             try {
@@ -208,7 +266,16 @@ public class LibvirtTakeKnibBackupCommandWrapper extends CommandWrapper<TakeKnib
         }
     }
 
-    private void convertDeltaToSecondary(String pathDeltaOnPrimary, String pathDeltaOnSecondary, String pathParentOnSecondary, String volumeUuid, int wait)
+    /**
+     * Converts a delta from primary storage to secondary storage, if a parent was given, will set it as the backing file for the delta being copied.
+     *
+     * @param pathDeltaOnPrimary absolute path of the delta to be copied.
+     * @param pathDeltaOnSecondary absolute path of the destination of the delta to be copied.
+     * @param pathParentOnSecondary absolute path of the parent delta, if it exists.
+     * @param volumeUuid volume uuid, used for logging.
+     * @param waitInMillis timeout in milliseconds.
+     * */
+    private void convertDeltaToSecondary(String pathDeltaOnPrimary, String pathDeltaOnSecondary, String pathParentOnSecondary, String volumeUuid, int waitInMillis)
             throws QemuImgException, LibvirtException {
         QemuImgFile backupDestination = new QemuImgFile(pathDeltaOnSecondary, QemuImg.PhysicalDiskFormat.QCOW2);
         QemuImgFile backupOrigin = new QemuImgFile(pathDeltaOnPrimary, QemuImg.PhysicalDiskFormat.QCOW2);
@@ -222,7 +289,7 @@ public class LibvirtTakeKnibBackupCommandWrapper extends CommandWrapper<TakeKnib
 
         createDirsIfNeeded(pathDeltaOnSecondary, volumeUuid);
 
-        QemuImg qemuImg = new QemuImg(wait);
+        QemuImg qemuImg = new QemuImg(waitInMillis);
         qemuImg.convert(backupOrigin, backupDestination, parentBackup, null, null,  new QemuImageOptions(backupOrigin.getFormat(), backupOrigin.getFileName(), null), null,
                 true, false);
     }

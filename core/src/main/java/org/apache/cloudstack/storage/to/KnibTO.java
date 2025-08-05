@@ -16,6 +16,8 @@ package org.apache.cloudstack.storage.to;
 // specific language governing permissions and limitations
 // under the License.
 import org.apache.cloudstack.storage.datastore.db.SnapshotDataStoreVO;
+import org.apache.commons.lang3.builder.ReflectionToStringBuilder;
+import org.apache.commons.lang3.builder.ToStringStyle;
 
 import java.util.List;
 import java.util.stream.Collectors;
@@ -56,5 +58,10 @@ public class KnibTO {
 
     public void setDeltaMergeTreeTO(DeltaMergeTreeTO deltaMergeTreeTO) {
         this.deltaMergeTreeTO = deltaMergeTreeTO;
+    }
+
+    @Override
+    public String toString() {
+        return ReflectionToStringBuilder.toString(this, ToStringStyle.JSON_STYLE);
     }
 }

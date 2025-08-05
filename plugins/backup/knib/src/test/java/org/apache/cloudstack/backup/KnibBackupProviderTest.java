@@ -225,6 +225,8 @@ public class KnibBackupProviderTest {
 
     @Test
     public void removeVMFromBackupOfferingTestNoActiveChain() {
+        doReturn(VirtualMachine.State.Running).when(virtualMachineMock).getState();
+
         boolean result = knibBackupProviderSpy.removeVMFromBackupOffering(virtualMachineMock, true);
 
         verify(knibBackupProviderSpy, Mockito.never()).mergeCurrentBackupDeltas(Mockito.any(), Mockito.any());

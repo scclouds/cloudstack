@@ -156,11 +156,12 @@ public class AgentProperties{
     public static final Property<Integer> CMDS_TIMEOUT = new Property<>("cmds.timeout", 7200);
 
     /**
-     * The timeout (in seconds) for the snapshot merge operation, mainly used for classic volume snapshots and disk-only VM snapshots on file-based storage.<br>
+     * The timeout (in seconds) for QCOW2 delta merge operations, mainly used for classic volume snapshots, disk-only VM snapshots on file-based storage, and the KNIB plugin.
+     * If a value of 0 or less is informed, the default will be used.<br>
      * Data type: Integer.<br>
      * Default value: <code>259200</code>
      */
-    public static final Property<Integer> SNAPSHOT_MERGE_TIMEOUT = new Property<>("snapshot.merge.timeout", 60 * 60 * 72);
+    public static final Property<Integer> QCOW2_DELTA_MERGE_TIMEOUT = new Property<>("qcow2.delta.merge.timeout", 60 * 60 * 72);
 
     /**
      * This parameter sets the VM migration speed (in mbps). The default value is -1,<br>
