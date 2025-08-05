@@ -113,11 +113,12 @@ public interface BackupManager extends BackupService, Configurable, PluggableSer
     List<BackupSchedule> listBackupSchedule(Long vmId);
 
     /**
-     * Deletes VM backup schedule for a VM
-     * @param vmId
-     * @return
+     * Deletes a VM backup schedule for a VM
+     * @param id ID of the backup schedule to be deleted
+     * @param vmId ID of the VM from which all backup schedules will be deleted
+     * @return a boolean value indicating whether the backup schedule was successfully deleted or not
      */
-    boolean deleteBackupSchedule(Long vmId);
+    boolean deleteBackupSchedule(Long id, Long vmId);
 
     /**
      * Creates backup of a VM

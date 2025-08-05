@@ -92,6 +92,7 @@ public class BackupScheduleDaoImpl extends GenericDaoBase<BackupScheduleVO, Long
     public BackupScheduleResponse newBackupScheduleResponse(BackupSchedule schedule) {
         VMInstanceVO vm = vmInstanceDao.findByIdIncludingRemoved(schedule.getVmId());
         BackupScheduleResponse response = new BackupScheduleResponse();
+        response.setId(schedule.getUuid());
         response.setVmId(vm.getUuid());
         response.setVmName(vm.getHostName());
         response.setIntervalType(schedule.getScheduleType());

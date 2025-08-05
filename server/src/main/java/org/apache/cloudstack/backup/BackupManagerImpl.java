@@ -23,6 +23,7 @@ import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.TimeZone;
 import java.util.Timer;
 import java.util.TimerTask;
@@ -84,6 +85,7 @@ import org.apache.cloudstack.storage.datastore.db.PrimaryDataStoreDao;
 import org.apache.cloudstack.storage.datastore.db.StoragePoolVO;
 import org.apache.cloudstack.utils.reflectiontostringbuilderutils.ReflectionToStringBuilderUtils;
 import org.apache.commons.lang3.BooleanUtils;
+import org.apache.commons.lang3.ObjectUtils;
 import org.apache.commons.lang3.StringUtils;
 
 import com.cloud.api.ApiDispatcher;
@@ -409,10 +411,7 @@ public class BackupManagerImpl extends ManagerBase implements BackupManager, VmW
                 UsageEventUtils.publishUsageEvent(EventTypes.EVENT_VM_BACKUP_OFFERING_REMOVE, vm.getAccountId(), vm.getDataCenterId(), vm.getId(),
                         "Backup-" + vm.getHostName() + "-" + vm.getUuid(), vm.getBackupOfferingId(), null, null,
                         Backup.class.getSimpleName(), vm.getUuid());
-                final BackupSchedule backupSchedule = backupScheduleDao.findByVM(vm.getId());
-                if (backupSchedule != null) {
-                    backupScheduleDao.remove(backupSchedule.getId());
-                }
+                deleteAllVmBackupSchedules(vm.getId());
                 result = true;
             }
         } catch (Exception e) {
@@ -483,16 +482,51 @@ public class BackupManagerImpl extends ManagerBase implements BackupManager, VmW
 
     @Override
     @ActionEvent(eventType = EventTypes.EVENT_VM_BACKUP_SCHEDULE_DELETE, eventDescription = "deleting VM backup schedule")
-    public boolean deleteBackupSchedule(final Long vmId) {
-        final VMInstanceVO vm = findVmById(vmId);
+    public boolean deleteBackupSchedule(Long id, final Long vmId) {
+        if (ObjectUtils.allNull(id, vmId)) {
+            throw new InvalidParameterValueException("Either instance ID or ID of backup schedule needs to be specified.");
+        }
+
+        if (Objects.nonNull(id)) {
+            BackupSchedule schedule = backupScheduleDao.findById(id);
+            if (schedule == null) {
+                throw new InvalidParameterValueException("Could not find the requested backup schedule.");
+            }
+            checkCallerAccessToBackupScheduleVm(schedule.getVmId());
+            return backupScheduleDao.remove(schedule.getId());
+        }
+
+        checkCallerAccessToBackupScheduleVm(vmId);
+        return deleteAllVmBackupSchedules(vmId);
+    }
+
+    /**
+     * Checks if the backup framework is enabled for the zone in which the VM with specified ID is allocated and
+     * if the caller has access to the VM.
+     *
+     * @param vmId The ID of the virtual machine to check access for
+     * @throws PermissionDeniedException if the caller doesn't have access to the VM
+     * @throws CloudRuntimeException if the backup framework is disabled
+     */
+    protected void checkCallerAccessToBackupScheduleVm(long vmId) {
+        VMInstanceVO vm = findVmById(vmId);
         validateForZone(vm.getDataCenterId());
         accountManager.checkAccess(CallContext.current().getCallingAccount(), null, true, vm);
+    }
 
-        final BackupSchedule schedule = backupScheduleDao.findByVM(vmId);
-        if (schedule == null) {
-            throw new CloudRuntimeException("VM has no backup schedule defined, no need to delete anything.");
+    /**
+     * Deletes all backup schedules associated with a specific VM.
+     *
+     * @param vmId The ID of the virtual machine whose backup schedules should be deleted
+     * @return true if all backup schedules were successfully deleted, false if any deletion failed
+     */
+    protected boolean deleteAllVmBackupSchedules(long vmId) {
+        List<BackupScheduleVO> vmBackupSchedules = backupScheduleDao.listByVM(vmId);
+        boolean success = true;
+        for (BackupScheduleVO vmBackupSchedule : vmBackupSchedules) {
+            success = success && backupScheduleDao.remove(vmBackupSchedule.getId());
         }
-        return backupScheduleDao.remove(schedule.getId());
+        return success;
     }
 
     @Override

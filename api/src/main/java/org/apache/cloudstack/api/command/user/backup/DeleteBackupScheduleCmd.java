@@ -26,6 +26,7 @@ import org.apache.cloudstack.api.ApiErrorCode;
 import org.apache.cloudstack.api.BaseCmd;
 import org.apache.cloudstack.api.Parameter;
 import org.apache.cloudstack.api.ServerApiException;
+import org.apache.cloudstack.api.response.BackupScheduleResponse;
 import org.apache.cloudstack.api.response.SuccessResponse;
 import org.apache.cloudstack.api.response.UserVmResponse;
 import org.apache.cloudstack.backup.BackupManager;
@@ -39,7 +40,7 @@ import com.cloud.exception.ResourceUnavailableException;
 import com.cloud.utils.exception.CloudRuntimeException;
 
 @APICommand(name = "deleteBackupSchedule",
-        description = "Deletes the backup schedule of a VM",
+        description = "Deletes a backup schedule of a VM",
         responseObject = SuccessResponse.class, since = "4.14.0",
         authorized = {RoleType.Admin, RoleType.ResourceAdmin, RoleType.DomainAdmin, RoleType.User})
 public class DeleteBackupScheduleCmd  extends BaseCmd {
@@ -51,12 +52,14 @@ public class DeleteBackupScheduleCmd  extends BaseCmd {
     //////////////// API parameters /////////////////////
     /////////////////////////////////////////////////////
 
-    @Parameter(name = ApiConstants.VIRTUAL_MACHINE_ID,
-            type = CommandType.UUID,
-            entityType = UserVmResponse.class,
-            required = true,
-            description = "ID of the VM")
+    @Parameter(name = ApiConstants.VIRTUAL_MACHINE_ID, type = CommandType.UUID, entityType = UserVmResponse.class,
+            description = "ID of the VM from which all backup schedules will be deleted.")
     private Long vmId;
+
+    @Parameter(name = ApiConstants.ID, type = CommandType.UUID, entityType = BackupScheduleResponse.class,
+            since = "4.20.0.4-scclouds", description = "ID of the backup schedule to be deleted. It has precedence over the 'virtualmachineid' parameter, " +
+            "i.e., when the 'id' parameter is specified, the 'virtualmachineid' parameter will be ignored.")
+    private Long id;
 
     /////////////////////////////////////////////////////
     /////////////////// Accessors ///////////////////////
@@ -66,6 +69,10 @@ public class DeleteBackupScheduleCmd  extends BaseCmd {
         return vmId;
     }
 
+    public Long getId() {
+        return id;
+    }
+
     /////////////////////////////////////////////////////
     /////////////// API Implementation///////////////////
     /////////////////////////////////////////////////////
@@ -73,7 +80,7 @@ public class DeleteBackupScheduleCmd  extends BaseCmd {
     @Override
     public void execute() throws ResourceUnavailableException, InsufficientCapacityException, ServerApiException, ConcurrentOperationException, ResourceAllocationException, NetworkRuleConflictException {
         try {
-            boolean result = backupManager.deleteBackupSchedule(getVmId());
+            boolean result = backupManager.deleteBackupSchedule(getId(), getVmId());
             if (result) {
                 SuccessResponse response = new SuccessResponse(getCommandName());
                 response.setResponseName(getCommandName());

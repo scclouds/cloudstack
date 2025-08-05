@@ -22,3 +22,9 @@
 DELETE FROM `cloud`.`native_backup_pool_ref` WHERE `backup_id` NOT IN (
     SELECT `id` from `native_backup_view` nbv WHERE nbv.`current` = 'true'
 );
+
+CALL `cloud`.`IDEMPOTENT_ADD_COLUMN`('cloud.backup_schedule', 'uuid', 'VARCHAR(40) NOT NULL');
+
+UPDATE `cloud`.`backup_schedule`
+SET uuid = UUID()
+WHERE uuid IS NULL;
