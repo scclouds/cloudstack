@@ -116,6 +116,10 @@ public class VMSnapshotResponse extends BaseResponseWithTagInformation implement
     @Param(description = "the type of hypervisor on which snapshot is stored")
     private String hypervisor;
 
+    @SerializedName(ApiConstants.SNAPSHOT_STRAGEGY)
+    @Param(description = "the strategy used to create the snapshot")
+    private String snapshotStrategy;
+
     public VMSnapshotResponse() {
         tags = new LinkedHashSet<ResourceTagResponse>();
     }
@@ -280,5 +284,9 @@ public class VMSnapshotResponse extends BaseResponseWithTagInformation implement
 
     public void setHypervisor(String hypervisor) {
         this.hypervisor = hypervisor;
+    }
+
+    public void setSnapshotStrategy(String strategy) {
+        this.snapshotStrategy = strategy;
     }
 }
