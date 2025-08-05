@@ -22,15 +22,21 @@ import com.cloud.storage.Volume;
 import com.cloud.storage.VolumeApiService;
 import com.cloud.storage.VolumeVO;
 import com.cloud.storage.dao.VolumeDao;
+import com.cloud.user.AccountManager;
+import com.cloud.user.AccountVO;
 import com.cloud.utils.Pair;
 import com.cloud.utils.exception.CloudRuntimeException;
 import com.cloud.utils.fsm.NoTransitionException;
 import com.cloud.vm.VMInstanceVO;
 import com.cloud.vm.VirtualMachine;
 import com.cloud.vm.VirtualMachineManager;
+import com.cloud.vm.dao.VMInstanceDao;
 import org.apache.cloudstack.api.ServerApiException;
 import org.apache.cloudstack.api.command.admin.backup.UpdateBackupOfferingCmd;
+import org.apache.cloudstack.api.command.user.backup.DeleteBackupScheduleCmd;
 import org.apache.cloudstack.backup.dao.BackupOfferingDao;
+import org.apache.cloudstack.backup.dao.BackupScheduleDao;
+import org.apache.cloudstack.context.CallContext;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
@@ -44,11 +50,15 @@ import org.mockito.MockitoAnnotations;
 import org.mockito.Spy;
 
 import java.util.Collections;
+import java.util.List;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 @RunWith(MockitoJUnitRunner.class)
@@ -71,6 +81,30 @@ public class BackupManagerTest {
 
     @Mock
     VolumeDao volumeDao;
+
+    @Mock
+    private VMInstanceVO vmInstanceVOMock;
+
+    @Mock
+    private CallContext callContextMock;
+
+    @Mock
+    private VMInstanceDao vmInstanceDao;
+
+    @Mock
+    private AccountManager accountManager;
+
+    @Mock
+    private AccountVO accountVOMock;
+
+    @Mock
+    private DeleteBackupScheduleCmd deleteBackupScheduleCmdMock;
+
+    @Mock
+    private BackupScheduleVO backupScheduleVOMock;
+
+    @Mock
+    BackupScheduleDao backupScheduleDao;
 
     private String[] hostPossibleValues = {"127.0.0.1", "hostname"};
     private String[] datastoresPossibleValues = {"e9804933-8609-4de3-bccc-6278072a496c", "datastore-name"};
@@ -303,5 +337,89 @@ public class BackupManagerTest {
                 assertEquals("Error restoring VM from backup [Checking message error.].", e.getMessage());
             }
         }
+    }
+
+    @Test
+    public void checkCallerAccessToBackupScheduleVmTestExecuteAccessCheckMethods() {
+        long vmId = 1L;
+        long dataCenterId = 2L;
+
+        try (MockedStatic<CallContext> mockedCallContext = Mockito.mockStatic(CallContext.class)) {
+            Mockito.when(vmInstanceDao.findById(vmId)).thenReturn(vmInstanceVOMock);
+            Mockito.when(vmInstanceVOMock.getDataCenterId()).thenReturn(dataCenterId);
+            Mockito.when(backupManager.isDisabled(dataCenterId)).thenReturn(false);
+
+            mockedCallContext.when(CallContext::current).thenReturn(callContextMock);
+            Mockito.when(callContextMock.getCallingAccount()).thenReturn(accountVOMock);
+            Mockito.doNothing().when(accountManager).checkAccess(accountVOMock, null, true, vmInstanceVOMock);
+            backupManager.checkCallerAccessToBackupScheduleVm(vmId);
+
+            verify(accountManager, times(1)).checkAccess(accountVOMock, null, true, vmInstanceVOMock);
+        }
+    }
+
+    @Test
+    public void deleteAllVmBackupSchedulesTestReturnSuccessWhenAllSchedulesAreDeleted() {
+        long vmId = 1L;
+        List<BackupScheduleVO> backupSchedules = List.of(Mockito.mock(BackupScheduleVO.class), Mockito.mock(BackupScheduleVO.class));
+        Mockito.when(backupScheduleDao.listByVM(vmId)).thenReturn(backupSchedules);
+        Mockito.when(backupSchedules.get(0).getId()).thenReturn(2L);
+        Mockito.when(backupSchedules.get(1).getId()).thenReturn(3L);
+        Mockito.when(backupScheduleDao.remove(Mockito.anyLong())).thenReturn(true);
+
+        boolean success = backupManager.deleteAllVmBackupSchedules(vmId);
+        assertTrue(success);
+        Mockito.verify(backupScheduleDao, times(2)).remove(Mockito.anyLong());
+    }
+
+    @Test
+    public void deleteAllVmBackupSchedulesTestReturnFalseWhenAnyDeletionFails() {
+        long vmId = 1L;
+        List<BackupScheduleVO> backupSchedules = List.of(Mockito.mock(BackupScheduleVO.class), Mockito.mock(BackupScheduleVO.class));
+        Mockito.when(backupScheduleDao.listByVM(vmId)).thenReturn(backupSchedules);
+        Mockito.when(backupSchedules.get(0).getId()).thenReturn(2L);
+        Mockito.when(backupSchedules.get(1).getId()).thenReturn(3L);
+        Mockito.when(backupScheduleDao.remove(2L)).thenReturn(true);
+        Mockito.when(backupScheduleDao.remove(3L)).thenReturn(false);
+
+        boolean success = backupManager.deleteAllVmBackupSchedules(vmId);
+        assertFalse(success);
+        Mockito.verify(backupScheduleDao, times(2)).remove(Mockito.anyLong());
+    }
+
+    @Test(expected = InvalidParameterValueException.class)
+    public void deleteBackupScheduleTestThrowExceptionWhenVmIdAndScheduleIdAreNull() {
+        backupManager.deleteBackupSchedule(null, null);
+    }
+
+    @Test
+    public void deleteBackupScheduleTestDeleteVmSchedulesWhenVmIdIsSpecified() {
+        long vmId = 1L;
+
+        Mockito.doNothing().when(backupManager).checkCallerAccessToBackupScheduleVm(vmId);
+        Mockito.doReturn(true).when(backupManager).deleteAllVmBackupSchedules(vmId);
+
+        boolean success = backupManager.deleteBackupSchedule(null, vmId);
+        assertTrue(success);
+    }
+
+    @Test(expected = InvalidParameterValueException.class)
+    public void deleteBackupScheduleTestThrowExceptionWhenSpecificScheduleIsNotFound() {
+        long id = 1L;
+        backupManager.deleteBackupSchedule(id, null);
+    }
+
+    @Test
+    public void deleteBackupScheduleTestDeleteSpecificScheduleWhenItsIdIsSpecified() {
+        long id = 1L;
+        long vmId = 2L;
+        when(backupScheduleDao.findById(id)).thenReturn(backupScheduleVOMock);
+        when(backupScheduleVOMock.getVmId()).thenReturn(vmId);
+        Mockito.doNothing().when(backupManager).checkCallerAccessToBackupScheduleVm(vmId);
+        when(backupScheduleVOMock.getId()).thenReturn(id);
+        when(backupScheduleDao.remove(id)).thenReturn(true);
+
+        boolean success = backupManager.deleteBackupSchedule(id, vmId);
+        assertTrue(success);
     }
 }
