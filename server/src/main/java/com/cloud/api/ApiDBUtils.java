@@ -85,6 +85,8 @@ import org.apache.cloudstack.backup.dao.BackupScheduleDao;
 import org.apache.cloudstack.context.CallContext;
 import org.apache.cloudstack.engine.orchestration.service.NetworkOrchestrationService;
 import org.apache.cloudstack.engine.orchestration.service.VolumeOrchestrationService;
+import org.apache.cloudstack.engine.subsystem.api.storage.StorageStrategyFactory;
+import org.apache.cloudstack.engine.subsystem.api.storage.VMSnapshotStrategy;
 import org.apache.cloudstack.framework.config.dao.ConfigurationDao;
 import org.apache.cloudstack.framework.jobs.AsyncJob;
 import org.apache.cloudstack.framework.jobs.AsyncJobManager;
@@ -503,6 +505,7 @@ public class ApiDBUtils {
 
     static BucketDao s_bucketDao;
     static VirtualMachineManager s_virtualMachineManager;
+    static StorageStrategyFactory s_storageStrategyFactory;
 
     @Inject
     private ManagementServer ms;
@@ -772,6 +775,8 @@ public class ApiDBUtils {
     private VirtualMachineManager virtualMachineManager;
     @Inject
     private SharedFSJoinDao sharedFSJoinDao;
+    @Inject
+    private StorageStrategyFactory storageStrategyFactory;
 
     @PostConstruct
     void init() {
@@ -909,6 +914,7 @@ public class ApiDBUtils {
         s_bucketDao = bucketDao;
         s_virtualMachineManager = virtualMachineManager;
         s_sharedFSJoinDao = sharedFSJoinDao;
+        s_storageStrategyFactory = storageStrategyFactory;
     }
 
     // ///////////////////////////////////////////////////////////
@@ -1863,6 +1869,10 @@ public class ApiDBUtils {
             assert (false);
         }
         return jobInstanceId;
+    }
+
+    public static VMSnapshotStrategy getVMSnapshotStrategy(VMSnapshot vmSnapshot) {
+        return s_storageStrategyFactory.getVmSnapshotStrategy(vmSnapshot);
     }
 
     ///////////////////////////////////////////////////////////////////////
