@@ -202,9 +202,13 @@ public class SnapshotObject implements SnapshotInfo {
     @Override
     public long getPhysicalSize() {
         long physicalSize = 0;
-        SnapshotDataStoreVO snapshotStore = snapshotStoreDao.findByStoreSnapshot(DataStoreRole.Image, store.getId(), snapshot.getId());
-        if (snapshotStore != null) {
-            physicalSize = snapshotStore.getPhysicalSize();
+        for (DataStoreRole role : List.of(DataStoreRole.Image, DataStoreRole.Primary)) {
+            logger.trace("Retrieving snapshot [{}] size from {} storage.", snapshot.getId(), role);
+            SnapshotDataStoreVO snapshotStore = snapshotStoreDao.findByStoreSnapshot(role, store.getId(), snapshot.getId());
+            if (snapshotStore != null) {
+                return snapshotStore.getPhysicalSize();
+            }
+            logger.trace("Snapshot [{}] size not found on {} storage.", snapshot.getId(), role);
         }
         return physicalSize;
     }
