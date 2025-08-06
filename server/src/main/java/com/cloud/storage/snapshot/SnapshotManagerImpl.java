@@ -361,6 +361,11 @@ public class SnapshotManagerImpl extends MutualExclusiveIdsManagerBase implement
             throw new InvalidParameterValueException("No such snapshot");
         }
 
+        long startEventId = ActionEventUtils.onStartedActionEvent(CallContext.current().getCallingUserId(),
+                CallContext.current().getCallingAccountId(), EventTypes.EVENT_SNAPSHOT_REVERT,
+                String.format("Reverting snapshot ID: %s", snapshot.getUuid()), snapshotId,
+                ApiCommandResourceType.Snapshot.toString(), true, 0);
+
         if (Type.GROUP.name().equals(snapshot.getTypeDescription())) {
             throw new InvalidParameterValueException(String.format("The snapshot [%s] is part of a [%s] snapshots and cannot be reverted separately", snapshotId, snapshot.getTypeDescription()));
         }
@@ -417,8 +422,16 @@ public class SnapshotManagerImpl extends MutualExclusiveIdsManagerBase implement
                         volume.getDiskOfferingId(), volume.getTemplateId(), volume.getSize(), Volume.class.getName(), volume.getUuid());
             }
             endSnapshotChainForVolume(snapshot.getVolumeId(), snapshot.getHypervisorType());
+
+            ActionEventUtils.onCompletedActionEvent(CallContext.current().getCallingUserId(),
+                    CallContext.current().getCallingAccountId(), EventVO.LEVEL_INFO, EventTypes.EVENT_SNAPSHOT_REVERT,
+                    String.format("Snapshot [%s] correctly reverted.", snapshot.getUuid()), snapshotId, ApiCommandResourceType.Snapshot.toString(), startEventId);
             return snapshotInfo;
         }
+
+        ActionEventUtils.onCompletedActionEvent(CallContext.current().getCallingUserId(),
+                CallContext.current().getCallingAccountId(), EventVO.LEVEL_ERROR, EventTypes.EVENT_SNAPSHOT_REVERT,
+                String.format("Revert of snapshot [%s] failed.", snapshot.getUuid()), snapshotId, ApiCommandResourceType.Snapshot.toString(), startEventId);
         return null;
     }
 

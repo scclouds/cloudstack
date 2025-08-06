@@ -35,8 +35,12 @@ import java.util.Map;
 import java.util.UUID;
 
 import com.cloud.api.ApiDBUtils;
+import com.cloud.event.ActionEventUtils;
+import com.cloud.event.EventTypes;
+import com.cloud.event.EventVO;
 import com.cloud.exception.PermissionDeniedException;
 import com.cloud.storage.Storage;
+import org.apache.cloudstack.api.ApiCommandResourceType;
 import org.apache.cloudstack.api.command.user.snapshot.ExtractSnapshotCmd;
 import org.apache.cloudstack.context.CallContext;
 import org.apache.cloudstack.engine.subsystem.api.storage.DataStore;
@@ -329,31 +333,66 @@ public class SnapshotManagerTest {
     // vm state not stopped
     @Test(expected = InvalidParameterValueException.class)
     public void testRevertSnapshotF1() {
-        when(volumeMock.getInstanceId()).thenReturn(TEST_VM_ID);
-        when(_vmDao.findById(anyLong())).thenReturn(vmMock);
-        when(vmMock.getState()).thenReturn(State.Running);
-        _snapshotMgr.revertSnapshot(TEST_SNAPSHOT_ID);
+        SnapshotVO snapshotVO = new SnapshotVO();
+        snapshotVO.setUuid("AAA");
+        snapshotVO.setVolumeId(1L);
+
+        try(MockedStatic<ActionEventUtils> actions = Mockito.mockStatic(ActionEventUtils.class)) {
+            actions.when(() -> ActionEventUtils.onStartedActionEvent(Mockito.anyLong(), Mockito.anyLong(),
+                    Mockito.eq(EventTypes.EVENT_SNAPSHOT_REVERT), Mockito.eq("Reverting snapshot ID: 3"),
+                    Mockito.eq(TEST_SNAPSHOT_ID), Mockito.eq(ApiCommandResourceType.Snapshot.toString()),
+                    Mockito.eq(true), Mockito.eq(0))).thenReturn(1L);
+            when(_volumeDao.findById(1L)).thenReturn(volumeMock);
+            when(volumeMock.getInstanceId()).thenReturn(TEST_VM_ID);
+            when(_vmDao.findById(anyLong())).thenReturn(vmMock);
+            when(vmMock.getState()).thenReturn(State.Running);
+            when(_snapshotDao.findById(TEST_SNAPSHOT_ID)).thenReturn(snapshotVO);
+            _snapshotMgr.revertSnapshot(TEST_SNAPSHOT_ID);
+        }
     }
 
     // vm on Xenserver, return null
     @Test
     public void testRevertSnapshotF2() {
-        when(_vmDao.findById(anyLong())).thenReturn(vmMock);
-        when(vmMock.getState()).thenReturn(State.Stopped);
-        doReturn(DataStoreRole.Image).when(snapshotHelperMock).getDataStoreRole(any());
-        Snapshot snapshot = _snapshotMgr.revertSnapshot(TEST_SNAPSHOT_ID);
-        Assert.assertNull(snapshot);
+        try(MockedStatic<ActionEventUtils> actions = Mockito.mockStatic(ActionEventUtils.class)) {
+            actions.when(() -> ActionEventUtils.onStartedActionEvent(Mockito.anyLong(), Mockito.anyLong(),
+                    Mockito.eq(EventTypes.EVENT_SNAPSHOT_REVERT), Mockito.eq("Reverting snapshot ID: 3"),
+                    Mockito.eq(TEST_SNAPSHOT_ID), Mockito.eq(ApiCommandResourceType.Snapshot.toString()),
+                    Mockito.eq(true), Mockito.eq(0))).thenReturn(9L);
+
+            actions.when(() -> ActionEventUtils.onCompletedActionEvent(Mockito.anyLong(), Mockito.anyLong(),
+                    Mockito.eq(EventVO.LEVEL_INFO), Mockito.eq(EventTypes.EVENT_SNAPSHOT_REVERT),
+                    Mockito.eq("Revert of snapshot [%s] failed."), Mockito.eq(TEST_SNAPSHOT_ID),
+                    Mockito.eq(ApiCommandResourceType.Snapshot.toString()), Mockito.eq(9L))).thenReturn(1L);
+            when(_vmDao.findById(anyLong())).thenReturn(vmMock);
+            when(vmMock.getState()).thenReturn(State.Stopped);
+            doReturn(DataStoreRole.Image).when(snapshotHelperMock).getDataStoreRole(any());
+            Snapshot snapshot = _snapshotMgr.revertSnapshot(TEST_SNAPSHOT_ID);
+            Assert.assertNull(snapshot);
+        }
     }
 
     // vm on KVM, successful
     @Test
     public void testRevertSnapshotF3() {
-        when(_vmDao.findById(anyLong())).thenReturn(vmMock);
-        when(vmMock.getState()).thenReturn(State.Stopped);
-        when (snapshotStrategy.revertSnapshot(any(SnapshotInfo.class))).thenReturn(true);
-        doReturn(DataStoreRole.Image).when(snapshotHelperMock).getDataStoreRole(any());
-        Snapshot snapshot = _snapshotMgr.revertSnapshot(TEST_SNAPSHOT_ID);
-        Assert.assertNotNull(snapshot);
+        try(MockedStatic<ActionEventUtils> actions = Mockito.mockStatic(ActionEventUtils.class)) {
+            actions.when(() -> ActionEventUtils.onStartedActionEvent(Mockito.anyLong(), Mockito.anyLong(),
+                    Mockito.eq(EventTypes.EVENT_SNAPSHOT_REVERT), Mockito.eq("Reverting snapshot ID: 3"),
+                    Mockito.eq(TEST_SNAPSHOT_ID), Mockito.eq(ApiCommandResourceType.Snapshot.toString()),
+                    Mockito.eq(true), Mockito.eq(0))).thenReturn(9L);
+
+            actions.when(() -> ActionEventUtils.onCompletedActionEvent(Mockito.anyLong(), Mockito.anyLong(),
+                    Mockito.eq(EventVO.LEVEL_INFO), Mockito.eq(EventTypes.EVENT_SNAPSHOT_REVERT),
+                    Mockito.eq("Revert of snapshot [%s] failed."), Mockito.eq(TEST_SNAPSHOT_ID),
+                    Mockito.eq(ApiCommandResourceType.Snapshot.toString()), Mockito.eq(9L))).thenReturn(1L);
+
+            when(_vmDao.findById(anyLong())).thenReturn(vmMock);
+            when(vmMock.getState()).thenReturn(State.Stopped);
+            when(snapshotStrategy.revertSnapshot(any(SnapshotInfo.class))).thenReturn(true);
+            doReturn(DataStoreRole.Image).when(snapshotHelperMock).getDataStoreRole(any());
+            Snapshot snapshot = _snapshotMgr.revertSnapshot(TEST_SNAPSHOT_ID);
+            Assert.assertNotNull(snapshot);
+        }
     }
 
     // vm on Xenserver, expected exception
