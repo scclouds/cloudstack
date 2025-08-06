@@ -75,6 +75,11 @@ public class CreateBackupScheduleCmd extends BaseCmd {
             description = "Specifies a timezone for this command. For more information on the timezone parameter, see TimeZone Format.")
     private String timezone;
 
+    @Parameter(name = ApiConstants.VM_SNAPSHOT_QUIESCEVM,
+            type = CommandType.BOOLEAN,
+            description = "Whether the VM's file systems should be frozen for the scheduled backups. Currently only supported for the KNIB backup provider.")
+    private boolean quiesceVm;
+
     /////////////////////////////////////////////////////
     /////////////////// Accessors ///////////////////////
     /////////////////////////////////////////////////////
@@ -93,6 +98,10 @@ public class CreateBackupScheduleCmd extends BaseCmd {
 
     public String getTimezone() {
         return timezone;
+    }
+
+    public boolean isQuiesceVm() {
+        return quiesceVm;
     }
 
     /////////////////////////////////////////////////////

@@ -52,6 +52,10 @@ public class BackupScheduleResponse extends BaseResponse {
     @Param(description = "the time zone of the backup schedule")
     private String timezone;
 
+    @SerializedName(ApiConstants.VM_SNAPSHOT_QUIESCEVM)
+    @Param(description = "Whether the VM's file systems should be frozen for the scheduled backups.")
+    private boolean quiesceVm;
+
     public void setId(String id) {
         this.id = id;
     }
@@ -94,5 +98,9 @@ public class BackupScheduleResponse extends BaseResponse {
 
     public void setTimezone(String timezone) {
         this.timezone = timezone;
+    }
+
+    public void setQuiesceVm(boolean quiesceVm) {
+        this.quiesceVm = quiesceVm;
     }
 }

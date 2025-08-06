@@ -28,3 +28,5 @@ CALL `cloud`.`IDEMPOTENT_ADD_COLUMN`('cloud.backup_schedule', 'uuid', 'VARCHAR(4
 UPDATE `cloud`.`backup_schedule`
 SET uuid = UUID()
 WHERE uuid IS NULL;
+
+CALL `cloud`.`IDEMPOTENT_ADD_COLUMN`('cloud.backup_schedule', 'quiesce_vm', 'TINYINT(1) NOT NULL DEFAULT 0 COMMENT "Whether to quiesce the VM for scheduled backups."');

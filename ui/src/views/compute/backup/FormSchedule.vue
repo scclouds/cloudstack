@@ -119,6 +119,15 @@
                   </a-select-option>
                 </a-select>
               </a-form-item>
+              <a-form-item name="quiesceVm" ref="quiesceVm">
+                <template #label>
+                  <tooltip-label
+                    :title="$t('label.quiescevm')"
+                    :tooltip="apiParams.quiescevm?.description"
+                  />
+                </template>
+                <a-switch v-model:checked="form.quiesceVm" />
+              </a-form-item>
             </a-col>
           </a-row>
           <div :span="24" class="action-button">
@@ -147,9 +156,11 @@ import { api } from '@/api'
 import { timeZone } from '@/utils/timezone'
 import { mixinForm } from '@/utils/mixin'
 import debounce from 'lodash/debounce'
+import TooltipLabel from '@/components/widgets/TooltipLabel.vue'
 
 export default {
   name: 'FormSchedule',
+  components: { TooltipLabel },
   mixins: [mixinForm],
   props: {
     loading: {
@@ -177,6 +188,9 @@ export default {
       listDayOfWeek: ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday']
     }
   },
+  beforeCreate () {
+    this.apiParams = this.$getApiParams('createBackupSchedule')
+  },
   created () {
     this.initForm()
     this.fetchTimeZone()
@@ -186,7 +200,8 @@ export default {
     initForm () {
       this.formRef = ref()
       this.form = reactive({
-        intervaltype: 'hourly'
+        intervaltype: 'hourly',
+        quiesceVm: false
       })
       this.rules = reactive({
         time: [{ type: 'number', required: true, message: this.$t('message.error.required.input') }],
@@ -248,6 +263,7 @@ export default {
         params.virtualmachineid = this.resource.id
         params.intervaltype = values.intervaltype
         params.timezone = values.timezone
+        params.quiescevm = values.quiesceVm
         switch (values.intervaltype) {
           case 'hourly':
             params.schedule = values.time

@@ -194,6 +194,8 @@ public class BackupManagerImpl extends ManagerBase implements BackupManager, VmW
 
     private VmWorkJobHandlerProxy jobHandlerProxy = new VmWorkJobHandlerProxy(this);
 
+    private static final String KNIB_BACKUP_PROVIDER = "knib";
+
     public AsyncJobDispatcher getAsyncJobDispatcher() {
         return asyncJobDispatcher;
     }
@@ -428,6 +430,7 @@ public class BackupManagerImpl extends ManagerBase implements BackupManager, VmW
         final DateUtil.IntervalType intervalType = cmd.getIntervalType();
         final String scheduleString = cmd.getSchedule();
         final TimeZone timeZone = TimeZone.getTimeZone(cmd.getTimezone());
+        boolean quiesceVm = cmd.isQuiesceVm();
 
         if (intervalType == null) {
             throw new CloudRuntimeException("Invalid interval type provided");
@@ -446,6 +449,10 @@ public class BackupManagerImpl extends ManagerBase implements BackupManager, VmW
             throw new CloudRuntimeException("The selected backup offering does not allow user-defined backup schedule");
         }
 
+        if (quiesceVm && !KNIB_BACKUP_PROVIDER.equals(offering.getProvider())) {
+            throw new InvalidParameterValueException("Quiesce VM is only supported by KNIB backup provider.");
+        }
+
         final String timezoneId = timeZone.getID();
         if (!timezoneId.equals(cmd.getTimezone())) {
             logger.warn("Using timezone: " + timezoneId + " for running this snapshot policy as an equivalent of " + cmd.getTimezone());
@@ -460,13 +467,14 @@ public class BackupManagerImpl extends ManagerBase implements BackupManager, VmW
 
         final BackupScheduleVO schedule = backupScheduleDao.findByVMAndIntervalType(vmId, intervalType);
         if (schedule == null) {
-            return backupScheduleDao.persist(new BackupScheduleVO(vmId, intervalType, scheduleString, timezoneId, nextDateTime));
+            return backupScheduleDao.persist(new BackupScheduleVO(vmId, intervalType, scheduleString, timezoneId, nextDateTime, quiesceVm));
         }
 
         schedule.setScheduleType((short) intervalType.ordinal());
         schedule.setSchedule(scheduleString);
         schedule.setTimezone(timezoneId);
         schedule.setScheduledTimestamp(nextDateTime);
+        schedule.setQuiesceVm(quiesceVm);
         backupScheduleDao.update(schedule.getId(), schedule);
         return backupScheduleDao.findByVM(vmId);
     }
@@ -688,7 +696,7 @@ public class BackupManagerImpl extends ManagerBase implements BackupManager, VmW
 
     private void validateBackupVolumes(BackupVO backup, VMInstanceVO vm, BackupOffering offering) {
         BackupProvider backupProvider = getBackupProvider(offering.getProvider());
-        if (backupProvider.getName().equals("knib")) {
+        if (KNIB_BACKUP_PROVIDER.equals(backupProvider.getName())) {
             return;
         }
         // This is done to handle historic backups if any with Veeam / Networker plugins
@@ -1207,6 +1215,7 @@ public class BackupManagerImpl extends ManagerBase implements BackupManager, VmW
                 apiDispatcher.dispatchCreateCmd(cmd, params);
                 params.put("id", "" + vmId);
                 params.put("ctxStartEventId", "1");
+                params.put(ApiConstants.VM_SNAPSHOT_QUIESCEVM, String.valueOf(backupSchedule.isQuiesceVm()));
 
                 AsyncJobVO job = new AsyncJobVO("", User.UID_SYSTEM, vm.getAccountId(), CreateBackupCmd.class.getName(),
                         ApiGsonHelper.getBuilder().create().toJson(params), vmId,

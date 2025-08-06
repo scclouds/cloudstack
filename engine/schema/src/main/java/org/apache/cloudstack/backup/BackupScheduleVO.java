@@ -61,15 +61,19 @@ public class BackupScheduleVO implements BackupSchedule {
     @Column(name = "async_job_id")
     Long asyncJobId;
 
+    @Column(name = "quiesce_vm")
+    private boolean quiesceVm;
+
     public BackupScheduleVO() {
     }
 
-    public BackupScheduleVO(Long vmId, DateUtil.IntervalType scheduleType, String schedule, String timezone, Date scheduledTimestamp) {
+    public BackupScheduleVO(Long vmId, DateUtil.IntervalType scheduleType, String schedule, String timezone, Date scheduledTimestamp, boolean quiesceVm) {
         this.vmId = vmId;
         this.scheduleType = (short) scheduleType.ordinal();
         this.schedule = schedule;
         this.timezone = timezone;
         this.scheduledTimestamp = scheduledTimestamp;
+        this.quiesceVm = quiesceVm;
     }
 
     @Override
@@ -129,5 +133,14 @@ public class BackupScheduleVO implements BackupSchedule {
 
     public void setAsyncJobId(Long asyncJobId) {
         this.asyncJobId = asyncJobId;
+    }
+
+    public void setQuiesceVm(boolean quiesceVm) {
+        this.quiesceVm = quiesceVm;
+    }
+
+    @Override
+    public boolean isQuiesceVm() {
+        return quiesceVm;
     }
 }
