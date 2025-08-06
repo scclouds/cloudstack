@@ -17,6 +17,7 @@
 
 import { shallowRef, defineAsyncComponent } from 'vue'
 import store from '@/store'
+import { isAdmin } from '@/role'
 
 export default {
   name: 'storage',
@@ -440,7 +441,14 @@ export default {
           label: 'label.backup.restore',
           message: 'message.backup.restore',
           dataView: true,
-          show: (record) => { return record.state !== 'Destroyed' }
+          show: (record) => { return record.state !== 'Destroyed' },
+          args: () => {
+            const fields = ['quickrestore']
+            if (isAdmin()) {
+              fields.push('hostid')
+            }
+            return fields
+          }
         },
         {
           api: 'restoreVolumeFromBackupAndAttachToVM',

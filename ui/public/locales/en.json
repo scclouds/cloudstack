@@ -1819,6 +1819,7 @@
 "label.purge.usage.records.error": "Failed while purging usage records",
 "label.purpose": "Purpose",
 "label.qostype": "QoS type",
+"label.quickrestore": "Quick Restore",
 "label.quickview": "Quick view",
 "label.quiescevm": "Quiesce Instance",
 "label.quiettime": "Quiet time (in sec)",
