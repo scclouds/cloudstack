@@ -313,6 +313,12 @@ public class PresetVariableHelper {
 
         HostVO hostVo = hostDao.findByIdIncludingRemoved(hostId);
         validateIfObjectIsNull(hostVo, hostId, "host");
+
+        if (hostVo.getClusterId() == null) {
+            logger.warn("The host [{}] does not have a clusterId associated with it. Therefore, the configuration `force.ha` will not be injected in the tariff.", hostVo.getUuid());
+            return;
+        }
+
         ClusterDetailsVO forceHa = clusterDetailsDao.findDetail(hostVo.getClusterId(), "force.ha");
 
         String forceHaValue;
