@@ -17,6 +17,7 @@
 package org.apache.cloudstack.api.command.user.gui.theme;
 
 import org.apache.cloudstack.acl.RoleType;
+import org.apache.cloudstack.api.ACL;
 import org.apache.cloudstack.api.APICommand;
 import org.apache.cloudstack.api.ApiConstants;
 import org.apache.cloudstack.api.BaseListCmd;
@@ -47,19 +48,21 @@ public class ListGuiThemesCmd extends BaseListCmd {
     @Parameter(name = ApiConstants.COMMON_NAME, type = CommandType.STRING, description = "The internet Common Name (CN) to be filtered.")
     private String commonName;
 
+    @ACL
     @Parameter(name = ApiConstants.DOMAIN_ID, type = CommandType.UUID, entityType = DomainResponse.class, description = "The ID of the domain to be filtered.")
     private Long domainId;
 
+    @ACL
     @Parameter(name = ApiConstants.ACCOUNT_ID, type = CommandType.UUID, entityType = AccountResponse.class, description = "The ID of the account to be filtered.")
     private Long accountId;
 
-    @Parameter(name = ApiConstants.LIST_ALL, type = CommandType.BOOLEAN, description = "Whether to list all themes.")
+    @Parameter(name = ApiConstants.LIST_ALL, type = CommandType.BOOLEAN, description = "Whether to list all themes.", authorized = {RoleType.Admin})
     private boolean listAll = false;
 
-    @Parameter(name = ApiConstants.SHOW_REMOVED, type = CommandType.BOOLEAN, description = "Whether to list removed themes.")
+    @Parameter(name = ApiConstants.SHOW_REMOVED, type = CommandType.BOOLEAN, description = "Whether to list removed themes.", authorized = {RoleType.Admin})
     private boolean showRemoved = false;
 
-    @Parameter(name = ApiConstants.SHOW_PUBLIC, type = CommandType.BOOLEAN, description = "Whether to list public themes.")
+    @Parameter(name = ApiConstants.SHOW_PUBLIC, type = CommandType.BOOLEAN, description = "Whether to list public themes.", authorized = {RoleType.Admin})
     private Boolean showPublic;
 
     @Parameter(name = ApiConstants.LIST_ONLY_DEFAULT_THEME, type = CommandType.BOOLEAN, description = "Whether to only list the default theme.")
