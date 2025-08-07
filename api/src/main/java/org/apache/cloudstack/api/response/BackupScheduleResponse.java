@@ -56,6 +56,10 @@ public class BackupScheduleResponse extends BaseResponse {
     @Param(description = "Whether the VM's file systems should be frozen for the scheduled backups.")
     private boolean quiesceVm;
 
+    @SerializedName(ApiConstants.MAX_BACKUPS)
+    @Param(description = ApiConstants.PARAMETER_DESCRIPTION_MAX_BACKUPS)
+    private int maxBackups;
+
     public void setId(String id) {
         this.id = id;
     }
@@ -102,5 +106,9 @@ public class BackupScheduleResponse extends BaseResponse {
 
     public void setQuiesceVm(boolean quiesceVm) {
         this.quiesceVm = quiesceVm;
+    }
+
+    public void setMaxBackups(int maxBackups) {
+        this.maxBackups = maxBackups;
     }
 }

@@ -91,11 +91,14 @@ public class BackupVO implements Backup {
     @Column(name = "backed_volumes", length = 65535)
     protected String backedUpVolumes;
 
+    @Column(name = "backup_schedule_id")
+    private Long backupScheduleId;
+
     public BackupVO() {
         this.uuid = UUID.randomUUID().toString();
     }
 
-    public BackupVO(long vmId, long backupOfferingId, long accountId, long domainId, long zoneId, long virtualSize, Status status) {
+    public BackupVO(long vmId, long backupOfferingId, long accountId, long domainId, long zoneId, long virtualSize, Status status, Long backupScheduleId) {
         this.vmId = vmId;
         this.backupOfferingId = backupOfferingId;
         this.accountId = accountId;
@@ -106,6 +109,7 @@ public class BackupVO implements Backup {
         this.setType("FULL");
         this.uuid = UUID.randomUUID().toString();
         this.date = new Date();
+        this.backupScheduleId = backupScheduleId;
     }
 
     @Override
@@ -243,6 +247,15 @@ public class BackupVO implements Backup {
 
     public void setRemoved(Date removed) {
         this.removed = removed;
+    }
+
+    public void setBackupScheduleId(Long backupScheduleId) {
+        this.backupScheduleId = backupScheduleId;
+    }
+
+    @Override
+    public Long getBackupScheduleId() {
+        return backupScheduleId;
     }
 
     @Override

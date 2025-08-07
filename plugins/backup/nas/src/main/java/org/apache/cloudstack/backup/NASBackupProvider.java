@@ -157,7 +157,7 @@ public class NASBackupProvider extends AdapterBase implements BackupProvider, Co
     }
 
     @Override
-    public boolean takeBackup(final VirtualMachine vm, boolean quiesceVm) {
+    public boolean takeBackup(final VirtualMachine vm, boolean quiesceVm, Long backupScheduleId) {
         final Host host = getVMHypervisorHost(vm);
 
         final BackupRepository backupRepository = backupRepositoryDao.findByBackupOfferingId(vm.getBackupOfferingId());
@@ -169,7 +169,7 @@ public class NASBackupProvider extends AdapterBase implements BackupProvider, Co
         final String backupPath = String.format("%s/%s", vm.getInstanceName(),
                 new SimpleDateFormat("yyyy.MM.dd.HH.mm.ss").format(creationDate));
 
-        BackupVO backupVO = createBackupObject(vm, backupPath);
+        BackupVO backupVO = createBackupObject(vm, backupPath, backupScheduleId);
         TakeBackupCommand command = new TakeBackupCommand(vm.getInstanceName(), backupPath);
         command.setBackupRepoType(backupRepository.getType());
         command.setBackupRepoAddress(backupRepository.getAddress());
@@ -203,7 +203,7 @@ public class NASBackupProvider extends AdapterBase implements BackupProvider, Co
         return Objects.nonNull(answer) && answer.getResult();
     }
 
-    private BackupVO createBackupObject(VirtualMachine vm, String backupPath) {
+    private BackupVO createBackupObject(VirtualMachine vm, String backupPath, Long backupScheduleId) {
         BackupVO backup = new BackupVO();
         backup.setVmId(vm.getId());
         backup.setExternalId(backupPath);
@@ -221,6 +221,7 @@ public class NASBackupProvider extends AdapterBase implements BackupProvider, Co
         backup.setAccountId(vm.getAccountId());
         backup.setDomainId(vm.getDomainId());
         backup.setZoneId(vm.getDataCenterId());
+        backup.setBackupScheduleId(backupScheduleId);
         return backupDao.persist(backup);
     }
 

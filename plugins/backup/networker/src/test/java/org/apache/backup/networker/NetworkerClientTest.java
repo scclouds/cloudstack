@@ -439,7 +439,7 @@ public class NetworkerClientTest {
         backupedVM.setBackupOfferingId(0L);
         backupedVM.setDataCenterId(1);
         Date backupDate = new Date();
-        BackupVO vmBackup = client.registerBackupForVm(backupedVM, backupDate, null);
+        BackupVO vmBackup = client.registerBackupForVm(backupedVM, backupDate, null, null);
         verify(getRequestedFor(urlEqualTo("/nwrestapi/v3/global/backups/?q=name:" + backupedVM.getName())));
         Assert.assertEquals("658580844", vmBackup.getSize().toString());
     }
@@ -529,7 +529,7 @@ public class NetworkerClientTest {
         Instant instant = Instant.ofEpochSecond(startTS);
         Date backupDate = Date.from(instant);
         String saveTime = formatterDateTime.format(Date.from(instant));
-        BackupVO vmBackup = client.registerBackupForVm(backupedVM,backupDate,startTS.toString());
+        BackupVO vmBackup = client.registerBackupForVm(backupedVM,backupDate,startTS.toString(), null);
         verify(getRequestedFor(urlEqualTo("/nwrestapi/v3/global/backups/?q=name:"+backupedVM.getName()+"+and+saveTime:'"+saveTime+"'")));
         Assert.assertEquals("658580844", vmBackup.getSize().toString());
         Assert.assertEquals("d371d629-00000006-84ccd61b-62ccd61b-007d1500-5a80015d",vmBackup.getExternalId());
@@ -626,7 +626,7 @@ public class NetworkerClientTest {
         String endDate = formatterDate.format(new Date());
         String endTime = formatterTime.format(new Date());
         final String searchRange = "['" + startDate + "T" + startTime + "'+TO+'" + endDate + "T" + endTime + "']";
-        BackupVO vmBackup = client.registerBackupForVm(backupedVM,backupDate,null);
+        BackupVO vmBackup = client.registerBackupForVm(backupedVM,backupDate,null, null);
         verify(getRequestedFor(urlEqualTo("/nwrestapi/v3/global/backups/?q=name:"+backupedVM.getName()+"+and+saveTime:"+searchRange)));
         Assert.assertEquals("658580844", vmBackup.getSize().toString());
         Assert.assertEquals("d371d629-00000006-84ccd61b-62ccd61b-007d1500-5a80015d",vmBackup.getExternalId());

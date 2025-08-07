@@ -123,11 +123,12 @@ public interface BackupManager extends BackupService, Configurable, PluggableSer
     /**
      * Creates backup of a VM
      *
-     * @param vmId      Virtual Machine ID
+     * @param vmId Virtual Machine ID
      * @param quiesceVm
+     * @param job The async job associated with the backup creation
      * @return returns operation success
      */
-    boolean createBackup(final Long vmId, boolean quiesceVm);
+    boolean createBackup(final Long vmId, boolean quiesceVm, Object job);
 
     /**
      * List existing backups for a VM

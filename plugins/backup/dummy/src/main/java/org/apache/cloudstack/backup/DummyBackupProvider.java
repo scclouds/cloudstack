@@ -114,8 +114,8 @@ public class DummyBackupProvider extends AdapterBase implements BackupProvider {
     }
 
     @Override
-    public boolean takeBackup(VirtualMachine vm, boolean quiesceVm) {
-        logger.debug("Starting backup for VM ID " + vm.getUuid() + " on Dummy provider");
+    public boolean takeBackup(VirtualMachine vm, boolean quiesceVm, Long backupScheduleId) {
+        logger.debug("Starting backup [schedule ID: {}] for VM ID [{}] on Dummy provider.", backupScheduleId, vm.getUuid());
 
         BackupVO backup = new BackupVO();
         backup.setVmId(vm.getId());
@@ -130,6 +130,7 @@ public class DummyBackupProvider extends AdapterBase implements BackupProvider {
         backup.setDomainId(vm.getDomainId());
         backup.setZoneId(vm.getDataCenterId());
         backup.setBackedUpVolumes(BackupManagerImpl.createVolumeInfoFromVolumes(volumeDao.findByInstance(vm.getId())));
+        backup.setBackupScheduleId(backupScheduleId);
         BackupVO persistedBackup = backupDao.persist(backup);
 
         if (persistedBackup != null) {

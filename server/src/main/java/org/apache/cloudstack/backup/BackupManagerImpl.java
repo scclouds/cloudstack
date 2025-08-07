@@ -30,6 +30,7 @@ import java.util.TimerTask;
 import java.util.stream.Collectors;
 
 import com.amazonaws.util.CollectionUtils;
+import com.cloud.serializer.GsonHelper;
 import com.cloud.storage.VolumeApiService;
 import com.cloud.utils.ReflectionUse;
 import com.cloud.utils.fsm.NoTransitionException;
@@ -45,6 +46,7 @@ import com.cloud.vm.VmWorkJobHandlerProxy;
 import com.cloud.vm.VmWorkRestoreBackup;
 import com.cloud.vm.VmWorkTakeBackup;
 import com.cloud.vm.snapshot.VMSnapshot;
+import com.google.gson.reflect.TypeToken;
 import org.apache.cloudstack.api.ApiCommandResourceType;
 import org.apache.cloudstack.api.ApiConstants;
 import org.apache.cloudstack.api.command.admin.backup.DeleteBackupOfferingCmd;
@@ -84,6 +86,7 @@ import org.apache.cloudstack.poll.BackgroundPollTask;
 import org.apache.cloudstack.storage.datastore.db.PrimaryDataStoreDao;
 import org.apache.cloudstack.storage.datastore.db.StoragePoolVO;
 import org.apache.cloudstack.utils.reflectiontostringbuilderutils.ReflectionToStringBuilderUtils;
+import org.apache.commons.lang.math.NumberUtils;
 import org.apache.commons.lang3.BooleanUtils;
 import org.apache.commons.lang3.ObjectUtils;
 import org.apache.commons.lang3.StringUtils;
@@ -195,6 +198,8 @@ public class BackupManagerImpl extends ManagerBase implements BackupManager, VmW
     private VmWorkJobHandlerProxy jobHandlerProxy = new VmWorkJobHandlerProxy(this);
 
     private static final String KNIB_BACKUP_PROVIDER = "knib";
+
+    private static final String VEEAM_BACKUP_PROVIDER = "veeam";
 
     public AsyncJobDispatcher getAsyncJobDispatcher() {
         return asyncJobDispatcher;
@@ -453,6 +458,8 @@ public class BackupManagerImpl extends ManagerBase implements BackupManager, VmW
             throw new InvalidParameterValueException("Quiesce VM is only supported by KNIB backup provider.");
         }
 
+        final int maxBackups = validateAndGetDefaultBackupRetentionIfRequired(cmd.getMaxBackups(), offering);
+
         final String timezoneId = timeZone.getID();
         if (!timezoneId.equals(cmd.getTimezone())) {
             logger.warn("Using timezone: " + timezoneId + " for running this snapshot policy as an equivalent of " + cmd.getTimezone());
@@ -467,7 +474,7 @@ public class BackupManagerImpl extends ManagerBase implements BackupManager, VmW
 
         final BackupScheduleVO schedule = backupScheduleDao.findByVMAndIntervalType(vmId, intervalType);
         if (schedule == null) {
-            return backupScheduleDao.persist(new BackupScheduleVO(vmId, intervalType, scheduleString, timezoneId, nextDateTime, quiesceVm));
+            return backupScheduleDao.persist(new BackupScheduleVO(vmId, intervalType, scheduleString, timezoneId, nextDateTime, quiesceVm, maxBackups));
         }
 
         schedule.setScheduleType((short) intervalType.ordinal());
@@ -475,8 +482,33 @@ public class BackupManagerImpl extends ManagerBase implements BackupManager, VmW
         schedule.setTimezone(timezoneId);
         schedule.setScheduledTimestamp(nextDateTime);
         schedule.setQuiesceVm(quiesceVm);
+        schedule.setMaxBackups(maxBackups);
         backupScheduleDao.update(schedule.getId(), schedule);
         return backupScheduleDao.findByVM(vmId);
+    }
+
+    /**
+     * Validates the provided backup retention value and returns 0 as the default value if required.
+     *
+     * @param maxBackups The number of backups to retain, can be null
+     * @param offering The backup offering
+     * @return The validated number of backups to retain. If maxBackups is null, returns 0 as the default value
+     * @throws InvalidParameterValueException if the backup offering's provider is Veeam or maxBackups is less than 0
+     */
+    protected int validateAndGetDefaultBackupRetentionIfRequired(Integer maxBackups, BackupOffering offering) {
+        if (maxBackups == null) {
+            return 0;
+        }
+
+        if (VEEAM_BACKUP_PROVIDER.equals(offering.getProvider())) {
+            throw new InvalidParameterValueException("maxbackups parameter is not currently supported for the Veeam backup provider.");
+        }
+
+        if (maxBackups < 0) {
+            throw new InvalidParameterValueException("maxbackups value for backup schedule must be a non-negative integer.");
+        }
+
+        return maxBackups;
     }
 
     @Override
@@ -539,7 +571,7 @@ public class BackupManagerImpl extends ManagerBase implements BackupManager, VmW
 
     @Override
     @ActionEvent(eventType = EventTypes.EVENT_VM_BACKUP_CREATE, eventDescription = "creating VM backup", async = true)
-    public boolean createBackup(final Long vmId, boolean quiesceVm) {
+    public boolean createBackup(final Long vmId, boolean quiesceVm, Object job) {
         final VMInstanceVO vm = findVmById(vmId);
         validateForZone(vm.getDataCenterId());
         accountManager.checkAccess(CallContext.current().getCallingAccount(), null, true, vm);
@@ -563,10 +595,93 @@ public class BackupManagerImpl extends ManagerBase implements BackupManager, VmW
                 true, 0);
 
         final BackupProvider backupProvider = getBackupProvider(offering.getProvider());
-        if (backupProvider != null && backupProvider.takeBackup(vm, quiesceVm)) {
+        if (backupProvider != null) {
+            Long backupScheduleId = getBackupScheduleId(job);
+
+            backupProvider.takeBackup(vm, quiesceVm, backupScheduleId);
+            if (backupScheduleId != null) {
+                deleteOldestBackupFromScheduleIfRequired(vmId, backupScheduleId);
+            }
+
             return true;
         }
         throw new CloudRuntimeException("Failed to create VM backup");
+    }
+
+    /**
+     * Gets the backup schedule ID from the async job's payload.
+     *
+     * @param job The asynchronous job associated with the creation of the backup
+     * @return The backup schedule ID. Returns null if the backup has been manually created
+     */
+    protected Long getBackupScheduleId(Object job) {
+        if (!(job instanceof AsyncJobVO)) {
+            return null;
+        }
+
+        AsyncJobVO asyncJob = (AsyncJobVO) job;
+        logger.debug("Trying to retrieve [{}] parameter from the job [ID: {}] parameters.", ApiConstants.BACKUP_SCHEDULE_ID, asyncJob.getId());
+        String jobParamsRaw = asyncJob.getCmdInfo();
+
+        if (!jobParamsRaw.contains(ApiConstants.BACKUP_SCHEDULE_ID)) {
+            logger.info("Job [ID: {}] parameters do not include the [{}] parameter. Thus, the current backup is a manual backup.", asyncJob.getId(), ApiConstants.BACKUP_SCHEDULE_ID);
+            return null;
+        }
+
+        TypeToken<Map<String, String>> jobParamsType = new TypeToken<>(){};
+        Map<String, String> jobParams = GsonHelper.getGson().fromJson(jobParamsRaw, jobParamsType.getType());
+        long backupScheduleId = NumberUtils.toLong(jobParams.get(ApiConstants.BACKUP_SCHEDULE_ID));
+        logger.info("Job [ID: {}] parameters include the [{}] parameter, whose value is equal to [{}]. Thus, the current backup is a scheduled backup.", asyncJob.getId(), ApiConstants.BACKUP_SCHEDULE_ID, backupScheduleId);
+        return backupScheduleId == 0L ? null : backupScheduleId;
+    }
+
+    /**
+     * Deletes the oldest backups from the schedule. If the backup schedule is not active, the schedule's retention is equal to 0,
+     * or the number of backups to be deleted is lower than one, then no backups are deleted.
+     *
+     * @param vmId The ID of the VM associated with the backups
+     * @param backupScheduleId Backup schedule ID of the backups
+     */
+    protected void deleteOldestBackupFromScheduleIfRequired(Long vmId, long backupScheduleId) {
+        BackupScheduleVO backupScheduleVO = backupScheduleDao.findById(backupScheduleId);
+        if (backupScheduleVO == null || backupScheduleVO.getMaxBackups() == 0) {
+            logger.info("The schedule does not have a retention specified and, hence, not deleting any backups from it.", vmId);
+            return;
+        }
+
+        logger.debug("Checking if it is required to delete the oldest backups from the schedule with ID [{}], to meet its retention requirement of [{}] backups.", backupScheduleId, backupScheduleVO.getMaxBackups());
+        List<BackupVO> backups = backupDao.listByScheduleAndBackedUpStatus(backupScheduleId);
+        int amountOfBackupsToDelete = backups.size() - backupScheduleVO.getMaxBackups();
+        if (amountOfBackupsToDelete > 0) {
+            deleteExcessBackups(backups, amountOfBackupsToDelete, backupScheduleId);
+        } else {
+            logger.debug("Not required to delete any backups from the schedule [ID: {}]: [backups size: {}] and [retention: {}].", backupScheduleId, backups.size(), backupScheduleVO.getMaxBackups());
+        }
+    }
+
+    /**
+     * Deletes a certain number of backups associated with a schedule.
+     *
+     * @param backups List of backups associated with a schedule
+     * @param amountOfBackupsToDelete Number of backups to be deleted from the list of backups
+     * @param backupScheduleId ID of the backup schedule associated with the backups
+     */
+    protected void deleteExcessBackups(List<BackupVO> backups, int amountOfBackupsToDelete, long backupScheduleId) {
+        logger.debug("Deleting the [{}] oldest backups from the schedule [ID: {}].", amountOfBackupsToDelete, backupScheduleId);
+
+        for (int i = 0; i < amountOfBackupsToDelete; i++) {
+            BackupVO backup = backups.get(i);
+            if (deleteBackup(backup.getId(), false)) {
+                String eventDescription = String.format("Successfully deleted backup for VM [ID: %s], suiting the retention specified in the backup schedule [ID: %s].", backup.getVmId(), backupScheduleId);
+                logger.info(eventDescription);
+                ActionEventUtils.onCompletedActionEvent(
+                        User.UID_SYSTEM, backup.getAccountId(), EventVO.LEVEL_INFO,
+                        EventTypes.EVENT_VM_BACKUP_DELETE, eventDescription, backup.getId(), ApiCommandResourceType.Backup.toString(), 0
+                );
+            } else {
+                logger.warn("Failed to delete backup [ID: {}] for VM [ID: {}] from the schedule [ID: {}].", backup.getUuid(), backup.getVmId(), backupScheduleId);
+            }
+        }
     }
 
     @Override
@@ -1209,13 +1324,14 @@ public class BackupManagerImpl extends ManagerBase implements BackupManager, VmW
                 params.put("ctxUserId", "1");
                 params.put("ctxAccountId", "" + vm.getAccountId());
                 params.put("ctxStartEventId", String.valueOf(eventId));
+                params.put(ApiConstants.BACKUP_SCHEDULE_ID, String.valueOf(backupScheduleId));
+                params.put(ApiConstants.VM_SNAPSHOT_QUIESCEVM, String.valueOf(backupSchedule.isQuiesceVm()));
 
                 final CreateBackupCmd cmd = new CreateBackupCmd();
                 ComponentContext.inject(cmd);
                 apiDispatcher.dispatchCreateCmd(cmd, params);
                 params.put("id", "" + vmId);
                 params.put("ctxStartEventId", "1");
-                params.put(ApiConstants.VM_SNAPSHOT_QUIESCEVM, String.valueOf(backupSchedule.isQuiesceVm()));
 
                 AsyncJobVO job = new AsyncJobVO("", User.UID_SYSTEM, vm.getAccountId(), CreateBackupCmd.class.getName(),
                         ApiGsonHelper.getBuilder().create().toJson(params), vmId,
@@ -1301,7 +1417,7 @@ public class BackupManagerImpl extends ManagerBase implements BackupManager, VmW
                     }
 
                     List<VMInstanceVO> vms = new ArrayList<>();
-                    if (!backupProvider.getName().equals("veeam")) {
+                    if (!backupProvider.getName().equals(VEEAM_BACKUP_PROVIDER)) {
                         vms = vmInstanceDao.listByZoneWithBackups(dataCenter.getId(), null);
                         if (CollectionUtils.isNullOrEmpty(vms)) {
                             logger.debug("Cannot find any VM to sync backups in zone [{}].", dataCenter.getUuid());

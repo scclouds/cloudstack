@@ -24,6 +24,7 @@ import java.util.Objects;
 import javax.annotation.PostConstruct;
 import javax.inject.Inject;
 
+import com.cloud.utils.db.Filter;
 import org.apache.cloudstack.api.response.BackupResponse;
 import org.apache.cloudstack.backup.Backup;
 import org.apache.cloudstack.backup.BackupOffering;
@@ -60,6 +61,7 @@ public class BackupDaoImpl extends GenericDaoBase<BackupVO, Long> implements Bac
     BackupOfferingDao backupOfferingDao;
 
     private SearchBuilder<BackupVO> backupSearch;
+    private SearchBuilder<BackupVO> listByScheduleAndBackedUpStatus;
 
     public BackupDaoImpl() {
     }
@@ -74,6 +76,12 @@ public class BackupDaoImpl extends GenericDaoBase<BackupVO, Long> implements Bac
         backupSearch.and("status", backupSearch.entity().getStatus(), SearchCriteria.Op.IN);
         backupSearch.and("created_before", backupSearch.entity().getDate(), SearchCriteria.Op.LT);
         backupSearch.done();
+
+        listByScheduleAndBackedUpStatus = createSearchBuilder();
+        listByScheduleAndBackedUpStatus.and("backup_schedule_id", listByScheduleAndBackedUpStatus.entity().getBackupScheduleId(), SearchCriteria.Op.EQ);
+        listByScheduleAndBackedUpStatus.and("status", listByScheduleAndBackedUpStatus.entity().getStatus(), SearchCriteria.Op.EQ);
+        listByScheduleAndBackedUpStatus.and("removed", listByScheduleAndBackedUpStatus.entity().getRemoved(), SearchCriteria.Op.NULL);
+        listByScheduleAndBackedUpStatus.done();
     }
 
     @Override
@@ -142,6 +150,14 @@ public class BackupDaoImpl extends GenericDaoBase<BackupVO, Long> implements Bac
             persist(backupVO);
         }
         return listByVmId(zoneId, vmId);
+    }
+
+    @Override
+    public List<BackupVO> listByScheduleAndBackedUpStatus(Long backupScheduleId) {
+        SearchCriteria<BackupVO> sc = listByScheduleAndBackedUpStatus.create();
+        sc.setParameters("backup_schedule_id", backupScheduleId);
+        sc.setParameters("status", Backup.Status.BackedUp);
+        return listBy(sc, new Filter(BackupVO.class, "date", true));
     }
 
     @Override

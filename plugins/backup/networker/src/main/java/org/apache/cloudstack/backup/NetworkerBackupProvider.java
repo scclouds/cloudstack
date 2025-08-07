@@ -462,7 +462,7 @@ public class NetworkerBackupProvider extends AdapterBase implements BackupProvid
     }
 
     @Override
-    public boolean takeBackup(VirtualMachine vm, boolean quiesceVm) {
+    public boolean takeBackup(VirtualMachine vm, boolean quiesceVm, Long backupScheduleId) {
         String networkerServer;
         String clusterName;
 
@@ -510,7 +510,7 @@ public class NetworkerBackupProvider extends AdapterBase implements BackupProvid
 
         String saveTime = executeBackupCommand(hostVO, credentials.first(), credentials.second(), script.toString());
         LOG.info ("EMC Networker finished backup job for vm " + vm.getName() + " with saveset Time: " + saveTime);
-        BackupVO backup = getClient(vm.getDataCenterId()).registerBackupForVm(vm, backupJobStart, saveTime);
+        BackupVO backup = getClient(vm.getDataCenterId()).registerBackupForVm(vm, backupJobStart, saveTime, backupScheduleId);
         if (backup != null) {
             backup.setBackedUpVolumes(BackupManagerImpl.createVolumeInfoFromVolumes(volumeDao.findByInstance(vm.getId())));
             backupDao.persist(backup);
