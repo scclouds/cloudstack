@@ -86,8 +86,7 @@ public class GuiThemeServiceImpl implements GuiThemeService {
     @Inject
     JsonConfigValidator jsonConfigValidator;
 
-    protected boolean callerHasRolePermission (String apiKey) {
-        Account callingAccount = CallContext.current().getCallingAccount();
+    protected boolean callerHasRolePermission (Account callingAccount, String apiKey) {
         if (callingAccount.getId() == Account.ACCOUNT_ID_SYSTEM) {
             logger.info("Unauthenticated call to `listGuiThemes` API, ignoring all parameters, except `commonName`.");
             return false;
@@ -96,22 +95,22 @@ public class GuiThemeServiceImpl implements GuiThemeService {
             accountManager.checkApiAccess(callingAccount, BaseCmd.getCommandNameByClass(ListGuiThemesCmd.class), apiKey);
             return true;
         } catch (PermissionDeniedException ex) {
-            logger.info(String.format("Account [%s] role [%s] does not have permission to `listGuiThemes` API. Therefore, we will consider it as an unathenticated API call and ignore all parameters, except `commonName`.",
-                    callingAccount.getId(), callingAccount.getRoleId()));
+            logger.info("Account [{}] role [{}] does not have permission to `listGuiThemes` API. Therefore, we will consider it as an unauthenticated API call and ignore " +
+                    "all parameters, except `commonName`.", callingAccount.getId(), callingAccount.getRoleId());
             return false;
         }
     }
 
     @Override
     public ListResponse<GuiThemeResponse> listGuiThemes(ListGuiThemesCmd cmd) {
-        ListResponse<GuiThemeResponse> response = new ListResponse<>();
-        Pair<List<GuiThemeJoinVO>, Integer> result;
         boolean listOnlyDefaultTheme = cmd.getListOnlyDefaultTheme();
         String apiKey = cmd.getFullUrlParams().get("apikey");
+        Account caller = CallContext.current().getCallingAccount();
 
+        Pair<List<GuiThemeJoinVO>, Integer> result;
         if (listOnlyDefaultTheme) {
             result = retrieveDefaultTheme();
-        } else if (!callerHasRolePermission(apiKey)) {
+        } else if (!callerHasRolePermission(caller, apiKey)) {
             result = listGuiThemesWithNoAuth(cmd);
         } else {
             result = listGuiThemesInternal(cmd);
@@ -119,12 +118,64 @@ public class GuiThemeServiceImpl implements GuiThemeService {
         List<GuiThemeResponse> guiThemeResponses = new ArrayList<>();
 
         for (GuiThemeJoin guiThemeJoin : result.first()) {
-            GuiThemeResponse guiThemeResponse = responseGenerator.createGuiThemeResponse(guiThemeJoin);
-            guiThemeResponses.add(guiThemeResponse);
+            if (callerHasAccessToResponse(caller, guiThemeJoin)) {
+                GuiThemeResponse guiThemeResponse = responseGenerator.createGuiThemeResponse(guiThemeJoin);
+                guiThemeResponses.add(guiThemeResponse);
+            } else {
+                logger.debug("Skipping response for GUI theme [{}] since caller does not have access.", guiThemeJoin.getName());
+            }
         }
-
+        ListResponse<GuiThemeResponse> response = new ListResponse<>();
         response.setResponses(guiThemeResponses);
         return response;
+    }
+
+    protected boolean callerHasAccessToResponse(Account caller, GuiThemeJoin guiThemeJoin) {
+        if (guiThemeJoin.getIsPublic() || accountManager.isRootAdmin(caller.getId())) {
+            logger.debug("Creating response for GUI theme [{}] since it is public or caller is root admin.", guiThemeJoin.getName());
+            return true;
+        }
+
+        if (guiThemeJoin.getAccounts() != null && guiThemeJoin.getAccounts().contains(caller.getUuid())) {
+            logger.debug("Creating response for GUI theme [{}] since it [{}] contains caller account [{}].",
+                    guiThemeJoin.getName(), guiThemeJoin.getAccounts(), caller.getUuid());
+            return true;
+        }
+
+        if (guiThemeJoin.getDomains() == null) {
+            logger.trace("GUI theme [{}] does not have domain rules and caller [{}] is not part of the theme's listed accounts.", guiThemeJoin.getName(), caller);
+            return false;
+        }
+
+        for (String domainUuid : guiThemeJoin.getDomains().split(",")) {
+            Domain domain = domainDao.findByUuid(domainUuid);
+
+            if (domain == null) {
+                logger.warn("Domain with UUID [{}] listed by GUI theme [{}] not found, it may have been removed.", domainUuid, guiThemeJoin.getName());
+                continue;
+            }
+
+            if (domain.getId() == caller.getDomainId()) {
+                logger.debug("Creating response for GUI theme [{}] since it [{}] contains caller domain [{}].",
+                        guiThemeJoin.getName(), guiThemeJoin.getDomains(), domain);
+                return true;
+            }
+
+            if (guiThemeJoin.isRecursiveDomains() && domainDao.isChildDomain(domain.getId(), caller.getDomainId())) {
+                logger.debug("Creating response for GUI theme [{}] with recursive domains since it [{}] contains parent domain [{}] of caller domain [{}].",
+                        guiThemeJoin.getName(), guiThemeJoin.getDomains(), domain, caller.getDomainId());
+                return true;
+            }
+
+            try {
+                accountManager.checkAccess(caller, domain);
+                logger.debug("Creating response for GUI theme [{}] since caller has access to its allowed domain [{}].", guiThemeJoin.getName(), domain);
+                return true;
+            } catch (PermissionDeniedException ex) {
+                logger.trace("Domain [{}] of GUI theme [{}] ignored since caller doesn't have access.", domain, guiThemeJoin.getName());
+            }
+        }
+        return false;
     }
 
     private Pair<List<GuiThemeJoinVO>, Integer> retrieveDefaultTheme() {
