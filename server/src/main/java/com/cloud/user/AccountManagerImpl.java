@@ -142,6 +142,7 @@ import com.cloud.exception.InvalidParameterValueException;
 import com.cloud.exception.OperationTimedoutException;
 import com.cloud.exception.PermissionDeniedException;
 import com.cloud.exception.ResourceUnavailableException;
+import com.cloud.kubernetes.cluster.KubernetesServiceHelper;
 import com.cloud.network.IpAddress;
 import com.cloud.network.IpAddressManager;
 import com.cloud.network.Network;
@@ -902,6 +903,16 @@ public class AccountManagerImpl extends ManagerBase implements AccountManager, M
         apiKeyPairs.stream().forEach(keyPair -> _accountService.deleteApiKey(keyPair));
     }
 
+    protected void cleanupPluginsResourcesIfNeeded(Account account) {
+        try {
+            KubernetesServiceHelper kubernetesServiceHelper =
+                    ComponentContext.getDelegateComponentOfType(KubernetesServiceHelper.class);
+            kubernetesServiceHelper.cleanupForAccount(account);
+        } catch (NoSuchBeanDefinitionException ignored) {
+            logger.debug("No KubernetesServiceHelper bean found");
+        }
+    }
+
     protected boolean cleanupAccount(AccountVO account, long callerUserId, Account caller) {
         long accountId = account.getId();
         boolean accountCleanupNeeded = false;
@@ -980,6 +991,8 @@ public class AccountManagerImpl extends ManagerBase implements AccountManager, M
                     logger.debug("Failed to cleanup vm snapshot " + vmSnapshot.getId() + " due to " + e.toString());
                 }
             }
+
+            cleanupPluginsResourcesIfNeeded(account);
 
             // Destroy the account's VMs
             List<UserVmVO> vms = _userVmDao.listByAccountId(accountId);

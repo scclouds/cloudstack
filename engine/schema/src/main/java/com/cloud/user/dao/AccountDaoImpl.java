@@ -201,6 +201,16 @@ public class AccountDaoImpl extends GenericDaoBase<AccountVO, Long> implements A
     }
 
     @Override
+    public List<AccountVO> findAccountsByName(String accountName) {
+        SearchBuilder<AccountVO> sb = createSearchBuilder();
+        sb.and("accountName", sb.entity().getAccountName(), SearchCriteria.Op.EQ);
+        sb.done();
+        SearchCriteria<AccountVO> sc = sb.create();
+        sc.setParameters("accountName", accountName);
+        return search(sc, null);
+    }
+
+    @Override
     public Account findEnabledAccount(String accountName, Long domainId) {
         SearchCriteria<AccountVO> sc = AllFieldsSearch.create("accountName", accountName);
         sc.setParameters("domainId", domainId);
