@@ -41,6 +41,8 @@ import javax.inject.Inject;
 
 import com.cloud.bgp.ASNumber;
 import com.cloud.bgp.ASNumberRange;
+import org.apache.cloudstack.api.response.NativeBackupOfferingResponse;
+import org.apache.cloudstack.backup.NativeBackupOffering;
 import org.apache.cloudstack.consoleproxy.ConsoleSession;
 import com.cloud.dc.ASNumberRangeVO;
 import com.cloud.dc.ASNumberVO;
@@ -5663,5 +5665,11 @@ public class ApiResponseHelper implements ResponseGenerator {
         }
         response.setResponses(permissionResponses);
         return response;
+    }
+
+    @Override
+    public NativeBackupOfferingResponse createNativeBackupOfferingResponse(NativeBackupOffering offering) {
+        return new NativeBackupOfferingResponse(offering.getUuid(), offering.getName(), offering.isCompress(), offering.isValidate(), offering.isAllowQuickRestore(),
+                offering.isAllowExtractFile(), offering.getCreated(), offering.getRemoved());
     }
 }

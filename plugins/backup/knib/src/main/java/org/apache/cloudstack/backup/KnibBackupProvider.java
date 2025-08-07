@@ -30,8 +30,10 @@ import com.cloud.event.UsageEventVO;
 import com.cloud.exception.AgentUnavailableException;
 import com.cloud.exception.InvalidParameterValueException;
 import com.cloud.exception.OperationTimedoutException;
-import com.cloud.exception.UnsupportedServiceException;
+import com.cloud.host.HostVO;
+import com.cloud.host.dao.HostDao;
 import com.cloud.hypervisor.Hypervisor;
+import com.cloud.resource.ResourceState;
 import com.cloud.storage.DataStoreRole;
 import com.cloud.storage.Storage;
 import com.cloud.storage.Volume;
@@ -43,18 +45,26 @@ import com.cloud.utils.Pair;
 import com.cloud.utils.Predicate;
 import com.cloud.utils.component.AdapterBase;
 import com.cloud.utils.db.EntityManager;
+import com.cloud.utils.exception.BackupException;
+import com.cloud.utils.exception.BackupProviderException;
 import com.cloud.utils.exception.CloudRuntimeException;
 import com.cloud.utils.fsm.NoTransitionException;
+import com.cloud.vm.UserVmDetailVO;
+import com.cloud.vm.UserVmManager;
+import com.cloud.vm.UserVmVO;
 import com.cloud.vm.VirtualMachine;
 import com.cloud.vm.VirtualMachineManager;
 import com.cloud.vm.VirtualMachineManagerImpl;
+import com.cloud.vm.VmDetailConstants;
 import com.cloud.vm.VmWork;
 import com.cloud.vm.VmWorkConstants;
 import com.cloud.vm.VmWorkDeleteBackup;
 import com.cloud.vm.VmWorkRestoreBackup;
+import com.cloud.vm.VmWorkRestoreVolumeBackupAndAttach;
 import com.cloud.vm.VmWorkSerializer;
 import com.cloud.vm.VmWorkTakeBackup;
 import com.cloud.vm.dao.UserVmDao;
+import com.cloud.vm.dao.UserVmDetailsDao;
 import com.cloud.vm.snapshot.VMSnapshot;
 import com.cloud.vm.snapshot.VMSnapshotDetailsVO;
 import com.cloud.vm.snapshot.VMSnapshotVO;
@@ -62,14 +72,19 @@ import com.cloud.vm.snapshot.dao.VMSnapshotDao;
 import com.cloud.vm.snapshot.dao.VMSnapshotDetailsDao;
 import org.apache.cloudstack.backup.dao.BackupDao;
 import org.apache.cloudstack.backup.dao.BackupDetailDao;
+import org.apache.cloudstack.backup.dao.BackupOfferingDao;
 import org.apache.cloudstack.backup.dao.NativeBackupDataStoreDao;
 import org.apache.cloudstack.backup.dao.NativeBackupJoinDao;
+import org.apache.cloudstack.backup.dao.NativeBackupOfferingDao;
 import org.apache.cloudstack.backup.dao.NativeBackupStoragePoolDao;
 import org.apache.cloudstack.context.CallContext;
+import org.apache.cloudstack.engine.orchestration.service.VolumeOrchestrationService;
 import org.apache.cloudstack.engine.subsystem.api.storage.DataStore;
 import org.apache.cloudstack.engine.subsystem.api.storage.DataStoreManager;
 import org.apache.cloudstack.engine.subsystem.api.storage.EndPoint;
 import org.apache.cloudstack.engine.subsystem.api.storage.EndPointSelector;
+import org.apache.cloudstack.engine.subsystem.api.storage.VolumeDataFactory;
+import org.apache.cloudstack.engine.subsystem.api.storage.VolumeInfo;
 import org.apache.cloudstack.framework.config.ConfigKey;
 import org.apache.cloudstack.framework.config.Configurable;
 import org.apache.cloudstack.framework.jobs.AsyncJob;
@@ -97,6 +112,7 @@ import org.apache.cloudstack.storage.vmsnapshot.VMSnapshotHelper;
 import org.apache.cloudstack.storage.volume.VolumeObject;
 import org.apache.commons.collections4.CollectionUtils;
 import org.apache.commons.lang3.BooleanUtils;
+import org.apache.commons.lang3.StringUtils;
 
 import javax.inject.Inject;
 import java.util.ArrayList;
@@ -136,6 +152,9 @@ public class KnibBackupProvider extends AdapterBase implements BackupProvider, C
     private UserVmDao userVmDao;
 
     @Inject
+    private UserVmDetailsDao userVmDetailsDao;
+
+    @Inject
     private VMSnapshotHelper vmSnapshotHelper;
 
     @Inject
@@ -161,6 +180,12 @@ public class KnibBackupProvider extends AdapterBase implements BackupProvider, C
 
     @Inject
     private NativeBackupDataStoreDao nativeBackupDataStoreDao;
+
+    @Inject
+    private NativeBackupOfferingDao nativeBackupOfferingDao;
+
+    @Inject
+    private BackupOfferingDao backupOfferingDao;
 
     @Inject
     private HeuristicRuleHelper heuristicRuleHelper;
@@ -189,22 +214,21 @@ public class KnibBackupProvider extends AdapterBase implements BackupProvider, C
     @Inject
     private PrimaryDataStoreDao storagePoolDao;
 
-    protected static final String STANDARD_BACKUP_UUID = "SB";
-    protected static final String COMPRESSED_BACKUP_UUID = "CB";
-    protected static final String VALIDATING_BACKUP_UUID = "VB";
-    protected static final String COMPRESSED_VALIDATING_BACKUP_UUID = "CVB";
+    @Inject
+    private HostDao hostDao;
+
+    @Inject
+    private UserVmManager userVmManager;
+
+    @Inject
+    private VolumeOrchestrationService volumeOrchestrationService;
+
+    @Inject
+    private VolumeDataFactory volumeDataFactory;
 
     private static final String KNIB_PROVIDER_NAME = "knib";
 
-    protected static final List<Backup.Status> VALID_CHILD_STATES_TO_REMOVE_BACKUP = List.of(Backup.Status.Expunged, Backup.Status.Error, Backup.Status.Failed);
-
-    // Return only the standard until the others are implemented
-    List<BackupOffering> backupOfferings = Arrays.asList(
-            new KnibBackupOffering("Standard", STANDARD_BACKUP_UUID, "Standard backup offering.")
-            //new KnibBackupOffering("Compressed", COMPRESSED_BACKUP_UUID, "Compressed backup offering."),
-            //new KnibBackupOffering("Validating", VALIDATING_BACKUP_UUID, "Validating backup offering."),
-            //new KnibBackupOffering("Compressed Validating", COMPRESSED_VALIDATING_BACKUP_UUID, "Compressed and validating backup offering.")
-    );
+    protected final List<Backup.Status> validChildStatesToRemoveBackup = List.of(Backup.Status.Expunged, Backup.Status.Error, Backup.Status.Failed);
 
     private final List<Storage.StoragePoolType> supportedStoragePoolTypes = List.of(Storage.StoragePoolType.Filesystem, Storage.StoragePoolType.NetworkFilesystem,
             Storage.StoragePoolType.SharedMountPoint);
@@ -219,12 +243,12 @@ public class KnibBackupProvider extends AdapterBase implements BackupProvider, C
 
     @Override
     public List<BackupOffering> listBackupOfferings(Long zoneId) {
-        return backupOfferings;
+        return new ArrayList<>(nativeBackupOfferingDao.listAll());
     }
 
     @Override
     public boolean isValidProviderOffering(Long zoneId, String uuid) {
-        return backupOfferings.stream().anyMatch(backupOffering -> backupOffering.getExternalId().equals(uuid));
+        return nativeBackupOfferingDao.findByUuid(uuid) != null;
     }
 
     @Override
@@ -292,7 +316,9 @@ public class KnibBackupProvider extends AdapterBase implements BackupProvider, C
 
         Object jobResult = jobManager.unmarshallResultObject(outcome.getJob());
 
-        if (jobResult instanceof Throwable) {
+        if (jobResult instanceof BackupProviderException) {
+            throw (BackupProviderException) jobResult;
+        } else if (jobResult instanceof Throwable) {
             throw new CloudRuntimeException(String.format("Exception while taking KVM native incremental backup for VM [%s]. Check the logs for more information.", vm.getUuid()));
         }
 
@@ -330,7 +356,7 @@ public class KnibBackupProvider extends AdapterBase implements BackupProvider, C
             parentImageStoreUrl = dataStoreDao.findById(parentBackup.getImageStoreId()).getUrl();
         }
 
-        transitStateWithoutThrow(userVm, VirtualMachine.Event.BackupRequested, hostId);
+        transitVmStateWithoutThrow(userVm, VirtualMachine.Event.BackupRequested, hostId);
         updateBackupStatusToBackingUp(volumeTOs, backupVO);
 
         DataStore imageStore = getImageStoreForBackup(userVm.getDataCenterId(), backupVO);
@@ -380,6 +406,9 @@ public class KnibBackupProvider extends AdapterBase implements BackupProvider, C
         Object jobResult = jobManager.unmarshallResultObject(outcome.getJob());
 
         if (jobResult instanceof Throwable) {
+            if (jobResult instanceof BackupProviderException) {
+                throw (BackupProviderException) jobResult;
+            }
             throw new CloudRuntimeException(String.format("Exception while deleting KVM native incremental backup [%s]. Check the logs for more information.", backup.getUuid()));
         }
 
@@ -398,9 +427,7 @@ public class KnibBackupProvider extends AdapterBase implements BackupProvider, C
 
         logger.info("Starting delete process for backup [{}].", backupVO);
 
-        if (!validateBackupState(backupVO)) {
-            return false;
-        }
+        validateBackupState(backupVO);
 
         checkErrorBackup(backupVO, virtualMachine);
         if (deleteFailedBackup(backupVO)) {
@@ -409,9 +436,9 @@ public class KnibBackupProvider extends AdapterBase implements BackupProvider, C
 
         NativeBackupJoinVO childBackup = nativeBackupJoinDao.findByParentId(backup.getId());
 
-        if (childBackup != null && !VALID_CHILD_STATES_TO_REMOVE_BACKUP.contains(childBackup.getStatus())) {
+        if (childBackup != null && !validChildStatesToRemoveBackup.contains(childBackup.getStatus())) {
             logger.debug("Backup [{}] has children that are not in one of the following states [{}]; will mark it as removed on the database but the files will not be deleted " +
-                    "from secondary storage until the children are also expunged.", backup.getUuid(), VALID_CHILD_STATES_TO_REMOVE_BACKUP);
+                    "from secondary storage until the children are also expunged.", backup.getUuid(), validChildStatesToRemoveBackup);
             backupVO.setStatus(Backup.Status.Removed);
             backupDao.update(backupVO.getId(), backupVO);
             return true;
@@ -451,19 +478,12 @@ public class KnibBackupProvider extends AdapterBase implements BackupProvider, C
         return isFailedSetEmpty;
     }
 
-    private boolean validateBackupState(BackupVO backupVO) {
-        if (!allowedBackupStatesToRemove.contains(backupVO.getStatus())) {
-            logger.error("Backup [{}] is not in a state allowed to be removed. Current state is [{}]; allowed states are [{}]", backupVO, backupVO.getStatus(),
-                    allowedBackupStatesToRemove);
-            return false;
-        }
-        return true;
-    }
-
     @Override
-    public boolean restoreVMFromBackup(VirtualMachine vm, Backup backup) {
+    public boolean restoreVMFromBackup(VirtualMachine vm, Backup backup, boolean quickRestore, Long hostId) {
         logger.debug("Queueing backup [{}] restore for VM [{}].", backup.getUuid(), vm.getUuid());
-        Outcome<Boolean> outcome = restoreVMFromBackupThroughJobQueue(vm, backup);
+        validateQuickRestore(backup, quickRestore);
+
+        Outcome<Boolean> outcome = restoreVMFromBackupThroughJobQueue(vm, backup, quickRestore, hostId);
 
         try {
             outcome.get();
@@ -473,15 +493,13 @@ public class KnibBackupProvider extends AdapterBase implements BackupProvider, C
 
         Object jobResult = jobManager.unmarshallResultObject(outcome.getJob());
 
-        if (jobResult instanceof Throwable) {
-            throw new CloudRuntimeException(String.format("Exception while restoring KVM native incremental backup [%s]. Check the logs for more information.", backup.getUuid()));
-        }
+        handleRestoreException(backup, vm, jobResult);
 
         return BooleanUtils.isTrue((Boolean) jobResult);
     }
 
     @Override
-    public Boolean orchestrateRestoreVMFromBackup(Backup backup, VirtualMachine vm) {
+    public Boolean orchestrateRestoreVMFromBackup(Backup backup, VirtualMachine vm, boolean quickRestore, Long hostId) {
         logger.info("Starting restore backup process for VM [{}] and backup [{}].", vm.getUuid(), backup);
         validateNoVmSnapshots(vm);
 
@@ -498,27 +516,32 @@ public class KnibBackupProvider extends AdapterBase implements BackupProvider, C
         Set<BackupDeltaTO> deltasToRemove = new HashSet<>();
 
         List<NativeBackupDataStoreVO> backupsWithoutVolumes = getBackupsWithoutVolumes(deltasOnSecondary, volumeTOs);
-        createAndAttachVolumes(backupsWithoutVolumes, vm);
+
+        HostVO host;
+        try {
+            host = getHostToRestore(vm, quickRestore, hostId);
+        } catch (AgentUnavailableException e) {
+            throw new CloudRuntimeException(e);
+        }
+
+        createAndAttachVolumes(backupsWithoutVolumes, vm, host);
         // Get new volume references
         volumeTOs = vmSnapshotHelper.getVolumeTOList(vm.getId());
 
         Set<Pair<BackupDeltaTO, VolumeObjectTO>> backupAndVolumePairs = generateBackupAndVolumePairsToRestore(deltasOnSecondary, volumeTOs, backupJoinVO);
-        List<VolumeObjectTO> volumesWithoutBackups = getVolumesWithoutBackups(volumeTOs, deltasOnSecondary);
-        List<DeltaMergeTreeTO> deltasToBeMerged = populateDeltasToRemoveAndToMergeAndUpdateVolumePaths(deltasOnPrimary, deltasToRemove, volumeTOs, volumesWithoutBackups, vm.getUuid());
+        List<VolumeObjectTO> volumesNotPartOfTheBackup = getVolumesThatAreNotPartOfTheBackup(volumeTOs, deltasOnSecondary);
+        List<DeltaMergeTreeTO> deltasToBeMerged = populateDeltasToRemoveAndToMergeAndUpdateVolumePaths(deltasOnPrimary, deltasToRemove, volumeTOs, volumesNotPartOfTheBackup, vm.getUuid());
 
-        List<NativeBackupJoinVO> parentBackups = getBackupJoinParents(backupVO, true);
-        Set<Long> secondaryStorageIds = parentBackups.stream().map(NativeBackupJoinVO::getImageStoreId).collect(Collectors.toSet());
-        Set<String> secondaryStorageUrls = secondaryStorageIds.stream().map(id -> imageStoreDao.findById(id).getUrl()).collect(Collectors.toSet());
+        Set<String> secondaryStorageUrls = getParentSecondaryStorageUrls(backupVO);
 
         Commands commands = new Commands(Command.OnError.Stop);
-        commands.addCommand(new RestoreKnibBackupCommand(deltasToRemove, backupAndVolumePairs, secondaryStorageUrls));
+        commands.addCommand(new RestoreKnibBackupCommand(deltasToRemove, backupAndVolumePairs, secondaryStorageUrls, quickRestore));
         commands.addCommand(new MergeDiskOnlyVmSnapshotCommand(deltasToBeMerged, vm.getState().equals(VirtualMachine.State.Running), vm.getInstanceName()));
 
-        Long hostId = vmSnapshotHelper.pickRunningHost(vm.getId());
-        Answer[] answers = null;
+        Answer[] answers;
 
         try {
-            answers = sendBackupCommands(hostId, commands);
+            answers = sendBackupCommands(host.getId(), commands);
         } catch (OperationTimedoutException | AgentUnavailableException e) {
             throw new CloudRuntimeException(e);
         }
@@ -528,9 +551,7 @@ public class KnibBackupProvider extends AdapterBase implements BackupProvider, C
             return false;
         }
 
-        Optional<Answer> failed = Arrays.stream(answers).filter(answer -> !answer.getResult()).findFirst();
-        if (failed.isPresent()) {
-            logger.error("Failed to restore backup [{}] due to [{}].", backup, failed.get().getDetails());
+        if (!processRestoreAnswers(vm, answers)) {
             return false;
         }
 
@@ -541,13 +562,72 @@ public class KnibBackupProvider extends AdapterBase implements BackupProvider, C
             setEndOfChainAndRemoveCurrentForBackup(currentBackup);
         }
 
+        if (quickRestore) {
+            List<VolumeInfo> volumesToConsolidate = getVolumesToConsolidate(vm, deltasOnSecondary, volumeTOs, host.getId());
+            return finalizeQuickRestore(vm, volumesToConsolidate, host.getId());
+        }
+
         return true;
     }
 
     @Override
     public Pair<Boolean, String> restoreBackedUpVolume(Backup backup, String volumeUuid, String hostIp, String dataStoreUuid, Pair<String, VirtualMachine.State> vmNameAndState,
-            VirtualMachine vm, Boolean startVm) {
-        throw new UnsupportedServiceException("This provider still does not support volume restore, only full backup restore.");
+            VirtualMachine vm, Boolean startVm, boolean quickRestore) {
+
+        logger.debug("Queueing backup [{}] volume [{}] restore for VM [{}].", backup.getUuid(), volumeUuid, vm.getUuid());
+        validateQuickRestore(backup, quickRestore);
+        Outcome<Boolean> outcome = restoreBackedUpVolumeThroughJobQueue(vm, backup, volumeUuid, hostIp, quickRestore);
+
+        try {
+            outcome.get();
+        } catch (InterruptedException | java.util.concurrent.ExecutionException e) {
+            throw new CloudRuntimeException(String.format("Unable to retrieve result from job restoreBackedUpVolume due to [%s]. Backup [%s].", e.getMessage(), backup.getUuid()), e);
+        }
+
+        Object jobResult = jobManager.unmarshallResultObject(outcome.getJob());
+
+        handleRestoreException(backup, vm, jobResult);
+
+        if (!(jobResult instanceof Pair)) {
+            throw new CloudRuntimeException(String.format("Unexpected answer from restoreBackupVolume job. Got [%s].", jobResult));
+        }
+        return (Pair<Boolean, String>) jobResult;
+    }
+
+    @Override
+    public Pair<Boolean, String> orchestrateRestoreBackedUpVolume(Backup backup, VirtualMachine vm, String volumeUuid, String hostIp, boolean quickRestore) {
+        BackupVO backupVO = (BackupVO) backup;
+        VolumeVO backedUpVolume = volumeDao.findByUuidIncludingRemoved(volumeUuid);
+        HostVO hostVo = hostDao.findByIp(hostIp);
+        VolumeInfo volumeInfo = duplicateAndCreateVolume(vm, hostVo, backedUpVolume.getId());
+
+        VolumeObjectTO volumeObjectTO = (VolumeObjectTO) volumeInfo.getTO();
+        NativeBackupDataStoreVO deltaOnSecondary = nativeBackupDataStoreDao.findByBackupIdAndVolumeId(backup.getId(), backedUpVolume.getId());
+        NativeBackupJoinVO nativeBackupJoinVO = nativeBackupJoinDao.findById(backup.getId());
+        Pair<BackupDeltaTO, VolumeObjectTO> backupAndVolumePair = generateBackupAndVolumePairForSingleNewVolume(deltaOnSecondary, volumeObjectTO, backedUpVolume.getId(), nativeBackupJoinVO);
+        Set<String> secondaryStorageUrls = getParentSecondaryStorageUrls(backupVO);
+
+        RestoreKnibBackupCommand cmd = new RestoreKnibBackupCommand(Set.of(), Set.of(backupAndVolumePair), secondaryStorageUrls, quickRestore);
+
+        Answer answer = sendBackupCommand(hostVo.getId(), cmd);
+
+        if (!processRestoreAnswers(vm, new Answer[] {answer})) {
+            throw new CloudRuntimeException("Bad answer from agent");
+        }
+
+        VolumeVO newVolume = (VolumeVO)volumeInfo.getVolume();
+        newVolume.setSize(deltaOnSecondary.getVolumeSize());
+        volumeDao.update(newVolume.getId(), newVolume);
+
+        Volume attachedVolume = volumeApiService.attachVolumeToVM(vm.getId(), newVolume.getId(), null, false, false);
+
+        if (quickRestore) {
+            ArrayList<VolumeInfo> volumeToConsolidate = new ArrayList<>();
+            volumeToConsolidate.add(volumeDataFactory.getVolume(attachedVolume.getId()));
+            finalizeQuickRestore(vm, volumeToConsolidate, hostVo.getId());
+        }
+
+        return new Pair<>(true, attachedVolume.getUuid());
     }
 
     @Override
@@ -673,15 +753,29 @@ public class KnibBackupProvider extends AdapterBase implements BackupProvider, C
         return submitWorkJob(workJob, workInfo, vmId);
     }
 
-    private Outcome<Boolean> restoreVMFromBackupThroughJobQueue(VirtualMachine vm, Backup backup) {
+    private Outcome<Boolean> restoreVMFromBackupThroughJobQueue(VirtualMachine vm, Backup backup, boolean quickRestore, Long hostId) {
         final CallContext context = CallContext.current();
         long userId = context.getCallingUser().getId();
         long accountId = context.getCallingAccount().getAccountId();
         long vmId = vm.getId();
 
-        VmWorkJobVO workJob = new VmWorkJobVO(AsyncJobExecutionContext.getOriginJobId(), userId, accountId, VmWorkDeleteBackup.class.getName(), vmId, VirtualMachine.Type.Instance,
+        VmWorkJobVO workJob = new VmWorkJobVO(AsyncJobExecutionContext.getOriginJobId(), userId, accountId, VmWorkRestoreBackup.class.getName(), vmId, VirtualMachine.Type.Instance,
                 VmWorkJobVO.Step.Starting);
-        VmWorkRestoreBackup workInfo = new VmWorkRestoreBackup(userId, accountId, vmId, VM_WORK_JOB_HANDLER, KNIB_PROVIDER_NAME, backup.getId());
+        VmWorkRestoreBackup workInfo = new VmWorkRestoreBackup(userId, accountId, vmId, VM_WORK_JOB_HANDLER, KNIB_PROVIDER_NAME, backup.getId(), quickRestore, hostId);
+
+        return submitWorkJob(workJob, workInfo, vmId);
+    }
+
+    private Outcome<Boolean> restoreBackedUpVolumeThroughJobQueue(VirtualMachine vm, Backup backup, String volumeUuid, String hostIp, boolean quickRestore) {
+        final CallContext context = CallContext.current();
+        long userId = context.getCallingUser().getId();
+        long accountId = context.getCallingAccount().getAccountId();
+        long vmId = vm.getId();
+
+        VmWorkJobVO workJob = new VmWorkJobVO(AsyncJobExecutionContext.getOriginJobId(), userId, accountId, VmWorkRestoreVolumeBackupAndAttach.class.getName(), vmId,
+                VirtualMachine.Type.Instance, VmWorkJobVO.Step.Starting);
+        VmWorkRestoreVolumeBackupAndAttach workInfo = new VmWorkRestoreVolumeBackupAndAttach(userId, accountId, vmId, VM_WORK_JOB_HANDLER, KNIB_PROVIDER_NAME, backup.getId(),
+                volumeUuid, hostIp, quickRestore);
 
         return submitWorkJob(workJob, workInfo, vmId);
     }
@@ -700,6 +794,62 @@ public class KnibBackupProvider extends AdapterBase implements BackupProvider, C
                 return jobVo == null || jobVo.getStatus() != JobInfo.Status.IN_PROGRESS;
             }
         }, AsyncJob.Topics.JOB_STATE);
+    }
+
+    private boolean finalizeQuickRestore(VirtualMachine vm, List<VolumeInfo> volumesToConsolidate, long hostId) {
+        logger.info("Finalizing quick restore for VM [{}].", vm.getUuid());
+
+        UserVmVO userVmVO = userVmDao.findById(vm.getId());
+        if (userVmVO.getState() == VirtualMachine.State.Stopped) {
+            try {
+                logger.info("Starting VM [{}] as part of the quick restore process.", vm.getName());
+                userVmManager.startVirtualMachine(userVmVO.getId(), hostId, new HashMap<>(), null);
+            } catch (Exception e) {
+                logger.error("Caught [{}] while trying to quick restore VM [{}]. Throwing BackupException.", e, vm);
+                throw new BackupException(String.format("Exception while trying to start VM [%s] as part of the quick restore process.", userVmVO.getUuid()), e, false);
+            }
+        }
+
+        return consolidateVolumes(vm, hostId, volumesToConsolidate);
+    }
+
+
+    private List<VolumeInfo> getVolumesToConsolidate(VirtualMachine vm, List<NativeBackupDataStoreVO> deltasOnSecondary, List<VolumeObjectTO> volumeObjectTOS, long hostId) {
+        List<VolumeInfo> volumesToConsolidate = new ArrayList<>();
+
+        transitVmStateWithoutThrow(vm, VirtualMachine.Event.RestoringSuccess, hostId);
+        for (VolumeObjectTO volume : volumeObjectTOS) {
+            VolumeInfo volumeInfo = volumeDataFactory.getVolume(volume.getVolumeId());
+            transitVolumeStateWithoutThrow(volumeInfo.getVolume(), Volume.Event.RestoreSucceeded);
+
+            if (deltasOnSecondary.stream().anyMatch(delta -> delta.getVolumeId() == volume.getVolumeId())) {
+                volumesToConsolidate.add(volumeInfo);
+            }
+        }
+        return volumesToConsolidate;
+    }
+
+    private boolean consolidateVolumes(VirtualMachine vm, long hostId, List<VolumeInfo> volumesToConsolidate) {
+        for (VolumeInfo volumeInfo : volumesToConsolidate) {
+            transitVolumeStateWithoutThrow(volumeInfo.getVolume(), Volume.Event.ConsolidationRequested);
+        }
+
+        UserVmDetailVO uuids = userVmDetailsDao.findDetail(vm.getId(), VmDetailConstants.LINKED_VOLUMES_SECONDARY_STORAGE_UUIDS);
+        List<String> secondaryStorageUuids = uuids != null ? List.of(uuids.getValue().split(",")) : List.of();
+        ConsolidateVolumesCommand cmd = new ConsolidateVolumesCommand(volumesToConsolidate, secondaryStorageUuids, vm.getInstanceName());
+        Answer answer = sendBackupCommand(hostId, cmd);
+
+        String logError = String.format("Failed to consolidate volumes [%s] of VM [%s]. Answer details: [%s].",
+                volumesToConsolidate, vm.getName(), answer != null ? answer.getDetails() : "null");
+        if (!(answer instanceof ConsolidateVolumesAnswer)) {
+            logger.error(logError);
+            throw new BackupException(logError, false);
+        }
+        ConsolidateVolumesAnswer cAnswer = (ConsolidateVolumesAnswer)answer;
+        processConsolidateAnswer(cAnswer, volumesToConsolidate, vm);
+
+        logger.info("Volume consolidation answer: [{}].", cAnswer.getResult());
+        return cAnswer.getResult();
     }
 
     /**
@@ -812,6 +962,30 @@ public class KnibBackupProvider extends AdapterBase implements BackupProvider, C
         NativeBackupStoragePoolVO referenceOnPrimary = nativeBackupStoragePoolDao.persist(deltaPrimaryRef);
         logger.trace("Created reference [{}] for backup [{}] of volume [{}].", referenceOnPrimary, backup, volumeObjectTO);
         volumeUuidToDeltaPrimaryRef.put(volumeObjectTO.getUuid(), referenceOnPrimary);
+    }
+
+    private HostVO getHostToRestore(VirtualMachine vm, boolean quickRestore, Long hostId) throws AgentUnavailableException {
+        HostVO host;
+        if (quickRestore) {
+            if (hostId == null) {
+                hostId = vm.getLastHostId();
+            }
+            if (hostId == null) {
+                logger.error("Cannot quick restore if the VM has no last host and no hostId was informed. You may try to start it in an available host and stop it before quick" +
+                        " restoring. Otherwise, use the normal restore.");
+                throw new AgentUnavailableException(String.format("No host found to quick restore VM [%s]. Please check the logs.", vm.getUuid()), -1);
+            }
+            host = hostDao.findByIdIncludingRemoved(hostId);
+            if (host.getStatus() != com.cloud.host.Status.Up || host.isInMaintenanceStates() || host.getResourceState() != ResourceState.Enabled) {
+                logger.error("Cannot quick restore if the VM's last host is in maintenance, not Up, or disabled. You may try to start it in an available host and stop it before quick" +
+                        " restoring. Otherwise, use the normal restore.");
+                throw new AgentUnavailableException(String.format("No host found to quick restore VM [%s]. Please check the logs.", vm.getUuid()), -1);
+            }
+        } else {
+            hostId = vmSnapshotHelper.pickRunningHost(vm.getId());
+            host = hostDao.findByIdIncludingRemoved(hostId);
+        }
+        return host;
     }
 
     /**
@@ -1109,6 +1283,7 @@ public class KnibBackupProvider extends AdapterBase implements BackupProvider, C
      * */
     private Set<Pair<BackupDeltaTO, VolumeObjectTO>> generateBackupAndVolumePairsToRestore(List<NativeBackupDataStoreVO> backupVOs, List<VolumeObjectTO> volumeTOs, NativeBackupJoinVO backupJoinVO) {
         Set<Pair<BackupDeltaTO, VolumeObjectTO>> backupAndVolumePairs = new HashSet<>();
+        DataStore dataStore = dataStoreManager.getDataStore(backupJoinVO.getImageStoreId(), DataStoreRole.Image);
         for (NativeBackupDataStoreVO backupDataStoreVO : backupVOs) {
             VolumeObjectTO volumeObjectTO = volumeTOs.stream().filter(volumeTO -> volumeTO.getVolumeId() == backupDataStoreVO.getVolumeId())
                     .findFirst()
@@ -1119,20 +1294,28 @@ public class KnibBackupProvider extends AdapterBase implements BackupProvider, C
                 throw new CloudRuntimeException("Error while restoring backup. Please check the logs.");
             }
 
-            DataStore dataStore = dataStoreManager.getDataStore(backupJoinVO.getImageStoreId(), DataStoreRole.Image);
             backupAndVolumePairs.add(new Pair<>(new BackupDeltaTO(dataStore.getTO(), Hypervisor.HypervisorType.KVM, backupDataStoreVO.getBackupPath()), volumeObjectTO));
         }
         logger.debug("Generated the following list of pairs of backup deltas and volumes: [{}].", backupAndVolumePairs);
         return backupAndVolumePairs;
     }
 
+    protected Pair<BackupDeltaTO, VolumeObjectTO> generateBackupAndVolumePairForSingleNewVolume(NativeBackupDataStoreVO backupDeltaVo, VolumeObjectTO volumeTO, long oldVolumeId,
+            NativeBackupJoinVO backupJoinVO) {
+        DataStore dataStore = dataStoreManager.getDataStore(backupJoinVO.getImageStoreId(), DataStoreRole.Image);
+        Pair<BackupDeltaTO, VolumeObjectTO> backupAndVolumePair = new Pair<>(new BackupDeltaTO(dataStore.getTO(), Hypervisor.HypervisorType.KVM, backupDeltaVo.getBackupPath()), volumeTO);
+
+        logger.debug("Paired volume [{}] with backup delta [{}].", volumeTO, backupAndVolumePair.first());
+        return backupAndVolumePair;
+    }
+
     /**
-     * For every volume, maps deltas that should be deleted, if there are any. If a volume has a delta but no backup, it will be mapped to be merged.
+     * For every volume, maps deltas that should be deleted, if there are any. If a volume has a delta but is not part of backup being restored, it will be mapped to be merged.
      *
      * @return List of deltas to be merged.
      * */
     private List<DeltaMergeTreeTO> populateDeltasToRemoveAndToMergeAndUpdateVolumePaths(List<NativeBackupStoragePoolVO> deltasOnPrimary, Set<BackupDeltaTO> deltasToRemove, List<VolumeObjectTO> volumeTOs,
-            List<VolumeObjectTO> volumesWithoutBackups, String vmUuid) {
+            List<VolumeObjectTO> volumesNotPartOfTheBackupBeingRestored, String vmUuid) {
         List<DeltaMergeTreeTO> deltasToBeMerged = new ArrayList<>();
         for (NativeBackupStoragePoolVO deltaOnPrimary : deltasOnPrimary) {
             Optional<VolumeObjectTO> optional = volumeTOs.stream().filter(volumeTO -> volumeTO.getVolumeId() == deltaOnPrimary.getVolumeId()).findFirst();
@@ -1143,7 +1326,7 @@ public class KnibBackupProvider extends AdapterBase implements BackupProvider, C
             }
             VolumeObjectTO volumeObjectTO = optional.get();
 
-            if (volumesWithoutBackups.contains(volumeObjectTO)) {
+            if (volumesNotPartOfTheBackupBeingRestored.contains(volumeObjectTO)) {
                 deltasToBeMerged.add(createDeltaMergeTree(true, false, deltaOnPrimary, volumeObjectTO, null));
                 continue;
             }
@@ -1156,12 +1339,13 @@ public class KnibBackupProvider extends AdapterBase implements BackupProvider, C
             volumeObjectTO.setPath(deltaOnPrimary.getBackupDeltaParentPath());
         }
         if (!deltasToBeMerged.isEmpty()) {
-            logger.debug("The following deltaMergeTrees [{}] were created to merge volumes [{}] that have no backups.", deltasToBeMerged, volumesWithoutBackups);
+            logger.debug("The following deltaMergeTrees [{}] were created to merge volumes [{}] that have no backups.", deltasToBeMerged, volumesNotPartOfTheBackupBeingRestored);
         }
         return deltasToBeMerged;
     }
 
-    private void updateVolumePathsAndSizeIfNeeded(VirtualMachine vm, List<VolumeObjectTO> volumeTOs, List<DeltaMergeTreeTO> deltaMergeTreeTOList, List<NativeBackupDataStoreVO> deltasOnSecondary) {
+    private void updateVolumePathsAndSizeIfNeeded(VirtualMachine vm, List<VolumeObjectTO> volumeTOs, List<DeltaMergeTreeTO> deltaMergeTreeTOList,
+            List<NativeBackupDataStoreVO> deltasOnSecondary) {
         List<VolumeVO> volumeVOs = volumeDao.findByInstance(vm.getId());
 
         for (VolumeVO volumeVO : volumeVOs) {
@@ -1188,24 +1372,33 @@ public class KnibBackupProvider extends AdapterBase implements BackupProvider, C
         }
     }
 
-    protected void createAndAttachVolumes(List<NativeBackupDataStoreVO> backups, VirtualMachine vm) {
+    protected void createAndAttachVolumes(List<NativeBackupDataStoreVO> backups, VirtualMachine vm, HostVO host) {
         logger.info("Found the following backup deltas that have no volume correspondence [{}]. Will create new volumes and attach them to VM [{}].", backups.stream()
                 .map(NativeBackupDataStoreVO::getId).collect(Collectors.toList()), vm.getUuid());
         for (NativeBackupDataStoreVO backup : backups) {
-            VolumeVO volumeVO = duplicateVolume(backup);
-            Volume volume = volumeApiService.attachVolumeToVM(vm.getId(), volumeVO.getId(), null, false, true);
-            try {
-                volumeApiService.stateTransitTo(volume, Volume.Event.RestoreRequested);
-            } catch (NoTransitionException e) {
-                throw new CloudRuntimeException(e);
-            }
-            backup.setVolumeId(volumeVO.getId());
-            nativeBackupDataStoreDao.update(backup.getId(), backup);
+            VolumeInfo volumeInfo = duplicateAndCreateVolume(vm, host, backup.getVolumeId());
+            Volume volume = volumeApiService.attachVolumeToVM(vm.getId(), volumeInfo.getId(), null, false, true);
+            transitVolumeStateWithoutThrow(volume, Volume.Event.RestoreRequested);
+            backup.setVolumeId(volume.getId());
         }
     }
 
-    private VolumeVO duplicateVolume(NativeBackupDataStoreVO backup) {
-        VolumeVO volumeVO = volumeDao.findByIdIncludingRemoved(backup.getVolumeId());
+    protected VolumeInfo duplicateAndCreateVolume(VirtualMachine vm, HostVO hostVo, long volumeId) {
+        VolumeVO newVolume = duplicateVolume(volumeId);
+        VolumeInfo volumeInfo = volumeDataFactory.getVolume(newVolume.getId());
+
+        try {
+            volumeInfo = volumeOrchestrationService.createVolumeOnPrimaryStorage(vm, volumeInfo, Hypervisor.HypervisorType.KVM, null, hostVo.getClusterId(), hostVo.getPodId());
+        } catch (NoTransitionException ex) {
+            logger.error("Exception while creating volume to restore.", ex);
+            throw new CloudRuntimeException(ex);
+        }
+
+        return volumeInfo;
+    }
+
+    private VolumeVO duplicateVolume(long volumeId) {
+        VolumeVO volumeVO = volumeDao.findByIdIncludingRemoved(volumeId);
         VolumeVO duplicateVO = new VolumeVO(volumeVO);
         duplicateVO.setAttached(null);
         duplicateVO.setVolumeType(Volume.Type.DATADISK);
@@ -1229,7 +1422,7 @@ public class KnibBackupProvider extends AdapterBase implements BackupProvider, C
         return deltasOnSecondaryWithNoVolumes;
     }
 
-    protected List<VolumeObjectTO> getVolumesWithoutBackups(List<VolumeObjectTO> volumeObjectTOS, List<NativeBackupDataStoreVO> deltasOnSecondary) {
+    protected List<VolumeObjectTO> getVolumesThatAreNotPartOfTheBackup(List<VolumeObjectTO> volumeObjectTOS, List<NativeBackupDataStoreVO> deltasOnSecondary) {
         List<VolumeObjectTO> volumesWithNoBackups = new ArrayList<>();
         for (VolumeObjectTO volume : volumeObjectTOS) {
             if (deltasOnSecondary.stream().noneMatch(delta -> delta.getVolumeId() == volume.getVolumeId())) {
@@ -1253,10 +1446,11 @@ public class KnibBackupProvider extends AdapterBase implements BackupProvider, C
 
         backupVO.setSize(physicalBackupSize);
         backupVO.setStatus(Backup.Status.BackedUp);
+        backupVO.setBackedUpVolumes(BackupManagerImpl.createVolumeInfoFromVolumes(volumeDao.findByInstance(userVm.getId())));
         backupVO.setType(fullBackup ? "FULL" : "INCREMENTAL");
         backupDao.update(backupVO.getId(), backupVO);
 
-        transitStateWithoutThrow(userVm, runningVm ? VirtualMachine.Event.BackupSucceededRunning : VirtualMachine.Event.BackupSucceededStopped, hostId);
+        transitVmStateWithoutThrow(userVm, runningVm ? VirtualMachine.Event.BackupSucceededRunning : VirtualMachine.Event.BackupSucceededStopped, hostId);
 
         Map<String, String> details = new HashMap<>();
         details.put(UsageEventVO.DynamicParameters.vmId.name(), String.valueOf(userVm.getId()));
@@ -1270,10 +1464,10 @@ public class KnibBackupProvider extends AdapterBase implements BackupProvider, C
             logger.info("Backup [{}] of VM [{}] failed. However, the VM is still consistent, so we will roll back its state.", backupVO.getUuid(), vm.getUuid());
             backupVO.setStatus(Backup.Status.Failed);
 
-            transitStateWithoutThrow(vm, runningVm ? VirtualMachine.Event.OperationFailedToRunning : VirtualMachine.Event.OperationFailedToStopped, hostId);
+            transitVmStateWithoutThrow(vm, runningVm ? VirtualMachine.Event.OperationFailedToRunning : VirtualMachine.Event.OperationFailedToStopped, hostId);
         } else {
             logger.info("Backup [{}] of VM [{}] ended in error. We are not sure if the VM is consistent; thus, we will set it as BackupError.", backupVO.getUuid(), vm.getUuid());
-            transitStateWithoutThrow(vm, VirtualMachine.Event.OperationFailedToError, hostId);
+            transitVmStateWithoutThrow(vm, VirtualMachine.Event.OperationFailedToError, hostId);
             backupVO.setStatus(Backup.Status.Error);
         }
 
@@ -1325,6 +1519,59 @@ public class KnibBackupProvider extends AdapterBase implements BackupProvider, C
         }
 
         return failedToRemoveBackupIdSet.isEmpty();
+    }
+
+    private void processConsolidateAnswer(ConsolidateVolumesAnswer cAnswer, List<VolumeInfo> volumesToConsolidate, VirtualMachine vm) {
+        for (VolumeObjectTO volumeObjectTO : cAnswer.getSuccessfullyConsolidatedVolumes()) {
+            VolumeInfo volumeInfo = volumesToConsolidate.stream().filter(vol -> vol.getId() == volumeObjectTO.getVolumeId()).findFirst().orElseThrow();
+            transitVolumeStateWithoutThrow(volumeInfo.getVolume(), Volume.Event.OperationSucceeded);
+            volumesToConsolidate.remove(volumeInfo);
+        }
+        volumesToConsolidate.forEach(volumeInfo -> transitVolumeStateWithoutThrow(volumeInfo, Volume.Event.OperationFailed));
+        if (cAnswer.getResult()) {
+            userVmDetailsDao.removeDetail(vm.getId(), VmDetailConstants.LINKED_VOLUMES_SECONDARY_STORAGE_UUIDS);
+        } else {
+            throw new BackupException(String.format("Failed to consolidate all volumes necessary of VM [%s]. Missing volumes are [%s].", vm.getUuid(), volumesToConsolidate), false);
+        }
+    }
+
+    private boolean processRestoreAnswers(VirtualMachine vm, Answer[] answers) {
+        boolean cmdSucceeded = true;
+        for (Answer answer : answers) {
+            if (answer == null || !answer.getResult()) {
+                cmdSucceeded = false;
+                logger.error("Failed to restore backup due to: [{}].", answer == null ? "null answer" : answer.getDetails());
+            }
+            if (answer instanceof RestoreKnibBackupAnswer) {
+                RestoreKnibBackupAnswer restoreAnswer = (RestoreKnibBackupAnswer) answer;
+                userVmDetailsDao.addDetail(vm.getId(), VmDetailConstants.LINKED_VOLUMES_SECONDARY_STORAGE_UUIDS, StringUtils.join(restoreAnswer.getSecondaryStorageUuids(), ","), false);
+            }
+        }
+        return cmdSucceeded;
+    }
+
+    private void handleBackupException(VirtualMachine vm, BackupException jobResult) {
+        if (!jobResult.isVmConsistent()) {
+            UserVmVO vmVO = userVmDao.findById(vm.getId());
+            vmVO.setState(VirtualMachine.State.RestoreError);
+            userVmDao.update(vmVO.getId(), vmVO);
+            for (VolumeVO vol : volumeDao.findByInstance(vmVO.getId())) {
+                vol.setState(Volume.State.RestoreError);
+                volumeDao.update(vol.getId(), vol);
+            }
+        }
+    }
+
+    private void handleRestoreException(Backup backup, VirtualMachine vm, Object jobResult) {
+        if (!(jobResult instanceof Throwable)) {
+            return;
+        }
+        if (jobResult instanceof BackupException) {
+            handleBackupException(vm, (BackupException)jobResult);
+        } else if (jobResult instanceof BackupProviderException) {
+            throw (BackupProviderException) jobResult;
+        }
+        throw new CloudRuntimeException(String.format("Exception while restoring KVM native incremental backup [%s]. Check the logs for more information.", backup.getUuid()), ((Throwable)jobResult).getCause());
     }
 
     /**
@@ -1433,6 +1680,12 @@ public class KnibBackupProvider extends AdapterBase implements BackupProvider, C
             deleteCommands.addCommand(deleteCommand);
         }
         return dataStore;
+    }
+
+    private Set<String> getParentSecondaryStorageUrls(BackupVO backupVO) {
+        List<NativeBackupJoinVO> parentBackups = getBackupJoinParents(backupVO, true);
+        Set<Long> secondaryStorageIds = parentBackups.stream().map(NativeBackupJoinVO::getImageStoreId).collect(Collectors.toSet());
+        return secondaryStorageIds.stream().map(id -> imageStoreDao.findById(id).getUrl()).collect(Collectors.toSet());
     }
 
     /**
@@ -1549,11 +1802,29 @@ public class KnibBackupProvider extends AdapterBase implements BackupProvider, C
         return agentManager.send(hostId, cmds);
     }
 
+    private void validateQuickRestore(Backup backup, boolean quickRestore) {
+        BackupOfferingVO backupOfferingVO = backupOfferingDao.findByIdIncludingRemoved(backup.getBackupOfferingId());
+        NativeBackupOfferingVO nativeBackupOfferingVO = nativeBackupOfferingDao.findByUuidIncludingRemoved(backupOfferingVO.getExternalId());
+        if (!nativeBackupOfferingVO.isAllowQuickRestore() && quickRestore) {
+            throw new BackupProviderException(String.format("Unable to quick restore backup [%s] using offering [%s] as the offering does not support quick restoration.",
+                    backup.getUuid(), backupOfferingVO.getUuid()));
+        }
+    }
+
+    private void validateBackupState(BackupVO backupVO) {
+        if (!allowedBackupStatesToRemove.contains(backupVO.getStatus())) {
+            String msg = String.format("Backup [%s] is not in a state allowed to be removed. Current state is [%s]; allowed states are [%s]", backupVO, backupVO.getStatus(),
+                    allowedBackupStatesToRemove);
+            logger.error(msg);
+            throw new BackupProviderException(msg);
+        }
+    }
+
     private void validateVmState(VirtualMachine vm, String operation, VirtualMachine.State... additionalStates) {
         List<VirtualMachine.State> allowedStates = new ArrayList<>(this.allowedVmStates);
         allowedStates.addAll(Arrays.asList(additionalStates));
         if (!allowedStates.contains(vm.getState())) {
-            throw new InvalidParameterValueException(String.format("VM [%s] is not in the right state to %s. It must be in one of these states: %s", vm.getUuid(), operation,
+            throw new BackupProviderException(String.format("VM [%s] is not in the right state to %s. It must be in one of these states: %s", vm.getUuid(), operation,
                     allowedStates));
         }
     }
@@ -1563,7 +1834,7 @@ public class KnibBackupProvider extends AdapterBase implements BackupProvider, C
             StoragePoolVO storagePoolVO = storagePoolDao.findById(volumeObjectTO.getPoolId());
             if (!supportedStoragePoolTypes.contains(storagePoolVO.getPoolType())) {
                 logger.error("Only able to take backups of VMs with volumes in the following storage types [{}]. Throwing an exception.", supportedStoragePoolTypes);
-                throw new InvalidParameterValueException(String.format("Unable to take backup of VM [%s], please check the logs.", vmUuid));
+                throw new BackupProviderException(String.format("Unable to take backup of VM [%s], please check the logs.", vmUuid));
             }
         }
     }
@@ -1571,18 +1842,26 @@ public class KnibBackupProvider extends AdapterBase implements BackupProvider, C
     private void validateNoVmSnapshots(VirtualMachine vm) {
         List<VMSnapshotVO> vmSnapshotVOs = vmSnapshotDao.findByVm(vm.getId());
         if (!vmSnapshotVOs.isEmpty()) {
-            throw new InvalidParameterValueException(String.format("Restoring VM [%s] would remove the current VM snapshots it has. Please remove the VM snapshots [%s] before" +
+            throw new BackupProviderException(String.format("Restoring VM [%s] would remove the current VM snapshots it has. Please remove the VM snapshots [%s] before" +
                     " restoring the backup.", vm.getUuid(), vmSnapshotVOs.stream().map(VMSnapshotVO::getUuid).collect(Collectors.toList())));
         }
     }
 
-    protected void transitStateWithoutThrow(VirtualMachine vm, VirtualMachine.Event event, long hostId) {
+    protected void transitVmStateWithoutThrow(VirtualMachine vm, VirtualMachine.Event event, long hostId) {
         try {
             virtualMachineManager.stateTransitTo(vm, event, hostId);
         } catch (NoTransitionException e) {
             String msg = String.format("Failed to change VM [%s] state with event [%s].", vm.getUuid(), event.toString());
             logger.error(msg, e);
             throw new CloudRuntimeException(msg, e);
+        }
+    }
+
+    private void transitVolumeStateWithoutThrow(Volume volume, Volume.Event event) {
+        try {
+            volumeApiService.stateTransitTo(volume, event);
+        } catch (NoTransitionException e) {
+            throw new CloudRuntimeException(e);
         }
     }
 }

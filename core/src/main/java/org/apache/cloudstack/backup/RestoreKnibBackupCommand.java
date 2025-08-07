@@ -27,16 +27,20 @@ import java.util.Set;
 
 public class RestoreKnibBackupCommand extends Command {
 
-    Set<BackupDeltaTO> deltasToRemove;
+    private Set<BackupDeltaTO> deltasToRemove;
 
-    Set<Pair<BackupDeltaTO, VolumeObjectTO>> backupAndVolumePairs;
+    private Set<Pair<BackupDeltaTO, VolumeObjectTO>> backupAndVolumePairs;
 
-    Set<String> secondaryStorageUrls;
+    private Set<String> secondaryStorageUrls;
 
-    public RestoreKnibBackupCommand(Set<BackupDeltaTO> deltasToRemove, Set<Pair<BackupDeltaTO, VolumeObjectTO>> backupAndVolumePairs, Set<String> secondaryStorageUrls) {
+    private boolean quickRestore;
+
+    public RestoreKnibBackupCommand(Set<BackupDeltaTO> deltasToRemove, Set<Pair<BackupDeltaTO, VolumeObjectTO>> backupAndVolumePairs, Set<String> secondaryStorageUrls,
+            boolean quickRestore) {
         this.deltasToRemove = deltasToRemove;
         this.backupAndVolumePairs = backupAndVolumePairs;
         this.secondaryStorageUrls = secondaryStorageUrls;
+        this.quickRestore = quickRestore;
     }
 
     @Override
@@ -54,5 +58,9 @@ public class RestoreKnibBackupCommand extends Command {
 
     public Set<String> getSecondaryStorageUrls() {
         return secondaryStorageUrls;
+    }
+
+    public boolean isQuickRestore() {
+        return quickRestore;
     }
 }

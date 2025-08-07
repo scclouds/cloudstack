@@ -343,6 +343,8 @@ public class LibvirtComputingResource extends ServerResourceBase implements Serv
 
     public static final String CHECKPOINT_DELETE_COMMAND = "virsh checkpoint-delete --domain %s --checkpointname %s --metadata";
 
+    private static final String BLOCK_PULL_COMMAND = "virsh blockpull --domain %s --path %s";
+
     private static final String SNAPSHOT_XML = "<domainsnapshot>\n" +
             "<name>%s</name>\n" +
             "<memory snapshot='no'/>\n" +
@@ -6104,6 +6106,65 @@ public class LibvirtComputingResource extends ServerResourceBase implements Serv
 
     public long getFileSize(String path) {
         return new File(path).length();
+    }
+
+    public boolean pullVolumeBackingFile(VolumeObjectTO volumeObjectTO, String vmName) throws LibvirtException {
+        Connect conn = libvirtUtilitiesHelper.getConnection();
+
+        Domain vm = getDomain(conn, vmName);
+        List<LibvirtVMDef.DiskDef> disks = getDisks(conn, vmName);
+        DiskDef diskDef = getDiskWithPathOfVolumeObjectTO(disks, volumeObjectTO);
+
+        String diskLabel = diskDef.getDiskLabel();
+        Script.runSimpleBashScript(String.format(BLOCK_PULL_COMMAND, vmName, diskLabel));
+
+        boolean result = checkBlockPullProgress(vm, diskLabel, vmName, volumeObjectTO.getUuid());
+
+        if (!result) {
+            logger.warn("Failed to block pull volume [{}] of VM [{}], aborting.", volumeObjectTO, vmName);
+            vm.blockJobAbort(diskLabel, Domain.BlockJobAbortFlags.ASYNC);
+        }
+        return result;
+    }
+
+    protected Boolean checkBlockPullProgress(Domain vm, String diskLabel, String vmName, String volumeUuid) {
+        int timeout = qcow2DeltaMergeTimeout;
+        DomainBlockJobInfo result;
+        long lastCommittedBytes = 0;
+        long endBytes = 0;
+        String partialLog = String.format("for volume [%s] of VM [%s]", volumeUuid, vmName);
+        while (timeout > 0) {
+            timeout -= 1;
+
+            try {
+                Thread.sleep(1000);
+            } catch (InterruptedException ex) {
+                logger.trace(String.format("Thread that was tracking the block pull progress %s was interrupted. Ignoring.", partialLog), ex);
+                continue;
+            }
+
+            try {
+                result = vm.getBlockJobInfo(diskLabel, 0);
+            } catch (LibvirtException ex) {
+                logger.warn(String.format("Exception while getting block job info %s: [%s].", partialLog, ex.getMessage()), ex);
+                return false;
+            }
+
+            if (result == null || result.type == 0 && result.end == 0 && result.cur == 0) {
+                logger.debug(String.format("Block pull job %s has finished.", partialLog));
+                return true;
+            }
+
+            long currentCommittedBytes = result.cur;
+            if (currentCommittedBytes > lastCommittedBytes) {
+                logger.debug(String.format("The block pull %s is at [%s] of [%s].", partialLog, currentCommittedBytes, result.end));
+            }
+            lastCommittedBytes = currentCommittedBytes;
+            endBytes = result.end;
+        }
+        logger.warn(String.format("Block pull %s has timed out after waiting at least %s seconds. The progress of the operation was [%s] of [%s].", partialLog,
+                qcow2DeltaMergeTimeout, lastCommittedBytes, endBytes));
+        return false;
     }
 
 

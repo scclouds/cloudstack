@@ -14,38 +14,28 @@
 // KIND, either express or implied.  See the License for the
 // specific language governing permissions and limitations
 // under the License.
-package com.cloud.vm;
+package org.apache.cloudstack.backup;
 
-public class VmWorkRestoreBackup extends VmWork {
-    private String backupProvider;
+import com.cloud.agent.api.Answer;
+import com.cloud.agent.api.Command;
 
-    private long backupId;
+import java.util.Set;
 
-    private boolean quickRestore;
+public class RestoreKnibBackupAnswer extends Answer {
 
-    private Long hostId;
+    private Set<String> secondaryStorageUuids;
 
-    public VmWorkRestoreBackup(long userId, long accountId, long vmId, String handlerName, String backupProvider, long backupId, boolean quickRestore, Long hostId) {
-        super(userId, accountId, vmId, handlerName);
-        this.backupProvider = backupProvider;
-        this.backupId = backupId;
-        this.quickRestore = quickRestore;
-        this.hostId = hostId;
+    public RestoreKnibBackupAnswer(Command command, Set<String> secondaryStorageUuids) {
+        super(command);
+        this.secondaryStorageUuids = secondaryStorageUuids;
     }
 
-    public String getBackupProvider() {
-        return backupProvider;
+    public RestoreKnibBackupAnswer(Command command, Exception e, Set<String> secondaryStorageUuids) {
+        super(command, e);
+        this.secondaryStorageUuids = secondaryStorageUuids;
     }
 
-    public long getBackupId() {
-        return backupId;
-    }
-
-    public boolean isQuickRestore() {
-        return quickRestore;
-    }
-
-    public Long getHostId() {
-        return hostId;
+    public Set<String> getSecondaryStorageUuids() {
+        return secondaryStorageUuids;
     }
 }

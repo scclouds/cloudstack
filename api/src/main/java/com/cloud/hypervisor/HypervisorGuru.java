@@ -98,7 +98,7 @@ public interface HypervisorGuru extends Adapter {
                                                   String vmInternalName, Backup backup, BackupProvider backupProvider) throws Exception;
 
     boolean attachRestoredVolumeToVirtualMachine(long zoneId, String restoredVolumeLocation, Backup.VolumeInfo volumeInfo,
-                                                 VirtualMachine vm, long poolId, Backup backup) throws Exception;
+                                                 VirtualMachine vm, long poolId, Backup backup, BackupProvider backupProvider) throws Exception;
     /**
      * Will generate commands to migrate a vm to a pool. For now this will only work for stopped VMs on Vmware.
      *

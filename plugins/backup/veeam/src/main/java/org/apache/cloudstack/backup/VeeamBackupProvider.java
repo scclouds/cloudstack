@@ -273,7 +273,7 @@ public class VeeamBackupProvider extends AdapterBase implements BackupProvider, 
     }
 
     @Override
-    public boolean restoreVMFromBackup(VirtualMachine vm, Backup backup) {
+    public boolean restoreVMFromBackup(VirtualMachine vm, Backup backup, boolean quickRestore, Long hostId) {
         final String restorePointId = backup.getExternalId();
         try {
             return getClient(vm.getDataCenterId()).restoreFullVM(vm.getInstanceName(), restorePointId);
@@ -308,7 +308,8 @@ public class VeeamBackupProvider extends AdapterBase implements BackupProvider, 
     }
 
     @Override
-    public Pair<Boolean, String> restoreBackedUpVolume(Backup backup, String volumeUuid, String hostIp, String dataStoreUuid, Pair<String, VirtualMachine.State> vmNameAndState, VirtualMachine vm, Boolean startVm) {
+    public Pair<Boolean, String> restoreBackedUpVolume(Backup backup, String volumeUuid, String hostIp, String dataStoreUuid, Pair<String, VirtualMachine.State> vmNameAndState, VirtualMachine vm, Boolean startVm,
+            boolean quickRestore) {
         Pair<Boolean, String> result = new Pair<>(false, "");
         final Long zoneId = backup.getZoneId();
         final String restorePointId = backup.getExternalId();

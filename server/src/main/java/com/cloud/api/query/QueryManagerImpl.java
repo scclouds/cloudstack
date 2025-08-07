@@ -86,6 +86,7 @@ import org.apache.cloudstack.api.command.user.account.ListAccountsCmd;
 import org.apache.cloudstack.api.command.user.account.ListProjectAccountsCmd;
 import org.apache.cloudstack.api.command.user.address.ListQuarantinedIpsCmd;
 import org.apache.cloudstack.api.command.user.affinitygroup.ListAffinityGroupsCmd;
+import org.apache.cloudstack.api.command.user.backup.nativeoffering.ListNativeBackupOfferingsCmd;
 import org.apache.cloudstack.api.command.user.bucket.ListBucketsCmd;
 import org.apache.cloudstack.api.command.user.event.ListEventsCmd;
 import org.apache.cloudstack.api.command.user.iso.ListIsosCmd;
@@ -121,6 +122,7 @@ import org.apache.cloudstack.api.response.InstanceGroupResponse;
 import org.apache.cloudstack.api.response.IpQuarantineResponse;
 import org.apache.cloudstack.api.response.ListResponse;
 import org.apache.cloudstack.api.response.ManagementServerResponse;
+import org.apache.cloudstack.api.response.NativeBackupOfferingResponse;
 import org.apache.cloudstack.api.response.ObjectStoreResponse;
 import org.apache.cloudstack.api.response.ProjectAccountResponse;
 import org.apache.cloudstack.api.response.ProjectInvitationResponse;
@@ -142,7 +144,10 @@ import org.apache.cloudstack.api.response.VirtualMachineResponse;
 import org.apache.cloudstack.api.response.VolumeResponse;
 import org.apache.cloudstack.api.response.ZoneResponse;
 import org.apache.cloudstack.backup.BackupOfferingVO;
+import org.apache.cloudstack.backup.NativeBackupOffering;
+import org.apache.cloudstack.backup.NativeBackupOfferingVO;
 import org.apache.cloudstack.backup.dao.BackupOfferingDao;
+import org.apache.cloudstack.backup.dao.NativeBackupOfferingDao;
 import org.apache.cloudstack.context.CallContext;
 import org.apache.cloudstack.engine.subsystem.api.storage.DataStore;
 import org.apache.cloudstack.engine.subsystem.api.storage.DataStoreCapabilities;
@@ -630,6 +635,9 @@ public class QueryManagerImpl extends MutualExclusiveIdsManagerBase implements Q
 
     @Inject
     private RoleDao roleDao;
+
+    @Inject
+    private NativeBackupOfferingDao nativeBackupOfferingDao;
 
     private SearchCriteria<ServiceOfferingJoinVO> getMinimumCpuServiceOfferingJoinSearchCriteria(int cpu) {
         SearchCriteria<ServiceOfferingJoinVO> sc = _srvOfferingJoinDao.createSearchCriteria();
@@ -5865,6 +5873,45 @@ public class QueryManagerImpl extends MutualExclusiveIdsManagerBase implements Q
         }
 
         return bucketDao.searchByIds(bktIds);
+    }
+
+    @Override
+    public ListResponse<NativeBackupOfferingResponse> listNativeBackupOfferings(ListNativeBackupOfferingsCmd cmd) {
+        ListResponse<NativeBackupOfferingResponse> response = new ListResponse<>();
+        Pair<List<NativeBackupOfferingVO>, Integer> result = listNativeBackupOfferingsInternal(cmd);
+        List<NativeBackupOfferingResponse> nativeBackupOfferingResponses = new ArrayList<>();
+
+        for (NativeBackupOffering offering : result.first()) {
+            NativeBackupOfferingResponse nativeBackupOfferingResponse = responseGenerator.createNativeBackupOfferingResponse(offering);
+            nativeBackupOfferingResponses.add(nativeBackupOfferingResponse);
+        }
+
+        response.setResponses(nativeBackupOfferingResponses, result.second());
+        return response;
+    }
+
+    private Pair<List<NativeBackupOfferingVO>, Integer> listNativeBackupOfferingsInternal(ListNativeBackupOfferingsCmd cmd) {
+        SearchBuilder<NativeBackupOfferingVO> sb = nativeBackupOfferingDao.createSearchBuilder();
+
+        sb.and("id", sb.entity().getId(), SearchCriteria.Op.EQ);
+        sb.and("name", sb.entity().getName(), SearchCriteria.Op.EQ);
+        sb.and("compress", sb.entity().isCompress(), SearchCriteria.Op.EQ);
+        sb.and("validate", sb.entity().isValidate(), SearchCriteria.Op.EQ);
+        sb.and("allowquickrestore", sb.entity().isAllowQuickRestore(), SearchCriteria.Op.EQ);
+        sb.and("allowextractfile", sb.entity().isAllowExtractFile(), SearchCriteria.Op.EQ);
+
+        SearchCriteria<NativeBackupOfferingVO> sc = sb.create();
+
+        sc.setParametersIfNotNull("id", cmd.getId());
+        sc.setParametersIfNotNull("name", cmd.getName());
+        sc.setParametersIfNotNull("compress", cmd.isCompress());
+        sc.setParametersIfNotNull("validate", cmd.isValidate());
+        sc.setParametersIfNotNull("allowquickrestore", cmd.isAllowQuickRestore());
+        sc.setParametersIfNotNull("allowextractfile", cmd.isAllowExtractFile());
+
+        Filter filter = new Filter(NativeBackupOfferingVO.class, "created", false, cmd.getStartIndex(), cmd.getPageSizeVal());
+
+        return nativeBackupOfferingDao.searchAndCount(sc, filter, cmd.isShowRemoved());
     }
 
     @Override

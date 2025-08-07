@@ -95,12 +95,13 @@ public interface BackupProvider {
     /**
      * Restore VM from backup
      */
-    boolean restoreVMFromBackup(VirtualMachine vm, Backup backup);
+    boolean restoreVMFromBackup(VirtualMachine vm, Backup backup, boolean quickRestore, Long hostId);
 
     /**
      * Restore a volume from a backup
      */
-    Pair<Boolean, String> restoreBackedUpVolume(Backup backup, String volumeUuid, String hostIp, String dataStoreUuid, Pair<String, VirtualMachine.State> vmNameAndState, VirtualMachine vm, Boolean startVm);
+    Pair<Boolean, String> restoreBackedUpVolume(Backup backup, String volumeUuid, String hostIp, String dataStoreUuid, Pair<String, VirtualMachine.State> vmNameAndState, VirtualMachine vm, Boolean startVm,
+            boolean quickRestore);
 
     /**
      * Returns backup metrics for a list of VMs in a zone
@@ -137,7 +138,15 @@ public interface BackupProvider {
      * This method should be overwritten by any backup providers that want to schedule their backup restore jobs in the same queue as the VM jobs.
      * Otherwise, just use the restoreVMFromBackup method.
      * */
-    default Boolean orchestrateRestoreVMFromBackup(Backup backup, VirtualMachine vm) {
+    default Boolean orchestrateRestoreVMFromBackup(Backup backup, VirtualMachine vm, boolean quickRestore, Long hostId) {
+        return null;
+    }
+
+    /**
+     * This method should be overwritten by any backup providers that want to schedule their backup restore jobs in the same queue as the VM jobs.
+     * Otherwise, just use the restoreBackedUpVolume method.
+     * */
+    default Pair<Boolean, String> orchestrateRestoreBackedUpVolume(Backup backup, VirtualMachine vm, String volumeUuid, String hostIp, boolean quickRestore) {
         return null;
     }
 

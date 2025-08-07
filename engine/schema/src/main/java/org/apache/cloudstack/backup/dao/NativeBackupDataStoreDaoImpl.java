@@ -48,6 +48,14 @@ public class NativeBackupDataStoreDaoImpl extends GenericDaoBase<NativeBackupDat
     }
 
     @Override
+    public NativeBackupDataStoreVO findByBackupIdAndVolumeId(long backupId, long volumeId) {
+        SearchCriteria<NativeBackupDataStoreVO> sc = backupSearch.create();
+        sc.setParameters(BACKUP_ID, backupId);
+        sc.setParameters(VOLUME_ID, volumeId);
+        return findOneBy(sc);
+    }
+
+    @Override
     public void expungeByBackupId(long backupId) {
         SearchCriteria<NativeBackupDataStoreVO> sc = backupSearch.create();
         sc.setParameters(BACKUP_ID, backupId);

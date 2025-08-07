@@ -25,6 +25,8 @@ public interface NativeBackupDataStoreDao extends GenericDao<NativeBackupDataSto
 
     List<NativeBackupDataStoreVO> listByBackupId(long backupId);
 
+    NativeBackupDataStoreVO findByBackupIdAndVolumeId(long backupId, long volumeId);
+
     void expungeByBackupId(long backupId);
 
     void updateVolumeId(long oldVolumeId, long newVolumeId);
