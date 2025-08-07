@@ -446,6 +446,8 @@ public class ApiConstants {
     public static final String REGISTERED = "registered";
     public static final String QUALIFIERS = "qualifiers";
     public static final String QUERY_FILTER = "queryfilter";
+
+    public static final String QUICK_RESTORE = "quickrestore";
     public static final String SCHEDULE = "schedule";
     public static final String SCOPE = "scope";
     public static final String USER_SECRET_KEY = "usersecretkey";
@@ -1269,6 +1271,14 @@ public class ApiConstants {
     public static final String LIST_ONLY_DEFAULT_THEME = "listonlydefaulttheme";
 
     public static final String RECURSIVE_DOMAINS = "recursivedomains";
+
+    public static final String COMPRESS = "compress";
+
+    public static final String VALIDATE = "validate";
+
+    public static final String ALLOW_QUICK_RESTORE = "allowquickrestore";
+
+    public static final String ALLOW_EXTRACT_FILE = "allowextractfile";
 
     /**
      * This enum specifies IO Drivers, each option controls specific policies on I/O.

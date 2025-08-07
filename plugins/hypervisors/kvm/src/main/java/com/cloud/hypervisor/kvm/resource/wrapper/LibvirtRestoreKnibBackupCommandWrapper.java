@@ -24,7 +24,9 @@ import com.cloud.hypervisor.kvm.storage.KVMStoragePool;
 import com.cloud.hypervisor.kvm.storage.KVMStoragePoolManager;
 import com.cloud.resource.CommandWrapper;
 import com.cloud.resource.ResourceWrapper;
+import com.cloud.storage.Storage;
 import com.cloud.utils.Pair;
+import org.apache.cloudstack.backup.RestoreKnibBackupAnswer;
 import org.apache.cloudstack.backup.RestoreKnibBackupCommand;
 import org.apache.cloudstack.storage.to.BackupDeltaTO;
 import org.apache.cloudstack.storage.to.PrimaryDataStoreTO;
@@ -37,10 +39,8 @@ import org.libvirt.LibvirtException;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.ArrayList;
-import java.util.List;
+import java.util.HashSet;
 import java.util.Set;
-import java.util.stream.Collectors;
 
 @ResourceWrapper(handles = RestoreKnibBackupCommand.class)
 public class LibvirtRestoreKnibBackupCommandWrapper extends CommandWrapper<RestoreKnibBackupCommand, Answer, LibvirtComputingResource> {
@@ -50,34 +50,30 @@ public class LibvirtRestoreKnibBackupCommandWrapper extends CommandWrapper<Resto
         Set<BackupDeltaTO> deltasToRemove = cmd.getDeltasToRemove();
         Set<String> secondaryStorageUrls = cmd.getSecondaryStorageUrls();
 
-        List<KVMStoragePool> parentSecondaryStorages = new ArrayList<>();
-        KVMStoragePool secondaryStorage = null;
         KVMStoragePoolManager storagePoolManager = resource.getStoragePoolMgr();
 
+        Set<String> secondaryStorageUuids = new HashSet<>();
         try {
-            secondaryStorage = storagePoolManager.getStoragePoolByURI(backupToAndVolumeObjectPairs.stream().findFirst().get().first().getDataStore().getUrl());
-            parentSecondaryStorages = secondaryStorageUrls.stream().map(storagePoolManager::getStoragePoolByURI).collect(Collectors.toList());
+            KVMStoragePool secondaryStorage = mountSecondaryStorages(secondaryStorageUrls, backupToAndVolumeObjectPairs.stream().findFirst().get().first().getDataStore().getUrl(),
+                    storagePoolManager, secondaryStorageUuids);
 
-            restoreVolumes(backupToAndVolumeObjectPairs, secondaryStorage, storagePoolManager, cmd.getWait() * 1000);
+            restoreVolumes(backupToAndVolumeObjectPairs, secondaryStorage, storagePoolManager, cmd.isQuickRestore(), cmd.getWait() * 1000);
 
             deleteDeltas(deltasToRemove, storagePoolManager);
-
         } catch (LibvirtException | QemuImgException | IOException e) {
-            return new Answer(cmd, e);
+            return new RestoreKnibBackupAnswer(cmd, e, secondaryStorageUuids);
         } finally {
-            if (secondaryStorage != null) {
-                storagePoolManager.deleteStoragePool(secondaryStorage.getType(), secondaryStorage.getUuid());
-            }
-            for (KVMStoragePool storagePool : parentSecondaryStorages) {
-                storagePoolManager.deleteStoragePool(storagePool.getType(), storagePool.getUuid());
+            if (!cmd.isQuickRestore()) {
+                for (String uuid : secondaryStorageUuids) {
+                    storagePoolManager.deleteStoragePool(Storage.StoragePoolType.NetworkFilesystem, uuid);
+                }
             }
         }
-        return new Answer(cmd);
+        return new RestoreKnibBackupAnswer(cmd, secondaryStorageUuids);
     }
 
     private void restoreVolumes(Set<Pair<BackupDeltaTO, VolumeObjectTO>> backupToAndVolumeObjectPairs, KVMStoragePool secondaryStorage, KVMStoragePoolManager storagePoolManager,
-            int timeoutInMillis)
-            throws LibvirtException, QemuImgException {
+            boolean quickRestore, int timeoutInMillis) throws LibvirtException, QemuImgException {
         for (Pair<BackupDeltaTO, VolumeObjectTO> backupToVolumeToPair : backupToAndVolumeObjectPairs) {
             String fullBackupPath = secondaryStorage.getLocalPathFor(backupToVolumeToPair.first().getPath());
 
@@ -91,8 +87,13 @@ public class LibvirtRestoreKnibBackupCommandWrapper extends CommandWrapper<Resto
 
             QemuImg qemuImg = new QemuImg(timeoutInMillis);
 
-            logger.info("Restoring volume [{}] at [{}] with backup stored at [{}].", volumeObjectTO.getUuid(), fullVolumePath, fullBackupPath);
-            qemuImg.convert(backup, volume);
+            if (quickRestore) {
+                logger.info("Creating delta over old volume [{}] at [{}] with backing store stored at [{}].", volumeObjectTO.getUuid(), fullVolumePath, fullBackupPath);
+                qemuImg.create(volume, backup);
+            } else {
+                logger.info("Restoring volume [{}] at [{}] with backup stored at [{}].", volumeObjectTO.getUuid(), fullVolumePath, fullBackupPath);
+                qemuImg.convert(backup, volume);
+            }
         }
     }
 
@@ -104,5 +105,15 @@ public class LibvirtRestoreKnibBackupCommandWrapper extends CommandWrapper<Resto
             logger.debug("Deleting leftover delta [{}].", fullDeltaPath);
             Files.deleteIfExists(Path.of(fullDeltaPath));
         }
+    }
+
+    private KVMStoragePool mountSecondaryStorages(Set<String> parentSecondaryStorageUrls, String secondaryStorageUrl, KVMStoragePoolManager storagePoolManager, Set<String> secondaryStorageUuids) {
+        for (String url : parentSecondaryStorageUrls) {
+            KVMStoragePool pool = storagePoolManager.getStoragePoolByURI(url);
+            secondaryStorageUuids.add(pool.getUuid());
+        }
+        KVMStoragePool pool = storagePoolManager.getStoragePoolByURI(secondaryStorageUrl);
+        secondaryStorageUuids.add(pool.getUuid());
+        return pool;
     }
 }

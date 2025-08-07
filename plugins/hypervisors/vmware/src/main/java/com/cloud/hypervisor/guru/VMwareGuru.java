@@ -1253,7 +1253,8 @@ public class VMwareGuru extends HypervisorGuruBase implements HypervisorGuru, Co
     }
 
     @Override
-    public boolean attachRestoredVolumeToVirtualMachine(long zoneId, String restoredVolumeName, Backup.VolumeInfo volumeInfo, VirtualMachine vm, long poolId, Backup backup)
+    public boolean attachRestoredVolumeToVirtualMachine(long zoneId, String restoredVolumeName, Backup.VolumeInfo volumeInfo, VirtualMachine vm, long poolId, Backup backup,
+            BackupProvider backupProvider)
             throws Exception {
         DatacenterMO dcMo = getDatacenterMO(zoneId);
         VirtualMachineMO vmMo = findVM(dcMo, vm.getInstanceName());

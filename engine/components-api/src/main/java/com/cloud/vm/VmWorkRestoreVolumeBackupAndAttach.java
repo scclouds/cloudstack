@@ -16,21 +16,26 @@
 // under the License.
 package com.cloud.vm;
 
-public class VmWorkRestoreBackup extends VmWork {
+public class VmWorkRestoreVolumeBackupAndAttach extends VmWork {
+
     private String backupProvider;
 
     private long backupId;
 
+    private String volumeUuid;
+
+    private String hostIp;
+
     private boolean quickRestore;
 
-    private Long hostId;
-
-    public VmWorkRestoreBackup(long userId, long accountId, long vmId, String handlerName, String backupProvider, long backupId, boolean quickRestore, Long hostId) {
+    public VmWorkRestoreVolumeBackupAndAttach(long userId, long accountId, long vmId, String handlerName, String backupProvider, long backupId, String volumeUuid,
+            String hostIp, boolean quickRestore) {
         super(userId, accountId, vmId, handlerName);
         this.backupProvider = backupProvider;
         this.backupId = backupId;
+        this.volumeUuid = volumeUuid;
+        this.hostIp = hostIp;
         this.quickRestore = quickRestore;
-        this.hostId = hostId;
     }
 
     public String getBackupProvider() {
@@ -41,11 +46,15 @@ public class VmWorkRestoreBackup extends VmWork {
         return backupId;
     }
 
-    public boolean isQuickRestore() {
-        return quickRestore;
+    public String getVolumeUuid() {
+        return volumeUuid;
     }
 
-    public Long getHostId() {
-        return hostId;
+    public String getHostIp() {
+        return hostIp;
+    }
+
+    public boolean isQuickRestore() {
+        return quickRestore;
     }
 }

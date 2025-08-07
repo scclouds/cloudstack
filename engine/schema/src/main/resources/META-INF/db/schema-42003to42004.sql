@@ -33,3 +33,19 @@ CALL `cloud`.`IDEMPOTENT_ADD_COLUMN`('cloud.backup_schedule', 'quiesce_vm', 'TIN
 
 CALL `cloud`.`IDEMPOTENT_ADD_COLUMN`('cloud.backup_schedule', 'max_backups', 'INT(8) UNSIGNED NOT NULL DEFAULT 0 COMMENT ''Maximum number of backups to be retained''');
 CALL `cloud`.`IDEMPOTENT_ADD_COLUMN`('cloud.backups', 'backup_schedule_id', 'BIGINT(20) UNSIGNED');
+
+
+--- KNIB create native backup offering table
+
+CREATE TABLE IF NOT EXISTS `cloud`.`native_backup_offering` (
+    `id` bigint NOT NULL UNIQUE AUTO_INCREMENT,
+    `uuid` varchar(40) NOT NULL,
+    `name` varchar(255) NOT NULL,
+    `compress` tinyint(1) UNSIGNED NOT NULL,
+    `validate` tinyint(1) UNSIGNED NOT NULL,
+    `allow_quick_restore` tinyint(1) UNSIGNED NOT NULL,
+    `allow_extract_file` tinyint(1) UNSIGNED NOT NULL,
+    `created` datetime NOT NULL,
+    `removed` datetime,
+    PRIMARY KEY (`id`)
+    );
