@@ -51,6 +51,12 @@ public class Upgrade42003to42004 extends DbUpgradeAbstractImpl {
 
     @Override
     public void performDataMigration(Connection conn) {
+        addIndexes(conn);
+    }
+
+    private void addIndexes(Connection conn) {
+        DbUpgradeUtils.addIndexIfNeeded(conn, "event", "account_id", "domain_id", "archived",  "display",
+                "resource_type", "resource_id", "start_id", "type", "level", "created", "id");
     }
 
     @Override
