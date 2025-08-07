@@ -17,11 +17,19 @@
 
 -- Schema upgrade from 4.20.0.3 to 4.20.0.4
 
--- Normalize metadata on KNIB
-
-DELETE FROM `cloud`.`native_backup_pool_ref` WHERE `backup_id` NOT IN (
-    SELECT `id` from `native_backup_view` nbv WHERE nbv.`current` = 'true'
-);
+-- Normalize metadata on KNIB. No need if view does not exist.
+SET @query = IF(
+        EXISTS(
+            SELECT *
+            FROM INFORMATION_SCHEMA.VIEWS
+            WHERE TABLE_NAME = 'native_backup_view'
+            AND TABLE_SCHEMA = 'cloud'
+        ),
+        'DELETE FROM `cloud`.`native_backup_pool_ref` WHERE `backup_id` NOT IN (SELECT `id` from `native_backup_view` nbv WHERE nbv.`current` = \'true\');',
+        'do true'
+    );
+PREPARE stmt FROM @query;
+EXECUTE stmt;
 
 CALL `cloud`.`IDEMPOTENT_ADD_COLUMN`('cloud.backup_schedule', 'uuid', 'VARCHAR(40) NOT NULL');
 
