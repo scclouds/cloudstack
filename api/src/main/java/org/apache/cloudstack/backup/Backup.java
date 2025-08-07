@@ -28,7 +28,6 @@ import org.apache.cloudstack.utils.reflectiontostringbuilderutils.ReflectionToSt
 import com.cloud.storage.Volume;
 
 public interface Backup extends ControlledEntity, InternalIdentity, Identity {
-
     enum Status {
         Allocated, Queued, BackingUp, BackedUp, Error, Failed, Restoring, Removed, Expunged
     }
@@ -182,4 +181,5 @@ public interface Backup extends ControlledEntity, InternalIdentity, Identity {
     List<VolumeInfo> getBackedUpVolumes();
     long getZoneId();
     long getBackupOfferingId();
+    Long getBackupScheduleId();
 }

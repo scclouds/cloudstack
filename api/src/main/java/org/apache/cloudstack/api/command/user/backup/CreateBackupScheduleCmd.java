@@ -80,6 +80,10 @@ public class CreateBackupScheduleCmd extends BaseCmd {
             description = "Whether the VM's file systems should be frozen for the scheduled backups. Currently only supported for the KNIB backup provider.")
     private boolean quiesceVm;
 
+    @Parameter(name = ApiConstants.MAX_BACKUPS, type = CommandType.INTEGER,
+            description = ApiConstants.PARAMETER_DESCRIPTION_MAX_BACKUPS, since = "4.20.0.4-scclouds")
+    private Integer maxBackups;
+
     /////////////////////////////////////////////////////
     /////////////////// Accessors ///////////////////////
     /////////////////////////////////////////////////////
@@ -102,6 +106,10 @@ public class CreateBackupScheduleCmd extends BaseCmd {
 
     public boolean isQuiesceVm() {
         return quiesceVm;
+    }
+
+    public Integer getMaxBackups() {
+        return maxBackups;
     }
 
     /////////////////////////////////////////////////////

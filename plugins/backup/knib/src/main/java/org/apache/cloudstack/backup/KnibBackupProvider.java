@@ -280,9 +280,9 @@ public class KnibBackupProvider extends AdapterBase implements BackupProvider, C
     }
 
     @Override
-    public boolean takeBackup(VirtualMachine vm, boolean quiesceVm) {
+    public boolean takeBackup(VirtualMachine vm, boolean quiesceVm, Long backupScheduleId) {
         logger.debug("Queueing backup on VM [{}].", vm.getUuid());
-        Outcome<Boolean> outcome = createBackupThroughJobQueue(vm, quiesceVm);
+        Outcome<Boolean> outcome = createBackupThroughJobQueue(vm, quiesceVm, backupScheduleId);
 
         try {
             outcome.get();
@@ -642,14 +642,14 @@ public class KnibBackupProvider extends AdapterBase implements BackupProvider, C
         return new ConfigKey[] {backupChainSize, backupTimeout};
     }
 
-    private Outcome<Boolean> createBackupThroughJobQueue(VirtualMachine vm, boolean quiesceVm) {
+    private Outcome<Boolean> createBackupThroughJobQueue(VirtualMachine vm, boolean quiesceVm, Long backupScheduleId) {
         final CallContext context = CallContext.current();
         long userId = context.getCallingUser().getId();
         long accountId = context.getCallingAccount().getAccountId();
         long vmId = vm.getId();
         VirtualMachine userVm = virtualMachineManager.findById(vmId);
 
-        BackupVO backup = new BackupVO(vmId, vm.getBackupOfferingId(), accountId, vm.getDomainId(), vm.getDataCenterId(), 0, Backup.Status.Queued);
+        BackupVO backup = new BackupVO(vmId, vm.getBackupOfferingId(), accountId, vm.getDomainId(), vm.getDataCenterId(), 0, Backup.Status.Queued, backupScheduleId);
 
         VmWorkJobVO workJob = new VmWorkJobVO(AsyncJobExecutionContext.getOriginJobId(), userId, accountId, VmWorkTakeBackup.class.getName(), vmId, VirtualMachine.Type.Instance,
                 VmWorkJobVO.Step.Starting);

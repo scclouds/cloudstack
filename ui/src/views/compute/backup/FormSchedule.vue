@@ -104,6 +104,17 @@
                 </a-select>
               </a-form-item>
             </a-col>
+            <a-col :md="24" :lg="12">
+              <a-form-item name="maxbackups" ref="maxbackups">
+                <template #label>
+                  <tooltip-label :title="$t('label.keep')" :tooltip="apiParams.maxbackups.description"/>
+                </template>
+                <a-input-number
+                  style="width: 100%"
+                  v-model:value="form.maxbackups"
+                  :min="0" />
+              </a-form-item>
+            </a-col>
             <a-col :md="24" :lg="24">
               <a-form-item :label="$t('label.timezone')" ref="timezone" name="timezone">
                 <a-select
@@ -264,6 +275,7 @@ export default {
         params.intervaltype = values.intervaltype
         params.timezone = values.timezone
         params.quiescevm = values.quiesceVm
+        params.maxbackups = values.maxbackups
         switch (values.intervaltype) {
           case 'hourly':
             params.schedule = values.time

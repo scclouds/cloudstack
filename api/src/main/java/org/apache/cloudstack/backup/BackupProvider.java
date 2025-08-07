@@ -79,9 +79,10 @@ public interface BackupProvider {
      *
      * @param vm VirtualMachine definition
      * @param quiesceVm whether to quiesce the VM or not.
+     * @param backupScheduleId the ID of the backup schedule; should be null if the backup is manual.
      * @return
      */
-    boolean takeBackup(VirtualMachine vm, boolean quiesceVm);
+    boolean takeBackup(VirtualMachine vm, boolean quiesceVm, Long backupScheduleId);
 
     /**
      * Delete an existing backup

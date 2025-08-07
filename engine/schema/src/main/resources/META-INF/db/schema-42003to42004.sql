@@ -30,3 +30,6 @@ SET uuid = UUID()
 WHERE uuid IS NULL;
 
 CALL `cloud`.`IDEMPOTENT_ADD_COLUMN`('cloud.backup_schedule', 'quiesce_vm', 'TINYINT(1) NOT NULL DEFAULT 0 COMMENT "Whether to quiesce the VM for scheduled backups."');
+
+CALL `cloud`.`IDEMPOTENT_ADD_COLUMN`('cloud.backup_schedule', 'max_backups', 'INT(8) UNSIGNED NOT NULL DEFAULT 0 COMMENT ''Maximum number of backups to be retained''');
+CALL `cloud`.`IDEMPOTENT_ADD_COLUMN`('cloud.backups', 'backup_schedule_id', 'BIGINT(20) UNSIGNED');

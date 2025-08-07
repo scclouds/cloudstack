@@ -55,6 +55,7 @@ public class ApiConstants {
     public static final String AVAILABLE_SUBNETS = "availablesubnets";
     public static final String AVAILABLE_VIRTUAL_MACHINE_COUNT = "availablevirtualmachinecount";
     public static final String BACKUP_ID = "backupid";
+    public static final String BACKUP_SCHEDULE_ID = "backupscheduleid";
     public static final String BACKUP_OFFERING_NAME = "backupofferingname";
     public static final String BACKUP_OFFERING_ID = "backupofferingid";
     public static final String BALANCE = "balance";
@@ -333,6 +334,7 @@ public class ApiConstants {
     public static final String LB_PROVIDER = "lbprovider";
     public static final String MAC_ADDRESS = "macaddress";
     public static final String MAX = "max";
+    public static final String MAX_BACKUPS = "maxbackups";
     public static final String MAX_SNAPS = "maxsnaps";
     public static final String MAX_CPU_NUMBER = "maxcpunumber";
     public static final String MAX_MEMORY = "maxmemory";
@@ -1246,6 +1248,10 @@ public class ApiConstants {
             "Indicates whether to use the same MAC address for the public NIC of VRs on the same network. If \"true\", when creating redundant routers or recreating" +
                     " a VR, CloudStack will use the same MAC address for the public NIC of all VRs. Otherwise, if \"false\", new public NICs will always have " +
                     " a new MAC address.";
+
+    public static final String PARAMETER_DESCRIPTION_MAX_BACKUPS = "The maximum number of backups to keep for a VM. " +
+            "If \"0\", no retention policy will be applied and, thus, no backups from the schedule will be automatically deleted. " +
+            "This parameter is only supported for the Dummy, KNIB, NAS and EMC Networker backup provider.";
 
     public static final String CSS = "css";
 

@@ -61,6 +61,9 @@
         <template v-if="column.key === 'timezone'" :name="text">
           <label>{{ getTimeZone(record.timezone) }}</label>
         </template>
+        <template v-if="column.key === 'maxbackups'" :name="text">
+          <label>{{ record.maxbackups }}</label>
+        </template>
         <template v-if="column.key === 'quiescevm'" :name="text">
           <label>{{ record.quiescevm ? $t('label.yes') : $t('label.no') }}</label>
         </template>
@@ -137,6 +140,11 @@ export default {
           key: 'timezone',
           title: this.$t('label.timezone'),
           dataIndex: 'timezone'
+        },
+        {
+          key: 'maxbackups',
+          title: this.$t('label.keep'),
+          dataIndex: 'maxbackups'
         },
         {
           key: 'quiescevm',

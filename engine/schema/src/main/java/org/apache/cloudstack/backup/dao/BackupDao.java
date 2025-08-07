@@ -36,4 +36,5 @@ public interface BackupDao extends GenericDao<BackupVO, Long> {
     BackupVO getBackupVO(Backup backup);
     List<Backup> listByOfferingId(Long backupOfferingId);
     BackupResponse newBackupResponse(Backup backup);
+    List<BackupVO> listByScheduleAndBackedUpStatus(Long backupScheduleId);
 }

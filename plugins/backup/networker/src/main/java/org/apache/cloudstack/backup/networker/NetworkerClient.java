@@ -204,7 +204,7 @@ public class NetworkerClient {
     }
 
 
-    public BackupVO registerBackupForVm(VirtualMachine vm, Date backupJobStart, String saveTime) {
+    public BackupVO registerBackupForVm(VirtualMachine vm, Date backupJobStart, String saveTime, Long backupScheduleId) {
         LOG.debug("Querying EMC Networker about latest backup");
 
         NetworkerBackups networkerBackups;
@@ -267,6 +267,7 @@ public class NetworkerClient {
             backup.setAccountId(vm.getAccountId());
             backup.setDomainId(vm.getDomainId());
             backup.setZoneId(vm.getDataCenterId());
+            backup.setBackupScheduleId(backupScheduleId);
             return backup;
         } catch (final IOException e) {
             LOG.error("Failed to register backup from EMC Networker due to:", e);
