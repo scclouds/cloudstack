@@ -55,8 +55,8 @@ public class Upgrade42003to42004 extends DbUpgradeAbstractImpl {
     }
 
     private void addIndexes(Connection conn) {
-        DbUpgradeUtils.addIndexIfNeeded(conn, "event", "account_id", "domain_id", "archived",  "display",
-                "resource_type", "resource_id", "start_id", "type", "level", "created", "id");
+        DbUpgradeUtils.addIndexIfNeeded("i_event__multiple_columns_for_generic_search", conn, "event",
+                "account_id", "domain_id", "archived",  "display", "resource_type", "resource_id", "start_id", "type", "level", "created", "id");
     }
 
     @Override
