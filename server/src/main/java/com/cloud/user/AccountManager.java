@@ -207,4 +207,10 @@ public interface AccountManager extends AccountService, Configurable {
     boolean cleanupAccountDefaultProject(AccountVO account);
 
     boolean cleanupUserDefaultProject(UserVO user);
+
+    void verifyCallerPrivilegeForUserOrAccountOperations(Account userAccount);
+
+    void verifyCallerPrivilegeForUserOrAccountOperations(User user);
+
+    void checkCallerRoleTypeAllowedForUserOrAccountOperations(Account userAccount, User user);
 }

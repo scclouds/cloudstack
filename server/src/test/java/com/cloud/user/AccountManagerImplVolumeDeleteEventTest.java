@@ -192,6 +192,7 @@ public class AccountManagerImplVolumeDeleteEventTest extends AccountManagetImplT
     public void destroyedVMRootVolumeUsageEvent()
             throws SecurityException, IllegalArgumentException, ReflectiveOperationException, AgentUnavailableException, ConcurrentOperationException, CloudException {
         lenient().doReturn(vm).when(_vmMgr).destroyVm(nullable(Long.class), nullable(Boolean.class));
+        Mockito.doNothing().when(accountManagerImpl).verifyCallerPrivilegeForUserOrAccountOperations(Mockito.any(Account.class));
         List<UsageEventVO> emittedEvents = deleteUserAccountRootVolumeUsageEvents(true);
         Assert.assertEquals(0, emittedEvents.size());
     }
@@ -203,7 +204,8 @@ public class AccountManagerImplVolumeDeleteEventTest extends AccountManagetImplT
     public void runningVMRootVolumeUsageEvent()
             throws SecurityException, IllegalArgumentException, ReflectiveOperationException, AgentUnavailableException, ConcurrentOperationException, CloudException {
         Mockito.doNothing().when(vmStatsDaoMock).removeAllByVmId(Mockito.anyLong());
-        Mockito.when(_vmMgr.destroyVm(nullable(Long.class), nullable(Boolean.class))).thenReturn(vm);
+        lenient().when(_vmMgr.destroyVm(nullable(Long.class), nullable(Boolean.class))).thenReturn(vm);
+        Mockito.doNothing().when(accountManagerImpl).verifyCallerPrivilegeForUserOrAccountOperations(Mockito.any(Account.class));
         List<UsageEventVO> emittedEvents = deleteUserAccountRootVolumeUsageEvents(false);
         UsageEventVO event = emittedEvents.get(0);
         Assert.assertEquals(EventTypes.EVENT_VOLUME_DELETE, event.getType());

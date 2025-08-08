@@ -952,6 +952,7 @@ public class ResourceLimitManagerImpl extends ManagerBase implements ResourceLim
             } else {
                 _accountMgr.checkAccess(caller, null, true, account);
             }
+            _accountMgr.verifyCallerPrivilegeForUserOrAccountOperations(account);
 
             ownerType = ResourceOwnerType.Account;
             ownerId = accountId;
@@ -1111,6 +1112,7 @@ public class ResourceLimitManagerImpl extends ManagerBase implements ResourceLim
         Account account = null;
         if (accountId != null) {
             account = _accountDao.findById(accountId);
+            _accountMgr.verifyCallerPrivilegeForUserOrAccountOperations(account);
         }
 
         if (resourceType != null) {

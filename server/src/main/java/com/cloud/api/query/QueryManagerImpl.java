@@ -40,6 +40,7 @@ import com.cloud.network.PublicIpQuarantine;
 import com.cloud.network.dao.PublicIpQuarantineDao;
 import com.cloud.network.vo.PublicIpQuarantineVO;
 import com.cloud.cpu.CPU;
+import com.cloud.user.UserVO;
 import org.apache.cloudstack.acl.RoleService;
 import org.apache.cloudstack.acl.RoleVO;
 import org.apache.cloudstack.acl.apikeypair.ApiKeyPairService;
@@ -176,6 +177,7 @@ import org.apache.cloudstack.storage.datastore.db.StoragePoolDetailVO;
 import org.apache.cloudstack.storage.datastore.db.StoragePoolDetailsDao;
 import org.apache.cloudstack.storage.datastore.db.StoragePoolVO;
 import org.apache.cloudstack.storage.datastore.db.TemplateDataStoreDao;
+import org.apache.cloudstack.utils.baremetal.BaremetalUtils;
 import org.apache.commons.collections.CollectionUtils;
 import org.apache.commons.collections.MapUtils;
 import org.apache.commons.collections4.ListUtils;
@@ -850,7 +852,25 @@ public class QueryManagerImpl extends MutualExclusiveIdsManagerBase implements Q
 
         Pair<List<UserAccountJoinVO>, Integer> usersPair = getUserListInternal(callingAccount, permittedAccounts,
                 true, null, null, null, null, null, null, callingAccount.getDomainId(), true, searchFilter);
-        return usersPair.first().stream().filter(userAccount -> allowedRolesId.contains(userAccount.getAccountRoleId())).map(UserAccountJoinVO::getId).collect(Collectors.toList());
+        return usersPair.first().stream().filter(userAccount -> {
+            if (BaremetalUtils.BAREMETAL_SYSTEM_ACCOUNT_NAME.equals(userAccount.getUsername()) && !accountMgr.isRootAdmin(callingAccount.getId())) {
+                return false;
+            }
+
+            AccountVO accountVO = _accountDao.findByIdIncludingRemoved(userAccount.getAccountId());
+            UserVO userVO = userDao.findByIdIncludingRemoved(userAccount.getId());
+            if (ObjectUtils.anyNull(accountVO, userVO)) {
+                return false;
+            }
+
+            try {
+                accountMgr.checkCallerRoleTypeAllowedForUserOrAccountOperations(accountVO, userVO);
+            } catch (PermissionDeniedException exception) {
+                logger.debug(exception.getMessage());
+                return false;
+            }
+            return allowedRolesId.contains(userAccount.getAccountRoleId());
+        }).map(UserAccountJoinVO::getId).collect(Collectors.toList());
     }
 
     @Override
