@@ -228,7 +228,6 @@ import org.apache.cloudstack.engine.subsystem.api.storage.DataStoreCapabilities;
 import org.apache.cloudstack.engine.subsystem.api.storage.DataStoreManager;
 import org.apache.cloudstack.engine.subsystem.api.storage.SnapshotDataFactory;
 import org.apache.cloudstack.engine.subsystem.api.storage.SnapshotInfo;
-import org.apache.cloudstack.engine.subsystem.api.storage.VMSnapshotStrategy;
 import org.apache.cloudstack.framework.jobs.AsyncJob;
 import org.apache.cloudstack.framework.jobs.AsyncJobManager;
 import org.apache.cloudstack.gui.theme.GuiThemeJoin;
@@ -869,12 +868,6 @@ public class ApiResponseHelper implements ResponseGenerator {
         vmSnapshotResponse.setCurrent(vmSnapshot.getCurrent());
         vmSnapshotResponse.setType(vmSnapshot.getType().toString());
         vmSnapshotResponse.setObjectName("vmsnapshot");
-
-        VMSnapshotStrategy snapshotStrategy = ApiDBUtils.getVMSnapshotStrategy(vmSnapshot);
-        if(snapshotStrategy != null) {
-            vmSnapshotResponse.setSnapshotStrategy(snapshotStrategy.getClass().getSimpleName());
-        }
-
         return vmSnapshotResponse;
     }
 
