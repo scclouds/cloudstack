@@ -246,15 +246,6 @@ export default {
               catchMessage: this.$t('error.fetching.async.job.result')
             })
           }
-          api('listConfigurations', { name: 'kvm.incremental.snapshot' }).then(json => {
-            if (json.listconfigurationsresponse.configuration[0].value === 'false') {
-              this.$notification.warn({
-                message: this.$t('message.warn.snapshot.creation.title'),
-                description: (<span v-html={this.$t('message.warn.create.full.volume.snapshot')}></span>),
-                duration: 0
-              })
-            }
-          })
           this.closeAction()
         }).catch(error => {
           this.$notifyError(error)

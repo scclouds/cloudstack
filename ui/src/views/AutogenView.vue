@@ -1680,13 +1680,6 @@ export default {
             }
           })
           this.closeAction()
-          if (action.api === 'deleteVMSnapshot' && action.resource.type === 'Disk' && action.resource.snapshotStrategy === 'KvmFileBasedStorageVmSnapshotStrategy') {
-            this.$notification.warn({
-              message: this.$t('message.warn.snapshot.removal.title'),
-              description: (<span v-html={this.$t('message.warn.delete.diskonly.snapshot')}></span>),
-              duration: 0
-            })
-          }
         }).catch(error => {
           if ([401].includes(error.response.status)) {
             return
