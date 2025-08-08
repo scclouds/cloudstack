@@ -554,4 +554,15 @@ public class MockAccountManagerImpl extends ManagerBase implements Manager, Acco
     @Override
     public void validateUserPasswordAndUpdateIfNeeded(String newPassword, UserVO user, String currentPassword, boolean skipCurrentPassValidation) {
     }
+
+    public void verifyCallerPrivilegeForUserOrAccountOperations(Account userAccount) {
+    }
+
+    @Override
+    public void verifyCallerPrivilegeForUserOrAccountOperations(User user) {
+    }
+
+    @Override
+    public void checkCallerRoleTypeAllowedForUserOrAccountOperations(Account userAccount, User user) {
+    }
 }

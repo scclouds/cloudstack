@@ -19,6 +19,7 @@ package com.cloud.api.query.dao;
 import java.util.List;
 
 
+import com.cloud.user.AccountManager;
 import com.cloud.user.AccountManagerImpl;
 import org.apache.cloudstack.acl.ApiKeyPairVO;
 import org.springframework.stereotype.Component;
@@ -71,7 +72,7 @@ public class UserAccountJoinDaoImpl extends GenericDaoBase<UserAccountJoinVO, Lo
         userResponse.setUsername(usr.getUsername());
         userResponse.setIsDefault(usr.isDefault());
         userResponse.set2FAenabled(usr.isUser2faEnabled());
-        if (lastKeyPair != null) {
+        if (lastKeyPair != null && AccountManager.UseSecretKeyInResponse.value()) {
             userResponse.setApiKey(lastKeyPair.getApiKey());
             userResponse.setSecretKey(lastKeyPair.getSecretKey());
         }

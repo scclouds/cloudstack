@@ -583,4 +583,16 @@ public class MockAccountManager extends ManagerBase implements AccountManager {
     public boolean cleanupUserDefaultProject(UserVO user) {
         return false;
     }
+
+    @Override
+    public void verifyCallerPrivilegeForUserOrAccountOperations(Account userAccount) {
+    }
+
+    @Override
+    public void verifyCallerPrivilegeForUserOrAccountOperations(User user) {
+    }
+
+    @Override
+    public void checkCallerRoleTypeAllowedForUserOrAccountOperations(Account userAccount, User user) {
+    }
 }
