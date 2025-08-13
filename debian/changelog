@@ -1,3 +1,9 @@
+cloudstack (4.20.0.5-scclouds) unstable; urgency=low
+
+  * Update the version to 4.20.0.5-scclouds
+
+ -- SC Clouds <contato@scclouds.com.br>  Tue, 12 Aug 2025 18:46:46 +0000
+
 cloudstack (4.20.0.4-scclouds) unstable; urgency=low
 
   * Update the version to 4.20.0.4-scclouds
