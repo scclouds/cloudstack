@@ -3,16 +3,34 @@
 
 <!-- 
 
-A seção 'description' deve conter a descrição corrida do problema e da solução proposta. Caso seja conveniente, pode-se adicionar imagens e gifs ([credenciais Cloudinary](https://gitlab.com/scclouds/specs/-/blob/main/specs/en-us/template-md/2.2.1.0-cloudinary-credentials.md))
+A seção 'descriptionPtBr' deve conter a descrição corrida do problema e da solução proposta em português. Caso seja conveniente, pode-se adicionar imagens e gifs ([credenciais Cloudinary](https://gitlab.com/scclouds/specs/-/blob/main/specs/en-us/template-md/2.2.1.0-cloudinary-credentials.md))
 
 A descrição não deve conter links para uploads no GitLab.
 
 Quando houver criação ou alteração de APIs e parãmetros, os mesmos devem ser listados, detalhados e exemplificados.
 
 -->
-<description>
+<descriptionPtBr>
 
-</description>
+</descriptionPtBr>
+
+---
+
+<!-- 
+
+A seção 'titleEn' deve conter a tradução do título do MR para o inglês.
+
+A seção 'descriptionEn' deve conter a tradução da descrição para o inglês.
+
+-->
+
+<h3><titleEn> </titleEn></h3>
+
+<descriptionEn>
+
+</descriptionEn>
+
+---
 
 <!-- 
 
@@ -40,3 +58,11 @@ A seção 'closes' deve conter a referência para os issues que estão relaciona
 Closes #xxx
 
 </closes>
+
+---
+
+<!-- 
+
+Quaisquer outros comentários que ajudem na revisão do MR podem ser adicionados abaixo e serão ignorados para a construção das release notes.
+
+-->
