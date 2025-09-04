@@ -72,6 +72,7 @@
             <div v-if="item.edit" style="display: flex">
               <a-auto-complete
                 style="width: 100%"
+                :filterOption="(input, option) => filterOption(input, option)"
                 v-model:value="item.value"
                 :options="getDetailOptions(detailOptions[item.name])"
                 @change="val => handleInputChange(val, index)"
