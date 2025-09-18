@@ -1,4 +1,5 @@
 {
+"label.copy.consoleurl": "Copiar URL para a \u00c1rea de transfer\u00eancia",
 "alert.service.domainrouter": "Roteador do dom\u00ednio",
 "error.dedicate.cluster.failed": "Falha ao dedicar cluster",
 "error.dedicate.host.failed": "Falha ao dedicar host",
