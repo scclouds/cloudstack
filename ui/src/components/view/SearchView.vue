@@ -947,7 +947,7 @@ export default {
     },
     fetchVolumes (searchKeyword) {
       return new Promise((resolve, reject) => {
-        api('listvolumes', { listAll: true, isencrypted: searchKeyword }).then(json => {
+        api('listVolumes', { listAll: true, isencrypted: searchKeyword }).then(json => {
           const volumes = json.listvolumesresponse.volume
           resolve({
             type: 'isencrypted',
