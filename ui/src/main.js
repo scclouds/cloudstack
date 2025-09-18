@@ -58,7 +58,7 @@ vueApp.use(genericUtilPlugin)
 vueApp.use(extensions)
 vueApp.use(directives)
 
-fetch('config.json').then(response => response.json()).then(async config => {
+fetch('config.json?ts=' + Date.now()).then(response => response.json()).then(async config => {
   vueProps.$config = reactive(config)
   let basUrl = config.apiBase
   if (config.multipleServer) {
