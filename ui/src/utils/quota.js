@@ -129,7 +129,7 @@ export const QUOTA_TYPES = [
   },
   {
     id: 29,
-    type: 'VPC',
+    type: 'BUCKET',
     chartColor: '#018391'
   },
   {
@@ -139,6 +139,11 @@ export const QUOTA_TYPES = [
   },
   {
     id: 31,
+    type: 'VPC',
+    chartColor: '#9F9075'
+  },
+  {
+    id: 32,
     type: 'BACKUP_OBJECT',
     chartColor: '#9b782a',
     isImplemented: true,
