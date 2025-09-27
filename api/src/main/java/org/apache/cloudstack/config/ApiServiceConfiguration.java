@@ -24,7 +24,7 @@ public class ApiServiceConfiguration implements Configurable {
     public static final ConfigKey<String> ApiServletPath = new ConfigKey<String>("Advanced", String.class, "endpoint.url", "http://localhost:8080/client/api",
             "API end point. Can be used by CS components/services deployed remotely, for sending CS API requests", true);
     public static final ConfigKey<Long> DefaultUIPageSize = new ConfigKey<Long>("Advanced", Long.class, "default.ui.page.size", "20",
-            "The default pagesize to be used by UI and other clients when making list* API calls", true, ConfigKey.Scope.Global);
+            "The default pagesize to be used by UI and other clients when making list* API calls", true, ConfigKey.Scope.Account);
     public static final ConfigKey<Boolean> ApiSourceCidrChecksEnabled = new ConfigKey<>("Advanced", Boolean.class, "api.source.cidr.checks.enabled",
             "true", "Are the source checks on API calls enabled (true) or not (false)? See api.allowed.source.cidr.list", true, ConfigKey.Scope.Global);
     public static final ConfigKey<String> ApiAllowedSourceCidrList = new ConfigKey<>(String.class, "api.allowed.source.cidr.list", "Advanced",
