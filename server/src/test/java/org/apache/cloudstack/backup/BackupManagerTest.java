@@ -944,7 +944,7 @@ public class BackupManagerTest {
         when(serviceOfferingDao.findById(1L)).thenReturn(serviceOffering);
         VMTemplateVO template = mock(VMTemplateVO.class);
         when(template.getUuid()).thenReturn("template-uuid");
-        when(vmTemplateDao.findById(2L)).thenReturn(template);
+        when(vmTemplateDao.findByIdIncludingRemoved(2L)).thenReturn(template);
 
         VMInstanceDetailVO vmInstanceDetail = mock(VMInstanceDetailVO.class);
         when(vmInstanceDetail.getName()).thenReturn("mocked-detail-name");
