@@ -1266,8 +1266,25 @@ public class VolumeApiServiceImpl extends ManagerBase implements VolumeApiServic
 
                 validateIops(newMinIops, newMaxIops, volume.getPoolType());
             } else {
+<<<<<<< HEAD
                 newMinIops = newDiskOffering.getMinIops();
                 newMaxIops = newDiskOffering.getMaxIops();
+=======
+                if (newDiskOffering.getMinIops() != null) {
+                    newMinIops = newDiskOffering.getMinIops();
+                }
+
+                if (newDiskOffering.getMaxIops() != null) {
+                    newMaxIops = newDiskOffering.getMaxIops();
+                }
+
+                Long newDiskOfferingIopsReadRate = newDiskOffering.getIopsReadRate();
+                Long newDiskOfferingIopsWriteRate = newDiskOffering.getIopsWriteRate();
+                if (ObjectUtils.allNull(newMinIops, newMaxIops) && ObjectUtils.allNotNull(newDiskOfferingIopsReadRate, newDiskOfferingIopsWriteRate)) {
+                    newMaxIops = Math.max(newDiskOfferingIopsReadRate, newDiskOfferingIopsWriteRate);
+                    newMinIops = Math.min(newDiskOfferingIopsReadRate, newDiskOfferingIopsWriteRate);
+                }
+>>>>>>> cb43664102 (Address reviews)
             }
 
             // if the hypervisor snapshot reserve value is null, it must remain null (currently only KVM uses null and null is all KVM uses for a value here)
@@ -1335,10 +1352,14 @@ public class VolumeApiServiceImpl extends ManagerBase implements VolumeApiServic
             volumeMigrateRequired = true;
         }
 
+<<<<<<< HEAD
         boolean volumeResizeRequired = false;
         if (currentSize != newSize || !compareEqualsIncludingNullOrZero(newMaxIops, volume.getMaxIops()) || !compareEqualsIncludingNullOrZero(newMinIops, volume.getMinIops())) {
             volumeResizeRequired = true;
         }
+=======
+        boolean volumeResizeRequired = currentSize != newSize || !compareEqualsIncludingNullOrZero(newMaxIops, volume.getMaxIops()) || !compareEqualsIncludingNullOrZero(newMinIops, volume.getMinIops());
+>>>>>>> cb43664102 (Address reviews)
         if (!volumeMigrateRequired && !volumeResizeRequired && newDiskOffering != null) {
             _volsDao.updateDiskOffering(volume.getId(), newDiskOffering.getId());
             volume = _volsDao.findById(volume.getId());
@@ -1403,7 +1424,18 @@ public class VolumeApiServiceImpl extends ManagerBase implements VolumeApiServic
                     } else if (jobResult instanceof Throwable) {
                         throw new RuntimeException("Unexpected exception", (Throwable) jobResult);
                     } else if (jobResult instanceof Long) {
+<<<<<<< HEAD
                         return _volsDao.findById((Long) jobResult);
+=======
+                        Long volumeId = (Long) jobResult;
+                        if (newDiskOffering != null) {
+                            _volsDao.updateDiskOffering(volumeId, newDiskOffering.getId());
+                        }
+                        volume.setMinIops(newMinIops);
+                        volume.setMinIops(newMaxIops);
+                        _volsDao.update(volumeId, volume);
+                        return _volsDao.findById(volumeId);
+>>>>>>> cb43664102 (Address reviews)
                     }
                 }
 

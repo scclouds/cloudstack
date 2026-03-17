@@ -5191,6 +5191,43 @@ public class VmwareResource extends ServerResourceBase implements StoragePoolRes
         }
     }
 
+<<<<<<< HEAD
+=======
+    /**
+     * Sets the disk IOPS limitation, if the {@link MigrateVolumeCommand} did not specify this limitation, then it is set to -1 (unlimited).
+     */
+    private void setDiskIops(MigrateVolumeCommand cmd, VirtualMachineMO vmMo, String volumePath) throws Exception {
+        Long newIops = -1L;
+        Long newMinIops = cmd.getNewMinIops();
+        Long newMaxIops = cmd.getNewMaxIops();
+
+        if (ObjectUtils.allNotNull(newMinIops, newMaxIops) && newMinIops > 0 && newMaxIops > 0) {
+            newIops = newMinIops + newMaxIops;
+        }
+
+        VirtualDisk disk = vmMo.getDiskDevice(volumePath, true, true).first();
+
+        try {
+            logger.debug(LogUtils.logGsonWithoutException("Trying to change disk [%s] IOPS to [%s].", disk, newIops));
+            VirtualMachineConfigSpec vmConfigSpec = new VirtualMachineConfigSpec();
+            VirtualDeviceConfigSpec deviceConfigSpec = new VirtualDeviceConfigSpec();
+
+            StorageIOAllocationInfo storageIOAllocation = new StorageIOAllocationInfo();
+            storageIOAllocation.setLimit(newIops);
+            disk.setStorageIOAllocation(storageIOAllocation);
+
+            deviceConfigSpec.setDevice(disk);
+            deviceConfigSpec.setOperation(VirtualDeviceConfigSpecOperation.EDIT);
+            vmConfigSpec.getDeviceChange().add(deviceConfigSpec);
+            vmMo.configureVm(vmConfigSpec);
+        } catch (Exception e) {
+            String vmwareDocumentation = "https://kb.vmware.com/s/article/68164";
+            logger.error(LogUtils.logGsonWithoutException("Failed to change disk [%s] IOPS to [%s] due to [%s]. This happens when the disk controller is IDE." +
+                            " Please read this documentation for more information: [%s]. ", disk, newIops, e.getMessage(), vmwareDocumentation), e);
+        }
+    }
+
+>>>>>>> cb43664102 (Address reviews)
     private Pair<VirtualDisk, String> getVirtualDiskInfo(VirtualMachineMO vmMo, String srcDiskName) throws Exception {
         Pair<VirtualDisk, String> deviceInfo = vmMo.getDiskDevice(srcDiskName);
         if (deviceInfo == null) {

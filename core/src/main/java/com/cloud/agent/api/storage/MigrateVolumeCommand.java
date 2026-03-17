@@ -36,6 +36,11 @@ public class MigrateVolumeCommand extends Command {
     String attachedVmName;
     Volume.Type volumeType;
     String hostGuidInTargetCluster;
+<<<<<<< HEAD
+=======
+    Long newMaxIops;
+    Long newMinIops;
+>>>>>>> cb43664102 (Address reviews)
 
     private DataTO srcData;
     private DataTO destData;
@@ -146,6 +151,25 @@ public class MigrateVolumeCommand extends Command {
 
     public String getChainInfo() { return chainInfo; }
 
+<<<<<<< HEAD
+=======
+    public Long getNewMinIops() {
+        return newMinIops;
+    }
+
+    public void setNewMinIops(Long newMinIops) {
+        this.newMinIops = newMinIops;
+    }
+
+    public Long getNewMaxIops() {
+        return newMaxIops;
+    }
+
+    public void setNewMaxIops(Long newMaxIops) {
+        this.newMaxIops = newMaxIops;
+    }
+
+>>>>>>> cb43664102 (Address reviews)
     @Override
     public boolean isReconcile() {
         return true;
