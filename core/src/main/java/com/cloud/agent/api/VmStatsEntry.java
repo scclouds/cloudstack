@@ -19,7 +19,11 @@
 
 package com.cloud.agent.api;
 
+import java.util.Calendar;
+
 public class VmStatsEntry extends VmStatsEntryBase {
+
+    private Calendar timestamp;
 
     private String vmUuid;
 
@@ -49,6 +53,15 @@ public class VmStatsEntry extends VmStatsEntryBase {
         super(vmId, memoryKBs, intFreeMemoryKBs, targetMemoryKBs, cpuUtilization, networkReadKBs, networkWriteKBs, numCPUs, diskReadKBs, diskWriteKBs, diskReadIOs, diskWriteIOs,
                 entityType);
     }
+
+    public Calendar getTimestamp() {
+        return timestamp;
+    }
+
+    public void setTimestamp(Calendar timestamp) {
+        this.timestamp = timestamp;
+    }
+
 
     public String getVmUuid() {
         return vmUuid;

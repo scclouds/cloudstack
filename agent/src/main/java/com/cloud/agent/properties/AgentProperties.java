@@ -891,6 +891,11 @@ public class AgentProperties{
     public static final Property<Integer> INCREMENTAL_SNAPSHOT_RETRY_REBASE_WAIT = new Property<>("incremental.snapshot.retry.rebase.wait", 60);
 
 
+    /**
+     * The interval (in milliseconds) when vm stats are retrieved from agents.
+     * */
+    public static final Property<Integer> VM_STATS_INTERVAL = new Property<>("vm.stats.interval", 60000);
+
     public static class Property <T>{
         private String name;
         private T defaultValue;

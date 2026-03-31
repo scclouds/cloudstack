@@ -19,6 +19,7 @@ package com.cloud.vm;
 import com.cloud.storage.Snapshot;
 import com.cloud.storage.Volume;
 import java.net.URI;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -312,6 +313,8 @@ public interface VirtualMachineManager extends Manager {
     HashMap<Long, ? extends VmStats> getVirtualMachineStatistics(Host host, Map<String, Long> vmMap);
 
     HashMap<Long, List<? extends VmDiskStats>> getVmDiskStatistics(Host host, Map<String, Long> vmInstanceNameIdMap);
+
+    ArrayList<Map<Long, ? extends VmStats>> getVirtualMachineStatisticsKvm(long hostId, String hostName, Map<Long, ? extends VirtualMachine> vmMap);
 
     HashMap<Long, List<? extends VmNetworkStats>> getVmNetworkStatistics(Host host, Map<String, Long> vmInstanceNameIdMap);
 

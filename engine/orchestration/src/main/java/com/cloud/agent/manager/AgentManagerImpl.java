@@ -2151,6 +2151,7 @@ public class AgentManagerImpl extends ManagerBase implements AgentManager, Handl
                 params.put(Config.MigrateWait.toString(), _configDao.getValue(Config.MigrateWait.toString()));
                 params.put(NetworkOrchestrationService.TUNGSTEN_ENABLED.key(), String.valueOf(NetworkOrchestrationService.TUNGSTEN_ENABLED.valueIn(host.getDataCenterId())));
                 params.put(ReconcileCommandService.ReconcileCommandsEnabled.key(), String.valueOf(_reconcileCommandsEnabled));
+                params.put(Config.VmStatsInterval.toString(), _configDao.getValue(Config.VmStatsInterval.toString()));
 
                     try {
                         SetHostParamsCommand cmds = new SetHostParamsCommand(params);

@@ -14,29 +14,30 @@
 // KIND, either express or implied.  See the License for the
 // specific language governing permissions and limitations
 // under the License.
-package com.cloud.hypervisor.kvm.resource;
+//
 
-import com.cloud.agent.api.VmStatsEntry;
-import org.apache.cloudstack.utils.reflectiontostringbuilderutils.ReflectionToStringBuilderUtils;
+package com.cloud.agent.api;
 
-public class LibvirtExtendedVmStatsEntry extends VmStatsEntry {
-    private long cpuTime;
+import java.util.List;
 
-    public LibvirtExtendedVmStatsEntry() {
+import com.cloud.agent.api.LogLevel.Log4jLevel;
+
+@LogLevel(Log4jLevel.Trace)
+public class GetVmStatsForMetricCollectionAnswer extends Answer {
+
+    List<VmStatsEntry> vmStats;
+
+    public GetVmStatsForMetricCollectionAnswer(GetVmStatsForMetricCollectionCommand cmd, List<VmStatsEntry> vmStats) {
+        super(cmd);
+        this.vmStats = vmStats;
     }
 
-    public long getCpuTime() {
-        return cpuTime;
+
+    public List<VmStatsEntry> getVmStats() {
+        return vmStats;
     }
 
-    public void setCpuTime(long cpuTime) {
-        this.cpuTime = cpuTime;
-    }
-
-
-
-    @Override
-    public String toString() {
-        return ReflectionToStringBuilderUtils.reflectOnlySelectedFields(this, "cpuTime", "networkWriteKBs", "networkReadKBs", "diskReadIOs", "diskWriteIOs", "diskReadKBs", "diskWriteKBs");
+    protected GetVmStatsForMetricCollectionAnswer() {
+        //no-args constructor for json serialization-deserialization
     }
 }

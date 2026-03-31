@@ -27,6 +27,7 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Calendar;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.Comparator;
@@ -125,6 +126,8 @@ import com.cloud.agent.api.GetVmNetworkStatsAnswer;
 import com.cloud.agent.api.GetVmNetworkStatsCommand;
 import com.cloud.agent.api.GetVmStatsAnswer;
 import com.cloud.agent.api.GetVmStatsCommand;
+import com.cloud.agent.api.GetVmStatsForMetricCollectionCommand;
+import com.cloud.agent.api.GetVmStatsForMetricCollectionAnswer;
 import com.cloud.agent.api.MigrateCommand;
 import com.cloud.agent.api.MigrateVmToPoolAnswer;
 import com.cloud.agent.api.ModifyTargetsCommand;
@@ -6606,6 +6609,53 @@ public class VirtualMachineManagerImpl extends ManagerBase implements VirtualMac
             }
         }
         return vmStatsById;
+    }
+
+    public ArrayList<Map<Long, ? extends VmStats>> getVirtualMachineStatisticsKvm(long hostId, String hostName, Map<Long, ? extends VirtualMachine> vmMap) {
+        ArrayList<Map<Long, ? extends VmStats>> vmStatsList = new ArrayList<>();
+        if (vmMap.isEmpty()) {
+            return vmStatsList;
+        }
+
+        Map<String, Long> vmNames = new HashMap<>();
+        for (Map.Entry<Long, ? extends VirtualMachine> vmEntry : vmMap.entrySet()) {
+            vmNames.put(vmEntry.getValue().getInstanceName(), vmEntry.getKey());
+        }
+        Answer answer = _agentMgr.easySend(hostId, new GetVmStatsForMetricCollectionCommand(vmNames, _hostDao.findById(hostId).getGuid(), hostName));
+
+        if (answer == null || !answer.getResult()) {
+            logger.warn("Unable to obtain VM statistics.");
+            return vmStatsList;
+        }
+        List<VmStatsEntry> vmStats = ((GetVmStatsForMetricCollectionAnswer)answer).getVmStats();
+
+        if (vmStats.isEmpty()) {
+            logger.debug("VM statistics map was empty. Another Management Server may already be processing it.");
+        }
+
+        return createVmStatsList(vmStats);
+    }
+
+    /**
+     * Receives a List of individual records from the agent and creates the list of maps that will be persisted to the database.
+     * This process has to performed after the data is returned by the agent because Jackson's Json deserialization encounters
+     * issues when unpacking nested Objects.
+     */
+    private static ArrayList<Map<Long, ? extends VmStats>> createVmStatsList(List<VmStatsEntry> vmStats) {
+        ArrayList<Map<Long, ? extends VmStats>> vmStatsList = new ArrayList<>();
+        Map<Long, VmStatsEntry> map = new HashMap<>();
+        Calendar currentTime = null;
+        for (VmStatsEntry vmStat : vmStats) {
+            if (vmStat.getTimestamp() != currentTime) {
+                vmStatsList.add(map);
+                currentTime = vmStat.getTimestamp();
+                map = new HashMap<>();
+            }
+            map.put(vmStat.getVmId(), vmStat);
+        }
+        vmStatsList.add(map);
+
+        return vmStatsList;
     }
 
     @Override

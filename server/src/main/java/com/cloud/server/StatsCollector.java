@@ -67,6 +67,7 @@ import org.apache.cloudstack.utils.usage.UsageUtils;
 import org.apache.commons.collections.CollectionUtils;
 import org.apache.commons.collections.MapUtils;
 import org.apache.commons.lang3.BooleanUtils;
+import org.apache.commons.lang3.ObjectUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.time.DateUtils;
 import org.apache.logging.log4j.Level;
@@ -1227,42 +1228,23 @@ public class StatsCollector extends ManagerBase implements ComponentMethodInterc
 
                 logger.debug(String.format("VmStatsCollector is running to process VMs across %d UP hosts", hosts.size()));
 
-                Map<Object, Object> metrics = new HashMap<>();
                 for (HostVO host : hosts) {
-                    Date timestamp = new Date();
                     Pair<Map<Long, VMInstanceVO>, Map<String, Long>> vmsAndMap = getVmMapForStatsForHost(host);
                     Map<Long, VMInstanceVO> vmMap = vmsAndMap.first();
                     try {
-                        Map<Long, ? extends VmStats> vmStatsById = virtualMachineManager.getVirtualMachineStatistics(
-                                host, vmsAndMap.second());
-                        if (MapUtils.isEmpty(vmStatsById)) {
-                            continue;
-                        }
-                        Set<Long> vmIdSet = vmStatsById.keySet();
-                        for (Long vmId : vmIdSet) {
-                            VmStatsEntry statsForCurrentIteration = (VmStatsEntry)vmStatsById.get(vmId);
-                            statsForCurrentIteration.setVmId(vmId);
-                            VMInstanceVO vm = vmMap.get(vmId);
-                            statsForCurrentIteration.setVmUuid(vm.getUuid());
-
-                            persistVirtualMachineStats(statsForCurrentIteration, timestamp);
-
-                            if (externalStatsType == ExternalStatsProtocol.GRAPHITE) {
-                                prepareVmMetricsForGraphite(metrics, statsForCurrentIteration);
-                            } else {
-                                metrics.put(statsForCurrentIteration.getVmId(), statsForCurrentIteration);
-                            }
+                        ArrayList<Map<Long, ? extends VmStats>> vmStatsList = new ArrayList<>();
+                        if (host.getHypervisorType() == HypervisorType.KVM) {
+                            vmStatsList = virtualMachineManager.getVirtualMachineStatisticsKvm(host.getId(), host.getName(), vmMap);
+                        } else {
+                            Map<Long, ? extends VmStats> vmStatsById = virtualMachineManager.getVirtualMachineStatistics(
+                                    host, vmsAndMap.second());
+                            vmStatsList.add(vmStatsById);
                         }
 
-                        if (!metrics.isEmpty()) {
-                            if (externalStatsType == ExternalStatsProtocol.GRAPHITE) {
-                                sendVmMetricsToGraphiteHost(metrics, host);
-                            } else if (externalStatsType == ExternalStatsProtocol.INFLUXDB) {
-                                sendMetricsToInfluxdb(metrics);
-                            }
+                        for (Map<Long, ? extends VmStats> vmStats : vmStatsList) {
+                            processMetrics(host, vmStats, vmMap);
                         }
 
-                        metrics.clear();
                     } catch (Exception e) {
                         logger.debug("Failed to get VM stats for : {}", host);
                     }
@@ -1270,6 +1252,48 @@ public class StatsCollector extends ManagerBase implements ComponentMethodInterc
 
             } catch (Throwable t) {
                 logger.error("Error trying to retrieve VM stats", t);
+            }
+        }
+
+
+        /**
+         * Receives the VM statistics from the agents, persists them and sends the metrics to the external DB (if any is configured)
+         *
+         */
+        private void processMetrics(HostVO host, Map<Long, ? extends VmStats> vmStats, Map<Long, VMInstanceVO> vmMap) {
+            if (MapUtils.isEmpty(vmStats)) {
+                return;
+            }
+            Map<Object, Object> metrics = new HashMap<>();
+            Set<Long> vmIdSet = vmStats.keySet();
+            for (Long vmId : vmIdSet) {
+                VmStatsEntry statsForCurrentIteration = (VmStatsEntry) vmStats.get(vmId);
+                statsForCurrentIteration.setVmId(vmId);
+                VMInstanceVO vm = vmMap.get(vmId);
+                statsForCurrentIteration.setVmUuid(vm.getUuid());
+
+                Date timestamp = ObjectUtils.defaultIfNull(statsForCurrentIteration.getTimestamp().getTime(), new Date());
+
+                persistVirtualMachineStats(statsForCurrentIteration, timestamp);
+
+                if (externalStatsType == ExternalStatsProtocol.NONE) {
+                    continue;
+                }
+                if (externalStatsType == ExternalStatsProtocol.GRAPHITE) {
+                    prepareVmMetricsForGraphite(metrics, statsForCurrentIteration);
+                } else {
+                    metrics.put(statsForCurrentIteration.getVmId(), statsForCurrentIteration);
+                }
+            }
+
+            if (metrics.isEmpty()) {
+                return;
+            }
+
+            if (externalStatsType == ExternalStatsProtocol.GRAPHITE) {
+                sendVmMetricsToGraphiteHost(metrics, host);
+            } else if (externalStatsType == ExternalStatsProtocol.INFLUXDB) {
+                sendMetricsToInfluxdb(metrics);
             }
         }
 

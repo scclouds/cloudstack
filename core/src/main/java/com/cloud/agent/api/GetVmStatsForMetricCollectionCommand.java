@@ -14,29 +14,43 @@
 // KIND, either express or implied.  See the License for the
 // specific language governing permissions and limitations
 // under the License.
-package com.cloud.hypervisor.kvm.resource;
+//
 
-import com.cloud.agent.api.VmStatsEntry;
-import org.apache.cloudstack.utils.reflectiontostringbuilderutils.ReflectionToStringBuilderUtils;
+package com.cloud.agent.api;
 
-public class LibvirtExtendedVmStatsEntry extends VmStatsEntry {
-    private long cpuTime;
+import java.util.Map;
 
-    public LibvirtExtendedVmStatsEntry() {
+import com.cloud.agent.api.LogLevel.Log4jLevel;
+
+@LogLevel(Log4jLevel.Trace)
+public class GetVmStatsForMetricCollectionCommand extends Command {
+    Map<String, Long> vmNames;
+    String hostGuid;
+    String hostName;
+
+    protected GetVmStatsForMetricCollectionCommand() {
     }
 
-    public long getCpuTime() {
-        return cpuTime;
+    public GetVmStatsForMetricCollectionCommand(Map<String, Long> vmNames, String hostGuid, String hostName) {
+        this.vmNames = vmNames;
+        this.hostGuid = hostGuid;
+        this.hostName = hostName;
     }
 
-    public void setCpuTime(long cpuTime) {
-        this.cpuTime = cpuTime;
+    public Map<String, Long> getVmNames() {
+        return vmNames;
     }
 
+    public String getHostGuid() {
+        return this.hostGuid;
+    }
 
+    public String getHostName() {
+        return this.hostName;
+    }
 
     @Override
-    public String toString() {
-        return ReflectionToStringBuilderUtils.reflectOnlySelectedFields(this, "cpuTime", "networkWriteKBs", "networkReadKBs", "diskReadIOs", "diskWriteIOs", "diskReadKBs", "diskWriteKBs");
+    public boolean executeInSequence() {
+        return false;
     }
 }
