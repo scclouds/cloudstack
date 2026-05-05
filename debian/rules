@@ -4,6 +4,7 @@ VERSION := $(shell grep '<version>' pom.xml | head -2 | tail -1 | cut -d'>' -f2 
 PACKAGE = $(shell dh_listpackages|head -n 1|cut -d '-' -f 1)
 SYSCONFDIR = "/etc"
 DESTDIR = "debian/tmp"
+export DH_VERBOSE=1x
 
 ##### HELPER FUNCTIONS ######
 
@@ -162,12 +163,6 @@ override_dh_auto_configure:
 	cp packaging/debian/replace.properties replace.properties.tmp
 	echo VERSION=${VERSION} >> replace.properties.tmp
 
-override_dh_auto_build:
-	mvn clean package -Psystemvm,developer -Dsystemvm \
-	    -Dcs.replace.properties=replace.properties.tmp \
-	    -Dmaven.repo.local=$(HOME)/.m2/repository \
-	     ${ACS_BUILD_OPTS}
-
 override_dh_auto_clean:
 	dh_auto_clean
 	rm -f replace.properties.tmp
@@ -184,25 +179,28 @@ override_dh_auto_install:
 	mkdir -p $(DESTDIR)/usr/share
 
 	# cloudstack-agent
-	call build_agent
+	$(call build_agent)
 
 	# cloudstack-management
-	call build_management
+	$(call build_management)
+
+	# cloudmonkey
+	$(call build_cmk)
 
 	# cloudstack-ui
-	call build_ui
+	$(call build_ui)
 
 	# cloudstack-common
-	call build_common
+	$(call build_common)
 
 	# cloudstack-usage
-	call build_usage
+	$(call build_usage)
 
 	# cloudstack-marvin
-	call build_marvin
+	$(call build_marvin)
 
-	# cloudstack-integration-tests
-	call build_tests
+	# tests
+	$(call build_tests)
 
 override_dh_systemd_enable:
 	dh_systemd_enable -pcloudstack-management -pcloudstack-agent -pcloudstack-usage
