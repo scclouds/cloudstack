@@ -50,7 +50,7 @@ import java.util.List;
 public class ListBackupScheduleCmd extends BaseListProjectAndAccountResourcesCmd {
 
     @Inject
-    BackupManager backupManager;
+    protected BackupManager backupManager;
 
     /////////////////////////////////////////////////////
     //////////////// API parameters /////////////////////
@@ -69,6 +69,17 @@ public class ListBackupScheduleCmd extends BaseListProjectAndAccountResourcesCmd
             since = "4.22.0")
     private Long id;
 
+    @Parameter(name = ApiConstants.INTERVAL_TYPE,
+            type = CommandType.STRING,
+            description = "valid values are HOURLY, DAILY, WEEKLY, and MONTHLY",
+    since = "4.23.0.0")
+    private String intervalType;
+
+    @Parameter(name = ApiConstants.VM_SNAPSHOT_QUIESCEVM,
+            type = CommandType.BOOLEAN,
+            since = "4.23.0.0")
+    private Boolean quiescevm;
+
     /////////////////////////////////////////////////////
     /////////////////// Accessors ///////////////////////
     /////////////////////////////////////////////////////
@@ -79,6 +90,14 @@ public class ListBackupScheduleCmd extends BaseListProjectAndAccountResourcesCmd
 
     public Long getId() {
         return id;
+    }
+
+    public String getIntervalType() {
+        return intervalType;
+    }
+
+    public Boolean getQuiescevm() {
+        return quiescevm;
     }
 
     /////////////////////////////////////////////////////

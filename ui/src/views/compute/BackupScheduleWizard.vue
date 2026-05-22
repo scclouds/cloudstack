@@ -70,6 +70,11 @@ export default {
   created () {
     this.fetchData()
   },
+  watch: {
+    resource () {
+      this.fetchData()
+    }
+  },
   methods: {
     fetchData () {
       const params = {}

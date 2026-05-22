@@ -211,4 +211,13 @@ public interface AccountManager extends AccountService, Configurable {
     void verifyCallerPrivilegeForUserOrAccountOperations(User user);
 
     void checkCallerRoleTypeAllowedForUserOrAccountOperations(Account userAccount, User user);
+
+    /**
+     * Gets account/project account ID using <code>AccountService.finalizeAccountId()</code> and checks if the caller has access to the account.
+     * @param accountName the name of the account
+     * @param domainId the domain of the account
+     * @param projectId the project of the account
+     * @return the account ID.
+     */
+    Long finalizeAccountIdAndCheckCallerAccess(String accountName, Long domainId, Long projectId);
 }

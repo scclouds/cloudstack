@@ -1753,6 +1753,17 @@ public class AccountManagerImpl extends ManagerBase implements AccountManager, M
         }
     }
 
+    @Override
+    public Long finalizeAccountIdAndCheckCallerAccess(String accountName, Long domainId, Long projectId) {
+        Account caller = getCurrentCallingAccount();
+
+        Long accountId = finalizeAccountId(accountName, domainId, projectId, true);
+        Account owner = getAccount(accountId);
+        checkAccess(caller, null, true, owner);
+
+        return accountId;
+    }
+
     protected void checkCallerApiPermissionsForUserOrAccountOperations(Account userAccount) {
         Account callingAccount = getCurrentCallingAccount();
         boolean isCallerRootAdmin = callingAccount.getId() == Account.ACCOUNT_ID_SYSTEM || isRootAdmin(callingAccount.getId());

@@ -19,7 +19,7 @@
   <div class="create-backup-schedule-layout">
     <div v-if="!isVMResource" class="vm-selection">
       <a-form layout="vertical">
-        <a-form-item :label="$t('label.virtualmachine')" required>
+        <a-form-item :label="$t('label.virtual.machine')" required>
           <a-select
             v-model:value="selectedVMId"
             :placeholder="$t('label.select.vm')"
@@ -84,19 +84,17 @@ export default {
     resourceType () {
       if (!this.resource) return 'none'
 
-      if (this.resource.vmstate !== undefined ||
-        this.resource.guestosid !== undefined ||
-        this.resource.hypervisor !== undefined ||
-        this.resource.backupofferingid !== undefined ||
-        this.resource.serviceofferingid !== undefined) {
+      const { vmstate, guestosid, hypervisor, backupofferingid, serviceofferingid, intervaltype, schedule, virtualmachineid } = this.resource
+
+      if ([vmstate, guestosid, hypervisor, backupofferingid, serviceofferingid].some(value => value !== undefined)) {
         return 'vm'
       }
-      if (this.resource.intervaltype !== undefined &&
-          this.resource.schedule !== undefined) {
+
+      if (intervaltype !== undefined && schedule !== undefined) {
         return 'backupschedule'
       }
 
-      if (this.resource.virtualmachineid !== undefined) {
+      if (virtualmachineid !== undefined) {
         return 'backupschedule'
       }
 
@@ -127,7 +125,6 @@ export default {
         })
       } catch (error) {
         this.$message.error(this.$t('message.error.fetch.vms'))
-        console.error('Error fetching VMs:', error)
       } finally {
         this.vmsLoading = false
       }
@@ -169,10 +166,6 @@ export default {
         min-width: 400px;
       }
     }
-  }
-
-  .current-vm-info {
-    margin-bottom: 16px;
   }
 
   .no-vm-selected {

@@ -21,6 +21,7 @@ import java.util.Date;
 import java.util.List;
 
 import com.cloud.utils.DateUtil;
+import com.cloud.utils.Pair;
 import org.apache.cloudstack.backup.BackupScheduleVO;
 
 import com.cloud.utils.db.GenericDao;
@@ -31,4 +32,6 @@ public interface BackupScheduleDao extends GenericDao<BackupScheduleVO, Long> {
     BackupScheduleVO findByVMAndIntervalType(Long vmId, DateUtil.IntervalType intervalType);
 
     List<BackupScheduleVO> getSchedulesToExecute(Date currentTimestamp);
+
+    Pair<List<BackupScheduleVO>, Integer> listSchedules(Long accountId, List<Long> domainIds, Long scheduleId, Integer intervalType, Long vmId, Boolean quiesceVM);
 }

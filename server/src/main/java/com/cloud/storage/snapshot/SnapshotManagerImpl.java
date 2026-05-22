@@ -34,6 +34,7 @@ import java.util.stream.Collectors;
 import javax.inject.Inject;
 import javax.naming.ConfigurationException;
 
+import com.cloud.domain.Domain;
 import org.apache.cloudstack.acl.SecurityChecker;
 import org.apache.cloudstack.annotation.AnnotationService;
 import org.apache.cloudstack.annotation.dao.AnnotationDao;
@@ -1391,52 +1392,104 @@ public class SnapshotManagerImpl extends MutualExclusiveIdsManagerBase implement
 
     @Override
     public Pair<List<? extends SnapshotPolicy>, Integer> listSnapshotPolicies(ListSnapshotPoliciesCmd cmd) {
-        Long volumeId = cmd.getVolumeId();
-        Long id = cmd.getId();
         Account caller = CallContext.current().getCallingAccount();
-        List<Long> permittedAccounts = new ArrayList<>();
-        String keyword = cmd.getKeyword();
+        Long snapshotScheduleId = cmd.getId();
+        Long volumeId = cmd.getVolumeId();
+        Long accountId;
+        Long domainId = cmd.getDomainId();
+        Long projectId = cmd.getProjectId();
+        String strIntervalType = cmd.getIntervalType();
+        List<Long> domainsList = new ArrayList<>();
 
-        // Verify parameters
+        Integer intervalTypeOrdinal = null;
+        if (strIntervalType != null) {
+            logger.trace("Searching for informed [{}] interval type in valid intervals: {}", strIntervalType, DateUtil.IntervalType.values());
+            DateUtil.IntervalType intervalType = DateUtil.IntervalType.getIntervalType(strIntervalType);
+
+            if (intervalType == null) {
+                logger.error("The informed interval type [{}] was invalid, thus an exception is being thrown.");
+                throw new InvalidParameterValueException(String.format("No valid interval type was found for [%s].", strIntervalType));
+            }
+
+            logger.trace("Interval type {} was found in valid interval types.", intervalType.name());
+            intervalTypeOrdinal = intervalType.ordinal();
+        }
+
+        if (domainId != null) {
+            if (projectId != null) {
+                throw new InvalidParameterValueException("Domain and projectId can't be specified together");
+            }
+
+            logger.trace("Searching for domain with ID [{}].", domainId);
+            Domain domain = _domainDao.findById(domainId);
+
+            if (domain == null) {
+                logger.error("No valid domain was found with ID [{}].", domainId);
+                throw new InvalidParameterValueException(String.format("Unable to find domain with ID [%s]. Verify the informed domain and try again.", domainId));
+            }
+
+            logger.info("Checking if user {} has access to domain [{}].", caller, domain.getName());
+            _accountMgr.checkAccess(caller, domain);
+            domainsList.add(domainId);
+        }
+
+        accountId = caller.getAccountId();
+        if (cmd.getAccountName() != null) {
+            String accName = cmd.getAccountName();
+
+            if (projectId != null) {
+                throw new InvalidParameterValueException("Account and projectId can't be specified together");
+            }
+
+            logger.info("Searching for account with name [{}].", accName);
+            accountId = _accountMgr.finalizeAccountIdAndCheckCallerAccess(accName, domainId, null);
+        }
+
+        if (projectId != null) {
+            logger.info("Searching for project with ID [{}]", projectId);
+            accountId = _accountMgr.finalizeAccountIdAndCheckCallerAccess(null, null, projectId);
+        }
+
         if (volumeId != null) {
+            logger.trace("Searching for volume with ID [{}]", volumeId);
             VolumeVO volume = _volsDao.findById(volumeId);
-            if (volume != null) {
-                _accountMgr.checkAccess(CallContext.current().getCallingAccount(), null, true, volume);
+
+            if (volume == null) {
+                logger.error("Volume with ID [{}] was not found.", volumeId);
+                throw new InvalidParameterValueException("No volume was found with the provided ID.");
+            }
+
+            logger.debug("Volume found. Checking if caller has access to it.");
+            _accountMgr.checkAccess(caller, null, true, volume);
+
+            accountId = volume.getAccountId();
+            domainsList.clear();
+            domainsList.add(volume.getDomainId());
+        }
+
+        if (domainsList.isEmpty()) {
+            logger.debug("Defaulting schedule listing to the caller account's domain as it was not informed previously.");
+            domainsList.add(caller.getDomainId());
+        }
+
+        if (cmd.listAll() && accountId.equals(caller.getAccountId()) && _accountMgr.isAdmin(accountId)) {
+            accountId = null;
+
+            boolean wasDomainInformed = domainId != null;
+
+            if (caller.getType().equals(Account.Type.ADMIN) && !wasDomainInformed) {
+                logger.debug("Removing account and domains filters as no parameter was informed except listall and the caller is a ROOT admin.");
+                domainsList.clear();
+            }
+
+            if (caller.getType().equals(Account.Type.DOMAIN_ADMIN) && !wasDomainInformed) {
+                logger.debug("Removing account filter and filtering schedules in the caller's domain and its children, as the caller is a domain admin and listall was informed.");
+                domainsList = _domainDao.getDomainAndChildrenIds(caller.getDomainId());
             }
         }
 
-        Ternary<Long, Boolean, ListProjectResourcesCriteria> domainIdRecursiveListProject =
-                new Ternary<>(cmd.getDomainId(), cmd.isRecursive(), null);
-        _accountMgr.buildACLSearchParameters(caller, id, cmd.getAccountName(), cmd.getProjectId(), permittedAccounts, domainIdRecursiveListProject, cmd.listAll(), false);
-        Long domainId = domainIdRecursiveListProject.first();
-        Boolean isRecursive = domainIdRecursiveListProject.second();
-        ListProjectResourcesCriteria listProjectResourcesCriteria = domainIdRecursiveListProject.third();
-
-        Filter searchFilter = new Filter(SnapshotPolicyVO.class, "id", false, cmd.getStartIndex(), cmd.getPageSizeVal());
-        SearchBuilder<SnapshotPolicyVO> policySearch = _snapshotPolicyDao.createSearchBuilder();
-        _accountMgr.buildACLSearchBuilder(policySearch, domainId, isRecursive, permittedAccounts, listProjectResourcesCriteria);
-
-        policySearch.and("id", policySearch.entity().getId(), SearchCriteria.Op.EQ);
-        policySearch.and("volumeId", policySearch.entity().getVolumeId(), SearchCriteria.Op.EQ);
-
-        SearchBuilder<VolumeVO> volumeSearch = _volsDao.createSearchBuilder();
-        volumeSearch.and("name", volumeSearch.entity().getName(), SearchCriteria.Op.LIKE);
-        policySearch.join("volumeJoin", volumeSearch, policySearch.entity().getVolumeId(), volumeSearch.entity().getId(), JoinBuilder.JoinType.INNER);
-
-        SearchCriteria<SnapshotPolicyVO> sc = policySearch.create();
-        _accountMgr.buildACLSearchCriteria(sc, domainId, isRecursive, permittedAccounts, listProjectResourcesCriteria);
-
-        if (volumeId != null) {
-            sc.setParameters("volumeId", volumeId);
-        }
-        if (id != null) {
-            sc.setParameters("id", id);
-        }
-        if (keyword != null) {
-            sc.setJoinParameters("volumeJoin", "name", "%" + keyword + "%");
-        }
-
-        Pair<List<SnapshotPolicyVO>, Integer> result = _snapshotPolicyDao.searchAndCount(sc, searchFilter);
+        logger.debug("Searching for snapshot schedule filtering by: domains {}, account [{}], interval type [{}], volume ID: [{}], schedule ID: [{}]", domainsList, accountId, strIntervalType, volumeId, snapshotScheduleId);
+        Pair<List<SnapshotPolicyVO>, Integer> result = _snapshotPolicyDao.listSnapshotPolicies(accountId, domainsList, snapshotScheduleId, intervalTypeOrdinal, volumeId);
         return new Pair<>(result.first(), result.second());
     }
 

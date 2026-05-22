@@ -42,6 +42,7 @@ import javax.inject.Inject;
 
 import org.apache.cloudstack.acl.ControlledEntity;
 import org.apache.cloudstack.acl.ControlledEntity.ACLType;
+import com.cloud.utils.DateUtil;
 import org.apache.cloudstack.acl.RoleVO;
 import org.apache.cloudstack.acl.apikeypair.ApiKeyPair;
 import org.apache.cloudstack.acl.apikeypair.ApiKeyPairPermission;
@@ -885,7 +886,7 @@ public class ApiResponseHelper implements ResponseGenerator, ResourceIdSupport {
             policyResponse.setVolumeName(vol.getName());
         }
         policyResponse.setSchedule(policy.getSchedule());
-        policyResponse.setIntervalType(policy.getInterval());
+        policyResponse.setIntervalType(DateUtil.getIntervalType(policy.getInterval()).name());
         policyResponse.setMaxSnaps(policy.getMaxSnaps());
         policyResponse.setTimezone(policy.getTimezone());
         policyResponse.setForDisplay(policy.isDisplay());
@@ -917,6 +918,21 @@ public class ApiResponseHelper implements ResponseGenerator, ResourceIdSupport {
             poolResponses.add(storagePoolResponse);
         }
         policyResponse.setStoragePools(new HashSet<>(poolResponses));
+
+        Account policyAccount = ApiDBUtils.findAccountById(policy.getAccountId());
+        policyResponse.setAccountId(policyAccount.getUuid());
+
+        Domain domain = ApiDBUtils.findDomainById(policyAccount.getDomainId());
+        policyResponse.setDomain(domain.getName());
+        policyResponse.setDomainId(domain.getUuid());
+
+        if (policyAccount.getType() == Account.Type.PROJECT) {
+            Project project = ApiDBUtils.findProjectByProjectAccountId(policyAccount.getAccountId());
+            policyResponse.setProjectId(project.getUuid());
+            policyResponse.setProjectName(project.getName());
+        } else {
+            policyResponse.setAccount(policyAccount.getAccountName());
+        }
 
         return policyResponse;
     }
@@ -5143,6 +5159,21 @@ public class ApiResponseHelper implements ResponseGenerator, ResourceIdSupport {
         if (vm != null) {
             response.setVmId(vm.getUuid());
             response.setVmName(vm.getHostName());
+        }
+
+        Account backupAccount = ApiDBUtils.findAccountById(schedule.getAccountId());
+        response.setAccountId(backupAccount.getUuid());
+
+        Domain domain = ApiDBUtils.findDomainById(backupAccount.getDomainId());
+        response.setDomain(domain.getName());
+        response.setDomainId(domain.getUuid());
+
+        if (backupAccount.getType() == Account.Type.PROJECT) {
+            Project project = ApiDBUtils.findProjectByProjectAccountId(backupAccount.getAccountId());
+            response.setProjectId(project.getUuid());
+            response.setProjectName(project.getName());
+        } else {
+            response.setAccount(backupAccount.getAccountName());
         }
 
         response.setObjectName("backupschedule");

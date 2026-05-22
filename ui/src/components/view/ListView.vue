@@ -780,6 +780,9 @@
         <status :text="record.requiresupgrade ? 'warning' : ''" />
         {{ record.requiresupgrade ? 'Yes' : 'No' }}
       </template>
+      <template v-if="column.key === 'quiescevm'">
+        {{ record.quiescevm ? $t('label.yes') : $t('label.no') }}
+      </template>
       <template v-if="column.key === 'loadbalancerrule'">
         <span> {{ record.loadbalancerrule }} </span>
       </template>

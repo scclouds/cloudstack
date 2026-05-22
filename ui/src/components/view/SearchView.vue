@@ -325,14 +325,14 @@ export default {
           'type', 'scope', 'managementserverid', 'serviceofferingid',
           'diskofferingid', 'networkid', 'usagetype', 'restartrequired', 'gpuenabled',
           'displaynetwork', 'guestiptype', 'usersource', 'arch', 'oscategoryid', 'templatetype', 'gpucardid', 'vgpuprofileid',
-          'extensionid', 'backupoffering', 'volumeid', 'virtualmachineid'].includes(item)
+          'extensionid', 'backupoffering', 'volumeid', 'virtualmachineid', 'intervaltype'].includes(item)
         ) {
           type = 'list'
         } else if (item === 'tags') {
           type = 'tag'
         } else if (['resourcetype', 'apikeyaccess'].includes(item)) {
           type = 'autocomplete'
-        } else if (item === 'isencrypted') {
+        } else if (['isencrypted', 'quiescevm'].includes(item)) {
           type = 'boolean'
         }
 
@@ -378,6 +378,13 @@ export default {
         const stateIndex = this.fields.findIndex(item => item.name === 'state')
         this.fields[stateIndex].loading = true
         this.fields[stateIndex].opts = this.fetchState()
+        this.fields[stateIndex].loading = false
+      }
+
+      if (arrayField.includes('intervaltype')) {
+        const stateIndex = this.fields.findIndex(item => item.name === 'intervaltype')
+        this.fields[stateIndex].loading = true
+        this.fields[stateIndex].opts = this.fetchIntervalTypes()
         this.fields[stateIndex].loading = false
       }
 
@@ -1589,6 +1596,31 @@ export default {
           reject(error.response.headers['x-description'])
         })
       })
+    },
+    fetchIntervalTypes () {
+      const intervalTypes = []
+
+      intervalTypes.push({
+        id: 'HOURLY',
+        name: 'label.hourly'
+      })
+
+      intervalTypes.push({
+        id: 'WEEKLY',
+        name: 'label.weekly'
+      })
+
+      intervalTypes.push({
+        id: 'DAILY',
+        name: 'label.daily'
+      })
+
+      intervalTypes.push({
+        id: 'MONTHLY',
+        name: 'label.monthly'
+      })
+
+      return intervalTypes
     },
     onSearch (value) {
       this.paramsFilter = {}

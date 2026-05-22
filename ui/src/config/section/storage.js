@@ -425,16 +425,31 @@ export default {
     {
       name: 'snapshotpolicy',
       title: 'label.snapshotpolicies',
-      icon: 'build-outlined',
+      icon: 'clock-circle-outlined',
       docHelp: 'adminguide/storage.html#working-with-volume-snapshots',
       permission: ['listSnapshotPolicies'],
       resourceType: 'SnapshotPolicy',
       params: { listall: true },
       columns: () => {
-        var fields = ['intervaltype', 'maxsnaps', 'schedule', 'timezone', 'volumename']
+        const fields = ['id', 'intervaltype', { field: 'maxsnaps', customTitle: 'maxsnapshot' }, 'schedule', 'timezone', 'volumename']
+
+        if (['Admin', 'DomainAdmin'].includes(store.getters.userInfo.roletype)) {
+          fields.push('account', 'domain', 'project')
+        } else if (store.getters.allProjects.length > 0) {
+          fields.push('project')
+        }
+
         return fields
       },
-      searchFilters: ['volumeid'],
+      searchFilters: () => {
+        const filters = ['volumeid', 'intervaltype', 'id']
+
+        if (['Admin', 'DomainAdmin'].includes(store.getters.userInfo.roletype)) {
+          filters.push('domainid', 'account')
+        }
+
+        return filters
+      },
       actions: [
         {
           api: 'createSnapshotPolicy',
@@ -554,16 +569,31 @@ export default {
     {
       name: 'backupschedule',
       title: 'label.backup.schedules',
-      icon: 'build-outlined',
+      icon: 'schedule-outlined',
       docHelp: 'adminguide/storage.html#working-with-volume-snapshots',
       permission: ['listBackupSchedule'],
       resourceType: 'backupSchedule',
       params: { listall: true },
       columns: () => {
-        var fields = ['intervaltype', 'maxbackups', 'schedule', 'timezone', 'virtualmachinename']
+        const fields = ['id', 'intervaltype', 'maxbackups', 'schedule', 'quiescevm', 'timezone', 'virtualmachinename']
+
+        if (['Admin', 'DomainAdmin'].includes(store.getters.userInfo.roletype)) {
+          fields.push('account', 'domain', 'project')
+        } else if (store.getters.allProjects.length > 0) {
+          fields.push('project')
+        }
+
         return fields
       },
-      searchFilters: ['virtualmachineid'],
+      searchFilters: () => {
+        const filters = ['id', 'virtualmachineid', 'intervaltype', 'isolated', 'quiescevm']
+
+        if (['Admin', 'DomainAdmin'].includes(store.getters.userInfo.roletype)) {
+          filters.push('domainid', 'account')
+        }
+
+        return filters
+      },
       actions: [
         {
           api: 'createBackupSchedule',

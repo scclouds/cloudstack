@@ -46,8 +46,8 @@ public class SnapshotPolicyResponse extends BaseResponseWithTagInformation {
     private String schedule;
 
     @SerializedName("intervaltype")
-    @Param(description = "The interval type of the Snapshot policy")
-    private short intervalType;
+    @Param(description = "The interval type of the Snapshot Policy")
+    private String intervalType;
 
     @SerializedName("maxsnaps")
     @Param(description = "Maximum number of Snapshots retained")
@@ -68,6 +68,30 @@ public class SnapshotPolicyResponse extends BaseResponseWithTagInformation {
     @SerializedName(ApiConstants.STORAGE)
     @Param(description = "The list of pools in which snapshot backup is scheduled", responseObject = StoragePoolResponse.class, since = "4.21.0")
     protected Set<StoragePoolResponse> storagePools;
+
+    @SerializedName(ApiConstants.ACCOUNT)
+    @Param(description = "the account that the snapshot policy is associated with")
+    private String account;
+
+    @SerializedName(ApiConstants.ACCOUNT_ID)
+    @Param(description = "the ID of the account that the snapshot policy is associated with")
+    private String accountId;
+
+    @SerializedName(ApiConstants.PROJECT)
+    @Param(description = "the project name of the snapshot policy")
+    private String projectName;
+
+    @SerializedName(ApiConstants.PROJECT_ID)
+    @Param(description = "the project ID of the snapshot policy")
+    private String projectId;
+
+    @SerializedName(ApiConstants.DOMAIN)
+    @Param(description = "the domain that the snapshot policy is associated with")
+    private String domain;
+
+    @SerializedName(ApiConstants.DOMAIN_ID)
+    @Param(description = "the domain ID that the snapshot policy is associated with")
+    private String domainId;
 
     public SnapshotPolicyResponse() {
         tags = new LinkedHashSet<ResourceTagResponse>();
@@ -103,11 +127,11 @@ public class SnapshotPolicyResponse extends BaseResponseWithTagInformation {
         this.schedule = schedule;
     }
 
-    public short getIntervalType() {
+    public String getIntervalType() {
         return intervalType;
     }
 
-    public void setIntervalType(short intervalType) {
+    public void setIntervalType(String intervalType) {
         this.intervalType = intervalType;
     }
 
@@ -144,4 +168,52 @@ public class SnapshotPolicyResponse extends BaseResponseWithTagInformation {
     }
 
     public void  setStoragePools(Set<StoragePoolResponse> pools) { this.storagePools = pools; }
+
+    public String getAccount() {
+        return account;
+    }
+
+    public void setAccount(String account) {
+        this.account = account;
+    }
+
+    public String getAccountId() {
+        return accountId;
+    }
+
+    public void setAccountId(String accountId) {
+        this.accountId = accountId;
+    }
+
+    public String getProjectName() {
+        return projectName;
+    }
+
+    public void setProjectName(String projectName) {
+        this.projectName = projectName;
+    }
+
+    public String getProjectId() {
+        return projectId;
+    }
+
+    public void setProjectId(String projectId) {
+        this.projectId = projectId;
+    }
+
+    public String getDomain() {
+        return domain;
+    }
+
+    public void setDomain(String domain) {
+        this.domain = domain;
+    }
+
+    public String getDomainId() {
+        return domainId;
+    }
+
+    public void setDomainId(String domainId) {
+        this.domainId = domainId;
+    }
 }

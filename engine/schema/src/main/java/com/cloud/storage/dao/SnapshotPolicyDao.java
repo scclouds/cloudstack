@@ -40,7 +40,5 @@ public interface SnapshotPolicyDao extends GenericDao<SnapshotPolicyVO, Long> {
 
     List<SnapshotPolicyVO> listActivePolicies();
 
-    SnapshotPolicyVO findOneByVolume(long volumeId);
-
-    Pair<List<SnapshotPolicyVO>, Integer> listAndCountById(long id, boolean display, Filter filter);
+    Pair<List<SnapshotPolicyVO>, Integer> listSnapshotPolicies(Long accountId, List<Long> domainIds, Long scheduleId, Integer intervalType, Long volumeId);
 }

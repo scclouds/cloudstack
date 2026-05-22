@@ -25,6 +25,8 @@ import java.util.List;
 import javax.annotation.PostConstruct;
 
 import com.cloud.utils.DateUtil;
+import com.cloud.utils.Pair;
+import com.cloud.utils.db.Filter;
 import com.cloud.utils.db.DB;
 import com.cloud.utils.db.TransactionLegacy;
 import org.apache.cloudstack.backup.BackupScheduleVO;
@@ -36,6 +38,7 @@ import com.cloud.utils.db.SearchCriteria;
 public class BackupScheduleDaoImpl extends GenericDaoBase<BackupScheduleVO, Long> implements BackupScheduleDao {
     private SearchBuilder<BackupScheduleVO> backupScheduleSearch;
     private SearchBuilder<BackupScheduleVO> executableSchedulesSearch;
+    private SearchBuilder<BackupScheduleVO> listBackupSchedulesSearch;
 
     public BackupScheduleDaoImpl() {
     }
@@ -52,6 +55,15 @@ public class BackupScheduleDaoImpl extends GenericDaoBase<BackupScheduleVO, Long
         executableSchedulesSearch.and("scheduledTimestamp", executableSchedulesSearch.entity().getScheduledTimestamp(), SearchCriteria.Op.LT);
         executableSchedulesSearch.and("asyncJobId", executableSchedulesSearch.entity().getAsyncJobId(), SearchCriteria.Op.NULL);
         executableSchedulesSearch.done();
+
+        listBackupSchedulesSearch = createSearchBuilder();
+        listBackupSchedulesSearch.and("id", listBackupSchedulesSearch.entity().getId(), SearchCriteria.Op.EQ);
+        listBackupSchedulesSearch.and("vm_id", listBackupSchedulesSearch.entity().getVmId(), SearchCriteria.Op.EQ);
+        listBackupSchedulesSearch.and("account_id", listBackupSchedulesSearch.entity().getAccountId(), SearchCriteria.Op.EQ);
+        listBackupSchedulesSearch.and("domain_ids", listBackupSchedulesSearch.entity().getDomainId(), SearchCriteria.Op.IN);
+        listBackupSchedulesSearch.and("interval_type", listBackupSchedulesSearch.entity().getScheduleType(), SearchCriteria.Op.EQ);
+        listBackupSchedulesSearch.and("quiesce_vm", listBackupSchedulesSearch.entity().getQuiesceVM(), SearchCriteria.Op.EQ);
+        listBackupSchedulesSearch.done();
     }
 
     @Override
@@ -90,5 +102,24 @@ public class BackupScheduleDaoImpl extends GenericDaoBase<BackupScheduleVO, Long
             logger.warn("Unable to clean up backup schedules references from the backups table.", e);
             return false;
         }
+    }
+
+    @Override
+    public Pair<List<BackupScheduleVO>, Integer> listSchedules(Long accountId, List<Long> domainList, Long scheduleId, Integer intervalType, Long vmId, Boolean quiesceVM) {
+        SearchCriteria<BackupScheduleVO> sc = listBackupSchedulesSearch.create();
+
+        sc.setParametersIfNotNull("account_id", accountId);
+        sc.setParametersIfNotNull("vm_id", vmId);
+        sc.setParametersIfNotNull("id", scheduleId);
+        sc.setParametersIfNotNull("interval_type", intervalType);
+        sc.setParametersIfNotNull("quiesce_vm", quiesceVM);
+
+        if (!domainList.isEmpty()) {
+            sc.setParameters("domain_ids", domainList.toArray());
+        }
+
+        Filter searchFilter = new Filter(BackupScheduleVO.class, "id", false, null, null);
+
+        return listAndCountIncludingRemovedBy(sc, searchFilter);
     }
 }

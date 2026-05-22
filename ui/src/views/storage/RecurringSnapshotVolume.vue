@@ -98,6 +98,7 @@ export default {
   computed: {
     resourceType () {
       if (!this.resource) return 'none'
+      // TODO: VOLTAR NISSO DEPOIS
       if (this.resource.type === 'ROOT' || this.resource.type === 'DATADISK' ||
           this.resource.state === 'Ready' || this.resource.state === 'Allocated' ||
           this.resource.sizegb !== undefined) {

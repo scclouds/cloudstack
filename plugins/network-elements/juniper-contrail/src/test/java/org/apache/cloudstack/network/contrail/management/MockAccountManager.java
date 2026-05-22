@@ -614,4 +614,9 @@ public class MockAccountManager extends ManagerBase implements AccountManager {
     @Override
     public void checkCallerRoleTypeAllowedForUserOrAccountOperations(Account userAccount, User user) {
     }
+
+    @Override
+    public Long finalizeAccountIdAndCheckCallerAccess(String accountName, Long domainId, Long projectId) {
+        return null;
+    }
 }

@@ -50,6 +50,12 @@ public class ListSnapshotPoliciesCmd extends BaseListProjectAndAccountResourcesC
     @Parameter(name = ApiConstants.FOR_DISPLAY, type = CommandType.BOOLEAN, description = "List resources by display flag; only ROOT admin is eligible to pass this parameter", since = "4.4", authorized = {RoleType.Admin})
     private Boolean display;
 
+    @Parameter(name = ApiConstants.INTERVAL_TYPE,
+            type = CommandType.STRING,
+            description = "valid values are HOURLY, DAILY, WEEKLY, and MONTHLY",
+            since = "4.23.0.0")
+    private String intervalType;
+
     /////////////////////////////////////////////////////
     /////////////////// Accessors ///////////////////////
     /////////////////////////////////////////////////////
@@ -69,6 +75,11 @@ public class ListSnapshotPoliciesCmd extends BaseListProjectAndAccountResourcesC
     public Long getId() {
         return id;
     }
+
+    public String getIntervalType() {
+        return intervalType;
+    }
+
 
     /////////////////////////////////////////////////////
     /////////////// API Implementation///////////////////
