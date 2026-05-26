@@ -34,7 +34,6 @@ import java.util.stream.Collectors;
 import javax.inject.Inject;
 import javax.naming.ConfigurationException;
 
-import com.cloud.domain.Domain;
 import org.apache.cloudstack.acl.SecurityChecker;
 import org.apache.cloudstack.annotation.AnnotationService;
 import org.apache.cloudstack.annotation.dao.AnnotationDao;
@@ -1395,11 +1394,10 @@ public class SnapshotManagerImpl extends MutualExclusiveIdsManagerBase implement
         Account caller = CallContext.current().getCallingAccount();
         Long snapshotScheduleId = cmd.getId();
         Long volumeId = cmd.getVolumeId();
-        Long accountId;
+        String accountName = cmd.getAccountName();
         Long domainId = cmd.getDomainId();
         Long projectId = cmd.getProjectId();
         String strIntervalType = cmd.getIntervalType();
-        List<Long> domainsList = new ArrayList<>();
 
         Integer intervalTypeOrdinal = null;
         if (strIntervalType != null) {
@@ -1415,40 +1413,10 @@ public class SnapshotManagerImpl extends MutualExclusiveIdsManagerBase implement
             intervalTypeOrdinal = intervalType.ordinal();
         }
 
-        if (domainId != null) {
-            if (projectId != null) {
-                throw new InvalidParameterValueException("Domain and projectId can't be specified together");
-            }
+        Pair<Long, List<Long>> accountIdDomainListPair = _accountMgr.getInitialAccountIdAndDomainsForListing(accountName, domainId, projectId);
+        Long accountId = accountIdDomainListPair.first();
+        List<Long> domainsList = accountIdDomainListPair.second();
 
-            logger.trace("Searching for domain with ID [{}].", domainId);
-            Domain domain = _domainDao.findById(domainId);
-
-            if (domain == null) {
-                logger.error("No valid domain was found with ID [{}].", domainId);
-                throw new InvalidParameterValueException(String.format("Unable to find domain with ID [%s]. Verify the informed domain and try again.", domainId));
-            }
-
-            logger.info("Checking if user {} has access to domain [{}].", caller, domain.getName());
-            _accountMgr.checkAccess(caller, domain);
-            domainsList.add(domainId);
-        }
-
-        accountId = caller.getAccountId();
-        if (cmd.getAccountName() != null) {
-            String accName = cmd.getAccountName();
-
-            if (projectId != null) {
-                throw new InvalidParameterValueException("Account and projectId can't be specified together");
-            }
-
-            logger.info("Searching for account with name [{}].", accName);
-            accountId = _accountMgr.finalizeAccountIdAndCheckCallerAccess(accName, domainId, null);
-        }
-
-        if (projectId != null) {
-            logger.info("Searching for project with ID [{}]", projectId);
-            accountId = _accountMgr.finalizeAccountIdAndCheckCallerAccess(null, null, projectId);
-        }
 
         if (volumeId != null) {
             logger.trace("Searching for volume with ID [{}]", volumeId);
@@ -1468,25 +1436,19 @@ public class SnapshotManagerImpl extends MutualExclusiveIdsManagerBase implement
         }
 
         if (domainsList.isEmpty()) {
-            logger.debug("Defaulting schedule listing to the caller account's domain as it was not informed previously.");
-            domainsList.add(caller.getDomainId());
-        }
-
-        if (cmd.listAll() && accountId.equals(caller.getAccountId()) && _accountMgr.isAdmin(accountId)) {
-            accountId = null;
-
-            boolean wasDomainInformed = domainId != null;
-
-            if (caller.getType().equals(Account.Type.ADMIN) && !wasDomainInformed) {
-                logger.debug("Removing account and domains filters as no parameter was informed except listall and the caller is a ROOT admin.");
-                domainsList.clear();
-            }
-
-            if (caller.getType().equals(Account.Type.DOMAIN_ADMIN) && !wasDomainInformed) {
-                logger.debug("Removing account filter and filtering schedules in the caller's domain and its children, as the caller is a domain admin and listall was informed.");
-                domainsList = _domainDao.getDomainAndChildrenIds(caller.getDomainId());
+            if (accountName == null && projectId == null) {
+                logger.info("Defaulting policies listing to the caller account's domain as it was not informed previously.");
+                domainsList.add(caller.getDomainId());
+            } else {
+                Account account = _accountDao.findById(accountId);
+                logger.info("Defaulting policies listing domain to [{}] as it is the domain of informed account [{}].", account.getDomainId(), account.getUuid());
+                domainsList.add(account.getDomainId());
             }
         }
+
+        Pair<Long, List<Long>> finalAccountAndDomainsList = _accountMgr.adjustFiltersAccordingToListAll(cmd.listAll(), accountId, domainId, domainsList);
+        accountId = finalAccountAndDomainsList.first();
+        domainsList = finalAccountAndDomainsList.second();
 
         logger.debug("Searching for snapshot schedule filtering by: domains {}, account [{}], interval type [{}], volume ID: [{}], schedule ID: [{}]", domainsList, accountId, strIntervalType, volumeId, snapshotScheduleId);
         Pair<List<SnapshotPolicyVO>, Integer> result = _snapshotPolicyDao.listSnapshotPolicies(accountId, domainsList, snapshotScheduleId, intervalTypeOrdinal, volumeId);
