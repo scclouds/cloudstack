@@ -1764,6 +1764,68 @@ public class AccountManagerImpl extends ManagerBase implements AccountManager, M
         return accountId;
     }
 
+    @Override
+    public Pair<Long, List<Long>> getInitialAccountIdAndDomainsForListing(String accountName, Long domainId, Long projectId) {
+                if (accountName != null && projectId != null) {
+            throw new InvalidParameterValueException("Account and project ID can't be specified together");
+        }
+
+        Account caller = CallContext.current().getCallingAccount();
+
+        List<Long> domainsList = new ArrayList<>();
+
+        if (domainId != null) {
+            logger.debug("Searching for domain with ID [{}].", domainId);
+            Domain domain = _domainDao.findById(domainId);
+
+            if (domain == null) {
+                logger.error("No valid domain was found with ID [{}].", domainId);
+                throw new InvalidParameterValueException(String.format("Unable to find domain with ID [%s]. Verify the informed domain and try again.", domainId));
+            }
+
+            logger.debug("Checking if user {} has access to domain [{}].", caller, domain.getName());
+            checkAccess(caller, domain);
+            domainsList.add(domainId);
+        }
+
+        Long accountId = caller.getAccountId();
+
+        if (accountName != null) {
+            logger.debug("Searching for account with name [{}].", accountName);
+            accountId = finalizeAccountIdAndCheckCallerAccess(accountName, domainId, null);
+        }
+
+        if (projectId != null) {
+            logger.debug("Searching for project with ID [{}]", projectId);
+            accountId = finalizeAccountIdAndCheckCallerAccess(null, null, projectId);
+        }
+
+        return new Pair<>(accountId, domainsList);
+    }
+
+    @Override
+    public Pair<Long, List<Long>> adjustFiltersAccordingToListAll(Boolean shouldListAll, Long accountId, Long domainId, List<Long> domainsList) {
+        Account caller = CallContext.current().getCallingAccount();
+
+        if (shouldListAll && accountId.equals(caller.getAccountId()) && isAdmin(accountId)) {
+            accountId = null;
+
+            boolean wasDomainInformed = domainId != null;
+
+            if (caller.getType().equals(Account.Type.ADMIN) && !wasDomainInformed) {
+                logger.debug("Removing account and domains filters as no parameter was informed except listall and the caller is a ROOT admin.");
+                domainsList.clear();
+            }
+
+            if (caller.getType().equals(Account.Type.DOMAIN_ADMIN) && !wasDomainInformed) {
+                logger.debug("Removing account filter and filtering schedules in the caller's domain and its children, as the caller is a domain admin and listall was informed.");
+                domainsList = _domainDao.getDomainAndChildrenIds(caller.getDomainId());
+            }
+        }
+
+        return new Pair<>(accountId, domainsList);
+    }
+
     protected void checkCallerApiPermissionsForUserOrAccountOperations(Account userAccount) {
         Account callingAccount = getCurrentCallingAccount();
         boolean isCallerRootAdmin = callingAccount.getId() == Account.ACCOUNT_ID_SYSTEM || isRootAdmin(callingAccount.getId());

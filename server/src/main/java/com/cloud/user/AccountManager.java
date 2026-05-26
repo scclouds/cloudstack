@@ -20,6 +20,7 @@ import java.net.InetAddress;
 import java.util.List;
 import java.util.Map;
 
+import com.cloud.utils.Pair;
 import org.apache.cloudstack.acl.ControlledEntity;
 import org.apache.cloudstack.acl.apikeypair.ApiKeyPair;
 import org.apache.cloudstack.api.command.admin.account.UpdateAccountCmd;
@@ -220,4 +221,8 @@ public interface AccountManager extends AccountService, Configurable {
      * @return the account ID.
      */
     Long finalizeAccountIdAndCheckCallerAccess(String accountName, Long domainId, Long projectId);
+
+    Pair<Long, List<Long>> getInitialAccountIdAndDomainsForListing(String accountName, Long domainId, Long projectId);
+
+    Pair<Long, List<Long>> adjustFiltersAccordingToListAll(Boolean shouldListAll, Long accountId, Long domainId, List<Long> domainsList);
 }

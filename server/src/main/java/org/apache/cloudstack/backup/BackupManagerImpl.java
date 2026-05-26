@@ -38,7 +38,6 @@ import java.util.stream.Stream;
 import javax.inject.Inject;
 import javax.naming.ConfigurationException;
 
-import com.cloud.domain.Domain;
 import com.cloud.utils.DomainHelper;
 import org.apache.cloudstack.api.ApiCommandResourceType;
 import org.apache.cloudstack.api.ApiConstants;
@@ -808,15 +807,14 @@ public class BackupManagerImpl extends ManagerBase implements BackupManager {
         Account caller = CallContext.current().getCallingAccount();
         Long scheduleId = cmd.getId();
         Long vmId = cmd.getVmId();
-        Long accountId;
+        String accountName = cmd.getAccountName();
         Long domainId = cmd.getDomainId();
         Long projectId = cmd.getProjectId();
         String strIntervalType = cmd.getIntervalType();
-        List<Long> domainsList = new ArrayList<>();
 
         Integer intervalTypeOrdinal = null;
         if (strIntervalType != null) {
-            logger.trace("Searching for informed [{}] interval type in valid intervals: {}", strIntervalType, DateUtil.IntervalType.values());
+            logger.debug("Searching for informed [{}] interval type in valid intervals: {}", strIntervalType, DateUtil.IntervalType.values());
             DateUtil.IntervalType intervalType = DateUtil.IntervalType.getIntervalType(strIntervalType);
 
             if (intervalType == null) {
@@ -824,47 +822,16 @@ public class BackupManagerImpl extends ManagerBase implements BackupManager {
                 throw new InvalidParameterValueException(String.format("No valid interval type was found for [%s].", strIntervalType));
             }
 
-            logger.trace("Interval type {} was found in valid interval types.", intervalType.name());
+            logger.debug("Interval type {} was found in valid interval types.", intervalType.name());
             intervalTypeOrdinal = intervalType.ordinal();
         }
 
-        if (domainId != null) {
-            if (projectId != null) {
-                throw new InvalidParameterValueException("Domain and projectId can't be specified together");
-            }
-
-            logger.trace("Searching for domain with ID [{}].", domainId);
-            Domain domain = domainDao.findById(domainId);
-
-            if (domain == null) {
-                logger.error("No valid domain was found with ID [{}].", domainId);
-                throw new InvalidParameterValueException(String.format("Unable to find domain with ID [%s]. Verify the informed domain and try again.", domainId));
-            }
-
-            logger.debug("Checking if user {} has access to domain [{}].", caller, domain.getName());
-            accountManager.checkAccess(caller, domain);
-            domainsList.add(domainId);
-        }
-
-        accountId = caller.getAccountId();
-        if (cmd.getAccountName() != null) {
-            String accName = cmd.getAccountName();
-
-            if (projectId != null) {
-                throw new InvalidParameterValueException("Account and projectId can't be specified together");
-            }
-
-            logger.info("Searching for account with name [{}].", accName);
-            accountId = accountManager.finalizeAccountIdAndCheckCallerAccess(accName, domainId, null);
-        }
-
-        if (projectId != null) {
-            logger.info("Searching for project with ID [{}]", projectId);
-            accountId = accountManager.finalizeAccountIdAndCheckCallerAccess(null, null, projectId);
-        }
+        Pair<Long, List<Long>> accountIdDomainListPair = accountManager.getInitialAccountIdAndDomainsForListing(accountName, domainId, projectId);
+        Long accountId = accountIdDomainListPair.first();
+        List<Long> domainsList = accountIdDomainListPair.second();
 
         if (vmId != null) {
-            logger.trace("Searching for VM with ID [{}].", vmId);
+            logger.debug("Searching for VM with ID [{}].", vmId);
             final VMInstanceVO vm = findVmById(vmId);
 
             logger.debug("Validating if backup is enabled in the VM's zone.");
@@ -879,25 +846,19 @@ public class BackupManagerImpl extends ManagerBase implements BackupManager {
         }
 
         if (domainsList.isEmpty()) {
-            logger.info("Defaulting schedule listing to the caller account's domain as it was not informed previously.");
-            domainsList.add(caller.getDomainId());
-        }
-
-        if (cmd.listAll() && accountId.equals(caller.getAccountId()) && accountManager.isAdmin(accountId)) {
-            accountId = null;
-
-            boolean wasDomainInformed = domainId != null;
-
-            if (caller.getType().equals(Account.Type.ADMIN) && !wasDomainInformed) {
-                logger.debug("Removing account and domains filters as no parameter was informed except listall and the caller is a ROOT admin.");
-                domainsList.clear();
-            }
-
-            if (caller.getType().equals(Account.Type.DOMAIN_ADMIN) && !wasDomainInformed) {
-                logger.debug("Removing account filter and filtering schedules in the caller's domain and its children, as the caller is a domain admin and listall was informed.");
-                domainsList = domainDao.getDomainAndChildrenIds(caller.getDomainId());
+            if (accountName == null && projectId == null) {
+                logger.info("Defaulting schedule listing to the caller account's domain as it was not informed previously.");
+                domainsList.add(caller.getDomainId());
+            } else {
+                Account account = accountDao.findById(accountId);
+                logger.info("Defaulting schedule listing domain to [{}] as it is the domain of informed account [{}].", account.getDomainId(), account.getUuid());
+                domainsList.add(account.getDomainId());
             }
         }
+
+        Pair<Long, List<Long>> finalAccountAndDomainsList = accountManager.adjustFiltersAccordingToListAll(cmd.listAll(), accountId, domainId, domainsList);
+        accountId = finalAccountAndDomainsList.first();
+        domainsList = finalAccountAndDomainsList.second();
 
         logger.debug("Searching for backup schedules filtering by: domains {}, account [{}], interval type [{}], schedule ID: [{}], VM ID: [{}].", domainsList, accountId, strIntervalType, scheduleId, vmId);
         Pair<List<BackupScheduleVO>, Integer> result = backupScheduleDao.listSchedules(accountId, domainsList, scheduleId, intervalTypeOrdinal, vmId, cmd.getQuiescevm());
