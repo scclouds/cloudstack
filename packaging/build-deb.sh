@@ -158,7 +158,7 @@ sed -i '0,/ UNRELEASED;/s// unstable;/g' debian/changelog
 dpkg-checkbuilddeps
 # To skip package build, insert `no + package` at DEB_BUILD_PROFILES. Separate skipped packages by a space. Packages names are: agent, management, cmk, ui, usage, marvin and tests.
 # It is also possible to skip maven build, by informing SKIP_MVN as 1.
-SKIP_MVN=1 DEB_BUILD_PROFILES="nousage noagent nomarvin notests nodocs" dpkg-buildpackage -uc -us -b
+SKIP_MVN=1 DEB_BUILD_PROFILES="" dpkg-buildpackage -uc -us -b
 
 /bin/mv debian/changelog.$NOW debian/changelog
 
