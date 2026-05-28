@@ -156,7 +156,9 @@ dch -b -v "${VERSION}~${DISTCODE}" -u low -m "Apache CloudStack Release ${VERSIO
 sed -i '0,/ UNRELEASED;/s// unstable;/g' debian/changelog
 
 dpkg-checkbuilddeps
-SKIP_MVN=1 DEB_BUILD_PROFILES="nocommon nomanagement nousage noui nodocs nomarvin notests" dpkg-buildpackage -uc -us -b
+# To skip package build, insert `no + package` at DEB_BUILD_PROFILES. Separate skipped packages by a space. Packages names are: agent, management, cmk, ui, usage, marvin and tests.
+# It is also possible to skip maven build, by informing SKIP_MVN as 1.
+SKIP_MVN=1 DEB_BUILD_PROFILES="nomanagement nousage nocmk noui nomarvin notests" dpkg-buildpackage -uc -us -b
 
 /bin/mv debian/changelog.$NOW debian/changelog
 
