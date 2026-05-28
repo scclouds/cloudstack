@@ -56,7 +56,8 @@
       <form-schedule
         :resource="addFormResource"
         :dataSource="dataSource"
-        :submitFn="handleAddBackupSchedule" />
+        :submitFn="handleAddBackupSchedule"
+        :unavailable-interval-types="unavailableIntervalTypes"/>
     </a-modal>
   </div>
 </template>
@@ -65,6 +66,7 @@
 import InfiniteScrollSelect from '@/components/widgets/InfiniteScrollSelect'
 import BackupSchedule from '@views/compute/backup/BackupSchedule'
 import FormSchedule from '@views/compute/backup/FormSchedule'
+import { getFormUnavailableIntervalTypes } from '@/utils/util'
 
 export default {
   name: 'DeployInstanceBackupSelection',
@@ -92,7 +94,8 @@ export default {
       backupOffering: null,
       showAddBackupSchedule: false,
       localBackupOfferingId: this.backupOfferingId,
-      dataSource: []
+      dataSource: [],
+      unavailableIntervalTypes: {}
     }
   },
   provide () {
@@ -102,6 +105,9 @@ export default {
     }
   },
   emits: ['change-backup-offering', 'add-backup-schedule', 'delete-backup-schedule', 'update:backupOfferingId'],
+  mounted () {
+    this.unavailableIntervalTypes = getFormUnavailableIntervalTypes(this.backupSchedules)
+  },
   computed: {
     listBackupOfferingApiParams () {
       return {
@@ -129,6 +135,13 @@ export default {
       if (val !== this.localBackupOfferingId) {
         this.localBackupOfferingId = val
       }
+    },
+    backupSchedules: {
+      handler (val) {
+        this.unavailableIntervalTypes = getFormUnavailableIntervalTypes(val)
+      },
+      deep: true,
+      immediate: true
     }
   },
   methods: {

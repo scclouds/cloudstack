@@ -46,6 +46,7 @@
           :resource="currentVolumeResource"
           :dataSource="dataSource"
           :resourceType="'Volume'"
+          :unavailableIntervalTypes="unavailableIntervalTypes"
           @close-action="closeAction"
           @refresh="handleRefresh"/>
       </a-tab-pane>
@@ -70,6 +71,7 @@
 import { getAPI } from '@/api'
 import FormSchedule from '@/views/storage/FormSchedule'
 import ScheduledSnapshots from '@/views/storage/ScheduledSnapshots'
+import { getFormUnavailableIntervalTypes } from '@/utils/util'
 
 export default {
   name: 'RecurringSnapshotVolume',
@@ -90,6 +92,7 @@ export default {
       loading: false,
       dataSource: [],
       volumes: [],
+      unavailableIntervalTypes: {},
       volumesLoading: false,
       selectedVolumeId: null,
       selectedVolume: null
@@ -177,6 +180,7 @@ export default {
         const listSnapshotPolicies = json.listsnapshotpoliciesresponse.snapshotpolicy
         if (listSnapshotPolicies && listSnapshotPolicies.length > 0) {
           this.dataSource = listSnapshotPolicies
+          this.unavailableIntervalTypes = getFormUnavailableIntervalTypes(this.dataSource)
         }
       }).catch(error => {
         this.loading = false

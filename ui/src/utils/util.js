@@ -123,3 +123,30 @@ export function isValidIPv4Cidr (rule, value) {
     resolve()
   })
 }
+
+export function getFormUnavailableIntervalTypes (schedules) {
+  console.log(schedules)
+  const unavailableTypes = {
+    hourly: false,
+    daily: false,
+    weekly: false,
+    monthly: false
+  }
+
+  schedules.forEach(item => {
+    const scheduleIntervalType = item.intervaltype.toLowerCase()
+    unavailableTypes[scheduleIntervalType] = true
+  })
+
+  return unavailableTypes
+}
+
+export function shouldIntervalTypeCreationBeDisabled (schedules, intervalTypesAvailabilityList) {
+  return schedules.length > 0 && !Object.values(intervalTypesAvailabilityList).some(type => type === false)
+}
+
+export function getFirstAvailableIntervalType (intervalTypesAvailabilityList) {
+  const intervalTypes = Object.keys(intervalTypesAvailabilityList)
+  const firstAvailableIntervalType = Object.values(intervalTypesAvailabilityList).indexOf(false)
+  return intervalTypes[firstAvailableIntervalType]
+}

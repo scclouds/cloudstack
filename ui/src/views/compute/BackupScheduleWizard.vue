@@ -23,6 +23,7 @@
           :loading="loading"
           :resource="resource"
           :dataSource="dataSource"
+          :unavailableIntervalTypes="unavailableIntervalTypes"
           @close-action="closeAction"
           @refresh="handleRefresh"/>
       </a-tab-pane>
@@ -42,6 +43,7 @@
 import { getAPI } from '@/api'
 import FormSchedule from '@views/compute/backup/FormSchedule'
 import BackupSchedule from '@views/compute/backup/BackupSchedule'
+import { getFormUnavailableIntervalTypes } from '@/utils/util'
 
 export default {
   name: 'BackupScheduleWizard',
@@ -58,7 +60,8 @@ export default {
   data () {
     return {
       loading: false,
-      dataSource: []
+      dataSource: [],
+      unavailableIntervalTypes: {}
     }
   },
   provide () {
@@ -79,6 +82,7 @@ export default {
     fetchData () {
       const params = {}
       this.dataSource = []
+      this.unavailableIntervalTypes = {}
       this.loading = true
       params.virtualmachineid = this.resource.id || this.resource.virtualmachineid
 
@@ -90,6 +94,7 @@ export default {
 
       getAPI('listBackupSchedule', params).then(json => {
         this.dataSource = json.listbackupscheduleresponse.backupschedule || []
+        this.unavailableIntervalTypes = getFormUnavailableIntervalTypes(this.dataSource)
       }).finally(() => {
         this.loading = false
       })

@@ -35,16 +35,16 @@
                   v-model:value="form.intervaltype"
                   button-style="solid"
                   @change="handleChangeIntervalType">
-                  <a-radio-button value="hourly" :disabled="isIntervalDisabled('hourly')">
+                  <a-radio-button value="hourly" :disabled="unavailableIntervalTypes.hourly">
                     {{ $t('label.hourly') }}
                   </a-radio-button>
-                  <a-radio-button value="daily" :disabled="isIntervalDisabled('daily')">
+                  <a-radio-button value="daily" :disabled="unavailableIntervalTypes.daily">
                     {{ $t('label.daily') }}
                   </a-radio-button>
-                  <a-radio-button value="weekly" :disabled="isIntervalDisabled('weekly')">
+                  <a-radio-button value="weekly" :disabled="unavailableIntervalTypes.weekly">
                     {{ $t('label.weekly') }}
                   </a-radio-button>
-                  <a-radio-button value="monthly" :disabled="isIntervalDisabled('monthly')">
+                  <a-radio-button value="monthly" :disabled="unavailableIntervalTypes.monthly">
                     {{ $t('label.monthly') }}
                   </a-radio-button>
                 </a-radio-group>
@@ -54,7 +54,7 @@
               <a-form-item :label="$t('label.time')" ref="time" name="time">
                 <a-input-number
                   style="width: 100%"
-                  :disabled="isIntervalDisabled(form.intervaltype)"
+                  :disabled="isCreationDisabled"
                   v-model:value="form.time"
                   :placeholder="$t('label.minute.past.hour')"
                   :min="1"
@@ -71,7 +71,7 @@
                 <a-time-picker
                   use12Hours
                   format="h:mm A"
-                  :disabled="isIntervalDisabled(form.intervaltype)"
+                  :disabled="isCreationDisabled"
                   v-model:value="form.timeSelect"
                   style="width: 100%;" />
               </a-form-item>
@@ -81,7 +81,7 @@
                 <a-select
                   v-model:value="form['day-of-week']"
                   showSearch
-                  :disabled="isIntervalDisabled(form.intervaltype)"
+                  :disabled="isCreationDisabled"
                   optionFilterProp="label"
                   :filterOption="(input, option) => {
                     return option.label.toLowerCase().indexOf(input.toLowerCase()) >= 0
@@ -97,7 +97,7 @@
                 <a-select
                   v-model:value="form['day-of-month']"
                   showSearch
-                  :disabled="isIntervalDisabled(form.intervaltype)"
+                  :disabled="isCreationDisabled"
                   optionFilterProp="label"
                   :filterOption="(input, option) => {
                     return option.label.toLowerCase().indexOf(input.toLowerCase()) >= 0
@@ -115,6 +115,7 @@
                   :title="$t('label.maxbackups.to.retain')">
                   <a-input-number
                     style="width: 100%"
+                    :disabled="isCreationDisabled"
                     v-model:value="form.maxbackups"
                     :min="0" />
                 </a-tooltip>
@@ -129,6 +130,7 @@
                   :filterOption="(input, option) => {
                     return option.label.toLowerCase().indexOf(input.toLowerCase()) >= 0
                   }"
+                  :disabled="isCreationDisabled"
                   :loading="fetching">
                   <a-select-option v-for="opt in timeZoneMap" :key="opt.id" :label="opt.name || opt.description">
                     {{ opt.name || opt.description }}
@@ -155,7 +157,8 @@
               :loading="actionLoading"
               ref="submit"
               type="primary"
-              htmlType="submit">
+              htmlType="submit"
+              :disabled="isCreationDisabled">
               {{ $t('label.ok') }}
             </a-button>
           </div>
@@ -172,6 +175,7 @@ import { timeZone } from '@/utils/timezone'
 import { mixinForm } from '@/utils/mixin'
 import debounce from 'lodash/debounce'
 import TooltipLabel from '@/components/widgets/TooltipLabel'
+import { getFirstAvailableIntervalType, shouldIntervalTypeCreationBeDisabled } from '@/utils/util'
 
 export default {
   name: 'FormSchedule',
@@ -189,6 +193,10 @@ export default {
       required: true
     },
     resource: {
+      type: Object,
+      required: true
+    },
+    unavailableIntervalTypes: {
       type: Object,
       required: true
     },
@@ -218,42 +226,19 @@ export default {
     this.fetchTimeZone()
     this.fetchBackupOffering()
   },
-  mounted () {
-    if (this.form.intervaltype && this.isIntervalDisabled(this.form.intervaltype)) {
-      const nextAvailable = this.getNextAvailableIntervalType(this.form.intervaltype)
-      if (nextAvailable) {
-        this.form.intervaltype = nextAvailable
-        this.handleChangeIntervalType()
-      }
-    }
-  },
   watch: {
-    dataSource: {
-      handler () {
-        if (this.form.intervaltype && this.getNextAvailableIntervalType && this.isIntervalDisabled(this.form.intervaltype)) {
-          const nextAvailable = this.getNextAvailableIntervalType(this.form.intervaltype)
-          if (nextAvailable) {
-            this.form.intervaltype = nextAvailable
-            this.handleChangeIntervalType()
-          }
-        }
-      },
-      deep: true
-    },
-    'form.intervaltype' (newVal) {
-      if (newVal && this.getNextAvailableIntervalType && this.isIntervalDisabled(newVal)) {
-        const nextAvailable = this.getNextAvailableIntervalType(newVal)
-        if (nextAvailable) {
-          this.form.intervaltype = nextAvailable
-          this.handleChangeIntervalType()
-        }
-      }
+    unavailableIntervalTypes () {
+      this.changeToFirstAvailableInterval()
+      this.handleChangeIntervalType()
     }
   },
   inject: ['refreshSchedule', 'closeSchedule'],
   computed: {
     isQuiesceVmSupported () {
       return this.$isBackupProviderSupportsQuiesceVm(this.backupProvider)
+    },
+    isCreationDisabled () {
+      return shouldIntervalTypeCreationBeDisabled(this.dataSource, this.unavailableIntervalTypes)
     }
   },
   methods: {
@@ -321,31 +306,9 @@ export default {
         this.fetchDayOfMonth()
       }
     },
-    getNextAvailableIntervalType (currentIntervalType) {
-      const intervalTypes = ['hourly', 'daily', 'weekly', 'monthly']
-      const currentIndex = intervalTypes.indexOf(currentIntervalType ? currentIntervalType.toLowerCase() : '')
-      const startIndex = currentIndex >= 0 ? currentIndex : -1
-
-      for (let i = 1; i <= intervalTypes.length; i++) {
-        const nextIndex = (startIndex + i) % intervalTypes.length
-        const nextIntervalType = intervalTypes[nextIndex]
-
-        if (!this.isIntervalDisabled(nextIntervalType)) {
-          return nextIntervalType
-        }
-      }
-      return null
-    },
-    isIntervalDisabled (intervalType) {
-      intervalType = intervalType.toUpperCase()
-      if (this.dataSource?.length === 0) {
-        return false
-      }
-      const dataSource = this.dataSource.filter(item => item.intervaltype === intervalType)
-      if (dataSource && dataSource.length > 0) {
-        return true
-      }
-      return false
+    changeToFirstAvailableInterval () {
+      const firstAvailableIntervalType = getFirstAvailableIntervalType(this.unavailableIntervalTypes)
+      this.form.intervaltype = firstAvailableIntervalType || 'hourly'
     },
     handleSubmit (e) {
       if (this.actionLoading) return

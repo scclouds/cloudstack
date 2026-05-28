@@ -27,31 +27,31 @@
       <template #bodyCell="{ column, record }">
         <template v-if="column.key === 'icon'">
           <label class="interval-icon">
-            <span v-if="record.intervaltype===0">
+            <span v-if="record.intervaltype==='HOURLY'">
               <clock-circle-outlined />
             </span>
-            <span class="custom-icon icon-daily" v-else-if="record.intervaltype===1">
+            <span class="custom-icon icon-daily" v-else-if="record.intervaltype==='DAILY'">
               <calendar-outlined />
             </span>
-            <span class="custom-icon icon-weekly" v-else-if="record.intervaltype===2">
+            <span class="custom-icon icon-weekly" v-else-if="record.intervaltype==='WEEKLY'">
               <calendar-outlined />
             </span>
-            <span class="custom-icon icon-monthly" v-else-if="record.intervaltype===3">
+            <span class="custom-icon icon-monthly" v-else-if="record.intervaltype==='MONTHLY'">
               <calendar-outlined />
             </span>
           </label>
         </template>
         <template v-if="column.key === 'time'">
           <label class="interval-content">
-            <span v-if="record.intervaltype===0">{{ record.schedule + $t('label.min.past.hour') }}</span>
+            <span v-if="record.intervaltype==='HOURLY'">{{ record.schedule + $t('label.min.past.hour') }}</span>
             <span v-else>{{ record.schedule.split(':')[1] + ':' + record.schedule.split(':')[0] }}</span>
           </label>
         </template>
         <template v-if="column.key === 'interval'">
-          <span v-if="record.intervaltype===2">
+          <span v-if="record.intervaltype==='WEEKLY'">
             {{ `${$t('label.every')} ${$t(listDayOfWeek[record.schedule.split(':')[2] - 1])}` }}
           </span>
-          <span v-else-if="record.intervaltype===3">
+          <span v-else-if="record.intervaltype==='MONTHLY'">
             {{ `${$t('label.day')} ${record.schedule.split(':')[2]} ${$t('label.of.month')}` }}
           </span>
         </template>
@@ -131,7 +131,7 @@ export default {
       },
       {
         key: 'interval',
-        title: '',
+        title: 'Interval',
         dataIndex: 'interval'
       },
       {
