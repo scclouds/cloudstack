@@ -156,7 +156,7 @@ dch -b -v "${VERSION}~${DISTCODE}" -u low -m "Apache CloudStack Release ${VERSIO
 sed -i '0,/ UNRELEASED;/s// unstable;/g' debian/changelog
 
 dpkg-checkbuilddeps
-dpkg-buildpackage -uc -us -b
+SKIP_MVN=1 DEB_BUILD_PROFILES="nocommon nomanagement nousage noui nodocs nomarvin notests" dpkg-buildpackage -uc -us -b
 
 /bin/mv debian/changelog.$NOW debian/changelog
 

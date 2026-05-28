@@ -133,6 +133,14 @@ override_dh_auto_configure:
 	cp packaging/debian/replace.properties replace.properties.tmp
 	echo VERSION=${VERSION} >> replace.properties.tmp
 
+override_dh_auto_build:
+ifneq ($(SKIP_MVN),1)
+    mvn clean package -Psystemvm,developer -Dsystemvm \
+        -Dcs.replace.properties=replace.properties.tmp \
+        -Dmaven.repo.local=$(HOME)/.m2/repository \
+        ${ACS_BUILD_OPTS}
+endif
+
 override_dh_auto_clean:
 	dh_auto_clean
 	rm -f replace.properties.tmp
@@ -148,7 +156,7 @@ override_dh_auto_install:
 	mkdir -p $(DESTDIR)/usr/bin
 	mkdir -p $(DESTDIR)/usr/share
 
-    mkdir -p $(DESTDIR)/usr/share/$(PACKAGE)-common
+	mkdir -p $(DESTDIR)/usr/share/$(PACKAGE)-common
 	mkdir $(DESTDIR)/usr/share/$(PACKAGE)-common/scripts
 	mkdir $(DESTDIR)/usr/share/$(PACKAGE)-common/setup
 	mkdir $(DESTDIR)/usr/share/$(PACKAGE)-common/lib
@@ -176,25 +184,39 @@ override_dh_auto_install:
 	cp -r python/lib/cloud* $(DESTDIR)/usr/share/pyshared
 
 	# cloudstack-agent
-	$(call build_agent)
+	if [ -z "$(filter noagent,$(DEB_BUILD_PROFILES))" ]; then \
+		$(call build_agent)
+	fi
 
 	# cloudstack-management
-	$(call build_management)
+	if [ -z "$(filter nomanagement,$(DEB_BUILD_PROFILES))" ]; then \
+		$(call build_management)
+	fi
 
 	# cloudmonkey
-	$(call build_cmk)
+	if [ -z "$(filter nocmk,$(DEB_BUILD_PROFILES))" ]; then \
+		$(call build_cmk)
+	fi
 
 	# cloudstack-ui
-	$(call build_ui)
+	if [ -z "$(filter noui,$(DEB_BUILD_PROFILES))" ]; then \
+		$(call build_ui)
+	fi
 
 	# cloudstack-usage
-	$(call build_usage)
+	if [ -z "$(filter nousage,$(DEB_BUILD_PROFILES))" ]; then \
+		$(call build_usage)
+	fi
 
 	# cloudstack-marvin
-	$(call build_marvin)
+	if [ -z "$(filter nomarvin,$(DEB_BUILD_PROFILES))" ]; then \
+		$(call build_marvin)
+	fi
 
 	# tests
-	$(call build_tests)
+	if [ -z "$(filter notests,$(DEB_BUILD_PROFILES))" ]; then \
+		$(call build_tests)
+	fi
 
 override_dh_systemd_enable:
 	dh_systemd_enable -pcloudstack-management -pcloudstack-agent -pcloudstack-usage
