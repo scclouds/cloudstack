@@ -4,7 +4,6 @@ VERSION := $(shell grep '<version>' pom.xml | head -2 | tail -1 | cut -d'>' -f2 
 PACKAGE = $(shell dh_listpackages|head -n 1|cut -d '-' -f 1)
 SYSCONFDIR = "/etc"
 DESTDIR = "debian/tmp"
-export DH_VERBOSE=1x
 
 ##### HELPER FUNCTIONS ######
 
@@ -98,35 +97,6 @@ define build_ui
 	ln -s /$(SYSCONFDIR)/$(PACKAGE)/management/config.json $(DESTDIR)/usr/share/$(PACKAGE)-management/webapp/config.json
 endef
 
-define build_common
-	mkdir -p $(DESTDIR)/usr/share/$(PACKAGE)-common
-	mkdir $(DESTDIR)/usr/share/$(PACKAGE)-common/scripts
-	mkdir $(DESTDIR)/usr/share/$(PACKAGE)-common/setup
-	mkdir $(DESTDIR)/usr/share/$(PACKAGE)-common/lib
-	mkdir $(DESTDIR)/usr/share/$(PACKAGE)-common/vms
-	cp -r scripts/installer $(DESTDIR)/usr/share/$(PACKAGE)-common/scripts
-	cp -r scripts/network $(DESTDIR)/usr/share/$(PACKAGE)-common/scripts
-	cp -r scripts/storage $(DESTDIR)/usr/share/$(PACKAGE)-common/scripts
-	cp -r scripts/util $(DESTDIR)/usr/share/$(PACKAGE)-common/scripts
-	cp -r scripts/vm $(DESTDIR)/usr/share/$(PACKAGE)-common/scripts
-	cp -r systemvm/dist/* $(DESTDIR)/usr/share/$(PACKAGE)-common/vms
-	install -D client/target/utilities/bin/cloud-migrate-databases $(DESTDIR)/usr/bin/cloudstack-migrate-databases
-	install -D client/target/utilities/bin/cloud-set-guest-password $(DESTDIR)/usr/bin/cloudstack-set-guest-password
-	install -D client/target/utilities/bin/cloud-set-guest-sshkey $(DESTDIR)/usr/bin/cloudstack-set-guest-sshkey
-	install -D client/target/utilities/bin/cloud-setup-databases $(DESTDIR)/usr/bin/cloudstack-setup-databases
-	install -D client/target/utilities/bin/cloud-setup-management $(DESTDIR)/usr/bin/cloudstack-setup-management
-	install -D client/target/utilities/bin/cloud-setup-encryption $(DESTDIR)/usr/bin/cloudstack-setup-encryption
-	install -D client/target/utilities/bin/cloud-sysvmadm $(DESTDIR)/usr/bin/cloudstack-sysvmadm
-	install -D systemvm/dist/* $(DESTDIR)/usr/share/$(PACKAGE)-common/vms/
-	# We need jasypt for cloud-install-sys-tmplt, so this is a nasty hack to get it into the right place
-	install -D agent/target/dependencies/jasypt-1.9.3.jar $(DESTDIR)/usr/share/$(PACKAGE)-common/lib
-	install -D utils/target/cloud-utils-$(VERSION)-bundled.jar $(DESTDIR)/usr/share/$(PACKAGE)-common/lib/$(PACKAGE)-utils.jar
-
-	# cloudstack-python
-	mkdir -p $(DESTDIR)/usr/share/pyshared
-	cp -r python/lib/cloud* $(DESTDIR)/usr/share/pyshared
-endef
-
 define build_usage
 	mkdir $(DESTDIR)/$(SYSCONFDIR)/$(PACKAGE)/usage
 	mkdir $(DESTDIR)/usr/share/$(PACKAGE)-usage
@@ -178,6 +148,33 @@ override_dh_auto_install:
 	mkdir -p $(DESTDIR)/usr/bin
 	mkdir -p $(DESTDIR)/usr/share
 
+    mkdir -p $(DESTDIR)/usr/share/$(PACKAGE)-common
+	mkdir $(DESTDIR)/usr/share/$(PACKAGE)-common/scripts
+	mkdir $(DESTDIR)/usr/share/$(PACKAGE)-common/setup
+	mkdir $(DESTDIR)/usr/share/$(PACKAGE)-common/lib
+	mkdir $(DESTDIR)/usr/share/$(PACKAGE)-common/vms
+	cp -r scripts/installer $(DESTDIR)/usr/share/$(PACKAGE)-common/scripts
+	cp -r scripts/network $(DESTDIR)/usr/share/$(PACKAGE)-common/scripts
+	cp -r scripts/storage $(DESTDIR)/usr/share/$(PACKAGE)-common/scripts
+	cp -r scripts/util $(DESTDIR)/usr/share/$(PACKAGE)-common/scripts
+	cp -r scripts/vm $(DESTDIR)/usr/share/$(PACKAGE)-common/scripts
+	cp -r systemvm/dist/* $(DESTDIR)/usr/share/$(PACKAGE)-common/vms
+	install -D client/target/utilities/bin/cloud-migrate-databases $(DESTDIR)/usr/bin/cloudstack-migrate-databases
+	install -D client/target/utilities/bin/cloud-set-guest-password $(DESTDIR)/usr/bin/cloudstack-set-guest-password
+	install -D client/target/utilities/bin/cloud-set-guest-sshkey $(DESTDIR)/usr/bin/cloudstack-set-guest-sshkey
+	install -D client/target/utilities/bin/cloud-setup-databases $(DESTDIR)/usr/bin/cloudstack-setup-databases
+	install -D client/target/utilities/bin/cloud-setup-management $(DESTDIR)/usr/bin/cloudstack-setup-management
+	install -D client/target/utilities/bin/cloud-setup-encryption $(DESTDIR)/usr/bin/cloudstack-setup-encryption
+	install -D client/target/utilities/bin/cloud-sysvmadm $(DESTDIR)/usr/bin/cloudstack-sysvmadm
+	install -D systemvm/dist/* $(DESTDIR)/usr/share/$(PACKAGE)-common/vms/
+	# We need jasypt for cloud-install-sys-tmplt, so this is a nasty hack to get it into the right place
+	install -D agent/target/dependencies/jasypt-1.9.3.jar $(DESTDIR)/usr/share/$(PACKAGE)-common/lib
+	install -D utils/target/cloud-utils-$(VERSION)-bundled.jar $(DESTDIR)/usr/share/$(PACKAGE)-common/lib/$(PACKAGE)-utils.jar
+
+	# cloudstack-python
+	mkdir -p $(DESTDIR)/usr/share/pyshared
+	cp -r python/lib/cloud* $(DESTDIR)/usr/share/pyshared
+
 	# cloudstack-agent
 	$(call build_agent)
 
@@ -189,9 +186,6 @@ override_dh_auto_install:
 
 	# cloudstack-ui
 	$(call build_ui)
-
-	# cloudstack-common
-	$(call build_common)
 
 	# cloudstack-usage
 	$(call build_usage)
