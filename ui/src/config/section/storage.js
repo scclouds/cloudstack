@@ -586,7 +586,7 @@ export default {
         return fields
       },
       searchFilters: () => {
-        const filters = ['id', 'virtualmachineid', 'intervaltype', 'isolated', 'quiescevm']
+        const filters = ['id', 'virtualmachineid', 'intervaltype', 'quiescevm']
 
         if (['Admin', 'DomainAdmin'].includes(store.getters.userInfo.roletype)) {
           filters.push('domainid', 'account')
