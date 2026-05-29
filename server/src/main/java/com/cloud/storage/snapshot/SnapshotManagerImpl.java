@@ -1413,10 +1413,9 @@ public class SnapshotManagerImpl extends MutualExclusiveIdsManagerBase implement
             intervalTypeOrdinal = intervalType.ordinal();
         }
 
-        Pair<Long, List<Long>> accountIdDomainListPair = _accountMgr.getInitialAccountIdAndDomainsForListing(accountName, domainId, projectId);
+        Pair<Long, List<Long>> accountIdDomainListPair = _accountMgr.validateAccountProjectAndDomainForListing(accountName, domainId, projectId);
         Long accountId = accountIdDomainListPair.first();
         List<Long> domainsList = accountIdDomainListPair.second();
-
 
         if (volumeId != null) {
             logger.trace("Searching for volume with ID [{}]", volumeId);
@@ -1446,12 +1445,12 @@ public class SnapshotManagerImpl extends MutualExclusiveIdsManagerBase implement
             }
         }
 
-        Pair<Long, List<Long>> finalAccountAndDomainsList = _accountMgr.adjustFiltersAccordingToListAll(cmd.listAll(), accountId, domainId, domainsList);
-        accountId = finalAccountAndDomainsList.first();
-        domainsList = finalAccountAndDomainsList.second();
+        final Pair<Long, List<Long>> finalAccountIdDomainListPair = _accountMgr.finalizeListingFiltersBasedOnRecursiveAndListAll(accountName, domainId, accountId, projectId, domainsList, cmd.isRecursive(), cmd.listAll());
+        accountId = finalAccountIdDomainListPair.first();
+        domainsList = finalAccountIdDomainListPair.second();
 
-        logger.debug("Searching for snapshot schedule filtering by: domains {}, account [{}], interval type [{}], volume ID: [{}], schedule ID: [{}]", domainsList, accountId, strIntervalType, volumeId, snapshotScheduleId);
-        Pair<List<SnapshotPolicyVO>, Integer> result = _snapshotPolicyDao.listSnapshotPolicies(accountId, domainsList, snapshotScheduleId, intervalTypeOrdinal, volumeId);
+        logger.debug("Searching for snapshot schedule filtering by: domains {}, account [{}], interval type [{}], volume ID: [{}], schedule ID: [{}], keyword: [{}]", domainsList, accountId, strIntervalType, volumeId, snapshotScheduleId, cmd.getKeyword());
+        Pair<List<SnapshotPolicyVO>, Integer> result = _snapshotPolicyDao.listSnapshotPolicies(accountId, domainsList, snapshotScheduleId, intervalTypeOrdinal, volumeId, cmd.getKeyword());
         return new Pair<>(result.first(), result.second());
     }
 

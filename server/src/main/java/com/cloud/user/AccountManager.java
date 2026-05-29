@@ -222,7 +222,11 @@ public interface AccountManager extends AccountService, Configurable {
      */
     Long finalizeAccountIdAndCheckCallerAccess(String accountName, Long domainId, Long projectId);
 
-    Pair<Long, List<Long>> getInitialAccountIdAndDomainsForListing(String accountName, Long domainId, Long projectId);
+    Pair<Long, List<Long>> validateAccountProjectAndDomainForListing(String accountName, Long domainId, Long projectId);
 
-    Pair<Long, List<Long>> adjustFiltersAccordingToListAll(Boolean shouldListAll, Long accountId, Long domainId, List<Long> domainsList);
+    Pair<Long, List<Long>> finalizeListingFiltersBasedOnRecursiveAndListAll(String accountName, Long domainId, Long accountId, Long projectId, List<Long> currentDomainList, Boolean listRecursively, Boolean listAll);
+
+    Pair<Long, List<Long>> adaptFiltersForRecursiveListing(List<Long> domainList);
+
+    Pair<Long, List<Long>> adaptFiltersToListAll(Long accountId, Long domainId, List<Long> domainsList);
 }

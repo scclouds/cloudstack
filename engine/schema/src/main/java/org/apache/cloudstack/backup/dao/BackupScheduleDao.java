@@ -33,5 +33,5 @@ public interface BackupScheduleDao extends GenericDao<BackupScheduleVO, Long> {
 
     List<BackupScheduleVO> getSchedulesToExecute(Date currentTimestamp);
 
-    Pair<List<BackupScheduleVO>, Integer> listSchedules(Long accountId, List<Long> domainIds, Long scheduleId, Integer intervalType, Long vmId, Boolean quiesceVM);
+    Pair<List<BackupScheduleVO>, Integer> listSchedules(Long accountId, List<Long> domainIds, Long scheduleId, Integer intervalType, Long vmId, Boolean quiesceVM, String keyword);
 }

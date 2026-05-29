@@ -40,5 +40,5 @@ public interface SnapshotPolicyDao extends GenericDao<SnapshotPolicyVO, Long> {
 
     List<SnapshotPolicyVO> listActivePolicies();
 
-    Pair<List<SnapshotPolicyVO>, Integer> listSnapshotPolicies(Long accountId, List<Long> domainIds, Long scheduleId, Integer intervalType, Long volumeId);
+    Pair<List<SnapshotPolicyVO>, Integer> listSnapshotPolicies(Long accountId, List<Long> domainIds, Long scheduleId, Integer intervalType, Long volumeId, String keyword);
 }

@@ -826,7 +826,7 @@ public class BackupManagerImpl extends ManagerBase implements BackupManager {
             intervalTypeOrdinal = intervalType.ordinal();
         }
 
-        Pair<Long, List<Long>> accountIdDomainListPair = accountManager.getInitialAccountIdAndDomainsForListing(accountName, domainId, projectId);
+        Pair<Long, List<Long>> accountIdDomainListPair = accountManager.validateAccountProjectAndDomainForListing(accountName, domainId, projectId);
         Long accountId = accountIdDomainListPair.first();
         List<Long> domainsList = accountIdDomainListPair.second();
 
@@ -856,12 +856,12 @@ public class BackupManagerImpl extends ManagerBase implements BackupManager {
             }
         }
 
-        Pair<Long, List<Long>> finalAccountAndDomainsList = accountManager.adjustFiltersAccordingToListAll(cmd.listAll(), accountId, domainId, domainsList);
-        accountId = finalAccountAndDomainsList.first();
-        domainsList = finalAccountAndDomainsList.second();
+        final Pair<Long, List<Long>> finalAccountIdDomainListPair = accountManager.finalizeListingFiltersBasedOnRecursiveAndListAll(accountName, domainId, accountId, projectId, domainsList, cmd.isRecursive(), cmd.listAll());
+        accountId = finalAccountIdDomainListPair.first();
+        domainsList = finalAccountIdDomainListPair.second();
 
         logger.debug("Searching for backup schedules filtering by: domains {}, account [{}], interval type [{}], schedule ID: [{}], VM ID: [{}].", domainsList, accountId, strIntervalType, scheduleId, vmId);
-        Pair<List<BackupScheduleVO>, Integer> result = backupScheduleDao.listSchedules(accountId, domainsList, scheduleId, intervalTypeOrdinal, vmId, cmd.getQuiescevm());
+        Pair<List<BackupScheduleVO>, Integer> result = backupScheduleDao.listSchedules(accountId, domainsList, scheduleId, intervalTypeOrdinal, vmId, cmd.getQuiescevm(), cmd.getKeyword());
         return new ArrayList<>(result.first());
     }
 

@@ -1765,12 +1765,24 @@ public class AccountManagerImpl extends ManagerBase implements AccountManager, M
     }
 
     @Override
-    public Pair<Long, List<Long>> getInitialAccountIdAndDomainsForListing(String accountName, Long domainId, Long projectId) {
-                if (accountName != null && projectId != null) {
+    public Pair<Long, List<Long>> validateAccountProjectAndDomainForListing(String accountName, Long domainId, Long projectId) {
+        if (accountName != null && projectId != null) {
             throw new InvalidParameterValueException("Account and project ID can't be specified together");
         }
 
         Account caller = CallContext.current().getCallingAccount();
+
+        Long accountId = caller.getAccountId();
+
+        if (accountName != null) {
+            logger.debug("Searching for account with name [{}].", accountName);
+            accountId = finalizeAccountIdAndCheckCallerAccess(accountName, domainId, null);
+        }
+
+        if (projectId != null) {
+            logger.debug("Searching for project with ID [{}]", projectId);
+            accountId = finalizeAccountIdAndCheckCallerAccess(null, null, projectId);
+        }
 
         List<Long> domainsList = new ArrayList<>();
 
@@ -1788,26 +1800,45 @@ public class AccountManagerImpl extends ManagerBase implements AccountManager, M
             domainsList.add(domainId);
         }
 
-        Long accountId = caller.getAccountId();
-
-        if (accountName != null) {
-            logger.debug("Searching for account with name [{}].", accountName);
-            accountId = finalizeAccountIdAndCheckCallerAccess(accountName, domainId, null);
-        }
-
-        if (projectId != null) {
-            logger.debug("Searching for project with ID [{}]", projectId);
-            accountId = finalizeAccountIdAndCheckCallerAccess(null, null, projectId);
-        }
-
         return new Pair<>(accountId, domainsList);
     }
 
     @Override
-    public Pair<Long, List<Long>> adjustFiltersAccordingToListAll(Boolean shouldListAll, Long accountId, Long domainId, List<Long> domainsList) {
+    public Pair<Long, List<Long>> finalizeListingFiltersBasedOnRecursiveAndListAll(String accountName, Long domainId, Long accountId, Long projectId, List<Long> currentDomainList, Boolean listRecursively, Boolean listAll) {
+        long callerId = CallContext.current().getCallingAccountId();
+        Pair<Long, List<Long>> finalAccountIdDomainListPair = new Pair<>(accountId, currentDomainList);
+
+        if (!isAdmin(callerId)) {
+            return finalAccountIdDomainListPair;
+        }
+
+        if ((accountName == null && projectId == null) && listRecursively) {
+            finalAccountIdDomainListPair = adaptFiltersForRecursiveListing(currentDomainList);
+        }
+
+        if (listAll && !listRecursively) {
+            finalAccountIdDomainListPair = adaptFiltersToListAll(accountId, domainId, currentDomainList);
+        }
+
+        return finalAccountIdDomainListPair;
+    }
+
+    @Override
+    public Pair<Long, List<Long>> adaptFiltersForRecursiveListing(List<Long> domainList) {
+        logger.debug("Removing account filter because recursive listing was requested.");
+
+        Long listDomain = domainList.get(0);
+        logger.debug("Fetching all subdomains of domain [{}] to include them in the search.", listDomain);
+        domainList = _domainDao.getDomainAndChildrenIds(listDomain);
+
+        return new Pair<>(null, domainList);
+    }
+
+    @Override
+    public Pair<Long, List<Long>> adaptFiltersToListAll(Long accountId, Long domainId, List<Long> domainsList) {
         Account caller = CallContext.current().getCallingAccount();
 
-        if (shouldListAll && accountId.equals(caller.getAccountId()) && isAdmin(accountId)) {
+            if (accountId.equals(caller.getAccountId())) {
             accountId = null;
 
             boolean wasDomainInformed = domainId != null;
