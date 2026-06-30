@@ -1429,6 +1429,7 @@ public class SnapshotManagerImpl extends MutualExclusiveIdsManagerBase implement
             logger.debug("Volume found. Checking if caller has access to it.");
             _accountMgr.checkAccess(caller, null, true, volume);
 
+            logger.debug("Caller has access to the volume. Filtering listing to volume's snapshot policies.");
             accountId = volume.getAccountId();
             domainsList.clear();
             domainsList.add(volume.getDomainId());
@@ -1436,7 +1437,7 @@ public class SnapshotManagerImpl extends MutualExclusiveIdsManagerBase implement
 
         if (domainsList.isEmpty()) {
             if (accountName == null && projectId == null) {
-                logger.info("Defaulting policies listing to the caller account's domain as it was not informed previously.");
+                logger.info("Defaulting policies listing to the caller account's domain as none was informed previously.");
                 domainsList.add(caller.getDomainId());
             } else {
                 Account account = _accountDao.findById(accountId);
@@ -1445,7 +1446,8 @@ public class SnapshotManagerImpl extends MutualExclusiveIdsManagerBase implement
             }
         }
 
-        final Pair<Long, List<Long>> finalAccountIdDomainListPair = _accountMgr.finalizeListingFiltersBasedOnRecursiveAndListAll(accountName, domainId, accountId, projectId, domainsList, cmd.isRecursive(), cmd.listAll());
+        boolean wasDomainInformed = domainId != null;
+        final Pair<Long, List<Long>> finalAccountIdDomainListPair = _accountMgr.finalizeListingFiltersBasedOnRecursiveAndListAll(cmd.isRecursive(), cmd.listAll(), wasDomainInformed, accountId, domainsList);
         accountId = finalAccountIdDomainListPair.first();
         domainsList = finalAccountIdDomainListPair.second();
 

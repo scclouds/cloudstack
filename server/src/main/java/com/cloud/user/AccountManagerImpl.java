@@ -1804,23 +1804,24 @@ public class AccountManagerImpl extends ManagerBase implements AccountManager, M
     }
 
     @Override
-    public Pair<Long, List<Long>> finalizeListingFiltersBasedOnRecursiveAndListAll(String accountName, Long domainId, Long accountId, Long projectId, List<Long> currentDomainList, Boolean listRecursively, Boolean listAll) {
+    public Pair<Long, List<Long>> finalizeListingFiltersBasedOnRecursiveAndListAll(Boolean listRecursively, Boolean listAll, Boolean wasDomainInformed, Long accountId, List<Long> domainsList) {
         long callerId = CallContext.current().getCallingAccountId();
-        Pair<Long, List<Long>> finalAccountIdDomainListPair = new Pair<>(accountId, currentDomainList);
+         Pair<Long, List<Long>> finalAccountAndDomainsList = new Pair<>(accountId, domainsList);
 
         if (!isAdmin(callerId)) {
-            return finalAccountIdDomainListPair;
+            logger.debug("Ignoring listAll or recursive listing because the caller is not Admin.");
+            return finalAccountAndDomainsList;
         }
 
-        if ((accountName == null && projectId == null) && listRecursively) {
-            finalAccountIdDomainListPair = adaptFiltersForRecursiveListing(currentDomainList);
+        if (listAll) {
+            return adaptFiltersToListAll(wasDomainInformed, finalAccountAndDomainsList);
         }
 
-        if (listAll && !listRecursively) {
-            finalAccountIdDomainListPair = adaptFiltersToListAll(accountId, domainId, currentDomainList);
+        if (listRecursively) {
+            return adaptFiltersForRecursiveListing(finalAccountAndDomainsList.second());
         }
 
-        return finalAccountIdDomainListPair;
+        return finalAccountAndDomainsList;
     }
 
     @Override
@@ -1835,26 +1836,27 @@ public class AccountManagerImpl extends ManagerBase implements AccountManager, M
     }
 
     @Override
-    public Pair<Long, List<Long>> adaptFiltersToListAll(Long accountId, Long domainId, List<Long> domainsList) {
+    public Pair<Long, List<Long>> adaptFiltersToListAll(Boolean wasDomainInformed, Pair<Long, List<Long>> currentAccountAndDomainList) {
         Account caller = CallContext.current().getCallingAccount();
+        Long accountId = currentAccountAndDomainList.first();
+        List<Long> domainsList = currentAccountAndDomainList.second();
 
-            if (accountId.equals(caller.getAccountId())) {
-            accountId = null;
-
-            boolean wasDomainInformed = domainId != null;
-
-            if (caller.getType().equals(Account.Type.ADMIN) && !wasDomainInformed) {
-                logger.debug("Removing account and domains filters as no parameter was informed except listall and the caller is a ROOT admin.");
-                domainsList.clear();
-            }
-
-            if (caller.getType().equals(Account.Type.DOMAIN_ADMIN) && !wasDomainInformed) {
-                logger.debug("Removing account filter and filtering schedules in the caller's domain and its children, as the caller is a domain admin and listall was informed.");
-                domainsList = _domainDao.getDomainAndChildrenIds(caller.getDomainId());
-            }
+        if (!accountId.equals(caller.getAccountId())) {
+            logger.debug("Ignoring listAll because the selected account for listing is not the caller.");
+            return new Pair<>(accountId, domainsList);
         }
 
-        return new Pair<>(accountId, domainsList);
+        if (caller.getType().equals(Account.Type.ADMIN) && !wasDomainInformed) {
+            logger.debug("Removing account and domains filters as no parameter was informed except listall and the caller is a ROOT admin.");
+            domainsList.clear();
+        }
+
+        if (caller.getType().equals(Account.Type.DOMAIN_ADMIN) && !wasDomainInformed) {
+            logger.debug("Removing account filter and filtering schedules in the caller's domain and its children, as the caller is a domain admin and listall was informed.");
+            domainsList = _domainDao.getDomainAndChildrenIds(caller.getDomainId());
+        }
+
+        return new Pair<>(null, domainsList);
     }
 
     protected void checkCallerApiPermissionsForUserOrAccountOperations(Account userAccount) {

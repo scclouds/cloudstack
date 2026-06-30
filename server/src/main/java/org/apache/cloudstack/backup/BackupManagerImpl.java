@@ -856,7 +856,8 @@ public class BackupManagerImpl extends ManagerBase implements BackupManager {
             }
         }
 
-        final Pair<Long, List<Long>> finalAccountIdDomainListPair = accountManager.finalizeListingFiltersBasedOnRecursiveAndListAll(accountName, domainId, accountId, projectId, domainsList, cmd.isRecursive(), cmd.listAll());
+        boolean wasDomainInformed = domainId != null;
+        final Pair<Long, List<Long>> finalAccountIdDomainListPair = accountManager.finalizeListingFiltersBasedOnRecursiveAndListAll(cmd.isRecursive(), cmd.listAll(), wasDomainInformed, accountId, domainsList);
         accountId = finalAccountIdDomainListPair.first();
         domainsList = finalAccountIdDomainListPair.second();
 

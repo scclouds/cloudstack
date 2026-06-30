@@ -222,11 +222,48 @@ public interface AccountManager extends AccountService, Configurable {
      */
     Long finalizeAccountIdAndCheckCallerAccess(String accountName, Long domainId, Long projectId);
 
+    /**
+     * Makes initial validation for account, domain and project parameters passed to APIs. The following validations are executed:
+     * <ul>
+     *  <li>Validate that <code>accountName</code> and <code>projectId</code> were not informed together;</li>
+     *  <li>If <code>accountName</code> was informed, tries to get it using <code>AccountManager.finalizeAccountIdAndCheckCallerAccess()</code>;</li>
+     *  <li>If <code>projectId</code> was informed, tries to get it using <code>AccountManager.finalizeAccountIdAndCheckCallerAccess()</code>;</li>
+     *  <li>If <code>domainId</code> was informed, gets the domain from the database, validate that it exists and that the caller has access to it.</li>
+     *  </ul>
+     * @param accountName name of the account caller wishes to get
+     * @param domainId id of the domain that the caller wishes to get resources from
+     * @param projectId id of the project that the caller wishes to get
+     * @return returns a <code>Pair</code> of the found account (or project) ID as key, and a <code>List</code> of <code>Long</code> containing the found domain ID.
+     */
     Pair<Long, List<Long>> validateAccountProjectAndDomainForListing(String accountName, Long domainId, Long projectId);
 
-    Pair<Long, List<Long>> finalizeListingFiltersBasedOnRecursiveAndListAll(String accountName, Long domainId, Long accountId, Long projectId, List<Long> currentDomainList, Boolean listRecursively, Boolean listAll);
+    /**
+     * Validates the eligibility for the recursive and listAll parameters. Then, adjust the filters according to the operation. If the user is not an Admin, nothing is changed.
+     * <ul>
+     *     <li>If <code>listRecursively</code> is informed, use <code>AccountManager.adaptFiltersForRecursiveListing()</code></li> to adjust the filters;
+     *     <li>If <code>listAll</code> is informed, use <code>AccountManager.adaptFiltersToListAll()</code></li> to adjust the filters;
+     * </ul>
+     * @param listRecursively if the listing should be recursive (domain and subdomains)
+     * @param listAll if all resources available to the caller should be listed
+     * @param wasDomainInformed if the domainId parameter was informed
+     * @param accountId the current account ID being considered for listing
+     * @param domainsList the current list of domains being considered for listing
+     * @return a <code>Pair</code> of the account (or project) ID as key, and a <code>List</code> of <code>Long</code> containing the domain IDs.
+     */
+    Pair<Long, List<Long>> finalizeListingFiltersBasedOnRecursiveAndListAll(Boolean listRecursively, Boolean listAll, Boolean wasDomainInformed, Long accountId, List<Long> domainsList);
 
+    /**
+     * Adjust the current domain list for recursive listing. Gets the first domain from the list and adds all its subdomains to the list. If the list is empty, nothing is done.
+     * @param domainList current list of domain IDs being considered for listing
+     * @return a <code>Pair</code> of the account (or project) ID as key, and a <code>List</code> of <code>Long</code> containing the domain and subdomain IDs.
+     */
     Pair<Long, List<Long>> adaptFiltersForRecursiveListing(List<Long> domainList);
 
-    Pair<Long, List<Long>> adaptFiltersToListAll(Long accountId, Long domainId, List<Long> domainsList);
+    /**
+     * Adjust the current domains list and accountId for the listAll parameter. If the accountId being considered for listing is not equal as the caller ID or a domain was informed for the listing, nothing is changed. If the user is a ROOT Admin, we set <code>accountId</code> and the domain list to null, so that all resources available to the caller are listed. If the user is a Domain Admin, we set the accountId to null and adjust the domain list to contain the callers domain and its children.
+     * @param wasDomainInformed if the <code>domainId</code> parameter was informed for the listing
+     * @param currentAccountAndDomainList a <code>Pair</code> of the current accountId and domain list considered for listing.
+     * @return <code>Pair</code> of the account (or project) ID as key, and a <code>List</code> of <code>Long</code> containing the domain and subdomain IDs adjusted to list all.
+     */
+    Pair<Long, List<Long>> adaptFiltersToListAll(Boolean wasDomainInformed, Pair<Long, List<Long>> currentAccountAndDomainList);
 }
