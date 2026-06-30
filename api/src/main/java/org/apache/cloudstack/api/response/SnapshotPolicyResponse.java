@@ -45,9 +45,13 @@ public class SnapshotPolicyResponse extends BaseResponseWithTagInformation {
     @Param(description = "Time the Snapshot is scheduled to be taken.")
     private String schedule;
 
-    @SerializedName("intervaltype")
+    @SerializedName(ApiConstants.INTERVAL_TYPE)
     @Param(description = "The interval type of the Snapshot Policy")
-    private String intervalType;
+    private short intervalType;
+
+    @SerializedName(ApiConstants.INTERVAL_TYPE_NAME)
+    @Param(description = "The name of the interval type of the Snapshot Policy")
+    private String intervalTypeName;
 
     @SerializedName("maxsnaps")
     @Param(description = "Maximum number of Snapshots retained")
@@ -127,12 +131,20 @@ public class SnapshotPolicyResponse extends BaseResponseWithTagInformation {
         this.schedule = schedule;
     }
 
-    public String getIntervalType() {
+    public short getIntervalType() {
         return intervalType;
     }
 
-    public void setIntervalType(String intervalType) {
+    public void setIntervalType(short intervalType) {
         this.intervalType = intervalType;
+    }
+
+    public String getIntervalTypeName() {
+        return intervalTypeName;
+    }
+
+    public void setIntervalTypeName(String intervalTypeName) {
+        this.intervalTypeName = intervalTypeName;
     }
 
     public int getMaxSnaps() {

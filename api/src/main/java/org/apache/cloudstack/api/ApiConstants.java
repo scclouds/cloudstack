@@ -313,6 +313,7 @@ public class ApiConstants {
     public static final String INTERNAL_DNS2 = "internaldns2";
     public static final String INTERNET_PROTOCOL = "internetprotocol";
     public static final String INTERVAL_TYPE = "intervaltype";
+    public static final String INTERVAL_TYPE_NAME = "intervaltypename";
     public static final String INSTANCE_LEASE_DURATION = "leaseduration";
     public static final String INSTANCE_LEASE_ENABLED = "instanceleaseenabled";
     public static final String INSTANCE_LEASE_EXPIRY_ACTION = "leaseexpiryaction";

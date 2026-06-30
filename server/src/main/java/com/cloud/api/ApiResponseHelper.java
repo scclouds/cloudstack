@@ -886,7 +886,13 @@ public class ApiResponseHelper implements ResponseGenerator, ResourceIdSupport {
             policyResponse.setVolumeName(vol.getName());
         }
         policyResponse.setSchedule(policy.getSchedule());
-        policyResponse.setIntervalType(DateUtil.getIntervalType(policy.getInterval()).name());
+        policyResponse.setIntervalType(policy.getInterval());
+
+        DateUtil.IntervalType intervalType = DateUtil.getIntervalType(policy.getInterval());
+        if (intervalType != null) {
+            policyResponse.setIntervalTypeName(intervalType.name());
+        }
+
         policyResponse.setMaxSnaps(policy.getMaxSnaps());
         policyResponse.setTimezone(policy.getTimezone());
         policyResponse.setForDisplay(policy.isDisplay());
