@@ -1994,6 +1994,160 @@ public class BackupManagerTest {
         assertTrue(result.contains(schedule));
     }
 
+        @Test
+    public void listBackupSchedulesTestSucceeded() {
+        ListBackupScheduleCmd cmd = Mockito.mock(ListBackupScheduleCmd.class);
+        Mockito.when(cmd.getVmId()).thenReturn(null);
+        Mockito.when(cmd.getDomainId()).thenReturn(null);
+        Mockito.when(cmd.getId()).thenReturn(null);
+        Mockito.when(cmd.getProjectId()).thenReturn(null);
+        Mockito.when(cmd.getDomainId()).thenReturn(null);
+        Mockito.when(cmd.listAll()).thenReturn(true);
+
+        Account caller = Mockito.mock(Account.class);
+        Mockito.when(caller.getId()).thenReturn(2L);
+        CallContext.register(Mockito.mock(User.class), caller);
+
+        BackupScheduleVO schedule1 = Mockito.mock(BackupScheduleVO.class);
+        BackupScheduleVO schedule2 = Mockito.mock(BackupScheduleVO.class);
+        List<BackupScheduleVO> schedules = List.of(schedule1, schedule2);
+
+        Mockito.when(backupScheduleDaoMock.listSchedules(Mockito.any(), Mockito.any(), Mockito.any(), Mockito.any(), Mockito.any(), Mockito.any(), Mockito.any())).thenReturn(new Pair<>(schedules, schedules.size()));
+
+        List<BackupSchedule> result = backupManager.listBackupSchedules(cmd);
+
+        assertEquals(schedules.size(), result.size());
+        assertTrue(result.contains(schedule1));
+        assertTrue(result.contains(schedule2));
+    }
+
+    @Test(expected = InvalidParameterValueException.class)
+    public void listBackupSchedulesTestInvalidIntervalType() {
+        ListBackupScheduleCmd cmd = Mockito.mock(ListBackupScheduleCmd.class);
+        Mockito.when(cmd.getVmId()).thenReturn(null);
+        Mockito.when(cmd.getDomainId()).thenReturn(null);
+        Mockito.when(cmd.getId()).thenReturn(null);
+        Mockito.when(cmd.getProjectId()).thenReturn(null);
+        Mockito.when(cmd.getIntervalType()).thenReturn("ANNUALLY");
+
+        Account caller = Mockito.mock(Account.class);
+        Mockito.when(caller.getId()).thenReturn(2L);
+        CallContext.register(Mockito.mock(User.class), caller);
+
+        backupManager.listBackupSchedules(cmd);
+    }
+
+    @Test(expected = InvalidParameterValueException.class)
+    public void listBackupSchedulesTestInvalidDomain() {
+        ListBackupScheduleCmd cmd = Mockito.mock(ListBackupScheduleCmd.class);
+        Mockito.when(cmd.getVmId()).thenReturn(null);
+        Mockito.when(cmd.getDomainId()).thenReturn(1L);
+        Mockito.when(cmd.getId()).thenReturn(null);
+        Mockito.when(cmd.getProjectId()).thenReturn(null);
+
+        Account caller = Mockito.mock(Account.class);
+        Mockito.when(caller.getId()).thenReturn(2L);
+        CallContext.register(Mockito.mock(User.class), caller);
+
+        Mockito.when(domainDao.findById(Mockito.anyLong())).thenReturn(null);
+
+        backupManager.listBackupSchedules(cmd);
+    }
+
+    @Test(expected = InvalidParameterValueException.class)
+    public void listBackupSchedulesTestUnpermittedDomainAndProject() {
+        ListBackupScheduleCmd cmd = Mockito.mock(ListBackupScheduleCmd.class);
+        Mockito.when(cmd.getVmId()).thenReturn(null);
+        Mockito.when(cmd.getDomainId()).thenReturn(1L);
+        Mockito.when(cmd.getId()).thenReturn(null);
+        Mockito.when(cmd.getProjectId()).thenReturn(1L);
+
+        Account caller = Mockito.mock(Account.class);
+        Mockito.when(caller.getId()).thenReturn(2L);
+        CallContext.register(Mockito.mock(User.class), caller);
+
+        backupManager.listBackupSchedules(cmd);
+    }
+
+    @Test(expected = InvalidParameterValueException.class)
+    public void listBackupSchedulesTestUnpermittedAccountAndProject() {
+        ListBackupScheduleCmd cmd = Mockito.mock(ListBackupScheduleCmd.class);
+        Mockito.when(cmd.getVmId()).thenReturn(null);
+        Mockito.when(cmd.getDomainId()).thenReturn(null);
+        Mockito.when(cmd.getId()).thenReturn(null);
+        Mockito.when(cmd.getProjectId()).thenReturn(1L);
+        Mockito.when(cmd.getAccountName()).thenReturn("account");
+
+        Account caller = Mockito.mock(Account.class);
+        Mockito.when(caller.getId()).thenReturn(2L);
+        CallContext.register(Mockito.mock(User.class), caller);
+
+        backupManager.listBackupSchedules(cmd);
+    }
+
+    @Test
+    public void listBackupSchedulesTestListAllRootAdminSucceeded() {
+        ListBackupScheduleCmd cmd = Mockito.mock(ListBackupScheduleCmd.class);
+        Mockito.when(cmd.getVmId()).thenReturn(null);
+        Mockito.when(cmd.getDomainId()).thenReturn(null);
+        Mockito.when(cmd.getId()).thenReturn(null);
+        Mockito.when(cmd.getProjectId()).thenReturn(null);
+        Mockito.when(cmd.getAccountName()).thenReturn(null);
+
+        Account caller = Mockito.mock(Account.class);
+        Mockito.when(caller.getId()).thenReturn(2L);
+        Mockito.when(caller.getType()).thenReturn(Account.Type.ADMIN);
+        CallContext.register(Mockito.mock(User.class), caller);
+
+        Mockito.when(cmd.listAll()).thenReturn(true);
+        Mockito.when(accountManager.isAdmin(Mockito.any())).thenReturn(true);
+
+        BackupScheduleVO schedule1 = Mockito.mock(BackupScheduleVO.class);
+        BackupScheduleVO schedule2 = Mockito.mock(BackupScheduleVO.class);
+        List<BackupScheduleVO> schedules = List.of(schedule1, schedule2);
+
+        Mockito.when(backupScheduleDaoMock.listSchedules(Mockito.any(), Mockito.any(), Mockito.any(), Mockito.any(), Mockito.any(), Mockito.any(), Mockito.any())).thenReturn(new Pair<>(schedules, schedules.size()));
+
+        List<BackupSchedule> result = backupManager.listBackupSchedules(cmd);
+
+        Mockito.verify(accountManager, Mockito.times(1)).isAdmin(Mockito.any());
+        assertEquals(schedules.size(), result.size());
+        assertTrue(result.contains(schedule1));
+        assertTrue(result.contains(schedule2));
+    }
+
+    @Test
+    public void listBackupSchedulesTestListAllDomainAdminSucceeded() {
+        ListBackupScheduleCmd cmd = Mockito.mock(ListBackupScheduleCmd.class);
+        Mockito.when(cmd.getVmId()).thenReturn(null);
+        Mockito.when(cmd.getDomainId()).thenReturn(null);
+        Mockito.when(cmd.getId()).thenReturn(null);
+        Mockito.when(cmd.getProjectId()).thenReturn(null);
+        Mockito.when(cmd.getAccountName()).thenReturn(null);
+
+        Account caller = Mockito.mock(Account.class);
+        Mockito.when(caller.getId()).thenReturn(2L);
+        Mockito.when(caller.getType()).thenReturn(Account.Type.DOMAIN_ADMIN);
+        CallContext.register(Mockito.mock(User.class), caller);
+
+        when(cmd.listAll()).thenReturn(true);
+        when(accountManager.isAdmin(Mockito.any())).thenReturn(true);
+
+        BackupScheduleVO schedule1 = Mockito.mock(BackupScheduleVO.class);
+        BackupScheduleVO schedule2 = Mockito.mock(BackupScheduleVO.class);
+        List<BackupScheduleVO> schedules = List.of(schedule1, schedule2);
+
+        Mockito.when(backupScheduleDaoMock.listSchedules(Mockito.any(), Mockito.any(), Mockito.any(), Mockito.any(), Mockito.any(), Mockito.any(), Mockito.any())).thenReturn(new Pair<>(schedules, schedules.size()));
+
+        List<BackupSchedule> result = backupManager.listBackupSchedules(cmd);
+
+        Mockito.verify(accountManager, Mockito.times(1)).isAdmin(Mockito.any());
+        assertEquals(schedules.size(), result.size());
+        assertTrue(result.contains(schedule1));
+        assertTrue(result.contains(schedule2));
+    }
+
+
     @Test
     public void testCanCreateInstanceFromBackupAcrossZonesSuccess() {
         Long backupId = 1L;

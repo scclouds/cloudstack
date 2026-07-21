@@ -527,6 +527,187 @@ public class SnapshotManagerImplTest {
         Assert.assertEquals(Integer.valueOf(1), result.second());
     }
 
+        @Test
+    public void listSnapshotPoliciesTestSucceeded() {
+        ListSnapshotPoliciesCmd cmd = Mockito.mock(ListSnapshotPoliciesCmd.class);
+        Mockito.when(cmd.getVolumeId()).thenReturn(null);
+        Mockito.when(cmd.getDomainId()).thenReturn(null);
+        Mockito.when(cmd.getId()).thenReturn(null);
+        Mockito.when(cmd.getAccountName()).thenReturn(null);
+        Mockito.when(cmd.getProjectId()).thenReturn(null);
+
+        Account caller = Mockito.mock(Account.class);
+        Mockito.when(caller.getId()).thenReturn(1L);
+        CallContext.register(Mockito.mock(User.class), caller);
+
+        SnapshotPolicyVO policy1 = Mockito.mock(SnapshotPolicyVO.class);
+        SnapshotPolicyVO policy2 = Mockito.mock(SnapshotPolicyVO.class);
+        List<SnapshotPolicyVO> mockPolicies = List.of(policy1, policy2);
+        Pair<List<SnapshotPolicyVO>, Integer> responsePair = new Pair<>(mockPolicies, mockPolicies.size());
+
+        Mockito.when(snapshotPolicyDao.listSnapshotPolicies(Mockito.any(), Mockito.any(), Mockito.any(), Mockito.any(), Mockito.any())).thenReturn(responsePair);
+
+        Pair<List<? extends SnapshotPolicy>, Integer> result = snapshotManager.listSnapshotPolicies(cmd);
+
+        Assert.assertNotNull(result);
+        Assert.assertEquals(2, result.first().size());
+        Assert.assertEquals(Integer.valueOf(2), result.second());
+        Assert.assertEquals(mockPolicies, result.first());
+    }
+
+    @Test(expected = InvalidParameterValueException.class)
+    public void listSnapshotPoliciesTestInvalidIntervalType() {
+        ListSnapshotPoliciesCmd cmd = Mockito.mock(ListSnapshotPoliciesCmd.class);
+        Mockito.when(cmd.getVolumeId()).thenReturn(null);
+        Mockito.when(cmd.getDomainId()).thenReturn(null);
+        Mockito.when(cmd.getId()).thenReturn(null);
+        Mockito.when(cmd.getProjectId()).thenReturn(null);
+        Mockito.when(cmd.getIntervalType()).thenReturn("ANNUALLY");
+
+        Account caller = Mockito.mock(Account.class);
+        Mockito.when(caller.getId()).thenReturn(2L);
+        CallContext.register(Mockito.mock(User.class), caller);
+
+        snapshotManager.listSnapshotPolicies(cmd);
+    }
+
+    @Test(expected = InvalidParameterValueException.class)
+    public void listSnapshotPoliciesTestUnpermittedDomainAndProject() {
+        ListSnapshotPoliciesCmd cmd = Mockito.mock(ListSnapshotPoliciesCmd.class);
+        Mockito.when(cmd.getVolumeId()).thenReturn(null);
+        Mockito.when(cmd.getDomainId()).thenReturn(1L);
+        Mockito.when(cmd.getId()).thenReturn(null);
+        Mockito.when(cmd.getProjectId()).thenReturn(1L);
+
+        Account caller = Mockito.mock(Account.class);
+        Mockito.when(caller.getId()).thenReturn(2L);
+        CallContext.register(Mockito.mock(User.class), caller);
+
+        snapshotManager.listSnapshotPolicies(cmd);
+    }
+
+    @Test(expected = InvalidParameterValueException.class)
+    public void listSnapshotPoliciesTestInvalidDomain() {
+        ListSnapshotPoliciesCmd cmd = Mockito.mock(ListSnapshotPoliciesCmd.class);
+        Mockito.when(cmd.getVolumeId()).thenReturn(null);
+        Mockito.when(cmd.getDomainId()).thenReturn(1L);
+        Mockito.when(cmd.getId()).thenReturn(null);
+        Mockito.when(cmd.getProjectId()).thenReturn(null);
+
+        Mockito.when(domainDao.findById(Mockito.any())).thenReturn(null);
+
+        Account caller = Mockito.mock(Account.class);
+        Mockito.when(caller.getId()).thenReturn(2L);
+        CallContext.register(Mockito.mock(User.class), caller);
+
+        snapshotManager.listSnapshotPolicies(cmd);
+    }
+
+    @Test(expected = InvalidParameterValueException.class)
+    public void listSnapshotPoliciesTestUnpermittedAccountAndProject() {
+        ListSnapshotPoliciesCmd cmd = Mockito.mock(ListSnapshotPoliciesCmd.class);
+        Mockito.when(cmd.getVolumeId()).thenReturn(null);
+        Mockito.when(cmd.getDomainId()).thenReturn(null);
+        Mockito.when(cmd.getId()).thenReturn(null);
+        Mockito.when(cmd.getAccountName()).thenReturn("account");
+        Mockito.when(cmd.getProjectId()).thenReturn(1L);
+
+        Account caller = Mockito.mock(Account.class);
+        Mockito.when(caller.getId()).thenReturn(2L);
+        CallContext.register(Mockito.mock(User.class), caller);
+
+        snapshotManager.listSnapshotPolicies(cmd);
+    }
+
+    @Test(expected = InvalidParameterValueException.class)
+    public void listSnapshotPoliciesTestInvalidVolumeId() {
+        ListSnapshotPoliciesCmd cmd = Mockito.mock(ListSnapshotPoliciesCmd.class);
+        Mockito.when(cmd.getVolumeId()).thenReturn(1L);
+        Mockito.when(cmd.getDomainId()).thenReturn(null);
+        Mockito.when(cmd.getId()).thenReturn(null);
+        Mockito.when(cmd.getProjectId()).thenReturn(null);
+
+        Account caller = Mockito.mock(Account.class);
+        Mockito.when(caller.getId()).thenReturn(2L);
+        CallContext.register(Mockito.mock(User.class), caller);
+
+        Mockito.when(volumeDao.findById(Mockito.any())).thenReturn(null);
+
+        snapshotManager.listSnapshotPolicies(cmd);
+    }
+
+    @Test
+    public void listSnapshotPoliciesTestListAllRootAdmin() {
+        ListSnapshotPoliciesCmd cmd = Mockito.mock(ListSnapshotPoliciesCmd.class);
+        Mockito.when(cmd.getVolumeId()).thenReturn(1L);
+        Mockito.when(cmd.getDomainId()).thenReturn(null);
+        Mockito.when(cmd.getId()).thenReturn(null);
+        Mockito.when(cmd.getProjectId()).thenReturn(null);
+        Mockito.when(cmd.getAccountName()).thenReturn(null);
+        Mockito.when(cmd.getDomainId()).thenReturn(null);
+        Mockito.when(cmd.getVolumeId()).thenReturn(null);
+        Mockito.when(cmd.listAll()).thenReturn(true);
+
+        Account caller = Mockito.mock(Account.class);
+        Mockito.when(caller.getId()).thenReturn(2L);
+        Mockito.when(caller.getType()).thenReturn(Account.Type.ADMIN);
+        CallContext.register(Mockito.mock(User.class), caller);
+
+        Mockito.when(accountManager.isAdmin(Mockito.any())).thenReturn(true);
+
+        SnapshotPolicyVO policy1 = Mockito.mock(SnapshotPolicyVO.class);
+        SnapshotPolicyVO policy2 = Mockito.mock(SnapshotPolicyVO.class);
+        List<SnapshotPolicyVO> mockPolicies = List.of(policy1, policy2);
+
+        Mockito.when(snapshotPolicyDao.listSnapshotPolicies(Mockito.any(), Mockito.any(), Mockito.any(), Mockito.any(), Mockito.any())).thenReturn(new Pair<>(mockPolicies, 2));
+
+        Pair<List<? extends SnapshotPolicy>, Integer> result = snapshotManager.listSnapshotPolicies(cmd);
+
+        Mockito.verify(accountManager, Mockito.times(1)).isAdmin(Mockito.any());
+        Assert.assertNotNull(result);
+        Assert.assertEquals(2, result.first().size());
+        Assert.assertEquals(Integer.valueOf(2), result.second());
+        Assert.assertEquals(mockPolicies, result.first());
+    }
+
+    @Test
+    public void listSnapshotPoliciesTestListAllDomainAdmin() {
+        ListSnapshotPoliciesCmd cmd = Mockito.mock(ListSnapshotPoliciesCmd.class);
+        Mockito.when(cmd.getVolumeId()).thenReturn(1L);
+        Mockito.when(cmd.getDomainId()).thenReturn(null);
+        Mockito.when(cmd.getId()).thenReturn(null);
+        Mockito.when(cmd.getProjectId()).thenReturn(null);
+        Mockito.when(cmd.getDomainId()).thenReturn(null);
+        Mockito.when(cmd.getVolumeId()).thenReturn(null);
+        Mockito.when(cmd.listAll()).thenReturn(true);
+
+        Account caller = Mockito.mock(Account.class);
+        Mockito.when(caller.getId()).thenReturn(2L);
+        Mockito.when(caller.getType()).thenReturn(Account.Type.DOMAIN_ADMIN);
+        CallContext.register(Mockito.mock(User.class), caller);
+
+        Mockito.when(accountManager.isAdmin(Mockito.any())).thenReturn(true);
+
+        SnapshotPolicyVO policy1 = Mockito.mock(SnapshotPolicyVO.class);
+        SnapshotPolicyVO policy2 = Mockito.mock(SnapshotPolicyVO.class);
+        List<SnapshotPolicyVO> mockPolicies = List.of(policy1, policy2);
+
+        Mockito.when(snapshotPolicyDao.listSnapshotPolicies(Mockito.any(), Mockito.any(), Mockito.any(), Mockito.any(), Mockito.any())).thenReturn(new Pair<>(mockPolicies, 2));
+
+        List<Long> domainsList = List.of(1L, 2L, 3L);
+        Mockito.when(domainDao.getDomainAndChildrenIds(Mockito.anyLong())).thenReturn(domainsList);
+
+        Pair<List<? extends SnapshotPolicy>, Integer> result = snapshotManager.listSnapshotPolicies(cmd);
+
+        Mockito.verify(accountManager, Mockito.times(1)).isAdmin(Mockito.any());
+        Mockito.verify(domainDao, Mockito.times(1)).getDomainAndChildrenIds(Mockito.anyLong());
+        Assert.assertNotNull(result);
+        Assert.assertEquals(2, result.first().size());
+        Assert.assertEquals(Integer.valueOf(2), result.second());
+        Assert.assertEquals(mockPolicies, result.first());
+    }
+
+
     @Test
     public void testDeleteSnapshotPoliciesForRemovedVolume() {
         Long policyId = 1L;
