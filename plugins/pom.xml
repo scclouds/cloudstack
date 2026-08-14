@@ -85,6 +85,8 @@
 
         <module>ha-planners/skip-heurestics</module>
 
+        <module>host-devices</module>
+
         <module>hypervisors/baremetal</module>
         <module>hypervisors/external</module>
         <module>hypervisors/hyperv</module>

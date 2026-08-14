@@ -91,6 +91,10 @@ public class XmlObject {
         }
     }
 
+    public Object getElement(String key) {
+        return elements.get(key);
+    }
+
     public <T> T get(String elementStr) {
         String[] strs = elementStr.split("\\.");
         List<String> lst = new ArrayList<String>(strs.length);

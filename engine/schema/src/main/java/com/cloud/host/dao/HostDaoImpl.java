@@ -143,6 +143,7 @@ public class HostDaoImpl extends GenericDaoBase<HostVO, Long> implements HostDao
     protected SearchBuilder<HostVO> TypeNameZoneSearch;
     protected SearchBuilder<HostVO> AvailHypevisorInZone;
     protected SearchBuilder<HostVO> ClusterHypervisorSearch;
+    protected SearchBuilder<HostVO> hostHypervisorStatusTypeHypervisorSearch;
 
     protected SearchBuilder<HostVO> DirectConnectSearch;
     protected SearchBuilder<HostVO> ManagedDirectConnectSearch;
@@ -515,6 +516,13 @@ public class HostDaoImpl extends GenericDaoBase<HostVO, Long> implements HostDao
 
         searchBuilderFindByRuleTag.done();
         searchBuilderFindByIdTypeClusterIdPodIdDcIdAndWithoutRuleTag.done();
+
+        hostHypervisorStatusTypeHypervisorSearch = createSearchBuilder();
+        hostHypervisorStatusTypeHypervisorSearch.and("hypervisor", hostHypervisorStatusTypeHypervisorSearch.entity().getHypervisorType(), Op.EQ);
+        hostHypervisorStatusTypeHypervisorSearch.and("status", hostHypervisorStatusTypeHypervisorSearch.entity().getStatus(), Op.EQ);
+        hostHypervisorStatusTypeHypervisorSearch.and("type", hostHypervisorStatusTypeHypervisorSearch.entity().getType(), Op.EQ);
+        hostHypervisorStatusTypeHypervisorSearch.and("clusterIds", hostHypervisorStatusTypeHypervisorSearch.entity().getClusterId(), Op.IN);
+        hostHypervisorStatusTypeHypervisorSearch.done();
 
         _statusAttr = _allAttributes.get("status");
         _msIdAttr = _allAttributes.get("managementServerId");
@@ -1584,6 +1592,31 @@ public class HostDaoImpl extends GenericDaoBase<HostVO, Long> implements HostDao
             result.add(host.getClusterId());
         }
         return new ArrayList<>(result);
+    }
+
+    @Override
+    public List<HostVO> listAllRoutingHostsUpInClusters(List<Long> clusterIds, HypervisorType hypervisorType) {
+        SearchCriteria<HostVO> sc = hostHypervisorStatusTypeHypervisorSearch.create();
+        sc.setParameters("hypervisor", hypervisorType.toString());
+        sc.setParameters("status", Status.Up);
+        sc.setParameters("type", Type.Routing);
+
+        if (!clusterIds.isEmpty()) {
+            sc.setParametersIfNotNull("clusterIds", SearchCriteria.Op.IN, clusterIds.toArray());
+        }
+
+        return listBy(sc);
+    }
+
+    @Override
+    public HostVO findUpAndRoutingHypervisorHostById(long hostId, HypervisorType hypervisorType) {
+        SearchCriteria<HostVO> sc = hostHypervisorStatusTypeHypervisorSearch.create();
+
+        sc.setParameters("hypervisor", hypervisorType.toString());
+        sc.setParameters("status", Status.Up);
+        sc.setParameters("type", Type.Routing);
+
+        return findOneBy(sc);
     }
 
     @Override

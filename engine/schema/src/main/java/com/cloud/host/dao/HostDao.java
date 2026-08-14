@@ -252,4 +252,8 @@ public interface HostDao extends GenericDao<HostVO, Long>, StateDao<Status, Stat
     Long findClusterIdByVolumeInfo(VolumeInfo volumeInfo);
 
     List<String> listDistinctStorageAccessGroups(String name, String keyword);
+
+    List<HostVO> listAllRoutingHostsUpInClusters(List<Long> clusterIds, HypervisorType hypervisorType);
+
+    HostVO findUpAndRoutingHypervisorHostById(long hostId, HypervisorType hypervisorType);
 }
