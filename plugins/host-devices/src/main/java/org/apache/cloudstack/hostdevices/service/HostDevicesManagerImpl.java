@@ -86,7 +86,7 @@ public class HostDevicesManagerImpl extends ManagerBase implements HostDevicesMa
         }
     }
 
-    private List<HostVO> getHostsListForDeviceScan(Long zoneId, Long clusterId, Long hostId) {
+    protected List<HostVO> getHostsListForDeviceScan(Long zoneId, Long clusterId, Long hostId) {
         List<HostVO> hostsForScan = new ArrayList<>();
 
         if (hostId != null) {
