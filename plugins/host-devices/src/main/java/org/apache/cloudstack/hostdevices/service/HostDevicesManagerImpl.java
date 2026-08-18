@@ -5,19 +5,29 @@ import com.cloud.agent.api.Answer;
 import com.cloud.agent.api.ScanDevicesCommand;
 import com.cloud.dc.ClusterVO;
 import com.cloud.dc.dao.ClusterDao;
+import com.cloud.domain.Domain;
+import com.cloud.domain.dao.DomainDao;
 import com.cloud.exception.InvalidParameterValueException;
+import com.cloud.host.Host;
 import com.cloud.host.HostVO;
 import com.cloud.host.dao.HostDao;
 import com.cloud.hypervisor.Hypervisor;
 import com.cloud.org.Cluster;
 import com.cloud.user.Account;
+import com.cloud.user.AccountManager;
+import com.cloud.user.dao.AccountDao;
+import com.cloud.utils.Pair;
 import com.cloud.utils.component.ManagerBase;
 import com.cloud.utils.exception.CloudRuntimeException;
+import com.cloud.vm.VirtualMachine;
+import com.cloud.vm.dao.VMInstanceDao;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.module.SimpleModule;
 import org.apache.cloudstack.context.CallContext;
 import org.apache.cloudstack.framework.config.ConfigKey;
+import org.apache.cloudstack.hostdevices.api.command.ListHostDevicesCmd;
 import org.apache.cloudstack.hostdevices.api.command.ScanHostDevicesCmd;
+import org.apache.cloudstack.hostdevices.api.response.HostDeviceResponse;
 import org.apache.cloudstack.hostdevices.persistence.HostDevice;
 import org.apache.cloudstack.hostdevices.persistence.HostDeviceDao;
 import org.apache.cloudstack.hostdevices.persistence.HostDeviceVO;
@@ -26,6 +36,7 @@ import org.apache.cloudstack.kvm.libvirt.model.LibvirtDevice;
 
 import javax.inject.Inject;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -38,6 +49,14 @@ public class HostDevicesManagerImpl extends ManagerBase implements HostDevicesMa
     ClusterDao clusterDao;
     @Inject
     HostDeviceDao hostDeviceDao;
+    @Inject
+    AccountManager accountManager;
+    @Inject
+    VMInstanceDao virtualMachineDao;
+    @Inject
+    AccountDao accountDao;
+    @Inject
+    DomainDao domainDao;
 
     private static final ObjectMapper MAPPER = createMapper();
 
@@ -218,8 +237,121 @@ public class HostDevicesManagerImpl extends ManagerBase implements HostDevicesMa
     }
 
     @Override
+    public List<HostDeviceVO> listHostDevices(ListHostDevicesCmd cmd) {
+        Account caller = CallContext.current().getCallingAccount();
+        Long hostDeviceId = cmd.getId();
+        Long accountId = cmd.getAccountId();
+        Long hostId = cmd.getHostId();
+        Long virtualMachineId = cmd.getVirtualMachineId();
+        String deviceTag = cmd.getDeviceTag();
+        String stringDeviceType = cmd.getType();
+        String stringDeviceState = cmd.getState();
+
+        HostDevice.State state = null;
+        if (stringDeviceState != null) {
+            state = HostDevice.State.getFromString(stringDeviceState);
+
+            if (state == null) {
+                logger.debug("Invalid state [{}] provided for host device listing. Supported devices are: {}", stringDeviceState, Arrays.toString(HostDevice.State.values()));
+                throw new InvalidParameterValueException("Invalid state " + stringDeviceState + " provided for host device listing.");
+            }
+        }
+
+        HostDevice.Type type = null;
+        if (stringDeviceType != null) {
+            type = HostDevice.Type.getFromString(stringDeviceType);
+
+            if (type == null) {
+                logger.debug("Invalid type [{}] provided for host device listing. Supported devices are: {}", stringDeviceType, Arrays.toString(HostDevice.Type.values()));
+                throw new InvalidParameterValueException("Invalid type " + stringDeviceType + " provided for host device listing.");
+            }
+        }
+
+        if (hostId != null) {
+            Host host = hostDao.findById(hostId);
+
+            if (host == null) {
+                logger.debug("Host with ID {} was not found", hostId);
+                throw new InvalidParameterValueException("Host with id " + hostId + " was not found.");
+            }
+        }
+
+        if (virtualMachineId != null) {
+            VirtualMachine vm = virtualMachineDao.findById(virtualMachineId);
+
+            if (vm == null) {
+                logger.debug("Virtual machine with ID {} was not found", virtualMachineId);
+                throw new InvalidParameterValueException("Virtual machine with id " + virtualMachineId + " was not found.");
+            }
+
+            accountManager.checkAccess(caller, null, true, vm);
+        }
+
+        Account account = caller;
+        if (accountId != null) {
+            account = accountManager.getActiveAccountById(accountId);
+
+            if (account == null) {
+                logger.debug("Account with ID {} was not found", accountId);
+                throw new InvalidParameterValueException("Account with id " + accountId + " was not found.");
+            }
+
+            accountManager.checkAccess(caller, null, true, account);
+        }
+
+        Pair<Long, List<Long>> accountIdDomainsList = accountManager.finalizeListingFiltersBasedOnRecursiveAndListAll(false, cmd.listAll(), false, account.getId(), new ArrayList<>(List.of(account.getId())));
+        accountId = accountIdDomainsList.first();
+        List<Long> domainIds = accountIdDomainsList.second();
+
+        return hostDeviceDao.listHostDevices(hostDeviceId, accountId, domainIds, hostId, virtualMachineId, deviceTag, state, type);
+    }
+
+    @Override
+    public HostDeviceResponse generateHostDeviceResponse(HostDeviceVO device) {
+        HostDeviceResponse res = new HostDeviceResponse();
+
+        res.setId(device.getUuid());
+        res.setDisplayName(device.getDisplayName());
+        res.setPciName(device.getPciName());
+        res.setPciDomain(device.getPciDomain());
+        res.setPciClass(device.getPciClass());
+        res.setPciSlot(device.getPciSlot());
+        res.setPciFunction(device.getPciFunction());
+        res.setVendorId(device.getPciVendorId());
+        res.setDeviceId(device.getPciDeviceId());
+        res.setCreated(device.getCreated());
+        res.setRemoved(device.getRemoved());
+        res.setState(device.getState().toString());
+        res.setType(device.getType().toString());
+
+        if (device.getInstanceId() != null) {
+            VirtualMachine vm = virtualMachineDao.findById(device.getInstanceId());
+            if (vm != null) {
+                res.setInstanceId(vm.getUuid());
+            }
+
+            Account account = accountManager.getActiveAccountById(device.getInstanceId());
+            if (account != null) {
+                res.setAccountId(account.getUuid());
+
+                Domain domain = domainDao.findById(account.getDomainId());
+                if (domain != null) {
+                    res.setDomainId(domain.getUuid());
+                }
+            }
+        }
+
+        Host host = hostDao.findById(device.getHostId());
+        if (host != null) {
+            res.setHostId(host.getUuid());
+        }
+
+        return res;
+    }
+
+    @Override
     public String getConfigComponentName() {
-        return HostDevicesService.class.getSimpleName();
+        return HostDevicesManager.class.getSimpleName();
     }
 
     @Override
@@ -229,6 +361,6 @@ public class HostDevicesManagerImpl extends ManagerBase implements HostDevicesMa
 
     @Override
     public List<Class<?>> getCommands() {
-        return List.of(ScanHostDevicesCmd.class);
+        return List.of(ScanHostDevicesCmd.class, ListHostDevicesCmd.class);
     }
 }

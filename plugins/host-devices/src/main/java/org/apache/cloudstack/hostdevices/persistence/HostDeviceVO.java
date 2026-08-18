@@ -5,6 +5,8 @@ import org.apache.cloudstack.kvm.libvirt.model.PciDevice;
 
 import javax.persistence.Column;
 import javax.persistence.Entity;
+import javax.persistence.EnumType;
+import javax.persistence.Enumerated;
 import javax.persistence.GeneratedValue;
 import javax.persistence.GenerationType;
 import javax.persistence.Id;
@@ -53,7 +55,7 @@ public class HostDeviceVO implements HostDevice {
     private String pciDeviceId;
 
     @Column(name = "device_tag")
-    private String deviceTags;
+    private String deviceTag;
 
     @Column(name = "created")
     @Temporal(value = TemporalType.DATE)
@@ -64,9 +66,11 @@ public class HostDeviceVO implements HostDevice {
     private Date removed;
 
     @Column(name = "state")
+    @Enumerated(value = EnumType.STRING)
     private HostDevice.State state;
 
     @Column(name = "type")
+    @Enumerated(value = EnumType.STRING)
     private HostDevice.Type type;
 
     @Column(name = "instance_id")
@@ -74,6 +78,9 @@ public class HostDeviceVO implements HostDevice {
 
     @Column(name = "account_id")
     private Long accountId;
+
+    @Column(name = "domain_id")
+    private Long domainId;
 
     @Column(name = "host_id")
     private Long hostId;
@@ -95,7 +102,7 @@ public class HostDeviceVO implements HostDevice {
         this.state = State.Disabled;
         this.type = HostDevice.Type.getFromClassCode(device.getClassCode());
         this.displayName = String.format("%s - %s", device.getProductName(), device.getVendorName());
-        this.deviceTags = this.type.toString();
+        this.deviceTag = this.type.toString();
         this.hostId = hostId;
     }
 
@@ -107,19 +114,160 @@ public class HostDeviceVO implements HostDevice {
         throw new IllegalArgumentException("Unsupported device type: " + libvirtDevice.getDeviceType());
     }
 
-    public Long getHostId() {
-        return hostId;
+    public long getId() {
+        return id;
+    }
+
+    @Override
+    public String getUuid() {
+        return uuid;
+    }
+
+    public void setUuid(String uuid) {
+        this.uuid = uuid;
+    }
+
+    public String getDisplayName() {
+        return displayName;
+    }
+
+    public void setDisplayName(String displayName) {
+        this.displayName = displayName;
     }
 
     public String getPciName() {
         return pciName;
     }
 
-    public Long getInstanceId() {
-        return instanceId;
+    public void setPciName(String pciName) {
+        this.pciName = pciName;
+    }
+
+    public String getPciClass() {
+        return pciClass;
+    }
+
+    public void setPciClass(String pciClass) {
+        this.pciClass = pciClass;
+    }
+
+    public String getPciDomain() {
+        return pciDomain;
+    }
+
+    public void setPciDomain(String pciDomain) {
+        this.pciDomain = pciDomain;
+    }
+
+    public String getPciBus() {
+        return pciBus;
+    }
+
+    public void setPciBus(String pciBus) {
+        this.pciBus = pciBus;
+    }
+
+    public String getPciSlot() {
+        return pciSlot;
+    }
+
+    public void setPciSlot(String pciSlot) {
+        this.pciSlot = pciSlot;
+    }
+
+    public String getPciFunction() {
+        return pciFunction;
+    }
+
+    public void setPciFunction(String pciFunction) {
+        this.pciFunction = pciFunction;
+    }
+
+    public String getPciVendorId() {
+        return pciVendorId;
+    }
+
+    public void setPciVendorId(String pciVendorId) {
+        this.pciVendorId = pciVendorId;
+    }
+
+    public String getPciDeviceId() {
+        return pciDeviceId;
+    }
+
+    public void setPciDeviceId(String pciDeviceId) {
+        this.pciDeviceId = pciDeviceId;
+    }
+
+    public String getDeviceTag() {
+        return deviceTag;
+    }
+
+    public void setDeviceTag(String deviceTag) {
+        this.deviceTag = deviceTag;
+    }
+
+    public Date getCreated() {
+        return created;
+    }
+
+    public void setCreated(Date created) {
+        this.created = created;
+    }
+
+    public Date getRemoved() {
+        return removed;
+    }
+
+    public void setRemoved(Date removed) {
+        this.removed = removed;
+    }
+
+    public State getState() {
+        return state;
     }
 
     public void setState(State state) {
         this.state = state;
+    }
+
+    public Type getType() {
+        return type;
+    }
+
+    public void setType(Type type) {
+        this.type = type;
+    }
+
+    public Long getInstanceId() {
+        return instanceId;
+    }
+
+    public void setInstanceId(Long instanceId) {
+        this.instanceId = instanceId;
+    }
+
+    public Long getAccountId() {
+        return accountId;
+    }
+
+    public void setAccountId(Long accountId) {
+        this.accountId = accountId;
+    }
+
+    public Long getDomainId() {
+        return domainId;
+    }
+
+    public void setDomainId(Long domainId) {
+        this.domainId = domainId;
+    }
+
+    public Long getHostId() {
+        return hostId;
+    }
+
+    public void setHostId(Long hostId) {
+        this.hostId = hostId;
     }
 }

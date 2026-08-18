@@ -27,15 +27,15 @@ import org.apache.cloudstack.api.Parameter;
 import org.apache.cloudstack.api.ServerApiException;
 import org.apache.cloudstack.api.response.ClusterResponse;
 import org.apache.cloudstack.api.response.HostResponse;
+import org.apache.cloudstack.api.response.SuccessResponse;
 import org.apache.cloudstack.api.response.ZoneResponse;
-import org.apache.cloudstack.hostdevices.api.response.ScanHostDevicesResponse;
 import org.apache.cloudstack.hostdevices.service.HostDevicesManager;
 
 import javax.inject.Inject;
 
 @APICommand(name = "scanHostDevices",
         description = "Scans for available host PCI devices and saves them to the database",
-        responseObject = ScanHostDevicesResponse.class,
+        responseObject = SuccessResponse.class,
         requestHasSensitiveInfo = false,
         responseHasSensitiveInfo = true,
         authorized = {RoleType.Admin},
@@ -82,7 +82,7 @@ public class ScanHostDevicesCmd extends BaseCmd {
     @Override
     public void execute() throws ServerApiException, ConcurrentOperationException {
         hostDevicesManager.scanHostDevice(this);
-        ScanHostDevicesResponse response = new ScanHostDevicesResponse();
+        SuccessResponse response = new SuccessResponse(getCommandName());
         response.setObjectName("scanhostdevices");
         response.setResponseName(getCommandName());
         setResponseObject(response);

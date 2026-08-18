@@ -23,4 +23,8 @@
     <bean id="hostDevicesManager" class="org.apache.cloudstack.hostdevices.service.HostDevicesManagerImpl" />
     <bean id="libvirtDeviceMapper" class="org.apache.cloudstack.kvm.libvirt.LibvirtDeviceMapper" />
     <bean id="hostDeviceDao" class="org.apache.cloudstack.hostdevices.persistence.HostDeviceDaoImpl" />
+    <bean id="deviceOfferingManager" class="org.apache.cloudstack.hostdevices.service.DeviceOfferingManagerImpl" />
+    <bean id="deviceOfferingDeviceTagDao" class="org.apache.cloudstack.hostdevices.persistence.DeviceOfferingDeviceTagDaoImpl" />
+    <bean id="deviceOfferingDao" class="org.apache.cloudstack.hostdevices.persistence.DeviceOfferingDaoImpl" />
+    <bean id="vmInstanceDeviceOfferingsDao" class="org.apache.cloudstack.hostdevices.persistence.VMInstanceDeviceOfferingsDaoImpl" />
 </beans>
