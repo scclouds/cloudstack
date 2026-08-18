@@ -668,10 +668,12 @@ CREATE TABLE IF NOT EXISTS `cloud`.`host_pci_devices` (
   `type` varchar(255) NOT NULL COMMENT 'Devices type, based on its class',
   `instance_id` bigint unsigned DEFAULT NULL COMMENT 'Device allocator instance id. Foreign key that points to the vm_instance table',
   `account_id` bigint unsigned DEFAULT NULL COMMENT 'Device allocator account id. Foreign key that points to the account table',
+  `domain_id` bigint unsigned DEFAULT NULL COMMENT 'Device allocator domain id. Foreign key that points to the domain table',
   `host_id` bigint unsigned DEFAULT NULL COMMENT 'Device host id. Foreign key that points to the host table',
   PRIMARY KEY (`id`),
   CONSTRAINT `fk_host_pci_devices_instance_id` FOREIGN KEY (`instance_id`) REFERENCES `vm_instance` (`id`),
   CONSTRAINT `fk_host_pci_devices_account_id` FOREIGN KEY (`account_id`) REFERENCES `account` (`id`),
+  CONSTRAINT `fk_host_pci_devices_domain_id` FOREIGN KEY (`domain_id`) REFERENCES `domain` (`id`),
   CONSTRAINT `fk_host_pci_devices_host_id` FOREIGN KEY (`host_id`) REFERENCES `host` (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
 
@@ -685,12 +687,10 @@ CREATE TABLE IF NOT EXISTS `cloud`.`device_offerings` (
   `state` varchar(255) NOT NULL COMMENT 'Device offering state',
   `created` datetime NOT NULL COMMENT 'Device offering creation timestamp',
   `removed` datetime DEFAULT NULL COMMENT 'Device offering removal timestamp',
-  `account` bigint unsigned NOT NULL COMMENT 'Device offering creator account id. Foreign key that points to the account table',
   `public` tinyint(1) NOT NULL DEFAULT '1' COMMENT 'Whether the offering is available for all users or not. Will always be false if the domain_id attribute is set',
   `domain_id` bigint unsigned DEFAULT NULL COMMENT 'The domain that this offering will be available to. Foreign key that points to the domain table',
   `zone_id` bigint unsigned DEFAULT NULL COMMENT 'The zone that this offering will be available to. Foreign key that points to the data_center table',
   PRIMARY KEY (`id`),
-  CONSTRAINT `fk_device_offerings_account` FOREIGN KEY (`account`) REFERENCES `account` (`id`),
   CONSTRAINT `fk_device_offerings_domain_id` FOREIGN KEY (`domain_id`) REFERENCES `domain` (`id`),
   CONSTRAINT `fk_device_offerings_zone_id` FOREIGN KEY (`zone_id`) REFERENCES `data_center` (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;

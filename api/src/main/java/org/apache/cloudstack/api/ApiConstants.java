@@ -185,6 +185,8 @@ public class ApiConstants {
     public static final String DEVICE_ID = "deviceid";
     public static final String DEVICE_IDS = "deviceids";
     public static final String DEVICE_NAME = "devicename";
+    public static final String DEVICE_TAG = "devicetag";
+    public static final String DEVICE_OFFERING_ID = "deviceofferingid";
     public static final String DIRECT_DOWNLOAD = "directdownload";
     public static final String DISK = "disk";
     public static final String DISK_OFFERING_ID = "diskofferingid";
