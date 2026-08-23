@@ -91,6 +91,7 @@ public class VirtualMachineTO {
     private String metadataManufacturer;
     private String metadataProductName;
     private VirtualMachineMetadataTO metadata;
+    private List<HostDeviceTO> hostDevices;
 
     public VirtualMachineTO(long id, String instanceName, VirtualMachine.Type type, int cpus, Integer speed, long minRam, long maxRam, BootloaderType bootloader,
             String os, boolean enableHA, boolean limitCpuUse, String vncPassword) {
@@ -524,5 +525,13 @@ public class VirtualMachineTO {
                         entry -> entry.getKey().substring(VmDetailConstants.EXTERNAL_DETAIL_PREFIX.length()),
                         Map.Entry::getValue
                 ));
+    }
+
+    public List<HostDeviceTO> getHostDevices() {
+        return hostDevices;
+    }
+
+    public void setHostDevices(List<HostDeviceTO> requestedHostDevices) {
+        this.hostDevices = requestedHostDevices;
     }
 }

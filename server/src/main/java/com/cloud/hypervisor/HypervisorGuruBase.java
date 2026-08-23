@@ -23,10 +23,12 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 import javax.inject.Inject;
 
 import com.cloud.agent.api.to.GPUDeviceTO;
+import com.cloud.agent.api.to.HostDeviceTO;
 import com.cloud.agent.api.to.VirtualMachineMetadataTO;
 import com.cloud.cpu.CPU;
 import com.cloud.dc.ClusterVO;
@@ -41,6 +43,11 @@ import com.cloud.domain.DomainVO;
 import com.cloud.domain.dao.DomainDao;
 import com.cloud.gpu.VgpuProfileVO;
 import com.cloud.gpu.dao.VgpuProfileDao;
+import com.cloud.hostdevices.DeviceOfferingVO;
+import com.cloud.hostdevices.HostDeviceVO;
+import com.cloud.hostdevices.dao.DeviceOfferingDao;
+import com.cloud.hostdevices.dao.DeviceOfferingDeviceTagDao;
+import com.cloud.hostdevices.dao.HostDeviceDao;
 import com.cloud.network.vpc.VpcVO;
 import com.cloud.network.vpc.dao.VpcDao;
 import com.cloud.projects.ProjectVO;
@@ -155,6 +162,12 @@ public abstract class HypervisorGuruBase extends AdapterBase implements Hypervis
     private ConfigurationManager configurationManager;
     @Inject
     ResourceTagDao tagsDao;
+    @Inject
+    private DeviceOfferingDao deviceOfferingDao;
+    @Inject
+    private HostDeviceDao hostDeviceDao;
+    @Inject
+    private DeviceOfferingDeviceTagDao deviceOfferingDeviceTagDao;
 
     public static ConfigKey<Boolean> VmMinMemoryEqualsMemoryDividedByMemOverprovisioningFactor = new ConfigKey<Boolean>("Advanced", Boolean.class, "vm.min.memory.equals.memory.divided.by.mem.overprovisioning.factor", "true",
             "If we set this to 'true', a minimum memory (memory/ mem.overprovisioning.factor) will be set to the VM, independent of using a scalable service offering or not.", true, ConfigKey.Scope.Cluster);
@@ -370,6 +383,11 @@ public abstract class HypervisorGuruBase extends AdapterBase implements Hypervis
                 to.setGpuDevice(getGpuDevice(offering, offeringDetail, vm, vmProfile.getHostId()));
         }
 
+        List<DeviceOfferingVO> vmDeviceOfferings = deviceOfferingDao.listVirtualMachineDeviceOfferings(vmProfile.getId());
+        if (!vmDeviceOfferings.isEmpty()) {
+            to.setHostDevices(getRequestedHostDevices(vmProfile, vmDeviceOfferings));
+        }
+
         // Workaround to make sure the TO has the UUID we need for Niciri integration
         VMInstanceVO vmInstance = virtualMachineDao.findById(to.getId());
         to.setEnableDynamicallyScaleVm(vmInstance.isDynamicallyScalable());
@@ -383,6 +401,23 @@ public abstract class HypervisorGuruBase extends AdapterBase implements Hypervis
         to.setState(vm.getState());
 
         return to;
+    }
+
+    private List<HostDeviceTO> getRequestedHostDevices(VirtualMachineProfile vmProfile, List<DeviceOfferingVO> vmDeviceOfferings) {
+        List<String> offeringTags = deviceOfferingDeviceTagDao.getDeviceOfferingsTags(vmDeviceOfferings);
+        List<HostDeviceVO> hostDevices = hostDeviceDao.listHostDevicesAvailableForAllocation(vmProfile.getHostId(), vmProfile.getId(), offeringTags);
+        List<String> hostDevicesTags = hostDevices.stream().map(HostDeviceVO::getDeviceTag).collect(Collectors.toList());
+
+        if(!_resourceMgr.validateHostDevicesAgainstDeviceOfferings(offeringTags, hostDevicesTags)) {
+            throw new CloudRuntimeException("Host devices do not match device offerings tags");
+        }
+
+        for (HostDeviceVO hostDevice : hostDevices) {
+            hostDevice.reserveToVM(vmProfile);
+            hostDeviceDao.persist(hostDevice);
+        }
+
+        return hostDevices.stream().map(HostDeviceTO::new).collect(Collectors.toList());
     }
 
     private GPUDeviceTO getGpuDevice(ServiceOffering offering, ServiceOfferingDetailsVO offeringDetail, VirtualMachine vm, long hostId) {

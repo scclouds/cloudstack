@@ -22,6 +22,7 @@ import java.util.List;
 import java.util.Map;
 
 
+import com.cloud.hostdevices.DeviceOfferingVO;
 import com.cloud.offering.ServiceOffering;
 import org.apache.cloudstack.engine.subsystem.api.storage.DataStore;
 import org.apache.cloudstack.engine.subsystem.api.storage.PrimaryDataStoreInfo;
@@ -274,4 +275,8 @@ public interface ResourceManager extends ResourceService, Configurable {
     List<HostVO> getEligibleUpAndEnabledHostsInClusterForStorageConnection(PrimaryDataStoreInfo primaryStore);
 
     List<HostVO> getEligibleUpAndEnabledHostsInZoneForStorageConnection(DataStore dataStore, long zoneId, HypervisorType hypervisorType);
+
+    boolean doesHostMatchesDeviceOfferingsTags(HostVO host, List<DeviceOfferingVO> deviceOfferings, Long virtualMachineId);
+
+    boolean validateHostDevicesAgainstDeviceOfferings(List<String> deviceOfferingsTags, List<String> hostDevicesTags);
 }

@@ -36,6 +36,7 @@ import com.cloud.host.Host.Type;
 import com.cloud.host.HostStats;
 import com.cloud.host.HostVO;
 import com.cloud.host.Status;
+import com.cloud.hostdevices.DeviceOfferingVO;
 import com.cloud.hypervisor.Hypervisor.HypervisorType;
 import com.cloud.offering.ServiceOffering;
 import com.cloud.org.Cluster;
@@ -735,6 +736,16 @@ public class MockResourceManagerImpl extends ManagerBase implements ResourceMana
     @Override
     public List<HostVO> getEligibleUpAndEnabledHostsInZoneForStorageConnection(DataStore dataStore, long zoneId, HypervisorType hypervisorType) {
         return null;
+    }
+
+    @Override
+    public boolean doesHostMatchesDeviceOfferingsTags(HostVO host, List<DeviceOfferingVO> deviceOfferings, Long virtualMachineId) {
+        return false;
+    }
+
+    @Override
+    public boolean validateHostDevicesAgainstDeviceOfferings(List<String> deviceOfferingsTags, List<String> hostDevicesTags) {
+        return false;
     }
 
     @Override
