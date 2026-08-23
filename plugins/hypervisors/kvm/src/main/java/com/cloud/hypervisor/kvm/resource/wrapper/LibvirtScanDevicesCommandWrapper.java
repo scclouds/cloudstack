@@ -8,8 +8,8 @@ import com.cloud.resource.ResourceWrapper;
 import com.cloud.utils.xmlobject.XmlObject;import com.cloud.utils.xmlobject.XmlObjectParser;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import org.apache.cloudstack.kvm.libvirt.LibvirtDeviceMapper;
-import org.apache.cloudstack.kvm.libvirt.model.LibvirtDevice;
+import org.apache.cloudstack.utils.libvirt.LibvirtDeviceMapper;
+import org.apache.cloudstack.utils.libvirt.model.LibvirtDevice;
 import org.libvirt.Connect;
 import org.libvirt.Device;import org.libvirt.LibvirtException;
 

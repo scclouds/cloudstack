@@ -329,5 +329,9 @@
   <bean id="dnsZoneJoinDao" class="org.apache.cloudstack.dns.dao.DnsZoneJoinDaoImpl" />
   <bean id="dnsNicJoinDao" class="org.apache.cloudstack.dns.dao.NicDnsJoinDaoImpl" />
   <bean id="dnsServerDetailsDao" class="org.apache.cloudstack.dns.dao.DnsServerDetailsDaoImpl" />
+  <bean id="deviceOfferingDaoImpl" class="com.cloud.hostdevices.dao.DeviceOfferingDaoImpl" />
+  <bean id="deviceOfferingDeviceTagDaoImpl" class="com.cloud.hostdevices.dao.DeviceOfferingDeviceTagDaoImpl" />
+  <bean id="hostDeviceDaoImpl" class="com.cloud.hostdevices.dao.HostDeviceDaoImpl" />
+  <bean id="vmInstanceDeviceOfferingsDaoImpl" class="com.cloud.hostdevices.dao.VMInstanceDeviceOfferingsDaoImpl" />
 
 </beans>

@@ -40,6 +40,10 @@ import javax.inject.Inject;
 import javax.naming.ConfigurationException;
 
 import com.cloud.gpu.dao.VgpuProfileDao;
+import com.cloud.hostdevices.DeviceOfferingVO;
+import com.cloud.hostdevices.HostDeviceVO;
+import com.cloud.hostdevices.dao.DeviceOfferingDeviceTagDao;
+import com.cloud.hostdevices.dao.HostDeviceDao;
 import com.cloud.offering.ServiceOffering;
 import com.cloud.service.ServiceOfferingDetailsVO;
 import com.cloud.storage.ScopeType;
@@ -349,6 +353,10 @@ public class ResourceManagerImpl extends ManagerBase implements ResourceManager,
     ExtensionsManager extensionsManager;
     @Inject
     ExtensionDao extensionDao;
+    @Inject
+    private HostDeviceDao hostDeviceDao;
+    @Inject
+    private DeviceOfferingDeviceTagDao deviceOfferingDeviceTagDao;
 
     private final long _nodeId = ManagementServerNode.getManagementServerId();
 
@@ -2497,6 +2505,46 @@ public class ResourceManagerImpl extends ManagerBase implements ResourceManager,
 
         List<String> storageAccessGroups = _storagePoolAccessGroupMapDao.getStorageAccessGroups(dataStore.getId());
         return filterHostsBasedOnStorageAccessGroups(allHosts, storageAccessGroups);
+    }
+
+    @Override
+    public boolean doesHostMatchesDeviceOfferingsTags(HostVO host, List<DeviceOfferingVO> deviceOfferings, Long virtualMachineId) {
+        List<String> deviceOfferingsTags = deviceOfferingDeviceTagDao.getDeviceOfferingsTags(deviceOfferings);
+        List<HostDeviceVO> hostDevices = hostDeviceDao.listHostDevicesAvailableForAllocation(host.getId(), virtualMachineId, deviceOfferingsTags);
+
+        if (hostDevices.isEmpty() || hostDevices.size() < deviceOfferingsTags.size()) {
+            return false;
+        }
+
+        List<String> hostDevicesTags = hostDevices.stream().map(HostDeviceVO::getDeviceTag).collect(Collectors.toList());
+
+        return validateHostDevicesAgainstDeviceOfferings(deviceOfferingsTags, hostDevicesTags);
+    }
+
+    @Override
+    public boolean validateHostDevicesAgainstDeviceOfferings(List<String> deviceOfferingsTags, List<String> hostDevicesTags) {
+        Map<String, Integer> offeringTagsCountMap = new HashMap<>();
+        Map<String, Integer> devicesTagsCountMap = new HashMap<>();
+
+        for (String tag : deviceOfferingsTags) {
+            offeringTagsCountMap.merge(tag, 1, Integer::sum);
+        }
+
+        for (String tag : hostDevicesTags) {
+            devicesTagsCountMap.merge(tag, 1, Integer::sum);
+        }
+
+        for (Map.Entry<String, Integer> entry : offeringTagsCountMap.entrySet()) {
+            String tag = entry.getKey();
+            int required = entry.getValue();
+            int returned = devicesTagsCountMap.getOrDefault(tag, 0);
+
+            if (returned < required) {
+                return false;
+            }
+        }
+
+        return true;
     }
 
     protected void checkIfAllHostsInUse(List<String> sagsToDelete, Long clusterId, Long podId, Long zoneId) {

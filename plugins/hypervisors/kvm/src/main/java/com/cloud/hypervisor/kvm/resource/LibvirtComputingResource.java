@@ -72,6 +72,7 @@ import javax.xml.xpath.XPathConstants;
 import javax.xml.xpath.XPathExpressionException;
 import javax.xml.xpath.XPathFactory;
 
+import com.cloud.agent.api.to.HostDeviceTO;
 import com.cloud.agent.api.to.VirtualMachineMetadataTO;
 import com.cloud.utils.exception.BackupException;
 import org.apache.cloudstack.storage.to.DeltaMergeTreeTO;
@@ -3249,7 +3250,21 @@ public class LibvirtComputingResource extends ServerResourceBase implements Serv
             boolean isIothreadsEnabled = details != null && details.containsKey(VmDetailConstants.IOTHREADS);
             addSCSIControllers(devices, vcpus, vmTO.getDisks().length, isIothreadsEnabled);
         }
+
+        List<HostDeviceTO> hostDevices = vmTO.getHostDevices();
+        if (hostDevices != null && !hostDevices.isEmpty()) {
+            attachHostDevices(devices, hostDevices);
+        }
+
         return devices;
+    }
+
+    private void attachHostDevices(DevicesDef devices, List<HostDeviceTO> hostDevices) {
+        for (HostDeviceTO dev : hostDevices) {
+            LibvirtHostDeviceDef def = new LibvirtHostDeviceDef();
+            def.setDevice(dev);
+            devices.addDevice(def);
+        }
     }
 
     protected void attachGpuDevices(final VirtualMachineTO vmTO, final DevicesDef devicesDef) {

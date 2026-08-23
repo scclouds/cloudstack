@@ -35,6 +35,8 @@ import com.cloud.host.Host;
 import com.cloud.host.Host.Type;
 import com.cloud.host.HostVO;
 import com.cloud.host.dao.HostDetailsDao;
+import com.cloud.hostdevices.DeviceOfferingVO;
+import com.cloud.hostdevices.dao.DeviceOfferingDao;
 import com.cloud.offering.ServiceOffering;
 import com.cloud.resource.ResourceManager;
 import com.cloud.service.dao.ServiceOfferingDetailsDao;
@@ -95,6 +97,8 @@ public class FirstFitAllocator extends BaseAllocator {
     CapacityDao _capacityDao;
     @Inject
     VMInstanceDetailsDao vmInstanceDetailsDao;
+    @Inject
+    DeviceOfferingDao deviceOfferingDao;
 
     boolean _checkHvm = true;
 
@@ -160,9 +164,26 @@ public class FirstFitAllocator extends BaseAllocator {
 
         addHostsBasedOnTagRules(hostTagOnOffering, clusterHosts);
         filterHostsBasedOnGuestOsRules(template, clusterHosts);
+        filterHostsBasedOnDeviceOfferings(vmProfile, clusterHosts);
 
         return clusterHosts;
+    }
 
+    protected void filterHostsBasedOnDeviceOfferings(VirtualMachineProfile vmProfile, List<HostVO> clusterHosts) {
+        Long vmId = vmProfile.getId();
+        List<DeviceOfferingVO> deviceOfferings = deviceOfferingDao.listVirtualMachineDeviceOfferings(vmProfile.getId());
+
+        if (deviceOfferings.isEmpty()) {
+            logger.debug("No device offerings found for VM [{}]. No filtering will be applied to the hosts based on device offerings.", vmProfile);
+            return;
+        }
+
+        for (HostVO host : clusterHosts) {
+            if (!_resourceMgr.doesHostMatchesDeviceOfferingsTags(host, deviceOfferings, vmId)) {
+                logger.debug("Adding host [{}] to avoid set, because this host does not match the device offerings tags for the VM [{}].", host, vmProfile);
+                clusterHosts.remove(host);
+            }
+        }
     }
 
     /**
