@@ -26,12 +26,14 @@ import com.cloud.vm.dao.VMInstanceDao;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.module.SimpleModule;
 import org.apache.cloudstack.api.command.admin.hostdevices.ScanHostDevicesCmd;
+import org.apache.cloudstack.api.command.admin.hostdevices.UpdateHostDeviceCmd;
 import org.apache.cloudstack.api.command.user.hostdevices.ListHostDevicesCmd;
 import org.apache.cloudstack.api.response.HostDeviceResponse;
 import org.apache.cloudstack.context.CallContext;
 import org.apache.cloudstack.framework.config.ConfigKey;
 import org.apache.cloudstack.utils.libvirt.mappers.serialization.LibvirtDeviceDeserializer;
 import org.apache.cloudstack.utils.libvirt.model.LibvirtDevice;
+import org.apache.commons.lang3.ObjectUtils;
 
 import javax.inject.Inject;
 import java.util.ArrayList;
@@ -347,6 +349,43 @@ public class HostDevicesManagerImpl extends ManagerBase implements org.apache.cl
         }
 
         return res;
+    }
+
+    @Override
+    public HostDevice updateHostDevice(UpdateHostDeviceCmd updateHostDeviceCmd) {
+        Boolean enabled = updateHostDeviceCmd.getEnabled();
+        String displayName = updateHostDeviceCmd.getDisplayName();
+        String tag = updateHostDeviceCmd.getTag();
+        String type = updateHostDeviceCmd.getType();
+
+        if (ObjectUtils.allNull(enabled, displayName, tag, type)) {
+            throw new InvalidParameterValueException("At least one of the following parameters must be provided: enabled, displayName, tags, type");
+        }
+
+        HostDeviceVO device = hostDeviceDao.findById(updateHostDeviceCmd.getDeviceId());
+
+        if (device == null) {
+            logger.debug("Host device with ID {} was not found", updateHostDeviceCmd.getDeviceId());
+            throw new InvalidParameterValueException("Host device with id " + updateHostDeviceCmd.getDeviceId() + " was not found.");
+        }
+
+        if (!device.canBeUpdated()) {
+            logger.error("Current device state is {}. Only devices in Disabled or Free state can be updated.", device.getState());
+            throw new InvalidParameterValueException(String.format("Devices in state %s cannot be updated. Valid states for update are %s and %s.", device.getState(), HostDevice.State.Disabled, HostDevice.State.Free));
+        }
+
+        HostDevice.Type newDeviceType = null;
+        if (type != null) {
+            newDeviceType = HostDevice.Type.getFromString(type);
+            if (newDeviceType == null) {
+                throw new InvalidParameterValueException(String.format("Invalid host device type: %s. Supported types are: %s", type, Arrays.toString(HostDevice.Type.values())));
+            }
+        }
+
+        device.updateData(enabled, displayName, tag, newDeviceType);
+        hostDeviceDao.persist(device);
+
+        return device;
     }
 
     @Override

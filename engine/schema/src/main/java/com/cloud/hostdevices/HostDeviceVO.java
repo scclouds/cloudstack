@@ -17,6 +17,7 @@ import javax.persistence.Table;
 import javax.persistence.Temporal;
 import javax.persistence.TemporalType;
 import java.util.Date;
+import java.util.List;
 import java.util.UUID;
 
 @Entity
@@ -280,5 +281,24 @@ public class HostDeviceVO implements HostDevice {
         this.accountId = owner.getAccountId();
         this.domainId = owner.getDomainId();
         this.state = State.Attached;
+    }
+
+    public boolean canBeUpdated() {
+        return this.state == State.Disabled || this.state == State.Free;
+    }
+
+    public void updateData(Boolean enabled, String displayName, String tag, Type type) {
+        if (enabled != null) {
+            this.state = enabled ? State.Free : State.Disabled;
+        }
+        if (displayName != null) {
+            this.displayName = displayName;
+        }
+        if (tag != null) {
+            this.deviceTag = tag;
+        }
+        if (type != null) {
+            this.type = type;
+        }
     }
 }
