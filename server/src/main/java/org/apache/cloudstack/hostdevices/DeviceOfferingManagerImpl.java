@@ -22,6 +22,7 @@ import org.apache.cloudstack.api.command.user.hostdevices.AssignVirtualMachineTo
 import org.apache.cloudstack.api.response.DeviceOfferingResponse;
 import org.apache.cloudstack.context.CallContext;
 import org.apache.cloudstack.framework.config.ConfigKey;
+import org.apache.commons.collections.CollectionUtils;
 
 import javax.inject.Inject;
 import java.util.List;
@@ -139,6 +140,12 @@ public class DeviceOfferingManagerImpl extends ManagerBase implements DeviceOffe
                 logger.error("Device offering with ID [{}] is not public and does not belong to the caller's zone, cancelling assignment.", deviceOfferingId);
                 throw new PermissionDeniedException("You do not have permission to assign this device offering.");
             }
+        }
+
+        List<VMInstanceDeviceOfferingsVO> existingAssignmentsForVM = vmInstanceDeviceOfferingsDao.findByVmId(virtualMachineId);
+        if (CollectionUtils.isNotEmpty(existingAssignmentsForVM) && existingAssignmentsForVM.stream().anyMatch(assignment -> assignment.getDeviceOfferingId().equals(deviceOfferingId))) {
+            logger.error("VM with ID [{}] already has this device offering assigned, cancelling assignment.", virtualMachineId);
+            throw new InvalidParameterValueException(String.format("VM with ID [%s] already has this device offering assigned.", virtualMachineId));
         }
 
         vmInstanceDeviceOfferingsDao.persist(new VMInstanceDeviceOfferingsVO(virtualMachineId, deviceOfferingId));
