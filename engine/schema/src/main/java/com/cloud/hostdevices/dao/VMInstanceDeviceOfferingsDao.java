@@ -7,5 +7,6 @@ import com.cloud.utils.db.GenericDao;
 import java.util.List;
 
 public interface VMInstanceDeviceOfferingsDao extends GenericDao<VMInstanceDeviceOfferingsVO, Long> {
-    List<VMInstanceDeviceOfferingsVO> findByVmId(Long virtualMachineId);
+    List<VMInstanceDeviceOfferingsVO> listByVmId(Long virtualMachineId);
+    VMInstanceDeviceOfferingsVO findByVmIdAndDeviceId(Long vmId, Long deviceId);
 }

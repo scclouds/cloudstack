@@ -20,9 +20,17 @@ public class VMInstanceDeviceOfferingsDaoImpl extends GenericDaoBase<VMInstanceD
     }
 
     @Override
-    public List<VMInstanceDeviceOfferingsVO> findByVmId(Long virtualMachineId) {
+    public List<VMInstanceDeviceOfferingsVO> listByVmId(Long virtualMachineId) {
         SearchCriteria<VMInstanceDeviceOfferingsVO> sc = searchBuilder.create();
-        sc.setParameters("virtualMachineId", SearchCriteria.Op.EQ, virtualMachineId);
+        sc.setParameters("virtualMachineId", virtualMachineId);
         return listBy(sc);
+    }
+
+    @Override
+    public VMInstanceDeviceOfferingsVO findByVmIdAndDeviceId(Long vmId, Long deviceId) {
+        SearchCriteria<VMInstanceDeviceOfferingsVO> sc = searchBuilder.create();
+        sc.setParameters("virtualMachineId", vmId);
+        sc.setParameters("deviceOfferingId", deviceId);
+        return findOneBy(sc);
     }
 }
