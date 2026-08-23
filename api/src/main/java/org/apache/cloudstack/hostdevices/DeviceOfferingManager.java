@@ -12,4 +12,6 @@ public interface DeviceOfferingManager extends Configurable, Manager, PluggableS
     DeviceOfferingResponse createDeviceOfferingResponse(DeviceOffering deviceOffering);
 
     boolean assignVirtualMachineToDeviceOffering(Long virtualMachineId, Long deviceOfferingId);
+
+    boolean removeVirtualMachineFromDeviceOffering(Long virtualMachineId, Long deviceOfferingId);
 }
