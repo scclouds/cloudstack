@@ -61,7 +61,7 @@ public class DeviceOfferingVO implements DeviceOffering {
         this.domainId = domainId;
         this.zoneId = zoneId;
         this.uuid = UUID.randomUUID().toString();
-        this.state = State.Enabled;
+        this.state = State.Active;
         this.isPublic = domainId != null || zoneId != null;
     }
 
@@ -93,7 +93,7 @@ public class DeviceOfferingVO implements DeviceOffering {
         return removed;
     }
 
-    public Boolean getPublic() {
+    public Boolean getIsPublic() {
         return isPublic;
     }
 
