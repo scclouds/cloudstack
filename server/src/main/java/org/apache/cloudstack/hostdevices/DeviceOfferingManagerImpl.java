@@ -19,14 +19,19 @@ import com.cloud.vm.VirtualMachine;
 import com.cloud.vm.dao.VMInstanceDao;
 import org.apache.cloudstack.api.command.admin.hostdevices.CreateDeviceOfferingCmd;
 import org.apache.cloudstack.api.command.user.hostdevices.AssignVirtualMachineToDeviceOfferingCmd;
+import org.apache.cloudstack.api.command.user.hostdevices.ListDeviceOfferingsCmd;
 import org.apache.cloudstack.api.command.user.hostdevices.RemoveVirtualMachineFromDeviceOfferingCmd;
 import org.apache.cloudstack.api.response.DeviceOfferingResponse;
 import org.apache.cloudstack.context.CallContext;
 import org.apache.cloudstack.framework.config.ConfigKey;
 import org.apache.commons.collections.CollectionUtils;
+import org.apache.commons.lang3.EnumUtils;
 
 import javax.inject.Inject;
+import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
+import java.util.stream.Collectors;
 
 public class DeviceOfferingManagerImpl extends ManagerBase implements DeviceOfferingManager {
     @Inject
@@ -105,7 +110,7 @@ public class DeviceOfferingManagerImpl extends ManagerBase implements DeviceOffe
         response.setZoneID(deviceOffering.getZoneId());
         response.setCreated(deviceOffering.getCreated());
         response.setRemoved(deviceOffering.getRemoved());
-        response.setPublic(deviceOffering.getPublic());
+        response.setPublic(deviceOffering.getIsPublic());
 
         return response;
     }
@@ -114,7 +119,13 @@ public class DeviceOfferingManagerImpl extends ManagerBase implements DeviceOffe
     public boolean assignVirtualMachineToDeviceOffering(Long virtualMachineId, Long deviceOfferingId) {
         Account caller = CallContext.current().getCallingAccount();
 
-        getVMAndCheckAccess(virtualMachineId, caller);
+        VirtualMachine vm = getVMAndCheckAccess(virtualMachineId, caller);
+
+        if (!Arrays.asList(VirtualMachine.State.Stopped, VirtualMachine.State.).contains(vm.getState())) {
+            logger.error("VM with ID [{}] is not in a valid state to assign device offering. Current state: [{}]", virtualMachineId, vm.getState());
+            throw new InvalidParameterValueException(String.format("VM with ID [%s] is not in a valid state to assign device offering. Current state: [%s]", virtualMachineId, vm.getState()));
+        }
+
         getDeviceOfferingAndCheckAccess(deviceOfferingId, caller);
 
         List<VMInstanceDeviceOfferingsVO> existingAssignmentsForVM = vmInstanceDeviceOfferingsDao.listByVmId(virtualMachineId);
@@ -132,7 +143,13 @@ public class DeviceOfferingManagerImpl extends ManagerBase implements DeviceOffe
     public boolean removeVirtualMachineFromDeviceOffering(Long virtualMachineId, Long deviceOfferingId) {
         Account caller = CallContext.current().getCallingAccount();
 
-        getVMAndCheckAccess(virtualMachineId, caller);
+        VirtualMachine vm = getVMAndCheckAccess(virtualMachineId, caller);
+
+        if (vm.getState().equals(VirtualMachine.State.Running)) {
+            logger.error("VM with ID [{}] is running, cannot remove device offering.", virtualMachineId);
+            throw new InvalidParameterValueException(String.format("VM with ID [%s] is running. Please stop it to remove device offering.", virtualMachineId));
+        }
+
         getDeviceOfferingAndCheckAccess(deviceOfferingId, caller);
 
         VMInstanceDeviceOfferingsVO assignedDeviceOffering = vmInstanceDeviceOfferingsDao.findByVmIdAndDeviceId(virtualMachineId, deviceOfferingId);
@@ -143,6 +160,88 @@ public class DeviceOfferingManagerImpl extends ManagerBase implements DeviceOffe
 
         vmInstanceDeviceOfferingsDao.expunge(assignedDeviceOffering.getId());
         return true;
+    }
+
+    @Override
+    public List<DeviceOfferingVO> listDeviceOfferings(ListDeviceOfferingsCmd listDeviceOfferingsCmd) {
+        Account caller = CallContext.current().getCallingAccount();
+        String name = listDeviceOfferingsCmd.getName();
+        Long domainId = listDeviceOfferingsCmd.getDomainId();
+        Long zoneId = listDeviceOfferingsCmd.getZoneId();
+        List<String> deviceTags = listDeviceOfferingsCmd.getDeviceTags();
+        String stringState = listDeviceOfferingsCmd.getState();
+        Boolean listAll = listDeviceOfferingsCmd.getListAll();
+
+        DeviceOffering.State state = DeviceOffering.State.Active;
+        if (stringState != null) {
+            state = EnumUtils.getEnum(DeviceOffering.State.class, stringState);
+            if (state == null) {
+                logger.error("Invalid state [{}] provided for device offering listing.", stringState);
+                throw new InvalidParameterValueException(String.format("Invalid state [%s] provided. Valid states are: %s",
+                        stringState,
+                        EnumUtils.getEnumList(DeviceOffering.State.class).stream().map(Enum::name).collect(Collectors.joining(", "))));
+            }
+        }
+
+        if (domainId != null) {
+            getDomainAndCheckAccess(domainId, caller);
+        }
+
+        DataCenter dataCenter = null;
+        if (zoneId != null) {
+            dataCenter = dataCenterDao.findById(zoneId);
+
+            if (dataCenter == null) {
+                logger.error("Zone with ID [{}] could not be found.", zoneId);
+                throw new InvalidParameterValueException(String.format("Could not find zone with ID [%s].", zoneId));
+            }
+        }
+
+        boolean showOnlyPublic = true;
+        List<Long> domainIds = new ArrayList<>();
+        if (caller.getType().equals(Account.Type.DOMAIN_ADMIN) && listAll != null && listAll) {
+            showOnlyPublic = false;
+            domainIds = domainDao.getDomainAndChildrenIds(caller.getDomainId());
+        }
+
+        if (caller.getType().equals(Account.Type.ADMIN) && listAll != null && listAll) {
+            showOnlyPublic = false;
+        }
+
+        return deviceOfferingDao.listDeviceOfferings(name, domainIds, zoneId, deviceTags, state, showOnlyPublic);
+    }
+
+    @Override
+    public DeviceOfferingResponse generateDeviceOfferingResponse(DeviceOffering offering) {
+        DeviceOfferingResponse response = new DeviceOfferingResponse();
+
+        response.setId(offering.getUuid());
+        response.setName(offering.getName());
+        response.setDescription(offering.getDescription());
+        response.setState(offering.getState().toString());
+        response.setDomainId(offering.getDomainId());
+        response.setZoneID(offering.getZoneId());
+        response.setCreated(offering.getCreated());
+        response.setRemoved(offering.getRemoved());
+        response.setPublic(offering.getIsPublic());
+
+        return response;
+    }
+
+    private Domain getDomainAndCheckAccess(Long domainId, Account caller) {
+        Domain domain = domainDao.findById(domainId);
+
+        if (domain == null) {
+            logger.error("Domain with ID [{}] could not be found.", domainId);
+            throw new InvalidParameterValueException(String.format("Could not find domain with ID [%s].", domainId));
+        }
+
+        if (domain.getId() != caller.getDomainId()) {
+            logger.error("Caller [{}] does not have access to domain with ID [{}].", caller, domainId);
+            throw new PermissionDeniedException(String.format("You do not have permission to access domain with ID [%s].", domainId));
+        }
+
+        return domain;
     }
 
     private VirtualMachine getVMAndCheckAccess(Long virtualMachineId, Account caller) {
@@ -165,7 +264,7 @@ public class DeviceOfferingManagerImpl extends ManagerBase implements DeviceOffe
             throw new InvalidParameterValueException(String.format("Could not find device offering with ID [%s].", deviceOfferingId));
         }
 
-        if (!deviceOffering.getPublic()) {
+        if (!deviceOffering.getIsPublic()) {
             Domain domain = domainDao.findById(caller.getDomainId());
 
             if (deviceOffering.getDomainId() != null && !deviceOffering.getDomainId().equals(domain.getId())) {
@@ -184,7 +283,7 @@ public class DeviceOfferingManagerImpl extends ManagerBase implements DeviceOffe
 
     @Override
     public List<Class<?>> getCommands() {
-        return List.of(CreateDeviceOfferingCmd.class, AssignVirtualMachineToDeviceOfferingCmd.class, RemoveVirtualMachineFromDeviceOfferingCmd.class);
+        return List.of(CreateDeviceOfferingCmd.class, ListDeviceOfferingsCmd.class, AssignVirtualMachineToDeviceOfferingCmd.class, RemoveVirtualMachineFromDeviceOfferingCmd.class);
     }
 
     @Override

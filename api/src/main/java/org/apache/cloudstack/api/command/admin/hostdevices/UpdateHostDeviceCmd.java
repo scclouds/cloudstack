@@ -18,7 +18,6 @@ import org.apache.cloudstack.hostdevices.HostDevice;
 import org.apache.cloudstack.hostdevices.HostDevicesManager;
 
 import javax.inject.Inject;
-import java.util.List;
 
 @APICommand(name = "updateHostDevice",
         description = "Updates a host device",

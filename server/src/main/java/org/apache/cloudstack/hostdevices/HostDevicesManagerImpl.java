@@ -400,6 +400,6 @@ public class HostDevicesManagerImpl extends ManagerBase implements org.apache.cl
 
     @Override
     public List<Class<?>> getCommands() {
-        return List.of(ScanHostDevicesCmd.class, ListHostDevicesCmd.class);
+        return List.of(ScanHostDevicesCmd.class, ListHostDevicesCmd.class, UpdateHostDeviceCmd.class);
     }
 }

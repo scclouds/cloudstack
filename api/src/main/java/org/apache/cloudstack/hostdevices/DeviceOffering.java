@@ -7,7 +7,7 @@ import java.util.Date;
 
 public interface DeviceOffering extends Identity, InternalIdentity {
     enum State {
-        Disabled, Enabled
+        Inactive, Active
     }
 
     String getName();
@@ -24,5 +24,5 @@ public interface DeviceOffering extends Identity, InternalIdentity {
 
     Date getRemoved();
 
-    Boolean getPublic();
+    Boolean getIsPublic();
 }
