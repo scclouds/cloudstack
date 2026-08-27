@@ -2,6 +2,7 @@ package org.apache.cloudstack.hostdevices;
 
 import com.cloud.utils.component.Manager;
 import com.cloud.utils.component.PluggableService;
+import com.cloud.vm.VirtualMachine;
 import org.apache.cloudstack.api.command.admin.hostdevices.CreateDeviceOfferingCmd;
 import org.apache.cloudstack.api.command.user.hostdevices.ListDeviceOfferingsCmd;
 import org.apache.cloudstack.api.response.DeviceOfferingResponse;
@@ -23,4 +24,6 @@ public interface DeviceOfferingManager extends Configurable, Manager, PluggableS
     DeviceOfferingResponse generateDeviceOfferingResponse(DeviceOffering offering);
 
     void unassignVmFromOfferings(Long vmId);
+
+    boolean isVmAssignedToDeviceOfferings(VirtualMachine vm);
 }

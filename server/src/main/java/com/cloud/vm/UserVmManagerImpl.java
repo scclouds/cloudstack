@@ -119,6 +119,7 @@ import org.apache.cloudstack.backup.BackupVO;
 import org.apache.cloudstack.backup.InternalBackupService;
 import org.apache.cloudstack.backup.dao.BackupDao;
 import org.apache.cloudstack.backup.dao.BackupScheduleDao;
+import org.apache.cloudstack.hostdevices.DeviceOfferingManager;
 import org.apache.cloudstack.schedule.ResourceScheduleManager;
 import org.apache.cloudstack.context.CallContext;
 import org.apache.cloudstack.kms.KMSManager;
@@ -678,6 +679,8 @@ public class UserVmManagerImpl extends ManagerBase implements UserVmManager, Vir
 
     @Inject
     ClvmPoolManager clvmPoolManager;
+    @Inject
+    DeviceOfferingManager deviceOfferingManager;
 
     private ScheduledExecutorService _executor = null;
     private ScheduledExecutorService _vmIpFetchExecutor = null;
@@ -7506,6 +7509,8 @@ public class UserVmManagerImpl extends ManagerBase implements UserVmManager, Vir
 
         checkIfHostOfVMIsInPrepareForMaintenanceState(vm, "Migrate");
 
+        validateIfVmHasDeviceOfferings(vm);
+
         if (serviceOfferingDetailsDao.findDetail(vm.getServiceOfferingId(), GPU.Keys.pciDevice.toString()) != null) {
             throw new InvalidParameterValueException("Live Migration of GPU enabled VM is not supported");
         }
@@ -8120,6 +8125,9 @@ public class UserVmManagerImpl extends ManagerBase implements UserVmManager, Vir
             ex.addProxyObject(vm.getUuid(), "vmId");
             throw ex;
         }
+
+        // TODO: validar como fazer com migração de VM parada, se nao for usar offering
+        validateIfVmHasDeviceOfferings(vm);
 
         if (serviceOfferingDetailsDao.findDetail(vm.getServiceOfferingId(), GPU.Keys.pciDevice.toString()) != null) {
             throw new InvalidParameterValueException("Live Migration of GPU enabled VM is not supported");
@@ -10445,6 +10453,12 @@ public class UserVmManagerImpl extends ManagerBase implements UserVmManager, Vir
         } catch (InsufficientCapacityException | ResourceAllocationException ex) {
             logger.error("Failed to create network for backup validation.", ex);
             throw new CloudRuntimeException(ex);
+        }
+    }
+
+    private void validateIfVmHasDeviceOfferings(VirtualMachine vm) {
+        if (deviceOfferingManager.isVmAssignedToDeviceOfferings(vm)) {
+            throw new InvalidParameterValueException("The migration of running VMs assigned to device offerings is not supported");
         }
     }
 }
