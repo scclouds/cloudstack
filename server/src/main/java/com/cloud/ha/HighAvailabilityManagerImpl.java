@@ -32,6 +32,7 @@ import java.util.concurrent.TimeUnit;
 import javax.inject.Inject;
 import javax.naming.ConfigurationException;
 
+import com.cloud.hostdevices.dao.HostDeviceDao;
 import org.apache.cloudstack.api.ApiCommandResourceType;
 import org.apache.cloudstack.context.CallContext;
 import org.apache.cloudstack.engine.orchestration.service.VolumeOrchestrationService;
@@ -229,6 +230,8 @@ public class HighAvailabilityManagerImpl extends ManagerBase implements Configur
     HAConfigDao _haConfigDao;
     @Inject
     VolumeOrchestrationService volumeMgr;
+    @Inject
+    HostDeviceDao hostDeviceDao;
 
     String _instance;
     ScheduledExecutorService _executor;
@@ -385,6 +388,12 @@ public class HighAvailabilityManagerImpl extends ManagerBase implements Configur
                 }
                 continue;
             }
+
+            if (CollectionUtils.isNotEmpty(hostDeviceDao.listHostDevicesByVmId(vm.getId()))) {
+                logger.error("Skipping HA on VM {} as it is attached to one or more devices on host {}.", vm, host);
+                continue;
+            }
+
             if (logger.isDebugEnabled()) {
                 logger.debug("Notifying HA Mgr of to restart Instance {}", vm);
             }
