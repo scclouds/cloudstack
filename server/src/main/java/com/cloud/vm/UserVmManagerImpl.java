@@ -2306,6 +2306,13 @@ public class UserVmManagerImpl extends ManagerBase implements UserVmManager, Vir
                         return false;
                     }
 
+                    if (!existingHostHasCapacity && deviceOfferingManager.isVmAssignedToDeviceOfferings(vmInstance)) {
+                        logger.error("Unable to scale the VM [{}] because the host [{}] in which it is currently allocated does not " +
+                                "have enough compute capacity to scale the instance and the VM is assigned to a device offering. " +
+                                "Device offering VMs cannot be migrated to another host.", vmInstance.getInstanceName(), host.getName());
+                        return false;
+                    }
+
                     // #2 migrate the vm if host doesn't have capacity or is in avoid set
                     if (!existingHostHasCapacity) {
                         logger.info("Host [{}] does not have enough compute capacity to scale the instance [{}]. Since the [{}] setting is " +
