@@ -121,9 +121,9 @@ public class DeviceOfferingManagerImpl extends ManagerBase implements DeviceOffe
 
         VirtualMachine vm = getVMAndCheckAccess(virtualMachineId, caller);
 
-        if (!Arrays.asList(VirtualMachine.State.Stopped, VirtualMachine.State.).contains(vm.getState())) {
-            logger.error("VM with ID [{}] is not in a valid state to assign device offering. Current state: [{}]", virtualMachineId, vm.getState());
-            throw new InvalidParameterValueException(String.format("VM with ID [%s] is not in a valid state to assign device offering. Current state: [%s]", virtualMachineId, vm.getState()));
+        if (!Arrays.asList(VirtualMachine.State.Stopped, VirtualMachine.State.Running).contains(vm.getState())) {
+            logger.error("Could not assign device offering to VM [{}], because it is in the [{}] state", virtualMachineId, vm.getState());
+            throw new InvalidParameterValueException(String.format("VM is not in a valid state to assign device offering. Current state is [%s], and valid states are: %s", vm.getState(), Arrays.asList(VirtualMachine.State.Stopped, VirtualMachine.State.Running)));
         }
 
         getDeviceOfferingAndCheckAccess(deviceOfferingId, caller);
