@@ -19,4 +19,8 @@ public interface HostDevicesManager extends Configurable, Manager, PluggableServ
     HostDevice updateHostDevice(UpdateHostDeviceCmd updateHostDeviceCmd);
 
     void releaseHostDevicesForVm(Long vmId);
+
+    void putHostDevicesInMaintenanceMode(Long hostId);
+
+    void removeHostDevicesFromMaintenanceMode(long hostId);
 }
