@@ -37,4 +37,5 @@ public interface HostDetailsDao extends GenericDao<DetailVO, Long> {
 
     void replaceExternalDetails(long hostId, Map<String, String> details);
 
+    void expungeDetailByHostAndName(long hostId, String name);
 }

@@ -82,6 +82,8 @@ import org.apache.cloudstack.framework.extensions.manager.ExtensionsManager;
 import org.apache.cloudstack.framework.extensions.vo.ExtensionResourceMapVO;
 import org.apache.cloudstack.framework.extensions.vo.ExtensionVO;
 import org.apache.cloudstack.gpu.GpuService;
+import org.apache.cloudstack.hostdevices.HostDevice;
+import org.apache.cloudstack.hostdevices.HostDevicesManager;
 import org.apache.cloudstack.jsinterpreter.JsInterpreterHelper;
 import org.apache.cloudstack.storage.datastore.db.PrimaryDataStoreDao;
 import org.apache.cloudstack.storage.datastore.db.StoragePoolVO;
@@ -357,6 +359,8 @@ public class ResourceManagerImpl extends ManagerBase implements ResourceManager,
     private HostDeviceDao hostDeviceDao;
     @Inject
     private DeviceOfferingDeviceTagDao deviceOfferingDeviceTagDao;
+    @Inject
+    private HostDevicesManager hostDevicesManager;
 
     private final long _nodeId = ManagementServerNode.getManagementServerId();
 
@@ -1533,6 +1537,7 @@ public class ResourceManagerImpl extends ManagerBase implements ResourceManager,
 
         ActionEventUtils.onStartedActionEvent(CallContext.current().getCallingUserId(), CallContext.current().getCallingAccountId(), EventTypes.EVENT_MAINTENANCE_PREPARE, String.format("starting maintenance for host %s", host), hostId, null, true, 0);
         _agentMgr.pullAgentToMaintenance(hostId);
+        hostDevicesManager.putHostDevicesInMaintenanceMode(hostId);
 
         /* TODO: move below to listener */
         if (host.getType() == Host.Type.Routing) {
@@ -1685,6 +1690,12 @@ public class ResourceManagerImpl extends ManagerBase implements ResourceManager,
                 _hostDao.updateResourceState(ResourceState.ErrorInMaintenance, ResourceState.Event.InternalEnterMaintenance, ResourceState.Maintenance, host);
                 return _hostDao.findById(hostId);
             }
+        }
+
+        List<HostDeviceVO> attachedDevices = hostDeviceDao.listHostDevicesByHostIdAndState(hostId, HostDevice.State.Attached);
+        if(CollectionUtils.isNotEmpty(attachedDevices)) {
+            logger.error("Host {} has {} devices attached. We will not allow maintenance mode because it will be necessary to migrate VMs.", host, attachedDevices.stream().map(HostDeviceVO::getPciName).collect(Collectors.toList()));
+            throw new CloudRuntimeException("Failed to put host into maintenance mode because host has attached host devices. You need to dettach all host devices from VMs before putting the host into maintenance.");
         }
 
         if (_hostDao.countBy(host.getClusterId(), ResourceState.PrepareForMaintenance, ResourceState.ErrorInPrepareForMaintenance) > 0) {
@@ -3919,6 +3930,8 @@ public class ResourceManagerImpl extends ManagerBase implements ResourceManager,
             logger.debug(String.format("Cannot transit %s to Enabled state", host), e);
             return false;
         }
+
+        hostDevicesManager.removeHostDevicesFromMaintenanceMode(hostId);
 
         return true;
 

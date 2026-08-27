@@ -11,6 +11,7 @@ import com.cloud.exception.InvalidParameterValueException;
 import com.cloud.host.Host;
 import com.cloud.host.HostVO;
 import com.cloud.host.dao.HostDao;
+import com.cloud.host.dao.HostDetailsDao;
 import com.cloud.hostdevices.HostDeviceVO;
 import com.cloud.hostdevices.dao.HostDeviceDao;
 import com.cloud.hypervisor.Hypervisor;
@@ -40,6 +41,7 @@ import javax.inject.Inject;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 public class HostDevicesManagerImpl extends ManagerBase implements org.apache.cloudstack.hostdevices.HostDevicesManager {
@@ -59,6 +61,8 @@ public class HostDevicesManagerImpl extends ManagerBase implements org.apache.cl
     AccountDao accountDao;
     @Inject
     DomainDao domainDao;
+    @Inject
+    HostDetailsDao hostDetailsDao;
 
     private static final ObjectMapper MAPPER = createMapper();
 
@@ -411,6 +415,64 @@ public class HostDevicesManagerImpl extends ManagerBase implements org.apache.cl
         for (HostDeviceVO dev :devices) {
             dev.releaseFromVM();
             hostDeviceDao.persist(dev);
+        }
+    }
+
+    @Override
+    public void putHostDevicesInMaintenanceMode(Long hostId) {
+        HostVO host = hostDao.findById(hostId);
+
+        if (host == null) {
+            logger.debug("Host with ID {} was not found", hostId);
+            throw new CloudRuntimeException("Host with id " + hostId + " was not found.");
+        }
+
+        List<HostDeviceVO> devices = hostDeviceDao.listHostDevicesByHostIdAndState(hostId, HostDevice.State.Attached);
+        if (CollectionUtils.isEmpty(devices)) {
+            logger.debug("No host devices found for host with ID {}", hostId);
+            return;
+        }
+
+        Map<String, String> deviceNameToStateMap = devices.stream()
+                .collect(Collectors.toMap(HostDeviceVO::getPciName, d -> d.getState().toString()));
+
+        logger.info("The following devices will be put in maintenance mode for host {}: {}", hostId, devices.stream().map(HostDeviceVO::getPciName).collect(Collectors.toList()));
+        for (HostDeviceVO dev :devices) {
+            dev.setState(HostDevice.State.HostInMaintenance);
+            hostDeviceDao.persist(dev);
+        }
+
+        hostDetailsDao.persist(hostId, deviceNameToStateMap);
+    }
+
+    @Override
+    public void removeHostDevicesFromMaintenanceMode(long hostId) {
+        HostVO host = hostDao.findById(hostId);
+
+        if (host == null) {
+            logger.debug("Host with ID {} was not found", hostId);
+            throw new CloudRuntimeException("Host with id " + hostId + " was not found.");
+        }
+
+        List<HostDeviceVO> devices = hostDeviceDao.listHostDevicesByHostIdAndState(hostId, HostDevice.State.HostInMaintenance);
+        if (CollectionUtils.isEmpty(devices)) {
+            logger.debug("No host devices in maintenance found for host with ID {}", hostId);
+            return;
+        }
+
+        Map<String, String> hostDetails = hostDetailsDao.findDetails(hostId);
+
+        for (HostDeviceVO dev : devices) {
+            String pciName = dev.getPciName();
+            String previousState = hostDetails.get(pciName);
+            if (previousState == null) {
+                logger.warn("Could not find host device [{}] last state before maintenance mode. Ignoring device during state normalization.", pciName);
+                continue;
+            }
+
+            dev.setState(HostDevice.State.valueOf(previousState));
+            hostDeviceDao.persist(dev);
+            hostDetailsDao.expungeDetailByHostAndName(hostId, pciName);
         }
     }
 

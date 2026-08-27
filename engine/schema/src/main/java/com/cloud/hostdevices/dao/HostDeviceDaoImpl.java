@@ -98,4 +98,14 @@ public class HostDeviceDaoImpl extends GenericDaoBase<HostDeviceVO, Long> implem
         sc.setParameters(VIRTUAL_MACHINE_ID, vmId);
         return listBy(sc);
     }
+
+    @Override
+    public List<HostDeviceVO> listHostDevicesByHostIdAndState(Long hostId, HostDevice.State state) {
+        SearchCriteria<HostDeviceVO> sc = hostDevicesSearch.create();
+
+        sc.setParametersIfNotNull(HOST_ID, hostId);
+        sc.setParameters(STATE, state);
+
+        return listBy(sc);
+    }
 }
