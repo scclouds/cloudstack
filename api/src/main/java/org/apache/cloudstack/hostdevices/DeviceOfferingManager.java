@@ -21,4 +21,6 @@ public interface DeviceOfferingManager extends Configurable, Manager, PluggableS
     List<? extends DeviceOffering> listDeviceOfferings(ListDeviceOfferingsCmd listDeviceOfferingsCmd);
 
     DeviceOfferingResponse generateDeviceOfferingResponse(DeviceOffering offering);
+
+    void unassignVmFromOfferings(Long vmId);
 }

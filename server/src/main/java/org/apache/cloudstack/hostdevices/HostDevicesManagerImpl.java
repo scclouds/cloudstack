@@ -33,6 +33,7 @@ import org.apache.cloudstack.context.CallContext;
 import org.apache.cloudstack.framework.config.ConfigKey;
 import org.apache.cloudstack.utils.libvirt.mappers.serialization.LibvirtDeviceDeserializer;
 import org.apache.cloudstack.utils.libvirt.model.LibvirtDevice;
+import org.apache.commons.collections.CollectionUtils;
 import org.apache.commons.lang3.ObjectUtils;
 
 import javax.inject.Inject;
@@ -386,6 +387,31 @@ public class HostDevicesManagerImpl extends ManagerBase implements org.apache.cl
         hostDeviceDao.persist(device);
 
         return device;
+    }
+
+    @Override
+    public void releaseHostDevicesForVm(Long vmId) {
+        VirtualMachine vm = virtualMachineDao.findById(vmId);
+
+        if (vm == null) {
+            logger.debug("Virtual machine with ID {} was not found", vmId);
+            throw new CloudRuntimeException("Virtual machine with id " + vmId + " was not found.");
+        }
+
+        List<HostDeviceVO> devices = hostDeviceDao.listHostDevicesByVmId(vmId);
+
+        if (CollectionUtils.isEmpty(devices)) {
+            logger.debug("No host devices found for VM with ID {}", vmId);
+            return;
+        }
+
+        logger.info("The following devices will be released from VM {}: {}", vmId, devices.stream().map(HostDeviceVO::getPciName).collect(Collectors.toList()));
+
+        // TODO: aqui precisa limpar os devices do tipo storage
+        for (HostDeviceVO dev :devices) {
+            dev.releaseFromVM();
+            hostDeviceDao.persist(dev);
+        }
     }
 
     @Override

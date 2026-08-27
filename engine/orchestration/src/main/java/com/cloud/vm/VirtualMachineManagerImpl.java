@@ -94,6 +94,8 @@ import org.apache.cloudstack.framework.messagebus.MessageBus;
 import org.apache.cloudstack.framework.messagebus.MessageDispatcher;
 import org.apache.cloudstack.framework.messagebus.MessageHandler;
 import org.apache.cloudstack.gpu.GpuService;
+import org.apache.cloudstack.hostdevices.DeviceOfferingManager;
+import org.apache.cloudstack.hostdevices.HostDevicesManager;
 import org.apache.cloudstack.jobs.JobInfo;
 import org.apache.cloudstack.managed.context.ManagedContextRunnable;
 import org.apache.cloudstack.reservation.dao.ReservationDao;
@@ -471,6 +473,10 @@ public class VirtualMachineManagerImpl extends ManagerBase implements VirtualMac
     ExtensionDetailsDao extensionDetailsDao;
     @Inject
     ClvmPoolManager clvmPoolManager;
+    @Inject
+    HostDevicesManager hostDeviceManager;
+    @Inject
+    DeviceOfferingManager deviceOfferingManager;
 
 
     VmWorkJobHandlerProxy _jobHandlerProxy = new VmWorkJobHandlerProxy(this);
@@ -2718,6 +2724,8 @@ public class VirtualMachineManagerImpl extends ManagerBase implements VirtualMac
         deleteVMSnapshots(vm, expunge);
 
         gpuService.deallocateAllGpuDevicesForVm(vm.getId());
+        hostDeviceManager.releaseHostDevicesForVm(vm.getId());
+        deviceOfferingManager.unassignVmFromOfferings(vm.getId());
 
         Transaction.execute(new TransactionCallbackWithExceptionNoReturn<CloudRuntimeException>() {
             @Override
