@@ -247,6 +247,12 @@ public class DeviceOfferingManagerImpl extends ManagerBase implements DeviceOffe
         vmInstanceDeviceOfferingsDao.expungeByVmId(vmId);
     }
 
+    @Override
+    public boolean isVmAssignedToDeviceOfferings(VirtualMachine vm) {
+        List<VMInstanceDeviceOfferingsVO> existingAssignmentsForVM = vmInstanceDeviceOfferingsDao.listByVmId(vm.getId());
+        return CollectionUtils.isNotEmpty(existingAssignmentsForVM);
+    }
+
     private Domain getDomainAndCheckAccess(Long domainId, Account caller) {
         Domain domain = domainDao.findById(domainId);
 
