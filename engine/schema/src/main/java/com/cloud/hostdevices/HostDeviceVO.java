@@ -300,4 +300,11 @@ public class HostDeviceVO implements HostDevice {
             this.type = type;
         }
     }
+
+    public void releaseFromVM() {
+        this.instanceId = null;
+        this.accountId = null;
+        this.domainId = null;
+        this.state = State.Free;
+    }
 }

@@ -91,4 +91,11 @@ public class HostDeviceDaoImpl extends GenericDaoBase<HostDeviceVO, Long> implem
 
         return listBy(sc);
     }
+
+    @Override
+    public List<HostDeviceVO> listHostDevicesByVmId(Long vmId) {
+        SearchCriteria<HostDeviceVO> sc = hostIdSearch.create();
+        sc.setParameters(VIRTUAL_MACHINE_ID, vmId);
+        return listBy(sc);
+    }
 }
