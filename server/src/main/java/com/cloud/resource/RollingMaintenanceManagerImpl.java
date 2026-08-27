@@ -29,6 +29,9 @@ import java.util.stream.Collectors;
 import javax.inject.Inject;
 import javax.naming.ConfigurationException;
 
+import com.cloud.hostdevices.HostDeviceVO;
+import com.cloud.hostdevices.dao.HostDeviceDao;
+import com.cloud.vm.VirtualMachine;
 import org.apache.cloudstack.affinity.AffinityGroupProcessor;
 import org.apache.cloudstack.api.ApiCommandResourceType;
 import org.apache.cloudstack.api.command.admin.cluster.UpdateClusterCmd;
@@ -36,6 +39,7 @@ import org.apache.cloudstack.api.command.admin.host.PrepareForHostMaintenanceCmd
 import org.apache.cloudstack.api.command.admin.resource.StartRollingMaintenanceCmd;
 import org.apache.cloudstack.context.CallContext;
 import org.apache.cloudstack.framework.config.ConfigKey;
+import org.apache.cloudstack.hostdevices.HostDevice;
 import org.apache.commons.collections.CollectionUtils;
 import org.apache.commons.lang3.ObjectUtils;
 
@@ -99,6 +103,8 @@ public class RollingMaintenanceManagerImpl extends ManagerBase implements Rollin
     private HostTagsDao hostTagsDao;
     @Inject
     private AlertManager alertManager;
+    @Inject
+    private HostDeviceDao hostDeviceDao;
 
     protected List<AffinityGroupProcessor> _affinityProcessors;
 
@@ -622,6 +628,18 @@ public class RollingMaintenanceManagerImpl extends ManagerBase implements Rollin
             return new Pair<>(true, "OK");
         }
         List<HostTagVO> hostTags = hostTagsDao.getHostTags(host.getId());
+        List<HostDeviceVO> attachedHostDevices = hostDeviceDao.listHostDevicesByHostIdAndState(host.getId(), HostDevice.State.Attached);
+
+        if (CollectionUtils.isNotEmpty(attachedHostDevices)) {
+            Set<Long> attachedHostDeviceInstanceIds = attachedHostDevices.stream().map(HostDeviceVO::getInstanceId).collect(Collectors.toSet());
+            boolean hostHasRunningVmsWithAttachedDevices = vmsRunning.stream().anyMatch(vm -> attachedHostDeviceInstanceIds.contains(vm.getId()));
+
+            if (hostHasRunningVmsWithAttachedDevices) {
+                String msg = String.format("Host %s has VMs with attached devices, cannot enter maintenance", host);
+                logger.error(msg);
+                return new Pair<>(false, msg);
+            }
+        }
 
         int successfullyCheckedVmMigrations = 0;
         for (VMInstanceVO runningVM : vmsRunning) {
