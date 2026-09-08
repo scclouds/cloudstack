@@ -31,7 +31,6 @@ import javax.naming.ConfigurationException;
 
 import com.cloud.hostdevices.HostDeviceVO;
 import com.cloud.hostdevices.dao.HostDeviceDao;
-import com.cloud.vm.VirtualMachine;
 import org.apache.cloudstack.affinity.AffinityGroupProcessor;
 import org.apache.cloudstack.api.ApiCommandResourceType;
 import org.apache.cloudstack.api.command.admin.cluster.UpdateClusterCmd;
