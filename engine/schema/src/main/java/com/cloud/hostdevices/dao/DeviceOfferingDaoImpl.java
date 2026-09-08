@@ -2,6 +2,7 @@ package com.cloud.hostdevices.dao;
 
 import com.cloud.hostdevices.DeviceOfferingDeviceTagVO;
 import com.cloud.hostdevices.DeviceOfferingVO;
+import com.cloud.hostdevices.VMInstanceDeviceOfferingsVO;
 import com.cloud.utils.db.GenericDaoBase;
 import com.cloud.utils.db.JoinBuilder;
 import com.cloud.utils.db.SearchBuilder;
@@ -31,10 +32,10 @@ public class DeviceOfferingDaoImpl extends GenericDaoBase<DeviceOfferingVO, Long
         deviceOfferingSearch.and("state", deviceOfferingSearch.entity().getState(), SearchCriteria.Op.EQ);
         deviceOfferingSearch.and("isPublic", deviceOfferingSearch.entity().getIsPublic(), SearchCriteria.Op.EQ);
 
-//        SearchBuilder<VMInstanceDeviceOfferingsVO> vmSearchBuilder = vmDeviceOfferingsDao.createSearchBuilder();
-//        vmSearchBuilder.and("virtualMachineId", vmSearchBuilder.entity().getVirtualMachineId(), SearchCriteria.Op.EQ);
-//        deviceOfferingSearch.join("vmSearch", vmSearchBuilder, deviceOfferingSearch.entity().getId(), vmSearchBuilder.entity().getDeviceOfferingId(), JoinBuilder.JoinType.INNER);
-//
+        SearchBuilder<VMInstanceDeviceOfferingsVO> vmSearchBuilder = vmDeviceOfferingsDao.createSearchBuilder();
+        vmSearchBuilder.and("virtualMachineId", vmSearchBuilder.entity().getVirtualMachineId(), SearchCriteria.Op.EQ);
+        deviceOfferingSearch.join("vmSearch", vmSearchBuilder, deviceOfferingSearch.entity().getId(), vmSearchBuilder.entity().getDeviceOfferingId(), JoinBuilder.JoinType.INNER);
+
         SearchBuilder<DeviceOfferingDeviceTagVO> deviceTagSearchBuilder = deviceOfferingDeviceTagDao.createSearchBuilder();
         deviceTagSearchBuilder.and("deviceTag", deviceTagSearchBuilder.entity().getDeviceTag(), SearchCriteria.Op.IN);
         deviceOfferingSearch.join("deviceTagSearch", deviceTagSearchBuilder, deviceOfferingSearch.entity().getId(), deviceTagSearchBuilder.entity().getDeviceOfferingId(), JoinBuilder.JoinType.INNER);
@@ -50,7 +51,7 @@ public class DeviceOfferingDaoImpl extends GenericDaoBase<DeviceOfferingVO, Long
     }
 
     @Override
-    public List<DeviceOfferingVO> listDeviceOfferings(String name, List<Long> domainIds, Long zoneId, List<String> deviceTags, DeviceOffering.State state, boolean showOnlyPublic) {
+    public List<DeviceOfferingVO> listDeviceOfferings(String name, List<Long> domainIds, Long zoneId, List<String> deviceTags, DeviceOffering.State state, Boolean showOnlyPublic) {
         SearchCriteria<DeviceOfferingVO> sc = deviceOfferingSearch.create();
         sc.setParametersIfNotNull("name", name);
         sc.setParametersIfNotNull("zoneId", zoneId);
@@ -66,5 +67,12 @@ public class DeviceOfferingDaoImpl extends GenericDaoBase<DeviceOfferingVO, Long
         }
 
         return listBy(sc);
+    }
+
+    @Override
+    public DeviceOfferingVO findByName(String name) {
+        SearchCriteria<DeviceOfferingVO> sc = deviceOfferingSearch.create();
+        sc.setParametersIfNotNull("name", name);
+        return findOneBy(sc);
     }
 }

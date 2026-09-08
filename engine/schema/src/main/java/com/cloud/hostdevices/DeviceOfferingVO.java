@@ -62,7 +62,7 @@ public class DeviceOfferingVO implements DeviceOffering {
         this.zoneId = zoneId;
         this.uuid = UUID.randomUUID().toString();
         this.state = State.Active;
-        this.isPublic = domainId != null || zoneId != null;
+        this.isPublic = domainId == null && zoneId == null;
     }
 
     public long getId() {
@@ -103,5 +103,17 @@ public class DeviceOfferingVO implements DeviceOffering {
 
     public Long getZoneId() {
         return zoneId;
+    }
+
+    public void updateData(String displayName, String description, State state) {
+        if (displayName != null) {
+            this.name = displayName;
+        }
+        if (description != null) {
+            this.description = description;
+        }
+        if (state != null) {
+            this.state = state;
+        }
     }
 }

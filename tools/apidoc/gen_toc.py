@@ -284,7 +284,9 @@ known_categories = {
     'ImportVmTask': 'Import VM Task',
     'Dns': 'DNS',
     'downloadValidationScreenshot': 'Backup and Recovery',
-    'createDeviceOffering': 'Host devices'
+    'createDeviceOffering': 'Host devices',
+    'updateDeviceOffering': 'Host devices',
+    'listDeviceOfferings': 'Host devices',
 }
 
 

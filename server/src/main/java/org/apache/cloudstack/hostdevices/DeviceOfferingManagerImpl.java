@@ -18,6 +18,7 @@ import com.cloud.utils.component.ManagerBase;
 import com.cloud.vm.VirtualMachine;
 import com.cloud.vm.dao.VMInstanceDao;
 import org.apache.cloudstack.api.command.admin.hostdevices.CreateDeviceOfferingCmd;
+import org.apache.cloudstack.api.command.admin.hostdevices.UpdateDeviceOfferingCmd;
 import org.apache.cloudstack.api.command.user.hostdevices.AssignVirtualMachineToDeviceOfferingCmd;
 import org.apache.cloudstack.api.command.user.hostdevices.ListDeviceOfferingsCmd;
 import org.apache.cloudstack.api.command.user.hostdevices.RemoveVirtualMachineFromDeviceOfferingCmd;
@@ -25,6 +26,7 @@ import org.apache.cloudstack.api.response.DeviceOfferingResponse;
 import org.apache.cloudstack.context.CallContext;
 import org.apache.cloudstack.framework.config.ConfigKey;
 import org.apache.commons.collections.CollectionUtils;
+import org.apache.commons.lang3.BooleanUtils;
 import org.apache.commons.lang3.EnumUtils;
 
 import javax.inject.Inject;
@@ -54,6 +56,7 @@ public class DeviceOfferingManagerImpl extends ManagerBase implements DeviceOffe
         Account caller = CallContext.current().getCallingAccount();
         Long domainId = cmd.getDomainId();
         Long zoneId = cmd.getZoneId();
+        String name = cmd.getName();
 
         if (!caller.getType().equals(Account.Type.ADMIN)) {
             logger.error("Cancelling creation because caller [{}] tried to create a device offering without being admin.", caller);
@@ -86,6 +89,13 @@ public class DeviceOfferingManagerImpl extends ManagerBase implements DeviceOffe
                 logger.error("Zone with ID [{}] could not be found, cancelling offering creation.");
                 throw new InvalidParameterValueException("Could not find zone with the informed ID.");
             }
+        }
+
+        DeviceOffering nameDeviceOffering = deviceOfferingDao.findByName(name);
+
+        if (nameDeviceOffering != null) {
+            logger.error("Device offering with name [{}] already exists, cancelling creation.", name);
+            throw new InvalidParameterValueException("A device offering with the same name already exists.");
         }
 
         // TODO: provavelmente precisa de uma transação aqui
@@ -197,15 +207,15 @@ public class DeviceOfferingManagerImpl extends ManagerBase implements DeviceOffe
             }
         }
 
-        boolean showOnlyPublic = true;
+        Boolean showOnlyPublic = true;
         List<Long> domainIds = new ArrayList<>();
-        if (caller.getType().equals(Account.Type.DOMAIN_ADMIN) && listAll != null && listAll) {
-            showOnlyPublic = false;
+        if (caller.getType().equals(Account.Type.DOMAIN_ADMIN) && BooleanUtils.isTrue(listAll)) {
+            showOnlyPublic = null;
             domainIds = domainDao.getDomainAndChildrenIds(caller.getDomainId());
         }
 
-        if (caller.getType().equals(Account.Type.ADMIN) && listAll != null && listAll) {
-            showOnlyPublic = false;
+        if (caller.getType().equals(Account.Type.ADMIN) && BooleanUtils.isTrue(listAll)) {
+            showOnlyPublic = null;
         }
 
         return deviceOfferingDao.listDeviceOfferings(name, domainIds, zoneId, deviceTags, state, showOnlyPublic);
@@ -253,6 +263,51 @@ public class DeviceOfferingManagerImpl extends ManagerBase implements DeviceOffe
         return CollectionUtils.isNotEmpty(existingAssignmentsForVM);
     }
 
+    @Override
+    public DeviceOffering updateDeviceOffering(UpdateDeviceOfferingCmd updateDeviceOfferingCmd) {
+        Account caller = CallContext.current().getCallingAccount();
+        Long id = updateDeviceOfferingCmd.getId();
+        String displayName = updateDeviceOfferingCmd.getName();
+        String description = updateDeviceOfferingCmd.getDescription();
+        List<String> deviceTags = updateDeviceOfferingCmd.getTags();
+        String stringState = updateDeviceOfferingCmd.getState();
+
+        DeviceOfferingVO deviceOffering = getDeviceOfferingAndCheckAccess(id, caller);
+
+        DeviceOffering.State state = null;
+        if (stringState != null) {
+            state = EnumUtils.getEnum(DeviceOffering.State.class, stringState);
+            if (state == null) {
+                logger.error("Invalid state [{}] provided for device offering update.", stringState);
+                throw new InvalidParameterValueException(String.format("Invalid state [%s] provided. Valid states are: Active and Inactive", stringState));
+            }
+        }
+
+        if (deviceTags != null && CollectionUtils.isEmpty(deviceTags)) {
+            logger.error("No device tag was provided, cancelling device offering update.");
+            throw new InvalidParameterValueException("You must inform at least one device tag for the device offering.");
+        }
+
+
+        deviceOffering.updateData(displayName, description, state);
+        deviceOfferingDao.persist(deviceOffering);
+        updateDeviceOfferingTags(deviceOffering.getId(), deviceTags);
+
+        return deviceOffering;
+    }
+
+    private void updateDeviceOfferingTags(Long offeringId, List<String> deviceTags) {
+        if (CollectionUtils.isEmpty(deviceTags)) {
+            return;
+        }
+
+        deviceOfferingDeviceTagsDao.expungeByOfferingId(offeringId);
+
+        for (String tag : deviceTags) {
+            deviceOfferingDeviceTagsDao.persist(new DeviceOfferingDeviceTagVO(offeringId, tag));
+        }
+    }
+
     private Domain getDomainAndCheckAccess(Long domainId, Account caller) {
         Domain domain = domainDao.findById(domainId);
 
@@ -282,7 +337,7 @@ public class DeviceOfferingManagerImpl extends ManagerBase implements DeviceOffe
         return vm;
     }
 
-    private DeviceOffering getDeviceOfferingAndCheckAccess(Long deviceOfferingId, Account caller) {
+    private DeviceOfferingVO getDeviceOfferingAndCheckAccess(Long deviceOfferingId, Account caller) {
         DeviceOfferingVO deviceOffering = deviceOfferingDao.findById(deviceOfferingId);
         if (deviceOffering == null) {
             logger.error("Device offering with ID [{}] could not be found.", deviceOfferingId);
@@ -308,7 +363,7 @@ public class DeviceOfferingManagerImpl extends ManagerBase implements DeviceOffe
 
     @Override
     public List<Class<?>> getCommands() {
-        return List.of(CreateDeviceOfferingCmd.class, ListDeviceOfferingsCmd.class, AssignVirtualMachineToDeviceOfferingCmd.class, RemoveVirtualMachineFromDeviceOfferingCmd.class);
+        return List.of(CreateDeviceOfferingCmd.class, ListDeviceOfferingsCmd.class, AssignVirtualMachineToDeviceOfferingCmd.class, RemoveVirtualMachineFromDeviceOfferingCmd.class, UpdateDeviceOfferingCmd.class);
     }
 
     @Override

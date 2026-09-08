@@ -8,4 +8,6 @@ import java.util.List;
 
 public interface DeviceOfferingDeviceTagDao extends GenericDao<DeviceOfferingDeviceTagVO, Long> {
     List<String> getDeviceOfferingsTags(List<DeviceOfferingVO> deviceOfferingIds);
+
+    void expungeByOfferingId(long id);
 }
