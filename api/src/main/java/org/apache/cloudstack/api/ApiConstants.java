@@ -1428,6 +1428,11 @@ public class ApiConstants {
     public static final String EXISTING = "existing";
     public static final String UNMANAGE = "unmanage";
 
+    // Host device related
+    public static final String HOST_DEVICE_LIMIT = "hostdevicelimit";
+    public static final String HOST_DEVICE_TOTAL = "hostdevicetotal";
+    public static final String HOST_DEVICE_AVAILABLE = "hostdeviceavailable";
+
     public static final String PARAMETER_DESCRIPTION_ACTIVATION_RULE = "Quota tariff's activation rule. It can receive a JS script that results in either " +
             "a boolean or a numeric value: if it results in a boolean value, the tariff value will be applied according to the result; if it results in a numeric value, the " +
             "numeric value will be applied; if the result is neither a boolean nor a numeric value, the tariff will not be applied. If the rule is not informed, the tariff " +

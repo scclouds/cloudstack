@@ -176,6 +176,18 @@ public class ProjectResponse extends BaseResponse implements ResourceLimitAndCou
     @Param(description = "the total object storage space (in GiB) available to the project", since = "4.21.0")
     private String objectStorageAvailable;
 
+    @SerializedName(ApiConstants.HOST_DEVICE_LIMIT)
+    @Param(description = "The total number of Host Devices that this Domain can own")
+    private String hostDeviceLimit;
+
+    @SerializedName(ApiConstants.HOST_DEVICE_TOTAL)
+    @Param(description = "The number of Host Devices owned by this Domain")
+    private Long hostDeviceTotal;
+
+    @SerializedName(ApiConstants.HOST_DEVICE_AVAILABLE)
+    @Param(description = "The number of Host Devices available for this Domain")
+    private String hostDeviceAvailable;
+
     @SerializedName(ApiConstants.VM_LIMIT)
     @Param(description = "The total number of Instances that can be deployed by this project", since = "4.2.0")
     private String vmLimit;
@@ -563,6 +575,21 @@ public class ProjectResponse extends BaseResponse implements ResourceLimitAndCou
     @Override
     public void setObjectStorageTotal(Long objectStorageTotal) {
         this.objectStorageTotal = objectStorageTotal;
+    }
+
+    @Override
+    public void setHostDeviceLimit(String hostDeviceLimit) {
+        this.hostDeviceLimit = hostDeviceLimit;
+    }
+
+    @Override
+    public void setHostDeviceTotal(Long hostDeviceTotal) {
+        this.hostDeviceTotal = hostDeviceTotal;
+    }
+
+    @Override
+    public void setHostDeviceAvailable(String hostDeviceAvailable) {
+        this.hostDeviceAvailable = hostDeviceAvailable;
     }
 
     @Override

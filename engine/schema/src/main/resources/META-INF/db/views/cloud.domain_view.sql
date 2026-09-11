@@ -69,6 +69,8 @@ select
     `bucket_count`.`count` AS `bucketTotal`,
     `object_storage_limit`.`max` AS `objectStorageLimit`,
     `object_storage_count`.`count` AS `objectStorageTotal`
+    `host_device_limit`.`max` AS `hostDeviceLimit`,
+    `host_device_count`.`count` AS `hostDeviceTotal`,
 from
     `cloud`.`domain`
         left join
@@ -172,4 +174,10 @@ from
         and object_storage_limit.type = 'object_storage'
         left join
     `cloud`.`resource_count` object_storage_count ON domain.id = object_storage_count.domain_id
-        and object_storage_count.type = 'object_storage';
+        and object_storage_count.type = 'object_storage'
+        left join
+    `cloud`.`resource_limit` hostdevicelimit ON domain.id = hostdevicelimit.domain_id
+        and hostdevicelimit.type = 'host_device'
+        left join
+    `cloud`.`resource_count` hostdevicecount ON domain.id = hostdevicecount.domain_id
+        and hostdevicecount.type = 'host_device';

@@ -108,4 +108,13 @@ public class HostDeviceDaoImpl extends GenericDaoBase<HostDeviceVO, Long> implem
 
         return listBy(sc);
     }
+
+    @Override
+    public List<HostDeviceVO> listHostDevicesByAccountId(long accountId) {
+        SearchCriteria<HostDeviceVO> sc = hostDevicesSearch.create();
+
+        sc.setParametersIfNotNull(ACCOUNT_ID, accountId);
+
+        return listBy(sc);
+    }
 }

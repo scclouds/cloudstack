@@ -250,6 +250,19 @@ public class DomainJoinDaoImpl extends GenericDaoBase<DomainJoinVO, Long> implem
         response.setObjectStorageLimit(objectStorageLimitDisplay);
         response.setObjectStorageTotal(objectStorageTotal);
         response.setObjectStorageAvailable(objectStorageAvail);
+
+        // Get resource limits for host devices
+        setHostDeviceLimits(domain, fullView, response);
+    }
+
+    private void setHostDeviceLimits(DomainJoinVO domain, boolean fullView, ResourceLimitAndCountResponse response) {
+        Long hostDeviceLimit = ApiDBUtils.findCorrectResourceLimit(domain.getHostDeviceLimit(), domain.getId(), ResourceType.host_device);
+        String hostDeviceLimitDisplay = (fullView || hostDeviceLimit == -1) ? Resource.UNLIMITED : String.valueOf(hostDeviceLimit);
+        Long hostDeviceTotal = (domain.getHostDeviceTotal() == null) ? 0 : domain.getHostDeviceTotal();
+        String hostDeviceAvailable = (fullView || hostDeviceLimit == -1) ? Resource.UNLIMITED : String.valueOf(hostDeviceLimit - hostDeviceTotal);
+        response.setHostDeviceLimit(hostDeviceLimitDisplay);
+        response.setHostDeviceTotal(hostDeviceTotal);
+        response.setHostDeviceAvailable(hostDeviceAvailable);
     }
 
     private void setGpuResourceLimits(DomainJoinVO domain, boolean fullView, ResourceLimitAndCountResponse response) {

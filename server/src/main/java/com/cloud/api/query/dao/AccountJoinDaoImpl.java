@@ -278,6 +278,19 @@ public class AccountJoinDaoImpl extends GenericDaoBase<AccountJoinVO, Long> impl
         response.setObjectStorageLimit(objectStorageLimitDisplay);
         response.setObjectStorageTotal(objectStorageTotal);
         response.setObjectStorageAvailable(objectStorageAvail);
+
+        // Get resource limits for host devices
+        setHostDeviceLimits(account, fullView, response);
+    }
+
+    private void setHostDeviceLimits(AccountJoinVO account, boolean fullView, ResourceLimitAndCountResponse response) {
+        Long hostDeviceLimit = ApiDBUtils.findCorrectResourceLimit(account.getHostDeviceLimit(), account.getId(), ResourceType.host_device);
+        String hostDeviceLimitDisplay = (fullView || hostDeviceLimit == -1) ? Resource.UNLIMITED : String.valueOf(hostDeviceLimit);
+        Long hostDeviceTotal = (account.getHostDeviceTotal() == null) ? 0 : account.getHostDeviceTotal();
+        String hostDeviceAvailable = (fullView || hostDeviceLimit == -1) ? Resource.UNLIMITED : String.valueOf(hostDeviceLimit - hostDeviceTotal);
+        response.setHostDeviceLimit(hostDeviceLimitDisplay);
+        response.setHostDeviceTotal(hostDeviceTotal);
+        response.setHostDeviceAvailable(hostDeviceAvailable);
     }
 
     private void setGpuResourceLimits(AccountJoinVO account, boolean fullView, ResourceLimitAndCountResponse response) {

@@ -38,7 +38,8 @@ public interface Resource {
         backup_storage("backup_storage", 13),
         bucket("bucket", 14),
         object_storage("object_storage", 15),
-        gpu("gpu", 16);
+        gpu("gpu", 16),
+        host_device("host_device", 17);
 
         private String name;
         private int ordinal;
