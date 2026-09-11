@@ -183,6 +183,12 @@ public class DomainJoinVO extends BaseViewVO implements InternalIdentity, Identi
     @Column(name = "objectStorageTotal")
     private Long objectStorageTotal;
 
+    @Column(name = "hostDeviceLimit")
+    private Long hostDeviceLimit;
+
+    @Column(name = "hostDeviceTotal")
+    private Long hostDeviceTotal;
+
     @Transient
     private String parentName;
 
@@ -443,6 +449,10 @@ public class DomainJoinVO extends BaseViewVO implements InternalIdentity, Identi
         return objectStorageTotal;
     }
 
+    public Long getHostDeviceTotal() {
+        return hostDeviceTotal;
+    }
+
     public Long getVmLimit() {
         return vmLimit;
     }
@@ -595,6 +605,10 @@ public class DomainJoinVO extends BaseViewVO implements InternalIdentity, Identi
 
     public Long getObjectStorageLimit() {
         return objectStorageLimit;
+    }
+
+    public Long getHostDeviceLimit() {
+        return hostDeviceLimit;
     }
 
     public void setObjectStorageLimit(Long objectStorageLimit) {

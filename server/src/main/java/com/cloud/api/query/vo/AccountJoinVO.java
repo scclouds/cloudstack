@@ -207,6 +207,12 @@ public class AccountJoinVO extends BaseViewVO implements InternalIdentity, Ident
     @Column(name = "objectStorageTotal")
     private Long objectStorageTotal;
 
+    @Column(name = "hostDeviceLimit")
+    private Long hostDeviceLimit;
+
+    @Column(name = "hostDeviceTotal")
+    private Long hostDeviceTotal;
+
     @Column(name = "job_id")
     private Long jobId;
 
@@ -383,6 +389,10 @@ public class AccountJoinVO extends BaseViewVO implements InternalIdentity, Ident
         return objectStorageTotal;
     }
 
+    public Long getHostDeviceTotal() {
+        return hostDeviceTotal;
+    }
+
     public Long getVmLimit() {
         return vmLimit;
     }
@@ -449,6 +459,10 @@ public class AccountJoinVO extends BaseViewVO implements InternalIdentity, Ident
 
     public Long getObjectStorageLimit() {
         return objectStorageLimit;
+    }
+
+    public Long getHostDeviceLimit() {
+        return hostDeviceLimit;
     }
 
     public Long getJobId() {

@@ -395,6 +395,7 @@ public class HostDevicesManagerImpl extends ManagerBase implements org.apache.cl
 
     @Override
     public void releaseHostDevicesForVm(Long vmId) {
+        // TODO: dar decrease nos limites
         VirtualMachine vm = virtualMachineDao.findById(vmId);
 
         if (vm == null) {
@@ -412,7 +413,7 @@ public class HostDevicesManagerImpl extends ManagerBase implements org.apache.cl
         logger.info("The following devices will be released from VM {}: {}", vmId, devices.stream().map(HostDeviceVO::getPciName).collect(Collectors.toList()));
 
         // TODO: aqui precisa limpar os devices do tipo storage
-        for (HostDeviceVO dev :devices) {
+        for (HostDeviceVO dev : devices) {
             dev.releaseFromVM();
             hostDeviceDao.persist(dev);
         }
@@ -437,7 +438,7 @@ public class HostDevicesManagerImpl extends ManagerBase implements org.apache.cl
                 .collect(Collectors.toMap(HostDeviceVO::getPciName, d -> d.getState().toString()));
 
         logger.info("The following devices will be put in maintenance mode for host {}: {}", hostId, devices.stream().map(HostDeviceVO::getPciName).collect(Collectors.toList()));
-        for (HostDeviceVO dev :devices) {
+        for (HostDeviceVO dev : devices) {
             dev.setState(HostDevice.State.HostInMaintenance);
             hostDeviceDao.persist(dev);
         }
@@ -483,7 +484,11 @@ public class HostDevicesManagerImpl extends ManagerBase implements org.apache.cl
 
     @Override
     public ConfigKey<?>[] getConfigKeys() {
-        return new ConfigKey[0];
+        return new ConfigKey[]{
+                DefaultMaxAccountHostDevices,
+                DefaultMaxDomainHostDevices,
+                DefaultMaxProjectHostDevices
+        };
     }
 
     @Override

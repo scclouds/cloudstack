@@ -78,6 +78,8 @@ select
     `bucket_count`.`count` AS `bucketTotal`,
     `object_storage_limit`.`max` AS `objectStorageLimit`,
     `object_storage_count`.`count` AS `objectStorageTotal`,
+    `host_device_limit`.`max` AS `hostDeviceLimit`,
+    `host_device_count`.`count` AS `hostDeviceTotal`,
     `async_job`.`id` AS `job_id`,
     `async_job`.`uuid` AS `job_uuid`,
     `async_job`.`job_status` AS `job_status`,
@@ -199,6 +201,12 @@ from
         left join
     `cloud`.`resource_count` object_storage_count ON account.id = object_storage_count.account_id
         and object_storage_count.type = 'object_storage'
+        left join
+    `cloud`.`resource_limit` hostdevicelimit ON account.id = hostdevicelimit.account_id
+        and hostdevicelimit.type = 'host_device'
+        left join
+    `cloud`.`resource_count` hostdevicecount ON account.id = hostdevicecount.account_id
+        and hostdevicecount.type = 'host_device'
         left join
     `cloud`.`async_job` ON async_job.instance_id = account.id
         and async_job.instance_type = 'Account'

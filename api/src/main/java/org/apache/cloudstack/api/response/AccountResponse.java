@@ -291,6 +291,18 @@ public class AccountResponse extends BaseResponse implements ResourceLimitAndCou
     @Param(description = "the total object storage space (in GiB) available to the account", since = "4.21.0")
     private String objectStorageAvailable;
 
+    @SerializedName(ApiConstants.HOST_DEVICE_LIMIT)
+    @Param(description = "The total number of Host Devices that this Account can own")
+    private String hostDeviceLimit;
+
+    @SerializedName(ApiConstants.HOST_DEVICE_TOTAL)
+    @Param(description = "The number of Host Devices owned by this Account")
+    private Long hostDeviceTotal;
+
+    @SerializedName(ApiConstants.HOST_DEVICE_AVAILABLE)
+    @Param(description = "The number of Host Devices available for this Account")
+    private String hostDeviceAvailable;
+
     @SerializedName(ApiConstants.STATE)
     @Param(description = "The state of the account")
     private String state;
@@ -670,6 +682,21 @@ public class AccountResponse extends BaseResponse implements ResourceLimitAndCou
     @Override
     public void setObjectStorageAvailable(String objectStorageAvailable) {
         this.objectStorageAvailable = objectStorageAvailable;
+    }
+
+    @Override
+    public void setHostDeviceLimit(String hostDeviceLimit) {
+        this.hostDeviceLimit = hostDeviceLimit;
+    }
+
+    @Override
+    public void setHostDeviceTotal(Long hostDeviceTotal) {
+        this.hostDeviceTotal = hostDeviceTotal;
+    }
+
+    @Override
+    public void setHostDeviceAvailable(String hostDeviceAvailable) {
+        this.hostDeviceAvailable = hostDeviceAvailable;
     }
 
     public void setDefaultZone(String defaultZoneId) {

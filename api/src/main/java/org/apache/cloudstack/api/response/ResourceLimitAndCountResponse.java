@@ -114,6 +114,12 @@ public interface ResourceLimitAndCountResponse {
 
     void setObjectStorageAvailable(String objectStorageAvailable);
 
+    void setHostDeviceLimit(String hostDeviceLimit);
+
+    void setHostDeviceTotal(Long hostDeviceTotal);
+
+    void setHostDeviceAvailable(String hostDeviceAvailable);
+
     public void setTemplateLimit(String templateLimit);
 
     public void setTemplateTotal(Long templateTotal);
