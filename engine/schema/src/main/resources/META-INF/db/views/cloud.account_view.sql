@@ -202,11 +202,11 @@ from
     `cloud`.`resource_count` object_storage_count ON account.id = object_storage_count.account_id
         and object_storage_count.type = 'object_storage'
         left join
-    `cloud`.`resource_limit` hostdevicelimit ON account.id = hostdevicelimit.account_id
-        and hostdevicelimit.type = 'host_device'
+    `cloud`.`resource_limit` host_device_limit ON account.id = host_device_limit.account_id
+        and host_device_limit.type = 'host_device'
         left join
-    `cloud`.`resource_count` hostdevicecount ON account.id = hostdevicecount.account_id
-        and hostdevicecount.type = 'host_device'
+    `cloud`.`resource_count` host_device_count ON account.id = host_device_count.account_id
+        and host_device_count.type = 'host_device'
         left join
     `cloud`.`async_job` ON async_job.instance_id = account.id
         and async_job.instance_type = 'Account'
