@@ -12,4 +12,6 @@ public interface DeviceOfferingDao extends GenericDao<DeviceOfferingVO, Long> {
     List<DeviceOfferingVO> listDeviceOfferings(String name, List<Long> domainIds, Long zoneId, List<String> deviceTags, DeviceOffering.State state, Boolean showOnlyPublic);
 
     DeviceOfferingVO findByName(String name);
+
+    List<String> listDeviceOfferingTags(Long deviceOfferingId);
 }

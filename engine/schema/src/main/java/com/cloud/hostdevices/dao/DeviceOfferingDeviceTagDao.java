@@ -7,6 +7,8 @@ import com.cloud.utils.db.GenericDao;
 import java.util.List;
 
 public interface DeviceOfferingDeviceTagDao extends GenericDao<DeviceOfferingDeviceTagVO, Long> {
+    List<String> getDeviceOfferingTags(Long deviceOfferingId);
+
     List<String> getDeviceOfferingsTags(List<DeviceOfferingVO> deviceOfferingIds);
 
     void expungeByOfferingId(long id);
