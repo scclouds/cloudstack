@@ -464,6 +464,14 @@ public class UserVmResponse extends BaseResponseWithTagInformation implements Co
     @Param(description = "Instance lease expiry action", since = "4.21.0")
     private String leaseExpiryAction;
 
+    @SerializedName(ApiConstants.DEVICE_OFFERINGS)
+    @Param(description = "List of device offerings associated with the Instance", responseObject = DeviceOfferingResponse.class, since = "4.23.0")
+    private List<DeviceOfferingResponse> deviceOfferings;
+
+    @SerializedName(ApiConstants.HOST_DEVICES)
+    @Param(description = "List of host devices associated with the Instance", responseObject = HostDeviceResponse.class, since = "4.23.0")
+    private List<HostDeviceResponse> hostDevices;
+
     public UserVmResponse() {
         securityGroupList = new LinkedHashSet<>();
         nics = new TreeSet<>(Comparator.comparingInt(x -> Integer.parseInt(x.getDeviceId())));
@@ -1372,5 +1380,21 @@ public class UserVmResponse extends BaseResponseWithTagInformation implements Co
 
     public void setBackupProvider(String backupProvider) {
         this.backupProvider = backupProvider;
+    }
+
+    public List<DeviceOfferingResponse> getDeviceOfferings() {
+        return deviceOfferings;
+    }
+
+    public void setDeviceOfferings(List<DeviceOfferingResponse> responses) {
+        this.deviceOfferings = responses;
+    }
+
+    public List<HostDeviceResponse> getHostDevices() {
+        return hostDevices;
+    }
+
+    public void setHostDevices(List<HostDeviceResponse> hostDevices) {
+        this.hostDevices = hostDevices;
     }
 }

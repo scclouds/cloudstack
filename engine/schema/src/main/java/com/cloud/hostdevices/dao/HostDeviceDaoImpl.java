@@ -25,6 +25,7 @@ public class HostDeviceDaoImpl extends GenericDaoBase<HostDeviceVO, Long> implem
     private final SearchBuilder<HostDeviceVO> hostIdSearch;
     private final SearchBuilder<HostDeviceVO> hostDevicesSearch;
     private final SearchBuilder<HostDeviceVO> hostDevicesAvailableForAllocationSearch;
+    private final SearchBuilder<HostDeviceVO> vmHostDeviceSearch;
 
     public HostDeviceDaoImpl() {
         hostDevicesSearch = createSearchBuilder();
@@ -48,6 +49,10 @@ public class HostDeviceDaoImpl extends GenericDaoBase<HostDeviceVO, Long> implem
         hostDevicesAvailableForAllocationSearch.or(VIRTUAL_MACHINE_ID, hostDevicesAvailableForAllocationSearch.entity().getInstanceId(), SearchCriteria.Op.EQ);
         hostDevicesAvailableForAllocationSearch.and(OR_STATE, hostDevicesAvailableForAllocationSearch.entity().getState(), SearchCriteria.Op.EQ);
         hostDevicesAvailableForAllocationSearch.cp().done();
+
+        vmHostDeviceSearch = createSearchBuilder();
+        vmHostDeviceSearch.and(VIRTUAL_MACHINE_ID, vmHostDeviceSearch.entity().getInstanceId(), SearchCriteria.Op.EQ);
+        vmHostDeviceSearch.done();
     }
 
     @Override
@@ -94,7 +99,7 @@ public class HostDeviceDaoImpl extends GenericDaoBase<HostDeviceVO, Long> implem
 
     @Override
     public List<HostDeviceVO> listHostDevicesByVmId(Long vmId) {
-        SearchCriteria<HostDeviceVO> sc = hostIdSearch.create();
+        SearchCriteria<HostDeviceVO> sc = vmHostDeviceSearch.create();
         sc.setParameters(VIRTUAL_MACHINE_ID, vmId);
         return listBy(sc);
     }

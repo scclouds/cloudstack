@@ -187,6 +187,7 @@ public class ApiConstants {
     public static final String DEVICE_NAME = "devicename";
     public static final String DEVICE_TAG = "devicetag";
     public static final String DEVICE_TAGS = "devicetags";
+    public static final String DEVICE_OFFERINGS = "deviceofferings";
     public static final String DEVICE_OFFERING_ID = "deviceofferingid";
     public static final String DIRECT_DOWNLOAD = "directdownload";
     public static final String DISK = "disk";
@@ -1432,6 +1433,9 @@ public class ApiConstants {
     public static final String HOST_DEVICE_LIMIT = "hostdevicelimit";
     public static final String HOST_DEVICE_TOTAL = "hostdevicetotal";
     public static final String HOST_DEVICE_AVAILABLE = "hostdeviceavailable";
+    public static final String HOST_DEVICE_ID = "hostdeviceid";
+    public static final String HAS_DEVICE_ATTACHED = "hasdeviceattached";
+    public static final String HOST_DEVICES = "hostdevices";
 
     public static final String PARAMETER_DESCRIPTION_ACTIVATION_RULE = "Quota tariff's activation rule. It can receive a JS script that results in either " +
             "a boolean or a numeric value: if it results in a boolean value, the tariff value will be applied according to the result; if it results in a numeric value, the " +
