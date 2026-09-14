@@ -38,7 +38,7 @@ public class UpdateDeviceOfferingCmd extends BaseCmd {
     @Parameter(name = ApiConstants.DESCRIPTION, type = CommandType.STRING, description = "the description for the device offering")
     private String description;
 
-    @Parameter(name = ApiConstants.DEVICE_TAGS, type = CommandType.LIST, collectionType = CommandType.STRING, description = "the list of device tags for the device offering")
+    @Parameter(name = ApiConstants.DEVICE_TAGS, type = CommandType.LIST, collectionType = CommandType.STRING, description = "a comma separated list of device tags for the device offering. If the offering should have multiple equal tags, a colon and the number of tags must be inserted after the tag name. For example, devicetags=tag1:2,tag2 would create a device offering with two equal tags named tag1 and one tag named tag2.")
     private List<String> tags;
 
     @Parameter(name = ApiConstants.STATE, type = CommandType.STRING, description = "the state of the device offering. Can be either Active or Inactive")
