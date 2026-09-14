@@ -1,5 +1,6 @@
 package org.apache.cloudstack.hostdevices;
 
+import com.cloud.user.Account;
 import com.cloud.utils.component.Manager;
 import com.cloud.utils.component.PluggableService;
 import org.apache.cloudstack.api.command.admin.hostdevices.ScanHostDevicesCmd;
@@ -31,4 +32,6 @@ public interface HostDevicesManager extends Configurable, Manager, PluggableServ
     void putHostDevicesInMaintenanceMode(Long hostId);
 
     void removeHostDevicesFromMaintenanceMode(long hostId);
+
+    void updateVMHostDevicesOwnership(Long vmId, Account newAccount);
 }

@@ -479,6 +479,26 @@ public class HostDevicesManagerImpl extends ManagerBase implements org.apache.cl
     }
 
     @Override
+    public void updateVMHostDevicesOwnership(Long vmId, Account newAccount) {
+        VirtualMachine vm = virtualMachineDao.findById(vmId);
+
+        if (vm == null) {
+            logger.debug("Virtual machine with ID {} was not found", vmId);
+            throw new CloudRuntimeException("Virtual machine with id " + vmId + " was not found.");
+        }
+
+        logger.info("Updating ownership of host devices for VM {} to account {}.", vmId, newAccount.getUuid());
+        List<HostDeviceVO> hostDevices = hostDeviceDao.listHostDevicesByVmId(vmId);
+        //TODO: transação de novo
+        for (HostDeviceVO device : hostDevices) {
+            device.setAccountId(newAccount.getId());
+            device.setDomainId(newAccount.getDomainId());
+            hostDeviceDao.persist(device);
+            logger.debug("Updated ownership of host device {} to account {}.", device.getPciName(), newAccount.getId());
+        }
+    }
+
+    @Override
     public String getConfigComponentName() {
         return HostDevicesManager.class.getSimpleName();
     }
