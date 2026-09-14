@@ -36,6 +36,10 @@ import java.util.stream.Stream;
 
 import javax.inject.Inject;
 
+import com.cloud.hostdevices.HostDeviceVO;
+import com.cloud.hostdevices.VMInstanceDeviceOfferingsVO;
+import com.cloud.hostdevices.dao.HostDeviceDao;
+import com.cloud.hostdevices.dao.VMInstanceDeviceOfferingsDao;
 import com.cloud.network.PublicIpQuarantine;
 import com.cloud.network.dao.PublicIpQuarantineDao;
 import com.cloud.network.vo.PublicIpQuarantineVO;
@@ -670,6 +674,12 @@ public class QueryManagerImpl extends MutualExclusiveIdsManagerBase implements Q
 
     @Inject
     private BackupDao backupDao;
+
+    @Inject
+    private VMInstanceDeviceOfferingsDao VMInstanceDeviceOfferingsDao;
+
+    @Inject
+    private HostDeviceDao hostDeviceDao;
 
     /*
      * (non-Javadoc)
@@ -1351,6 +1361,9 @@ public class QueryManagerImpl extends MutualExclusiveIdsManagerBase implements Q
         Map<String, String> tags = cmd.getTags();
         final CPU.CPUArch arch = cmd.getArch();
         final Long extensionId = cmd.getExtensionId();
+        Long deviceOfferingId = cmd.getDeviceOfferingId();
+        Long hostDeviceId = cmd.getHostDeviceId();
+        Boolean hasDeviceAttached = cmd.getHasDeviceAttached();
 
         boolean isAdmin = false;
         boolean isRootAdmin = false;
@@ -1609,6 +1622,24 @@ public class QueryManagerImpl extends MutualExclusiveIdsManagerBase implements Q
             userVmSearchBuilder.join("vmTemplate", templateSearch, templateSearch.entity().getId(), userVmSearchBuilder.entity().getTemplateId(), JoinBuilder.JoinType.INNER);
         }
 
+        if (deviceOfferingId != null) {
+            SearchBuilder<VMInstanceDeviceOfferingsVO> deviceOfferingSearch = VMInstanceDeviceOfferingsDao.createSearchBuilder();
+            deviceOfferingSearch.and("deviceOfferingId", deviceOfferingSearch.entity().getDeviceOfferingId(), Op.EQ);
+            userVmSearchBuilder.join("deviceOffering", deviceOfferingSearch, deviceOfferingSearch.entity().getVirtualMachineId(), userVmSearchBuilder.entity().getId(), JoinBuilder.JoinType.INNER);
+        }
+
+        if (hostDeviceId != null) {
+            SearchBuilder<HostDeviceVO> hostDeviceSearch = hostDeviceDao.createSearchBuilder();
+            hostDeviceSearch.and("hostDeviceId", hostDeviceSearch.entity().getId(), Op.EQ);
+            userVmSearchBuilder.join("hostDevice", hostDeviceSearch, hostDeviceSearch.entity().getInstanceId(), userVmSearchBuilder.entity().getId(), JoinBuilder.JoinType.INNER);
+        }
+
+        if (hasDeviceAttached != null) {
+            SearchBuilder<HostDeviceVO> hostDeviceSearch = hostDeviceDao.createSearchBuilder();
+            hostDeviceSearch.and("hasDeviceAttached", hostDeviceSearch.entity().getInstanceId(), hasDeviceAttached ? Op.NNULL : Op.NULL);
+            userVmSearchBuilder.join("hostDevice", hostDeviceSearch, hostDeviceSearch.entity().getInstanceId(), userVmSearchBuilder.entity().getId(), hasDeviceAttached ? JoinBuilder.JoinType.INNER : JoinBuilder.JoinType.LEFT);
+        }
+
         SearchCriteria<UserVmVO> userVmSearchCriteria = userVmSearchBuilder.create();
         accountMgr.buildACLSearchCriteria(userVmSearchCriteria, domainId, isRecursive, permittedAccounts, listProjectResourcesCriteria);
 
@@ -1771,6 +1802,14 @@ public class QueryManagerImpl extends MutualExclusiveIdsManagerBase implements Q
             }
         } else {
             userVmSearchCriteria.setParameters("displayVm", 1);
+        }
+
+        if (deviceOfferingId != null) {
+            userVmSearchCriteria.setJoinParameters("deviceOffering", "deviceOfferingId", deviceOfferingId);
+        }
+
+        if (hostDeviceId != null) {
+            userVmSearchCriteria.setJoinParameters("hostDevice", "hostDeviceId", hostDeviceId);
         }
 
         Pair<List<UserVmVO>, Integer> uniqueVmPair = userVmDao.searchAndDistinctCount(userVmSearchCriteria, searchFilter, new String[]{"vm_instance.id"});

@@ -8,6 +8,7 @@ import com.cloud.utils.db.JoinBuilder;
 import com.cloud.utils.db.SearchBuilder;
 import com.cloud.utils.db.SearchCriteria;
 import org.apache.cloudstack.hostdevices.DeviceOffering;
+import org.apache.commons.collections.CollectionUtils;
 import org.springframework.stereotype.Component;
 
 import javax.annotation.PostConstruct;
@@ -22,37 +23,37 @@ public class DeviceOfferingDaoImpl extends GenericDaoBase<DeviceOfferingVO, Long
     private DeviceOfferingDeviceTagDao deviceOfferingDeviceTagDao;
 
     private SearchBuilder<DeviceOfferingVO> deviceOfferingSearch;
+    private SearchBuilder<DeviceOfferingVO> deviceOfferingWithTagsSearch;
+    private SearchBuilder<DeviceOfferingVO> deviceOfferingWithVMSearch;
 
     @PostConstruct
     private void init() {
-        deviceOfferingSearch = createSearchBuilder();
-        deviceOfferingSearch.and("name", deviceOfferingSearch.entity().getName(), SearchCriteria.Op.EQ);
-        deviceOfferingSearch.and("domainIds", deviceOfferingSearch.entity().getDomainId(), SearchCriteria.Op.IN);
-        deviceOfferingSearch.and("zoneId", deviceOfferingSearch.entity().getZoneId(), SearchCriteria.Op.EQ);
-        deviceOfferingSearch.and("state", deviceOfferingSearch.entity().getState(), SearchCriteria.Op.EQ);
-        deviceOfferingSearch.and("isPublic", deviceOfferingSearch.entity().getIsPublic(), SearchCriteria.Op.EQ);
+        deviceOfferingSearch = getBaseSearchBuilder();
+        deviceOfferingSearch.done();
 
+        deviceOfferingWithVMSearch = getBaseSearchBuilder();
         SearchBuilder<VMInstanceDeviceOfferingsVO> vmSearchBuilder = vmDeviceOfferingsDao.createSearchBuilder();
         vmSearchBuilder.and("virtualMachineId", vmSearchBuilder.entity().getVirtualMachineId(), SearchCriteria.Op.EQ);
-        deviceOfferingSearch.join("vmSearch", vmSearchBuilder, deviceOfferingSearch.entity().getId(), vmSearchBuilder.entity().getDeviceOfferingId(), JoinBuilder.JoinType.INNER);
+        deviceOfferingWithVMSearch.join("vmSearch", vmSearchBuilder, deviceOfferingWithVMSearch.entity().getId(), vmSearchBuilder.entity().getDeviceOfferingId(), JoinBuilder.JoinType.INNER);
+        deviceOfferingWithVMSearch.done();
 
+        deviceOfferingWithTagsSearch = getBaseSearchBuilder();
         SearchBuilder<DeviceOfferingDeviceTagVO> deviceTagSearchBuilder = deviceOfferingDeviceTagDao.createSearchBuilder();
         deviceTagSearchBuilder.and("deviceTag", deviceTagSearchBuilder.entity().getDeviceTag(), SearchCriteria.Op.IN);
-        deviceOfferingSearch.join("deviceTagSearch", deviceTagSearchBuilder, deviceOfferingSearch.entity().getId(), deviceTagSearchBuilder.entity().getDeviceOfferingId(), JoinBuilder.JoinType.INNER);
-
-        deviceOfferingSearch.done();
+        deviceOfferingWithTagsSearch.join("deviceTagSearch", deviceTagSearchBuilder, deviceOfferingWithTagsSearch.entity().getId(), deviceTagSearchBuilder.entity().getDeviceOfferingId(), JoinBuilder.JoinType.INNER);
+        deviceOfferingWithTagsSearch.done();
     }
 
     @Override
     public List<DeviceOfferingVO> listVirtualMachineDeviceOfferings(Long virtualMachineId) {
-        SearchCriteria<DeviceOfferingVO> sc = deviceOfferingSearch.create();
+        SearchCriteria<DeviceOfferingVO> sc = deviceOfferingWithVMSearch.create();
         sc.setJoinParametersIfNotNull("vmSearch", "virtualMachineId", virtualMachineId);
         return listBy(sc);
     }
 
     @Override
     public List<DeviceOfferingVO> listDeviceOfferings(String name, List<Long> domainIds, Long zoneId, List<String> deviceTags, DeviceOffering.State state, Boolean showOnlyPublic) {
-        SearchCriteria<DeviceOfferingVO> sc = deviceOfferingSearch.create();
+        SearchCriteria<DeviceOfferingVO> sc = CollectionUtils.isEmpty(deviceTags) ? deviceOfferingSearch.create() : deviceOfferingWithTagsSearch.create();
         sc.setParametersIfNotNull("name", name);
         sc.setParametersIfNotNull("zoneId", zoneId);
         sc.setParametersIfNotNull("state", state);
@@ -62,7 +63,7 @@ public class DeviceOfferingDaoImpl extends GenericDaoBase<DeviceOfferingVO, Long
             sc.setParametersIfNotNull("domainIds", domainIds.toArray());
         }
 
-        if (deviceTags != null && !deviceTags.isEmpty()) {
+        if (!CollectionUtils.isEmpty(deviceTags)) {
             sc.setJoinParametersIfNotNull("deviceTagSearch", "deviceTag", deviceTags.toArray());
         }
 
@@ -79,5 +80,17 @@ public class DeviceOfferingDaoImpl extends GenericDaoBase<DeviceOfferingVO, Long
     @Override
     public List<String> listDeviceOfferingTags(Long deviceOfferingId) {
         return deviceOfferingDeviceTagDao.getDeviceOfferingTags(deviceOfferingId);
+    }
+
+    private SearchBuilder<DeviceOfferingVO> getBaseSearchBuilder() {
+        SearchBuilder<DeviceOfferingVO> sc = createSearchBuilder();
+
+        sc.and("name", sc.entity().getName(), SearchCriteria.Op.EQ);
+        sc.and("domainIds", sc.entity().getDomainId(), SearchCriteria.Op.IN);
+        sc.and("zoneId", sc.entity().getZoneId(), SearchCriteria.Op.EQ);
+        sc.and("state", sc.entity().getState(), SearchCriteria.Op.EQ);
+        sc.and("isPublic", sc.entity().getIsPublic(), SearchCriteria.Op.EQ);
+
+        return sc;
     }
 }

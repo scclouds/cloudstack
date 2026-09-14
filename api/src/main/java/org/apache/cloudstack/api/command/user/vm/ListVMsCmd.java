@@ -38,7 +38,9 @@ import org.apache.cloudstack.api.ResponseObject.ResponseView;
 import org.apache.cloudstack.api.command.user.UserCmd;
 import org.apache.cloudstack.api.response.AutoScaleVmGroupResponse;
 import org.apache.cloudstack.api.response.BackupOfferingResponse;
+import org.apache.cloudstack.api.response.DeviceOfferingResponse;
 import org.apache.cloudstack.api.response.ExtensionResponse;
+import org.apache.cloudstack.api.response.HostDeviceResponse;
 import org.apache.cloudstack.api.response.InstanceGroupResponse;
 import org.apache.cloudstack.api.response.IsoVmResponse;
 import org.apache.cloudstack.api.response.ListResponse;
@@ -182,6 +184,13 @@ public class ListVMsCmd extends BaseListRetrieveOnlyResourceCountCmd implements 
             entityType = ExtensionResponse.class, description = "The ID of the Orchestrator extension for the VM",
             since = "4.21.0")
     private Long extensionId;
+
+    @Parameter(name = ApiConstants.HOST_DEVICE_ID, type = CommandType.UUID, entityType = HostDeviceResponse.class, description = "The ID of the host device that should be attached to the VM")
+    private Long hostDeviceId;
+    @Parameter(name = ApiConstants.HAS_DEVICE_ATTACHED, type = CommandType.BOOLEAN, description = "Flag to indicate if the VM should have host devices attached. If set to true, only VMs that have host devices attached will be returned.")
+    private Boolean hasDeviceAttached;
+    @Parameter(name = ApiConstants.DEVICE_OFFERING_ID, type = CommandType.UUID, entityType = DeviceOfferingResponse.class, description = "The ID of the device offering that should be attached to the VM")
+    private Long deviceOfferingId;
 
     /////////////////////////////////////////////////////
     /////////////////// Accessors ///////////////////////
@@ -336,6 +345,18 @@ public class ListVMsCmd extends BaseListRetrieveOnlyResourceCountCmd implements 
 
     public Long getExtensionId() {
         return extensionId;
+    }
+
+    public Long getHostDeviceId() {
+        return hostDeviceId;
+    }
+
+    public Boolean getHasDeviceAttached() {
+        return hasDeviceAttached;
+    }
+
+    public Long getDeviceOfferingId() {
+        return deviceOfferingId;
     }
 
     /////////////////////////////////////////////////////

@@ -33,6 +33,10 @@ import java.util.stream.Collectors;
 
 import javax.inject.Inject;
 
+import com.cloud.hostdevices.DeviceOfferingVO;
+import com.cloud.hostdevices.HostDeviceVO;
+import com.cloud.hostdevices.dao.DeviceOfferingDao;
+import com.cloud.hostdevices.dao.HostDeviceDao;
 import org.apache.cloudstack.affinity.AffinityGroupResponse;
 import org.apache.cloudstack.annotation.AnnotationService;
 import org.apache.cloudstack.annotation.dao.AnnotationDao;
@@ -40,6 +44,8 @@ import org.apache.cloudstack.api.ApiConstants;
 import org.apache.cloudstack.api.ApiConstants.VMDetails;
 import org.apache.cloudstack.api.ResponseObject.ResponseView;
 import org.apache.cloudstack.api.response.AttachedIsoResponse;
+import org.apache.cloudstack.api.response.DeviceOfferingResponse;
+import org.apache.cloudstack.api.response.HostDeviceResponse;
 import org.apache.cloudstack.api.response.NicExtraDhcpOptionResponse;
 import org.apache.cloudstack.api.response.NicResponse;
 import org.apache.cloudstack.api.response.NicSecondaryIpResponse;
@@ -149,6 +155,10 @@ public class UserVmJoinDaoImpl extends GenericDaoBaseWithTagInformation<UserVmJo
     ExtensionHelper extensionHelper;
     @Inject
     private BackupOfferingDao backupOfferingDao;
+    @Inject
+    private HostDeviceDao hostDeviceDao;
+    @Inject
+    private DeviceOfferingDao deviceOfferingDao;
 
     private final SearchBuilder<UserVmJoinVO> VmDetailSearch;
     private final SearchBuilder<UserVmJoinVO> activeVmByIsoSearch;
@@ -569,6 +579,42 @@ public class UserVmJoinDaoImpl extends GenericDaoBaseWithTagInformation<UserVmJo
 
         if (TemplateType.VNF.equals(userVm.getTemplateType()) && (details.contains(VMDetails.all) || details.contains(VMDetails.vnfnics))) {
             addVnfInfoToserVmResponse(userVm, userVmResponse);
+        }
+
+        List<DeviceOfferingVO> deviceOfferings = deviceOfferingDao.listVirtualMachineDeviceOfferings(userVm.getId());
+        if (CollectionUtils.isNotEmpty(deviceOfferings)) {
+            List<DeviceOfferingResponse> responses = new ArrayList<>();
+
+            for (DeviceOfferingVO deviceOffering : deviceOfferings) {
+                DeviceOfferingResponse deviceOfferingResponse = new DeviceOfferingResponse();
+                deviceOfferingResponse.setId(deviceOffering.getUuid());
+                deviceOfferingResponse.setName(deviceOffering.getName());
+                responses.add(deviceOfferingResponse);
+            }
+
+            userVmResponse.setDeviceOfferings(responses);
+        }
+
+        List<HostDeviceVO> vmHostDevices = hostDeviceDao.listHostDevicesByVmId(userVm.getId());
+        if (CollectionUtils.isNotEmpty(vmHostDevices)) {
+            List<HostDeviceResponse> hostDevices = new ArrayList<>();
+
+            for (HostDeviceVO hostDevice : vmHostDevices) {
+                HostDeviceResponse hostDeviceResponse = new HostDeviceResponse();
+                hostDeviceResponse.setId(hostDevice.getUuid());
+                hostDeviceResponse.setDisplayName(hostDevice.getDisplayName());
+                hostDeviceResponse.setType(hostDevice.getType().toString());
+                hostDeviceResponse.setState(hostDevice.getState().toString());
+                hostDevice.setInstanceId(userVm.getId());
+
+                if (caller.getType() == Account.Type.ADMIN) {
+                    hostDeviceResponse.setHostId(hostDevice.getHostId().toString());
+                }
+
+                hostDevices.add(hostDeviceResponse);
+            }
+
+            userVmResponse.setHostDevices(hostDevices);
         }
 
         return userVmResponse;
