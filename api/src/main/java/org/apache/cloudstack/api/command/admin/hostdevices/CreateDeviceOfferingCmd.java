@@ -43,7 +43,7 @@ public class CreateDeviceOfferingCmd extends BaseCmd {
     @Parameter(name = "zoneId", type = CommandType.LONG, required = false, description = "the zone for device offering to be dedicated to. Mutually exclusive with the domainId parameter.")
     private Long zoneId;
 
-    @Parameter(name = "devicetags", type = CommandType.LIST, collectionType = CommandType.STRING, required = true, description = "the list of device tags for the device offering")
+    @Parameter(name = "devicetags", type = CommandType.LIST, collectionType = CommandType.STRING, required = true, description = "a comma separated list of device tags for the device offering. If the offering should have multiple equal tags, a colon and the number of tags must be inserted after the tag name. For example, devicetags=tag1:2,tag2 would create a device offering with two equal tags named tag1 and one tag named tag2.")
     private List<String> tags;
 
     //////////////////////////////////////////////////

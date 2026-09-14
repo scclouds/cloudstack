@@ -15,6 +15,7 @@ import com.cloud.hostdevices.dao.VMInstanceDeviceOfferingsDao;
 import com.cloud.user.Account;
 import com.cloud.user.AccountManager;
 import com.cloud.utils.component.ManagerBase;
+import com.cloud.utils.exception.CloudRuntimeException;
 import com.cloud.vm.VirtualMachine;
 import com.cloud.vm.dao.VMInstanceDao;
 import org.apache.cloudstack.api.command.admin.hostdevices.CreateDeviceOfferingCmd;
@@ -101,7 +102,7 @@ public class DeviceOfferingManagerImpl extends ManagerBase implements DeviceOffe
         // TODO: provavelmente precisa de uma transação aqui
         DeviceOfferingVO deviceOffering = deviceOfferingDao.persist(new DeviceOfferingVO(cmd.getName(), cmd.getDescription(), domainId, zoneId));
 
-        for (String tag : cmd.getTags()) {
+        for (String tag : parseDeviceOfferingTagsParameter(cmd.getTags())) {
             deviceOfferingDeviceTagsDao.persist(new DeviceOfferingDeviceTagVO(deviceOffering.getId(), tag));
         }
 
@@ -297,13 +298,11 @@ public class DeviceOfferingManagerImpl extends ManagerBase implements DeviceOffe
     }
 
     private void updateDeviceOfferingTags(Long offeringId, List<String> deviceTags) {
-        if (CollectionUtils.isEmpty(deviceTags)) {
-            return;
-        }
+        List<String> newTags = parseDeviceOfferingTagsParameter(deviceTags);
 
         deviceOfferingDeviceTagsDao.expungeByOfferingId(offeringId);
 
-        for (String tag : deviceTags) {
+        for (String tag : newTags) {
             deviceOfferingDeviceTagsDao.persist(new DeviceOfferingDeviceTagVO(offeringId, tag));
         }
     }
@@ -359,6 +358,35 @@ public class DeviceOfferingManagerImpl extends ManagerBase implements DeviceOffe
         }
 
         return deviceOffering;
+    }
+
+    private List<String> parseDeviceOfferingTagsParameter(List<String> commandTags) {
+        if (CollectionUtils.isEmpty(commandTags)) {
+            logger.error("No device tag was provided.");
+            throw new InvalidParameterValueException("You must inform at least one device tag for the device offering.");
+        }
+
+        List<String> tags = new ArrayList<>();
+        for (String tag : commandTags) {
+            String[] tagAndAmount = tag.split(":");
+            String tagName = tagAndAmount[0];
+            int amount = 1;
+
+            if (tagAndAmount.length > 1) {
+                try {
+                    amount = Integer.parseInt(tagAndAmount[1]);
+                } catch (NumberFormatException e) {
+                    logger.error("Invalid amount [{}] specified for device tag [{}].", tagAndAmount[1], tagName);
+                    throw new CloudRuntimeException(String.format("Invalid amount specified for tag: %s. Please, specify a valid integer amount.", tagName));
+                }
+            }
+
+            for (int i = 0; i < amount; i++) {
+                tags.add(tagName);
+            }
+        }
+
+        return tags;
     }
 
     @Override
