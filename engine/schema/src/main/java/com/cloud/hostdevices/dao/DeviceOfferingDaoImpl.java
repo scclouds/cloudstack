@@ -75,4 +75,9 @@ public class DeviceOfferingDaoImpl extends GenericDaoBase<DeviceOfferingVO, Long
         sc.setParametersIfNotNull("name", name);
         return findOneBy(sc);
     }
+
+    @Override
+    public List<String> listDeviceOfferingTags(Long deviceOfferingId) {
+        return deviceOfferingDeviceTagDao.getDeviceOfferingTags(deviceOfferingId);
+    }
 }

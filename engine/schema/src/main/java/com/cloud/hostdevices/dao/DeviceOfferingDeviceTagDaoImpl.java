@@ -21,6 +21,15 @@ public class DeviceOfferingDeviceTagDaoImpl extends GenericDaoBase<DeviceOfferin
         deviceOfferingDeviceTagSearch.done();
     }
 
+    @Override
+    public List<String> getDeviceOfferingTags(Long deviceOfferingId) {
+        SearchCriteria<DeviceOfferingDeviceTagVO> sc = deviceOfferingDeviceTagSearch.create();
+
+        sc.setParameters("deviceOfferingId", List.of(deviceOfferingId).toArray());
+
+        return listBy(sc).stream().map(DeviceOfferingDeviceTagVO::getDeviceTag).collect(Collectors.toList());
+    }
+
     public List<String> getDeviceOfferingsTags(List<DeviceOfferingVO> deviceOfferings) {
         List<Long> ids = deviceOfferings.stream().map(DeviceOffering::getId).collect(Collectors.toList());
         SearchCriteria<DeviceOfferingDeviceTagVO> sc = deviceOfferingDeviceTagSearch.create();

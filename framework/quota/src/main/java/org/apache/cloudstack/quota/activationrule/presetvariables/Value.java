@@ -105,6 +105,9 @@ public class Value extends GenericPresetVariable {
     @PresetVariableDefinition(description = "VPC offering of the VPC.", supportedTypes = {QuotaTypes.VPC})
     private GenericPresetVariable vpcOffering;
 
+    @PresetVariableDefinition(description = "List of device offerings of the resource.", supportedTypes = {QuotaTypes.RUNNING_VM})
+    private List<DeviceOffering> deviceOfferings;
+
     public Host getHost() {
         return host;
     }
@@ -287,5 +290,13 @@ public class Value extends GenericPresetVariable {
 
     public void setVpcOffering(GenericPresetVariable vpcOffering) {
         this.vpcOffering = vpcOffering;
+    }
+
+    public List<DeviceOffering> getDeviceOfferings() {
+        return deviceOfferings;
+    }
+
+    public void setDeviceOfferings(List<DeviceOffering> deviceOfferings) {
+        this.deviceOfferings = deviceOfferings;
     }
 }

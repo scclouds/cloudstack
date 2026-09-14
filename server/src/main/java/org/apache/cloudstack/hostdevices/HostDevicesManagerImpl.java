@@ -406,13 +406,14 @@ public class HostDevicesManagerImpl extends ManagerBase implements org.apache.cl
         List<HostDeviceVO> devices = hostDeviceDao.listHostDevicesByVmId(vmId);
 
         if (CollectionUtils.isEmpty(devices)) {
-            logger.debug("No host devices found for VM with ID {}", vmId);
+            logger.debug("No host devices found for VM with ID {}. Skipping devices release process.", vmId);
             return;
         }
 
         logger.info("The following devices will be released from VM {}: {}", vmId, devices.stream().map(HostDeviceVO::getPciName).collect(Collectors.toList()));
 
         // TODO: aqui precisa limpar os devices do tipo storage
+        // TODO: precisa de transação tmb
         for (HostDeviceVO dev : devices) {
             dev.releaseFromVM();
             hostDeviceDao.persist(dev);

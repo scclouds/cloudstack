@@ -28,6 +28,8 @@ import java.util.stream.Collectors;
 import com.cloud.dc.ClusterDetailsDao;
 import com.cloud.dc.ClusterDetailsVO;
 import com.cloud.host.HostTagVO;
+import com.cloud.hostdevices.DeviceOfferingVO;
+import com.cloud.hostdevices.dao.DeviceOfferingDao;
 import com.cloud.hypervisor.Hypervisor;
 import com.cloud.network.dao.NetworkVO;
 import com.cloud.network.vpc.VpcOfferingVO;
@@ -196,6 +198,9 @@ public class PresetVariableHelper {
 
     @Inject
     VpcOfferingDao vpcOfferingDao;
+
+    @Inject
+    DeviceOfferingDao deviceOfferingDao;
 
     protected boolean backupSnapshotAfterTakingSnapshot = SnapshotInfo.BackupSnapshotAfterTakingSnapshot.value();
 
@@ -390,6 +395,26 @@ public class PresetVariableHelper {
         if (hypervisorType != null) {
             value.setHypervisorType(hypervisorType.name());
         }
+        value.setDeviceOfferings(getPresetVariableDeviceOfferings(vmVo));
+    }
+
+    private List<DeviceOffering> getPresetVariableDeviceOfferings(VMInstanceVO vmVo) {
+        List<DeviceOfferingVO> deviceOfferings = deviceOfferingDao.listVirtualMachineDeviceOfferings(vmVo.getId());
+        List<DeviceOffering> presetVariableDeviceOfferings = new ArrayList<>();
+
+        for (DeviceOfferingVO deviceOffering : deviceOfferings) {
+            DeviceOffering presetVariableDeviceOffering = new DeviceOffering();
+
+            presetVariableDeviceOffering.setId(deviceOffering.getUuid());
+            presetVariableDeviceOffering.setName(deviceOffering.getName());
+            presetVariableDeviceOffering.setDomainId(deviceOffering.getDomainId());
+            presetVariableDeviceOffering.setZoneId(deviceOffering.getZoneId());
+            presetVariableDeviceOffering.setTags(deviceOfferingDao.listDeviceOfferingTags(deviceOffering.getId()));
+
+            presetVariableDeviceOfferings.add(presetVariableDeviceOffering);
+        }
+
+        return presetVariableDeviceOfferings;
     }
 
     protected void logNotLoadingMessageInTrace(String resource, int usageType) {
