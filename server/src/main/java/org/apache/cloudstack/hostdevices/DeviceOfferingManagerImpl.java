@@ -297,6 +297,33 @@ public class DeviceOfferingManagerImpl extends ManagerBase implements DeviceOffe
         return deviceOffering;
     }
 
+    @Override
+    public List<DeviceOfferingVO> getDeviceOfferingsByVmId(Long vmId) {
+        return deviceOfferingDao.listVirtualMachineDeviceOfferings(vmId);
+    }
+
+    @Override
+    public boolean canAccountAccessOffering(DeviceOffering deviceOffering, Account newAccount) {
+        if (deviceOffering.getIsPublic()) {
+            return true;
+        }
+
+        Domain offeringDomain = domainDao.findById(deviceOffering.getDomainId());
+        // TODO: Ver sobre a questão de limitação a nivel de zona
+        DataCenter offeringZone = dataCenterDao.findById(deviceOffering.getZoneId());
+
+        Account.Type accountType = newAccount.getType();
+
+//        if (Account.Type.NORMAL.equals(accountType)) {
+//
+//        }
+
+        // TODO: verificar se é melhor dar exceção genérica ou fazer validaçaõ específica
+        accountManager.checkAccess(newAccount, offeringDomain);
+
+        return true;
+    }
+
     private void updateDeviceOfferingTags(Long offeringId, List<String> deviceTags) {
         List<String> newTags = parseDeviceOfferingTagsParameter(deviceTags);
 

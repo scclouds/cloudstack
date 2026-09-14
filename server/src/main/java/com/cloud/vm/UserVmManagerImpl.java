@@ -119,7 +119,9 @@ import org.apache.cloudstack.backup.BackupVO;
 import org.apache.cloudstack.backup.InternalBackupService;
 import org.apache.cloudstack.backup.dao.BackupDao;
 import org.apache.cloudstack.backup.dao.BackupScheduleDao;
+import org.apache.cloudstack.hostdevices.DeviceOffering;
 import org.apache.cloudstack.hostdevices.DeviceOfferingManager;
+import org.apache.cloudstack.hostdevices.HostDevicesManager;
 import org.apache.cloudstack.schedule.ResourceScheduleManager;
 import org.apache.cloudstack.context.CallContext;
 import org.apache.cloudstack.kms.KMSManager;
@@ -681,6 +683,8 @@ public class UserVmManagerImpl extends ManagerBase implements UserVmManager, Vir
     ClvmPoolManager clvmPoolManager;
     @Inject
     DeviceOfferingManager deviceOfferingManager;
+    @Inject
+    HostDevicesManager hostDevicesManager;
 
     private ScheduledExecutorService _executor = null;
     private ScheduledExecutorService _vmIpFetchExecutor = null;
@@ -8243,6 +8247,7 @@ public class UserVmManagerImpl extends ManagerBase implements UserVmManager, Vir
         VirtualMachineTemplate template = _templateDao.findByIdIncludingRemoved(vm.getTemplateId());
 
         validateIfNewOwnerHasAccessToTemplate(vm, newAccount, template);
+        validateIfNewOwnerHasAccessToDeviceOfferings(vm, newAccount);
 
         DomainVO domain = _domainDao.findById(domainId);
         logger.trace("Verifying if the new account [{}] has access to the specified domain [{}].", newAccount, domain);
@@ -8277,6 +8282,16 @@ public class UserVmManagerImpl extends ManagerBase implements UserVmManager, Vir
 
         logger.info("VM [{}] now belongs to account [{}].", vm.getInstanceName(), newAccountName);
         return vm;
+    }
+
+    private void validateIfNewOwnerHasAccessToDeviceOfferings(UserVmVO vm, Account newAccount) {
+        List<? extends DeviceOffering> deviceOfferings = deviceOfferingManager.getDeviceOfferingsByVmId(vm.getId());
+
+        for (DeviceOffering deviceOffering : deviceOfferings) {
+            if (!deviceOfferingManager.canAccountAccessOffering(deviceOffering, newAccount)) {
+                throw new CloudRuntimeException(String.format("New owner [%s] does not have access to the device offering [%s] associated with VM [%s].", newAccount.getUuid(), deviceOffering.getUuid(), vm.getUuid()));
+            }
+        }
     }
 
     protected void validateIfVmSupportsMigration(UserVmVO vm, Long vmId) {
@@ -8480,6 +8495,7 @@ public class UserVmManagerImpl extends ManagerBase implements UserVmManager, Vir
 
         updateSnapshotPolicyOwnership(volumes, newAccount);
         updateBackupScheduleOwnership(vm, newAccount);
+        hostDevicesManager.updateVMHostDevicesOwnership(vm.getId(), newAccount);
 
         try {
             updateVmNetwork(cmd, caller, vm, newAccount, template);
