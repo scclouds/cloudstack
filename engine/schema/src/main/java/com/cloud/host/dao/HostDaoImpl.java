@@ -1602,7 +1602,7 @@ public class HostDaoImpl extends GenericDaoBase<HostVO, Long> implements HostDao
         sc.setParameters("type", Type.Routing);
 
         if (!clusterIds.isEmpty()) {
-            sc.setParametersIfNotNull("clusterIds", SearchCriteria.Op.IN, clusterIds.toArray());
+            sc.setParametersIfNotNull("clusterIds", clusterIds.toArray());
         }
 
         return listBy(sc);

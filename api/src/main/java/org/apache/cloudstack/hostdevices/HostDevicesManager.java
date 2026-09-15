@@ -18,6 +18,10 @@ public interface HostDevicesManager extends Configurable, Manager, PluggableServ
      "The default maximum host devices that can be used for a domain", false);
     ConfigKey<Long> DefaultMaxProjectHostDevices = new ConfigKey<>("Project Defaults", Long.class, "max.project.host.devices", "20",
      "The default maximum host devices that can be used for a project", false);
+    ConfigKey<Boolean> HostDeviceAutomaticScanEnabled = new ConfigKey<>("Advanced", Boolean.class, "host.device.automatic.scan.enabled", "false","Enable automatic scanning for host devices. When enabled, the scanning executes after the interval defined by host.device.automatic.scan.interval configuration.", true, ConfigKey.Scope.Cluster);
+    ConfigKey<Integer> HostDeviceAutomaticScanInterval = new ConfigKey<>("Advanced", Integer.class, "host.device.automatic.scan.interval", "21600", "The interval in seconds to scan for host devices", true, ConfigKey.Scope.Cluster);
+
+    String LAST_HOST_DEVICE_SCAN_EXECUTION_TIMESTAMP = "lastHostDeviceScanExecutionTimestamp";
 
     void scanHostDevice(ScanHostDevicesCmd cmd);
 

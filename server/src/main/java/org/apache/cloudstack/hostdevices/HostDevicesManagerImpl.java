@@ -3,6 +3,8 @@ package org.apache.cloudstack.hostdevices;
 import com.cloud.agent.AgentManager;
 import com.cloud.agent.api.Answer;
 import com.cloud.agent.api.ScanDevicesCommand;
+import com.cloud.dc.ClusterDetailsDao;
+import com.cloud.dc.ClusterDetailsVO;
 import com.cloud.dc.ClusterVO;
 import com.cloud.dc.dao.ClusterDao;
 import com.cloud.domain.Domain;
@@ -18,9 +20,10 @@ import com.cloud.hypervisor.Hypervisor;
 import com.cloud.org.Cluster;
 import com.cloud.user.Account;
 import com.cloud.user.AccountManager;
-import com.cloud.user.dao.AccountDao;
 import com.cloud.utils.Pair;
+import com.cloud.utils.UuidUtils;
 import com.cloud.utils.component.ManagerBase;
+import com.cloud.utils.concurrency.NamedThreadFactory;
 import com.cloud.utils.exception.CloudRuntimeException;
 import com.cloud.vm.VirtualMachine;
 import com.cloud.vm.dao.VMInstanceDao;
@@ -36,15 +39,21 @@ import org.apache.cloudstack.utils.libvirt.mappers.serialization.LibvirtDeviceDe
 import org.apache.cloudstack.utils.libvirt.model.LibvirtDevice;
 import org.apache.commons.collections.CollectionUtils;
 import org.apache.commons.lang3.ObjectUtils;
+import org.apache.logging.log4j.ThreadContext;
 
 import javax.inject.Inject;
+import javax.naming.ConfigurationException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
-public class HostDevicesManagerImpl extends ManagerBase implements org.apache.cloudstack.hostdevices.HostDevicesManager {
+public class HostDevicesManagerImpl extends ManagerBase implements HostDevicesManager {
     @Inject
     AgentManager agentManager;
     @Inject
@@ -52,21 +61,33 @@ public class HostDevicesManagerImpl extends ManagerBase implements org.apache.cl
     @Inject
     ClusterDao clusterDao;
     @Inject
+    ClusterDetailsDao clusterDetailsDao;
+    @Inject
     HostDeviceDao hostDeviceDao;
     @Inject
     AccountManager accountManager;
     @Inject
     VMInstanceDao virtualMachineDao;
     @Inject
-    AccountDao accountDao;
-    @Inject
     DomainDao domainDao;
     @Inject
     HostDetailsDao hostDetailsDao;
 
+    private ScheduledExecutorService scheduledExecutor;
+    private static final String LOGCONTEXTID = "logcontextid";
     private static final ObjectMapper MAPPER = createMapper();
 
     public HostDevicesManagerImpl() {
+    }
+
+    @Override
+    public boolean configure(String name, Map<String, Object> params) throws ConfigurationException {
+        super.configure(name, params);
+
+        scheduledExecutor = Executors.newSingleThreadScheduledExecutor(new NamedThreadFactory("AutomaticDeviceScanScheduler"));
+        scheduledExecutor.scheduleAtFixedRate(this::triggerAutomaticScanForClusters, 60, 300, TimeUnit.SECONDS);
+
+        return true;
     }
 
     @Override
@@ -90,25 +111,7 @@ public class HostDevicesManagerImpl extends ManagerBase implements org.apache.cl
 
         logger.debug("Selected {} hosts for device scan: {}", hostsListForDeviceScan.size(), hostsListForDeviceScan.stream().map(HostVO::getId));
 
-        ScanDevicesCommand command = new ScanDevicesCommand();
-
-        for (HostVO host : hostsListForDeviceScan) {
-            try {
-                logger.debug("Sending ScanDevicesCommand to host with ID {}", host.getId());
-                Answer answer = agentManager.send(host.getId(), command);
-
-                if (!answer.getResult()) {
-                    logger.error("Some error occurred while trying to scan devices from host {}: {}", host.getId(), answer.getDetails());
-                    throw new CloudRuntimeException("Failure to scan devices of host with ID " + host.getUuid() + " due to " + answer.getDetails());
-                }
-
-                List<? extends LibvirtDevice> returnedDevices = MAPPER.readValue(answer.getDetails(), MAPPER.getTypeFactory().constructCollectionType(List.class, LibvirtDevice.class));
-                compareIncomingDevicesWithExistingOnes(returnedDevices, host);
-            } catch (Exception e) {
-                logger.error("Failed to send ScanDevicesCommand to host with ID {}: {}", host.getId(), e.getMessage());
-                throw new CloudRuntimeException("Failure to scan devices of host with ID " + host.getUuid() + ". Please check the logs.");
-            }
-        }
+        hostsListForDeviceScan.forEach(this::scanHostDevices);
     }
 
     protected List<HostVO> getHostsListForDeviceScan(Long zoneId, Long clusterId, Long hostId) {
@@ -169,9 +172,30 @@ public class HostDevicesManagerImpl extends ManagerBase implements org.apache.cl
         return null;
     }
 
+    protected void scanHostDevices(HostVO host) {
+        ScanDevicesCommand command = new ScanDevicesCommand();
+
+        try {
+            logger.debug("Sending ScanDevicesCommand to host with ID {}", host.getId());
+            Answer answer = agentManager.send(host.getId(), command);
+
+            if (!answer.getResult()) {
+                logger.error("Some error occurred while trying to scan devices from host {}: {}", host.getId(), answer.getDetails());
+                throw new CloudRuntimeException("Failure to scan devices of host with ID " + host.getUuid() + " due to " + answer.getDetails());
+            }
+
+            List<? extends LibvirtDevice> returnedDevices = MAPPER.readValue(answer.getDetails(), MAPPER.getTypeFactory().constructCollectionType(List.class, LibvirtDevice.class));
+            compareIncomingDevicesWithExistingOnes(returnedDevices, host);
+            logger.info("Finished executing device scan for host {}", host.getId());
+        } catch (Exception e) {
+            logger.error("Failed to send ScanDevicesCommand to host with ID {}: {}", host.getId(), e.getMessage());
+            throw new CloudRuntimeException("Failure to scan devices of host with ID " + host.getUuid() + ". Please check the logs.");
+        }
+    }
+
     private void compareIncomingDevicesWithExistingOnes(List<? extends LibvirtDevice> incomingDevices, HostVO host) {
         List<HostDeviceVO> currentDevices = hostDeviceDao.listHostDevicesByHostId(host.getId());
-        logger.debug("The following host devices are registered for host with ID {}: {}", host.getId(), currentDevices);
+        logger.debug("The following host devices are registered for host with ID {}: {}", host.getId(), currentDevices.stream().map(HostDeviceVO::getPciName));
 
         List<HostDeviceVO> mappedIncomingDevices = incomingDevices.stream().map(d -> HostDeviceVO.mapLibvirtDevice(d, host.getId())).collect(Collectors.toList());
 
@@ -227,9 +251,9 @@ public class HostDevicesManagerImpl extends ManagerBase implements org.apache.cl
                         .noneMatch(c -> c.getPciName().equals(id.getPciName())))
                 .collect(Collectors.toList());
         logger.debug("Found the following unregistered devices: {}", unregisteredDevices);
-        logger.debug("Saving unregistered devices to the database.");
 
         for (HostDeviceVO device : unregisteredDevices) {
+            logger.debug("Saving unregistered device [{}] to the database.", device.getPciName());
             hostDeviceDao.persist(device);
         }
     }
@@ -498,6 +522,53 @@ public class HostDevicesManagerImpl extends ManagerBase implements org.apache.cl
         }
     }
 
+    private void triggerAutomaticScanForClusters() {
+        ThreadContext.put(LOGCONTEXTID, UuidUtils.first(UUID.randomUUID().toString()));
+
+        // TODO: talvez fosse legal ter um threshold: se executou X segundos antes do tempo, não executa de novo
+        List<ClusterVO> clusters = clusterDao.listAll()
+                .stream()
+                .filter(c -> Hypervisor.HypervisorType.KVM.equals(c.getHypervisorType()))
+                .filter(c -> HostDeviceAutomaticScanEnabled.valueIn(c.getId()))
+                .collect(Collectors.toList());
+
+        logger.info("Automatic device scan task started. Found {} clusters with automatic scan enabled.", clusters.size());
+
+        for (ClusterVO cluster : clusters) {
+            Integer scanInterval = HostDeviceAutomaticScanInterval.valueIn(cluster.getId());
+            ClusterDetailsVO hostLastExecution = clusterDetailsDao.findDetail(cluster.getId(), HostDevicesManager.LAST_HOST_DEVICE_SCAN_EXECUTION_TIMESTAMP);
+
+            if (hostLastExecution != null) {
+                logger.debug("Found the following last execution timestamp for cluster {}: {}", cluster.getId(), hostLastExecution.getValue());
+                long lastExecutionTimestamp = Long.parseLong(hostLastExecution.getValue());
+                long currentTimestamp = System.currentTimeMillis() / 1000L;
+                if (currentTimestamp - lastExecutionTimestamp < scanInterval) {
+                    logger.info("Skipping automatic device scan for cluster {} because the last execution was {} seconds ago, which is less than the configured interval of {} seconds.", cluster.getId(), currentTimestamp - lastExecutionTimestamp, scanInterval);
+                    continue;
+                }
+            }
+
+            List<HostVO> hosts = hostDao.listAllRoutingHostsUpInClusters(List.of(cluster.getId()), Hypervisor.HypervisorType.KVM);
+
+            if (CollectionUtils.isEmpty(hosts)) {
+                logger.info("No suitable KVM hosts found in cluster {} for automatic device scan.", cluster.getId());
+                continue;
+            }
+
+            logger.info("Scanning host devices of {} hosts in cluster {}.", hosts.size(), cluster.getId());
+            for (HostVO host : hosts) {
+                try {
+                    scanHostDevices(host);
+                } catch (Exception e) {
+                    logger.error("Failed to execute automatic device scan for host {} in cluster {}: {}", host.getId(), cluster.getId(), e.getMessage());
+                }
+            }
+
+            clusterDetailsDao.persist(cluster.getId(), HostDevicesManager.LAST_HOST_DEVICE_SCAN_EXECUTION_TIMESTAMP, String.valueOf(System.currentTimeMillis() / 1000L));
+        }
+    }
+
+
     @Override
     public String getConfigComponentName() {
         return HostDevicesManager.class.getSimpleName();
@@ -508,7 +579,9 @@ public class HostDevicesManagerImpl extends ManagerBase implements org.apache.cl
         return new ConfigKey[]{
                 DefaultMaxAccountHostDevices,
                 DefaultMaxDomainHostDevices,
-                DefaultMaxProjectHostDevices
+                DefaultMaxProjectHostDevices,
+                HostDeviceAutomaticScanEnabled,
+                HostDeviceAutomaticScanInterval
         };
     }
 
