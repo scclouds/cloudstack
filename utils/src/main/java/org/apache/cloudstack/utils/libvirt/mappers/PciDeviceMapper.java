@@ -47,6 +47,7 @@ public class PciDeviceMapper implements DeviceMapper<PciDevice> {
                 .append("'/>\n");
         xml.append("  </source>\n");
         xml.append("</hostdev>\n");
+
         return xml.toString();
     }
 
