@@ -242,6 +242,11 @@ public class DeviceOfferingManagerImpl extends ManagerBase implements DeviceOffe
         response.setRemoved(offering.getRemoved());
         response.setPublic(offering.getIsPublic());
 
+        List<String> deviceTags = deviceOfferingDeviceTagsDao.getDeviceOfferingTags(offering.getId());
+        if (CollectionUtils.isNotEmpty(deviceTags)) {
+            response.setDeviceTags(deviceTags);
+        }
+
         return response;
     }
 
@@ -295,10 +300,18 @@ public class DeviceOfferingManagerImpl extends ManagerBase implements DeviceOffe
             throw new InvalidParameterValueException("You must inform at least one device tag for the device offering.");
         }
 
-        deviceOffering.updateData(displayName, description, state);
+        if (displayName != null) {
+            deviceOffering.setName(displayName);
+        }
+        if (description != null) {
+            deviceOffering.setDescription(description);
+        }
+        if (state != null) {
+            deviceOffering.setState(state);
+        }
 
         return Transaction.execute((TransactionCallback<DeviceOfferingVO>) status -> {
-            deviceOfferingDao.persist(deviceOffering);
+            deviceOfferingDao.update(deviceOffering.getId(), deviceOffering);
             updateDeviceOfferingTags(deviceOffering.getId(), deviceTags);
 
             return deviceOffering;
@@ -357,7 +370,7 @@ public class DeviceOfferingManagerImpl extends ManagerBase implements DeviceOffe
             @Override
             public void doInTransactionWithoutResult(TransactionStatus status) {
                 deviceOffering.setState(DeviceOffering.State.Inactive);
-                deviceOfferingDao.persist(deviceOffering);
+                deviceOfferingDao.update(deviceOffering.getId(), deviceOffering);
                 deviceOfferingDao.remove(id);
                 deviceOfferingDeviceTagsDao.removeOfferingTags(id);
             }
@@ -367,6 +380,10 @@ public class DeviceOfferingManagerImpl extends ManagerBase implements DeviceOffe
     }
 
     private void updateDeviceOfferingTags(Long offeringId, List<String> deviceTags) {
+        if (deviceTags == null) {
+            return;
+        }
+
         List<String> newTags = parseDeviceOfferingTagsParameter(deviceTags);
 
         deviceOfferingDeviceTagsDao.expungeByOfferingId(offeringId);

@@ -5,6 +5,7 @@ import org.apache.cloudstack.api.EntityReference;
 import org.apache.cloudstack.hostdevices.DeviceOffering;
 
 import java.util.Date;
+import java.util.List;
 
 @EntityReference(value = DeviceOffering.class)
 public class DeviceOfferingResponse extends BaseResponse {
@@ -17,6 +18,7 @@ public class DeviceOfferingResponse extends BaseResponse {
     private Date created;
     private Date removed;
     private Boolean isPublic;
+    private List<String> deviceTags;
 
     public String getName() {
         return name;
@@ -64,5 +66,9 @@ public class DeviceOfferingResponse extends BaseResponse {
 
     public void setPublic(Boolean aPublic) {
         isPublic = aPublic;
+    }
+
+    public void setDeviceTags(List<String> deviceTags) {
+        this.deviceTags = deviceTags;
     }
 }

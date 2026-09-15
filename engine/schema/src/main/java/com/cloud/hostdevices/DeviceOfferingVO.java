@@ -53,7 +53,8 @@ public class DeviceOfferingVO implements DeviceOffering {
     @Column(name = "zone_id")
     private Long zoneId;
 
-    public DeviceOfferingVO() {}
+    public DeviceOfferingVO() {
+    }
 
     public DeviceOfferingVO(String name, String description, Long domainId, Long zoneId) {
         this.name = name;
@@ -109,15 +110,11 @@ public class DeviceOfferingVO implements DeviceOffering {
         this.state = state;
     }
 
-    public void updateData(String displayName, String description, State state) {
-        if (displayName != null) {
-            this.name = displayName;
-        }
-        if (description != null) {
-            this.description = description;
-        }
-        if (state != null) {
-            this.state = state;
-        }
+    public void setName(String name) {
+        this.name = name;
+    }
+
+    public void setDescription(String description) {
+        this.description = description;
     }
 }
