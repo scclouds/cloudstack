@@ -8,6 +8,7 @@ import java.util.List;
 
 public interface VMInstanceDeviceOfferingsDao extends GenericDao<VMInstanceDeviceOfferingsVO, Long> {
     List<VMInstanceDeviceOfferingsVO> listByVmId(Long virtualMachineId);
+    List<VMInstanceDeviceOfferingsVO> listByOfferingId(Long id);
     VMInstanceDeviceOfferingsVO findByVmIdAndDeviceId(Long vmId, Long deviceId);
     void expungeByVmId(Long vmId);
 }

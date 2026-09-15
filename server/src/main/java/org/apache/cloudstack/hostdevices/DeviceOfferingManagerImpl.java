@@ -19,6 +19,7 @@ import com.cloud.utils.exception.CloudRuntimeException;
 import com.cloud.vm.VirtualMachine;
 import com.cloud.vm.dao.VMInstanceDao;
 import org.apache.cloudstack.api.command.admin.hostdevices.CreateDeviceOfferingCmd;
+import org.apache.cloudstack.api.command.admin.hostdevices.DeleteDeviceOfferingCmd;
 import org.apache.cloudstack.api.command.admin.hostdevices.UpdateDeviceOfferingCmd;
 import org.apache.cloudstack.api.command.user.hostdevices.AssignVirtualMachineToDeviceOfferingCmd;
 import org.apache.cloudstack.api.command.user.hostdevices.ListDeviceOfferingsCmd;
@@ -324,6 +325,35 @@ public class DeviceOfferingManagerImpl extends ManagerBase implements DeviceOffe
         return true;
     }
 
+    @Override
+    public boolean deleteOffering(Long id) {
+        Account caller = CallContext.current().getCallingAccount();
+
+        if (!Account.Type.ADMIN.equals(caller.getType())) {
+            logger.error("Cancelling deletion because caller [{}] tried to delete a device offering without being admin.", caller);
+            throw new PermissionDeniedException("This action is only permitted for admins.");
+        }
+
+        DeviceOfferingVO deviceOffering = deviceOfferingDao.findById(id);
+        if (deviceOffering == null) {
+            logger.error("Device offering with ID [{}] could not be found.", id);
+            throw new InvalidParameterValueException(String.format("Could not find device offering with ID [%s].", id));
+        }
+
+        List<VMInstanceDeviceOfferingsVO> assignedVMs = vmInstanceDeviceOfferingsDao.listByOfferingId(id);
+
+        if (CollectionUtils.isNotEmpty(assignedVMs)) {
+            logger.error("Cannot delete device offering with ID [{}] because the following VMs are still assigned to it: {}.", assignedVMs.stream().map(VMInstanceDeviceOfferingsVO::getVirtualMachineId).collect(Collectors.toList()));
+            throw new InvalidParameterValueException(String.format("Cannot delete device offering with ID [%s] because it is still assigned to VMs.", id));
+        }
+
+        deviceOffering.setState(DeviceOffering.State.Inactive);
+        deviceOfferingDao.persist(deviceOffering);
+        deviceOfferingDao.remove(id);
+
+        return true;
+    }
+
     private void updateDeviceOfferingTags(Long offeringId, List<String> deviceTags) {
         List<String> newTags = parseDeviceOfferingTagsParameter(deviceTags);
 
@@ -418,7 +448,13 @@ public class DeviceOfferingManagerImpl extends ManagerBase implements DeviceOffe
 
     @Override
     public List<Class<?>> getCommands() {
-        return List.of(CreateDeviceOfferingCmd.class, ListDeviceOfferingsCmd.class, AssignVirtualMachineToDeviceOfferingCmd.class, RemoveVirtualMachineFromDeviceOfferingCmd.class, UpdateDeviceOfferingCmd.class);
+        return List.of(CreateDeviceOfferingCmd.class,
+                ListDeviceOfferingsCmd.class,
+                AssignVirtualMachineToDeviceOfferingCmd.class,
+                RemoveVirtualMachineFromDeviceOfferingCmd.class,
+                UpdateDeviceOfferingCmd.class,
+                DeleteDeviceOfferingCmd.class
+        );
     }
 
     @Override
