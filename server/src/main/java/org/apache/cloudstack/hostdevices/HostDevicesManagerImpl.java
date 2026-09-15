@@ -24,7 +24,6 @@ import com.cloud.utils.Pair;
 import com.cloud.utils.UuidUtils;
 import com.cloud.utils.component.ManagerBase;
 import com.cloud.utils.concurrency.NamedThreadFactory;
-import com.cloud.utils.db.DB;
 import com.cloud.utils.db.Transaction;
 import com.cloud.utils.db.TransactionCallbackNoReturn;
 import com.cloud.utils.db.TransactionStatus;
@@ -363,7 +362,7 @@ public class HostDevicesManagerImpl extends ManagerBase implements HostDevicesMa
         res.setRemoved(device.getRemoved());
         res.setState(device.getState().toString());
         res.setType(device.getType().toString());
-        res.setDeviceTag(res.getDeviceTag());
+        res.setDeviceTag(device.getDeviceTag());
 
         if (device.getInstanceId() != null) {
             VirtualMachine vm = virtualMachineDao.findById(device.getInstanceId());
@@ -391,7 +390,6 @@ public class HostDevicesManagerImpl extends ManagerBase implements HostDevicesMa
     }
 
     @Override
-    @DB
     public HostDevice updateHostDevice(UpdateHostDeviceCmd updateHostDeviceCmd) {
         Boolean enabled = updateHostDeviceCmd.getEnabled();
         String displayName = updateHostDeviceCmd.getDisplayName();
@@ -422,15 +420,28 @@ public class HostDevicesManagerImpl extends ManagerBase implements HostDevicesMa
             }
         }
 
-        device.updateData(enabled, displayName, tag, newDeviceType);
-        hostDeviceDao.persist(device);
+        if (enabled != null) {
+            device.setState(enabled ? HostDevice.State.Free : HostDevice.State.Disabled);
+        }
+
+        if (displayName != null) {
+            device.setDisplayName(displayName);
+        }
+        if (tag != null) {
+            device.setDeviceTag(tag);
+        }
+        if (type != null) {
+            device.setType(newDeviceType);
+        }
+
+        hostDeviceDao.update(device.getId(), device);
 
         return device;
     }
 
     @Override
     public void releaseHostDevicesForVm(Long vmId) {
-        // TODO: dar decrease nos limites
+        // TODO ERIK: dar decrease nos limites
         VirtualMachine vm = virtualMachineDao.findById(vmId);
 
         if (vm == null) {
@@ -451,8 +462,8 @@ public class HostDevicesManagerImpl extends ManagerBase implements HostDevicesMa
             public void doInTransactionWithoutResult(TransactionStatus status) {
                 for (HostDeviceVO dev : devices) {
                     dev.releaseFromVM();
-                    // TODO: aqui precisa limpar os devices do tipo storage
-                    hostDeviceDao.persist(dev);
+                    // TODO ERIK: aqui precisa limpar os devices do tipo storage
+                    hostDeviceDao.update(dev.getId(), dev);
                 }
             }
         });
@@ -482,7 +493,7 @@ public class HostDevicesManagerImpl extends ManagerBase implements HostDevicesMa
             public void doInTransactionWithoutResult(TransactionStatus status) {
                 for (HostDeviceVO dev : devices) {
                     dev.setState(HostDevice.State.HostInMaintenance);
-                    hostDeviceDao.persist(dev);
+                    hostDeviceDao.update(dev.getId(), dev);
                 }
 
                 hostDetailsDao.persist(hostId, deviceNameToStateMap);
@@ -519,7 +530,7 @@ public class HostDevicesManagerImpl extends ManagerBase implements HostDevicesMa
                     }
 
                     dev.setState(HostDevice.State.valueOf(previousState));
-                    hostDeviceDao.persist(dev);
+                    hostDeviceDao.update(dev.getId(), dev);
                     hostDetailsDao.expungeDetailByHostAndName(hostId, pciName);
                 }
             }
@@ -544,7 +555,7 @@ public class HostDevicesManagerImpl extends ManagerBase implements HostDevicesMa
                 for (HostDeviceVO device : hostDevices) {
                     device.setAccountId(newAccount.getId());
                     device.setDomainId(newAccount.getDomainId());
-                    hostDeviceDao.persist(device);
+                    hostDeviceDao.update(device.getId(), device);
                     logger.debug("Updated ownership of host device {} to account {}.", device.getPciName(), newAccount.getId());
                 }
             }
@@ -554,7 +565,7 @@ public class HostDevicesManagerImpl extends ManagerBase implements HostDevicesMa
     private void triggerAutomaticScanForClusters() {
         ThreadContext.put(LOGCONTEXTID, UuidUtils.first(UUID.randomUUID().toString()));
 
-        // TODO: talvez fosse legal ter um threshold: se executou X segundos antes do tempo, não executa de novo
+        // TODO ERIK: talvez fosse legal ter um threshold: se executou X segundos antes do tempo, não executa de novo
         List<ClusterVO> clusters = clusterDao.listAll()
                 .stream()
                 .filter(c -> Hypervisor.HypervisorType.KVM.equals(c.getHypervisorType()))

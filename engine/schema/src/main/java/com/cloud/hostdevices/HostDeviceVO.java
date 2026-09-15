@@ -286,21 +286,6 @@ public class HostDeviceVO implements HostDevice {
         return this.state == State.Disabled || this.state == State.Free;
     }
 
-    public void updateData(Boolean enabled, String displayName, String tag, Type type) {
-        if (enabled != null) {
-            this.state = enabled ? State.Free : State.Disabled;
-        }
-        if (displayName != null) {
-            this.displayName = displayName;
-        }
-        if (tag != null) {
-            this.deviceTag = tag;
-        }
-        if (type != null) {
-            this.type = type;
-        }
-    }
-
     public void releaseFromVM() {
         this.instanceId = null;
         this.accountId = null;

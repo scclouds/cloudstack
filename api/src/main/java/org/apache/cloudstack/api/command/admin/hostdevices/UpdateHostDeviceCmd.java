@@ -74,6 +74,9 @@ public class UpdateHostDeviceCmd extends BaseCmd  {
     @Override
     public void execute() throws ResourceUnavailableException, InsufficientCapacityException, ServerApiException, ConcurrentOperationException, ResourceAllocationException, NetworkRuleConflictException {
         HostDevice hostDevice = hostDevicesManager.updateHostDevice(this);
+        HostDeviceResponse response = hostDevicesManager.generateHostDeviceResponse(hostDevice);
+        response.setResponseName(getCommandName());
+        setResponseObject(response);
     }
 
     @Override
