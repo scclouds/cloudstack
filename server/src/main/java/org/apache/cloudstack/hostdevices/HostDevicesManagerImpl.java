@@ -24,6 +24,10 @@ import com.cloud.utils.Pair;
 import com.cloud.utils.UuidUtils;
 import com.cloud.utils.component.ManagerBase;
 import com.cloud.utils.concurrency.NamedThreadFactory;
+import com.cloud.utils.db.DB;
+import com.cloud.utils.db.Transaction;
+import com.cloud.utils.db.TransactionCallbackNoReturn;
+import com.cloud.utils.db.TransactionStatus;
 import com.cloud.utils.exception.CloudRuntimeException;
 import com.cloud.vm.VirtualMachine;
 import com.cloud.vm.dao.VMInstanceDao;
@@ -202,6 +206,7 @@ public class HostDevicesManagerImpl extends ManagerBase implements HostDevicesMa
         if (currentDevices.isEmpty()) {
             logger.info("As no device is saved for the host yet, we will save all the devices returned by the agent to the database.");
 
+            // TODO ERIK: ver se precisa disso, não faz diferença se salvar ou não, só executar dnv
             for (HostDeviceVO device : mappedIncomingDevices) {
                 hostDeviceDao.persist(device);
             }
@@ -220,9 +225,9 @@ public class HostDevicesManagerImpl extends ManagerBase implements HostDevicesMa
         logger.debug("Checking for devices that were listed in the database, but were not returned by the host. Only Attached ones will be considered as missing.");
         List<HostDeviceVO> missingDevices = registeredDevices
                 .stream()
-                .filter(rd -> incomingDevices
+                .filter(registered -> incomingDevices
                         .stream()
-                        .noneMatch(id -> id.getPciName().equals(rd.getPciName())))
+                        .noneMatch(incoming -> incoming.getPciName().equals(registered.getPciName())))
                 .filter(d -> d.getInstanceId() != null)
                 .collect(Collectors.toList());
 
@@ -232,12 +237,16 @@ public class HostDevicesManagerImpl extends ManagerBase implements HostDevicesMa
         }
 
         logger.debug("Found the following missing devices. {}", missingDevices);
-        // TODO: implement alert creation and mail sending
-
-        for (HostDeviceVO device : missingDevices) {
-            device.setState(HostDevice.State.Missing);
-            hostDeviceDao.persist(device);
-        }
+        Transaction.execute(new TransactionCallbackNoReturn() {
+            // TODO ERIK: tem que criar o alerta e mandar o email pros operadores - ver se manda um pra cada device ou a lista com todos
+            @Override
+            public void doInTransactionWithoutResult(TransactionStatus status) {
+                for (HostDeviceVO device : missingDevices) {
+                    device.setState(HostDevice.State.Missing);
+                    hostDeviceDao.persist(device);
+                }
+            }
+        });
 
         incomingDevices.removeIf(id -> missingDevices.stream().anyMatch(md -> md.getPciName().equals(id.getPciName())));
     }
@@ -252,6 +261,7 @@ public class HostDevicesManagerImpl extends ManagerBase implements HostDevicesMa
                 .collect(Collectors.toList());
         logger.debug("Found the following unregistered devices: {}", unregisteredDevices);
 
+        // TODO ERIK: ver se precisa disso, não faz diferença se salvar ou não, só executar dnv
         for (HostDeviceVO device : unregisteredDevices) {
             logger.debug("Saving unregistered device [{}] to the database.", device.getPciName());
             hostDeviceDao.persist(device);
@@ -381,6 +391,7 @@ public class HostDevicesManagerImpl extends ManagerBase implements HostDevicesMa
     }
 
     @Override
+    @DB
     public HostDevice updateHostDevice(UpdateHostDeviceCmd updateHostDeviceCmd) {
         Boolean enabled = updateHostDeviceCmd.getEnabled();
         String displayName = updateHostDeviceCmd.getDisplayName();
@@ -428,7 +439,6 @@ public class HostDevicesManagerImpl extends ManagerBase implements HostDevicesMa
         }
 
         List<HostDeviceVO> devices = hostDeviceDao.listHostDevicesByVmId(vmId);
-
         if (CollectionUtils.isEmpty(devices)) {
             logger.debug("No host devices found for VM with ID {}. Skipping devices release process.", vmId);
             return;
@@ -436,12 +446,16 @@ public class HostDevicesManagerImpl extends ManagerBase implements HostDevicesMa
 
         logger.info("The following devices will be released from VM {}: {}", vmId, devices.stream().map(HostDeviceVO::getPciName).collect(Collectors.toList()));
 
-        // TODO: aqui precisa limpar os devices do tipo storage
-        // TODO: precisa de transação tmb
-        for (HostDeviceVO dev : devices) {
-            dev.releaseFromVM();
-            hostDeviceDao.persist(dev);
-        }
+        Transaction.execute(new TransactionCallbackNoReturn() {
+            @Override
+            public void doInTransactionWithoutResult(TransactionStatus status) {
+                for (HostDeviceVO dev : devices) {
+                    dev.releaseFromVM();
+                    // TODO: aqui precisa limpar os devices do tipo storage
+                    hostDeviceDao.persist(dev);
+                }
+            }
+        });
     }
 
     @Override
@@ -463,12 +477,17 @@ public class HostDevicesManagerImpl extends ManagerBase implements HostDevicesMa
                 .collect(Collectors.toMap(HostDeviceVO::getPciName, d -> d.getState().toString()));
 
         logger.info("The following devices will be put in maintenance mode for host {}: {}", hostId, devices.stream().map(HostDeviceVO::getPciName).collect(Collectors.toList()));
-        for (HostDeviceVO dev : devices) {
-            dev.setState(HostDevice.State.HostInMaintenance);
-            hostDeviceDao.persist(dev);
-        }
+        Transaction.execute(new TransactionCallbackNoReturn() {
+            @Override
+            public void doInTransactionWithoutResult(TransactionStatus status) {
+                for (HostDeviceVO dev : devices) {
+                    dev.setState(HostDevice.State.HostInMaintenance);
+                    hostDeviceDao.persist(dev);
+                }
 
-        hostDetailsDao.persist(hostId, deviceNameToStateMap);
+                hostDetailsDao.persist(hostId, deviceNameToStateMap);
+            }
+        });
     }
 
     @Override
@@ -488,18 +507,23 @@ public class HostDevicesManagerImpl extends ManagerBase implements HostDevicesMa
 
         Map<String, String> hostDetails = hostDetailsDao.findDetails(hostId);
 
-        for (HostDeviceVO dev : devices) {
-            String pciName = dev.getPciName();
-            String previousState = hostDetails.get(pciName);
-            if (previousState == null) {
-                logger.warn("Could not find host device [{}] last state before maintenance mode. Ignoring device during state normalization.", pciName);
-                continue;
-            }
+        Transaction.execute(new TransactionCallbackNoReturn() {
+            @Override
+            public void doInTransactionWithoutResult(TransactionStatus status) {
+                for (HostDeviceVO dev : devices) {
+                    String pciName = dev.getPciName();
+                    String previousState = hostDetails.get(pciName);
+                    if (previousState == null) {
+                        logger.warn("Could not find host device [{}] last state before maintenance mode. Ignoring device during state normalization.", pciName);
+                        continue;
+                    }
 
-            dev.setState(HostDevice.State.valueOf(previousState));
-            hostDeviceDao.persist(dev);
-            hostDetailsDao.expungeDetailByHostAndName(hostId, pciName);
-        }
+                    dev.setState(HostDevice.State.valueOf(previousState));
+                    hostDeviceDao.persist(dev);
+                    hostDetailsDao.expungeDetailByHostAndName(hostId, pciName);
+                }
+            }
+        });
     }
 
     @Override
@@ -513,13 +537,18 @@ public class HostDevicesManagerImpl extends ManagerBase implements HostDevicesMa
 
         logger.info("Updating ownership of host devices for VM {} to account {}.", vmId, newAccount.getUuid());
         List<HostDeviceVO> hostDevices = hostDeviceDao.listHostDevicesByVmId(vmId);
-        //TODO: transação de novo
-        for (HostDeviceVO device : hostDevices) {
-            device.setAccountId(newAccount.getId());
-            device.setDomainId(newAccount.getDomainId());
-            hostDeviceDao.persist(device);
-            logger.debug("Updated ownership of host device {} to account {}.", device.getPciName(), newAccount.getId());
-        }
+
+        Transaction.execute(new TransactionCallbackNoReturn() {
+            @Override
+            public void doInTransactionWithoutResult(TransactionStatus status) {
+                for (HostDeviceVO device : hostDevices) {
+                    device.setAccountId(newAccount.getId());
+                    device.setDomainId(newAccount.getDomainId());
+                    hostDeviceDao.persist(device);
+                    logger.debug("Updated ownership of host device {} to account {}.", device.getPciName(), newAccount.getId());
+                }
+            }
+        });
     }
 
     private void triggerAutomaticScanForClusters() {
