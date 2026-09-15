@@ -46,4 +46,11 @@ public class DeviceOfferingDeviceTagDaoImpl extends GenericDaoBase<DeviceOfferin
         sc.setParameters("deviceOfferingId", List.of(id).toArray());
         expunge(sc);
     }
+
+    @Override
+    public void removeOfferingTags(Long id) {
+        SearchCriteria<DeviceOfferingDeviceTagVO> sc = deviceOfferingDeviceTagSearch.create();
+        sc.setParameters("deviceOfferingId", List.of(id).toArray());
+        remove(sc);
+    }
 }

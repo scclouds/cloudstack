@@ -15,6 +15,10 @@ import com.cloud.hostdevices.dao.VMInstanceDeviceOfferingsDao;
 import com.cloud.user.Account;
 import com.cloud.user.AccountManager;
 import com.cloud.utils.component.ManagerBase;
+import com.cloud.utils.db.Transaction;
+import com.cloud.utils.db.TransactionCallback;
+import com.cloud.utils.db.TransactionCallbackNoReturn;
+import com.cloud.utils.db.TransactionStatus;
 import com.cloud.utils.exception.CloudRuntimeException;
 import com.cloud.vm.VirtualMachine;
 import com.cloud.vm.dao.VMInstanceDao;
@@ -100,14 +104,15 @@ public class DeviceOfferingManagerImpl extends ManagerBase implements DeviceOffe
             throw new InvalidParameterValueException("A device offering with the same name already exists.");
         }
 
-        // TODO: provavelmente precisa de uma transação aqui
-        DeviceOfferingVO deviceOffering = deviceOfferingDao.persist(new DeviceOfferingVO(cmd.getName(), cmd.getDescription(), domainId, zoneId));
+        return Transaction.execute((TransactionCallback<DeviceOfferingVO>) status -> {
+            DeviceOfferingVO newOffering = deviceOfferingDao.persist(new DeviceOfferingVO(cmd.getName(), cmd.getDescription(), domainId, zoneId));
 
-        for (String tag : parseDeviceOfferingTagsParameter(cmd.getTags())) {
-            deviceOfferingDeviceTagsDao.persist(new DeviceOfferingDeviceTagVO(deviceOffering.getId(), tag));
-        }
+            for (String tag : parseDeviceOfferingTagsParameter(cmd.getTags())) {
+                deviceOfferingDeviceTagsDao.persist(new DeviceOfferingDeviceTagVO(newOffering.getId(), tag));
+            }
 
-        return deviceOffering;
+            return newOffering;
+        });
     }
 
     @Override
@@ -290,12 +295,14 @@ public class DeviceOfferingManagerImpl extends ManagerBase implements DeviceOffe
             throw new InvalidParameterValueException("You must inform at least one device tag for the device offering.");
         }
 
-
         deviceOffering.updateData(displayName, description, state);
-        deviceOfferingDao.persist(deviceOffering);
-        updateDeviceOfferingTags(deviceOffering.getId(), deviceTags);
 
-        return deviceOffering;
+        return Transaction.execute((TransactionCallback<DeviceOfferingVO>) status -> {
+            deviceOfferingDao.persist(deviceOffering);
+            updateDeviceOfferingTags(deviceOffering.getId(), deviceTags);
+
+            return deviceOffering;
+        });
     }
 
     @Override
@@ -311,10 +318,9 @@ public class DeviceOfferingManagerImpl extends ManagerBase implements DeviceOffe
 
         Domain offeringDomain = domainDao.findById(deviceOffering.getDomainId());
         // TODO: Ver sobre a questão de limitação a nivel de zona
-        DataCenter offeringZone = dataCenterDao.findById(deviceOffering.getZoneId());
-
-        Account.Type accountType = newAccount.getType();
-
+//        DataCenter offeringZone = dataCenterDao.findById(deviceOffering.getZoneId());
+//
+//        Account.Type accountType = newAccount.getType();
 //        if (Account.Type.NORMAL.equals(accountType)) {
 //
 //        }
@@ -347,9 +353,15 @@ public class DeviceOfferingManagerImpl extends ManagerBase implements DeviceOffe
             throw new InvalidParameterValueException(String.format("Cannot delete device offering with ID [%s] because it is still assigned to VMs.", id));
         }
 
-        deviceOffering.setState(DeviceOffering.State.Inactive);
-        deviceOfferingDao.persist(deviceOffering);
-        deviceOfferingDao.remove(id);
+        Transaction.execute(new TransactionCallbackNoReturn() {
+            @Override
+            public void doInTransactionWithoutResult(TransactionStatus status) {
+                deviceOffering.setState(DeviceOffering.State.Inactive);
+                deviceOfferingDao.persist(deviceOffering);
+                deviceOfferingDao.remove(id);
+                deviceOfferingDeviceTagsDao.removeOfferingTags(id);
+            }
+        });
 
         return true;
     }

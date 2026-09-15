@@ -12,4 +12,6 @@ public interface DeviceOfferingDeviceTagDao extends GenericDao<DeviceOfferingDev
     List<String> getDeviceOfferingsTags(List<DeviceOfferingVO> deviceOfferingIds);
 
     void expungeByOfferingId(long id);
+
+    void removeOfferingTags(Long id);
 }
