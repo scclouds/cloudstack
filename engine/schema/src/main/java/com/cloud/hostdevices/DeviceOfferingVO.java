@@ -105,6 +105,10 @@ public class DeviceOfferingVO implements DeviceOffering {
         return zoneId;
     }
 
+    public void setState(State state) {
+        this.state = state;
+    }
+
     public void updateData(String displayName, String description, State state) {
         if (displayName != null) {
             this.name = displayName;

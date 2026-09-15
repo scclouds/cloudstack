@@ -34,4 +34,6 @@ public interface DeviceOfferingManager extends Configurable, Manager, PluggableS
     List<? extends DeviceOffering> getDeviceOfferingsByVmId(Long vmId);
 
     boolean canAccountAccessOffering(DeviceOffering deviceOffering, Account newAccount);
+
+    boolean deleteOffering(Long id);
 }
