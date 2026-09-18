@@ -1553,6 +1553,8 @@ public class VirtualMachineManagerImpl extends ManagerBase implements VirtualMac
 
                     vmGuru.finalizeVirtualMachineProfile(vmProfile, dest, ctx);
 
+                    hostDeviceManager.reserveDevicesForVm(vm.getId(), destHostId);
+
                     final VirtualMachineTO vmTO = hvGuru.implement(vmProfile);
                     updateVmMetadataManufacturerAndProduct(vmTO, vm);
 

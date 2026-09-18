@@ -221,6 +221,7 @@ public class VMEntityManagerImpl implements VMEntityManager {
             } else if (planChangedByReadyVolume) {
                 // we could not reserve in the Volume's cluster - let the deploy
                 // call retry it.
+                logger.debug("The deployment plan was defined by the ready root volume. Therefore, we did not have a specific host to deploy the VM. If the VM has device offerings, their devices will be allocated later, allowing VM with specified hosts to be put upfront.");
                 return UUID.randomUUID().toString();
             } else {
                 throw new InsufficientServerCapacityException("No destination found for a deployment for " + vmProfile, DataCenter.class, plan.getDataCenterId(),
