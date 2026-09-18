@@ -2521,7 +2521,7 @@ public class ResourceManagerImpl extends ManagerBase implements ResourceManager,
     @Override
     public boolean doesHostMatchesDeviceOfferingsTags(HostVO host, List<DeviceOfferingVO> deviceOfferings, Long virtualMachineId) {
         List<String> deviceOfferingsTags = deviceOfferingDeviceTagDao.getDeviceOfferingsTags(deviceOfferings);
-        List<HostDeviceVO> hostDevices = hostDeviceDao.listHostDevicesAvailableForAllocation(host.getId(), virtualMachineId, deviceOfferingsTags);
+        List<HostDeviceVO> hostDevices = hostDeviceDao.listHostDevicesForOfferingAndVmCheck(host.getId(), deviceOfferingsTags, virtualMachineId);
 
         if (hostDevices.isEmpty() || hostDevices.size() < deviceOfferingsTags.size()) {
             return false;
