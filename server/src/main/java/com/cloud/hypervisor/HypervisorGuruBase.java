@@ -404,17 +404,10 @@ public abstract class HypervisorGuruBase extends AdapterBase implements Hypervis
     }
 
     private List<HostDeviceTO> getRequestedHostDevices(VirtualMachineProfile vmProfile, List<DeviceOfferingVO> vmDeviceOfferings) {
-        List<String> offeringTags = deviceOfferingDeviceTagDao.getDeviceOfferingsTags(vmDeviceOfferings);
-        List<HostDeviceVO> hostDevices = hostDeviceDao.listHostDevicesAvailableForAllocation(vmProfile.getHostId(), vmProfile.getId(), offeringTags);
-        List<String> hostDevicesTags = hostDevices.stream().map(HostDeviceVO::getDeviceTag).collect(Collectors.toList());
+        List<HostDeviceVO> hostDevices = hostDeviceDao.listHostDevicesByVmId(vmProfile.getId());
 
-        if(!_resourceMgr.validateHostDevicesAgainstDeviceOfferings(offeringTags, hostDevicesTags)) {
-            throw new CloudRuntimeException("Host devices do not match device offerings tags");
-        }
-
-        for (HostDeviceVO hostDevice : hostDevices) {
-            hostDevice.reserveToVM(vmProfile);
-            hostDeviceDao.persist(hostDevice);
+        if (CollectionUtils.isEmpty(hostDevices)) {
+            logger.error("The VM has device offerings assigned {}, but no host device was found attached to the VM. Blocking the deployment because there is probably an error.", vmDeviceOfferings.stream().map(DeviceOfferingVO::getUuid).collect(Collectors.toList()));
         }
 
         return hostDevices.stream().map(HostDeviceTO::new).collect(Collectors.toList());
