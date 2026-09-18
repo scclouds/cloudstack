@@ -56,6 +56,7 @@ import org.apache.cloudstack.framework.config.Configurable;
 import org.apache.cloudstack.framework.config.dao.ConfigurationDao;
 import org.apache.cloudstack.framework.messagebus.MessageBus;
 import org.apache.cloudstack.framework.messagebus.MessageSubscriber;
+import org.apache.cloudstack.hostdevices.HostDevicesManager;
 import org.apache.cloudstack.managed.context.ManagedContextTimerTask;
 import org.apache.cloudstack.storage.datastore.db.PrimaryDataStoreDao;
 import org.apache.cloudstack.storage.datastore.db.StoragePoolVO;
@@ -186,6 +187,8 @@ StateListener<State, VirtualMachine.Event, VirtualMachine>, Configurable {
     HostDetailsDao _hostDetailsDao;
     @Inject
     private VMTemplateDao templateDao;
+    @Inject
+    private HostDevicesManager hostDevicesManager;
 
     private static final long ADMIN_ACCOUNT_ROLE_ID = 1l;
     private static final long INITIAL_RESERVATION_RELEASE_CHECKER_DELAY = 30L * 1000L; // thirty seconds expressed in milliseconds
@@ -2022,6 +2025,8 @@ StateListener<State, VirtualMachine.Event, VirtualMachine>, Configurable {
             @Override
             public String doInTransaction(TransactionStatus status) {
                 boolean saveReservation = true;
+
+                hostDevicesManager.reserveDevicesForVm(vmProfile.getId(), plannedDestination.getHost().getId());;
 
                 if (vmGroupCount > 0) {
                     List<Long> groupIds = _affinityGroupVMMapDao.listAffinityGroupIdsByVmId(vm.getId());

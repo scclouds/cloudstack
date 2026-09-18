@@ -1,7 +1,5 @@
 package com.cloud.hostdevices;
 
-import com.cloud.user.Account;
-import com.cloud.vm.VirtualMachineProfile;
 import org.apache.cloudstack.hostdevices.HostDevice;
 import org.apache.cloudstack.utils.libvirt.model.LibvirtDevice;
 import org.apache.cloudstack.utils.libvirt.model.PciDevice;
@@ -272,14 +270,6 @@ public class HostDeviceVO implements HostDevice {
 
     public void setHostId(Long hostId) {
         this.hostId = hostId;
-    }
-
-    public void reserveToVM(VirtualMachineProfile vm) {
-        Account owner = vm.getOwner();
-        this.instanceId = vm.getId();
-        this.accountId = owner.getAccountId();
-        this.domainId = owner.getDomainId();
-        this.state = State.Attached;
     }
 
     public boolean canBeUpdated() {

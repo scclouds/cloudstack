@@ -14,10 +14,14 @@ import com.cloud.host.Host;
 import com.cloud.host.HostVO;
 import com.cloud.host.dao.HostDao;
 import com.cloud.host.dao.HostDetailsDao;
+import com.cloud.hostdevices.DeviceOfferingVO;
 import com.cloud.hostdevices.HostDeviceVO;
+import com.cloud.hostdevices.dao.DeviceOfferingDao;
+import com.cloud.hostdevices.dao.DeviceOfferingDeviceTagDao;
 import com.cloud.hostdevices.dao.HostDeviceDao;
 import com.cloud.hypervisor.Hypervisor;
 import com.cloud.org.Cluster;
+import com.cloud.resource.ResourceManager;
 import com.cloud.user.Account;
 import com.cloud.user.AccountManager;
 import com.cloud.utils.Pair;
@@ -28,6 +32,7 @@ import com.cloud.utils.db.Transaction;
 import com.cloud.utils.db.TransactionCallbackNoReturn;
 import com.cloud.utils.db.TransactionStatus;
 import com.cloud.utils.exception.CloudRuntimeException;
+import com.cloud.vm.VMInstanceVO;
 import com.cloud.vm.VirtualMachine;
 import com.cloud.vm.dao.VMInstanceDao;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -75,6 +80,12 @@ public class HostDevicesManagerImpl extends ManagerBase implements HostDevicesMa
     DomainDao domainDao;
     @Inject
     HostDetailsDao hostDetailsDao;
+    @Inject
+    private DeviceOfferingDao deviceOfferingDao;
+    @Inject
+    private DeviceOfferingDeviceTagDao deviceOfferingDeviceTagDao;
+    @Inject
+    private ResourceManager resourceManager;
 
     private ScheduledExecutorService scheduledExecutor;
     private static final String LOGCONTEXTID = "logcontextid";
@@ -557,6 +568,70 @@ public class HostDevicesManagerImpl extends ManagerBase implements HostDevicesMa
                     device.setDomainId(newAccount.getDomainId());
                     hostDeviceDao.update(device.getId(), device);
                     logger.debug("Updated ownership of host device {} to account {}.", device.getPciName(), newAccount.getId());
+                }
+            }
+        });
+    }
+
+    @Override
+    public void reserveDevicesForVm(Long vmId, Long selectedHostId) {
+        VMInstanceVO vm = virtualMachineDao.findById(vmId);
+
+        if (vm == null) {
+            logger.debug("Virtual machine with ID {} was not found", vmId);
+            throw new CloudRuntimeException("Virtual machine with id " + vmId + " was not found.");
+        }
+
+        HostVO host = hostDao.findById(selectedHostId);
+
+        if (host == null) {
+            logger.debug("Host with ID {} was not found", selectedHostId);
+            throw new CloudRuntimeException("Host with id " + selectedHostId + " was not found.");
+        }
+
+        List<HostDeviceVO> assignedDevices = hostDeviceDao.listHostDevicesByVmId(vmId);
+        if (CollectionUtils.isNotEmpty(assignedDevices)) {
+            logger.debug("VM {} already has the following devices assigned: {}. Therefore, the reservation process will be skipped.", vmId, assignedDevices.stream().map(HostDeviceVO::getPciName).collect(Collectors.toList()));
+            return;
+        }
+
+        logger.info("No host devices are currently assigned to VM {}. Searching for device offerings assigned to VM.", vmId);
+        List<DeviceOfferingVO> vmAssignedOfferings = deviceOfferingDao.listVirtualMachineDeviceOfferings(vmId);
+
+        if (CollectionUtils.isEmpty(vmAssignedOfferings)) {
+            logger.debug("No device offerings are assigned to VM {}. Therefore, the reservation process will be skipped.", vmId);
+            return;
+        }
+
+        logger.info("The following device offerings are assigned to VM {}: {}. Trying to reserve matching devices in host {}.",
+                vmId,
+                vmAssignedOfferings.stream().map(DeviceOfferingVO::getUuid).collect(Collectors.toList()),
+                selectedHostId);
+
+
+        List<String> offeringsTags = deviceOfferingDeviceTagDao.getDeviceOfferingsTags(vmAssignedOfferings);
+        List<HostDeviceVO> availableDevices = hostDeviceDao.listHostDevicesAvailableForAllocation(selectedHostId, offeringsTags);
+
+        if (CollectionUtils.isEmpty(availableDevices)) {
+            logger.debug("No available host devices found for host with ID {}", selectedHostId);
+            throw new CloudRuntimeException("No available host devices found for host with id " + selectedHostId);
+        }
+
+        if (!resourceManager.validateHostDevicesAgainstDeviceOfferings(offeringsTags, availableDevices.stream().map(HostDeviceVO::getDeviceTag).collect(Collectors.toList()))) {
+            logger.debug("The available host devices do not satisfy the device offering requirements for VM {}.", vmId);
+            throw new CloudRuntimeException("The available host devices do not satisfy the device offering requirements for VM " + vmId);
+        }
+
+        Transaction.execute(new TransactionCallbackNoReturn() {
+            @Override
+            public void doInTransactionWithoutResult(TransactionStatus status) {
+                for (HostDeviceVO device : availableDevices) {
+                    device.setAccountId(vm.getAccountId());
+                    device.setDomainId(vm.getDomainId());
+                    device.setInstanceId(vmId);
+                    device.setState(HostDevice.State.Attached);
+                    hostDeviceDao.update(device.getId(), device);
+                    logger.debug("Reserved host device [{} - {}] for VM {}.", device.getDisplayName(), device.getPciName(), vm.getUuid());
                 }
             }
         });
