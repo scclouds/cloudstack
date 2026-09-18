@@ -45,10 +45,14 @@ public class HostDeviceDaoImpl extends GenericDaoBase<HostDeviceVO, Long> implem
 
         hostDevicesAvailableForAllocationSearch = createSearchBuilder();
         hostDevicesAvailableForAllocationSearch.and(HOST_ID, hostDevicesAvailableForAllocationSearch.entity().getHostId(), SearchCriteria.Op.EQ);
-        hostDevicesAvailableForAllocationSearch.and().op(STATE, hostDevicesAvailableForAllocationSearch.entity().getState(), SearchCriteria.Op.EQ);
-        hostDevicesAvailableForAllocationSearch.or(VIRTUAL_MACHINE_ID, hostDevicesAvailableForAllocationSearch.entity().getInstanceId(), SearchCriteria.Op.EQ);
-        hostDevicesAvailableForAllocationSearch.and(OR_STATE, hostDevicesAvailableForAllocationSearch.entity().getState(), SearchCriteria.Op.EQ);
-        hostDevicesAvailableForAllocationSearch.cp().done();
+        hostDevicesAvailableForAllocationSearch.and(STATE, hostDevicesAvailableForAllocationSearch.entity().getState(), SearchCriteria.Op.EQ);
+        hostDevicesAvailableForAllocationSearch.and(DEVICE_TAG_IN, hostDevicesAvailableForAllocationSearch.entity().getDeviceTag(), SearchCriteria.Op.IN);
+        hostDevicesAvailableForAllocationSearch.done();
+
+//        hostDevicesAvailableForAllocationSearch.and().op(STATE, hostDevicesAvailableForAllocationSearch.entity().getState(), SearchCriteria.Op.EQ);
+//        hostDevicesAvailableForAllocationSearch.or(VIRTUAL_MACHINE_ID, hostDevicesAvailableForAllocationSearch.entity().getInstanceId(), SearchCriteria.Op.EQ);
+//        hostDevicesAvailableForAllocationSearch.and(OR_STATE, hostDevicesAvailableForAllocationSearch.entity().getState(), SearchCriteria.Op.EQ);
+//        hostDevicesAvailableForAllocationSearch.cp().done();
 
         vmHostDeviceSearch = createSearchBuilder();
         vmHostDeviceSearch.and(VIRTUAL_MACHINE_ID, vmHostDeviceSearch.entity().getInstanceId(), SearchCriteria.Op.EQ);
@@ -63,13 +67,11 @@ public class HostDeviceDaoImpl extends GenericDaoBase<HostDeviceVO, Long> implem
     }
 
     @Override
-    public List<HostDeviceVO> listHostDevicesAvailableForAllocation(Long hostId, Long virtualMachineId, List<String> deviceTags) {
+    public List<HostDeviceVO> listHostDevicesAvailableForAllocation(Long hostId, List<String> deviceTags) {
         SearchCriteria<HostDeviceVO> sc = hostDevicesAvailableForAllocationSearch.create();
 
         sc.setParameters(HOST_ID, hostId);
         sc.setParameters(STATE, HostDevice.State.Free);
-        sc.setParameters(VIRTUAL_MACHINE_ID, virtualMachineId);
-        sc.setParameters(OR_STATE, HostDevice.State.Attached);
 
         if (deviceTags != null) {
             sc.setParameters(DEVICE_TAG_IN, deviceTags.toArray());
