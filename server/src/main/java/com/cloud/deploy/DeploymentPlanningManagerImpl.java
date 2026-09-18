@@ -2026,8 +2026,6 @@ StateListener<State, VirtualMachine.Event, VirtualMachine>, Configurable {
             public String doInTransaction(TransactionStatus status) {
                 boolean saveReservation = true;
 
-                hostDevicesManager.reserveDevicesForVm(vmProfile.getId(), plannedDestination.getHost().getId());;
-
                 if (vmGroupCount > 0) {
                     List<Long> groupIds = _affinityGroupVMMapDao.listAffinityGroupIdsByVmId(vm.getId());
                     SearchCriteria<AffinityGroupVO> criteria = _affinityGroupDao.createSearchCriteria();
@@ -2043,6 +2041,8 @@ StateListener<State, VirtualMachine.Event, VirtualMachine>, Configurable {
                 }
 
                 if (saveReservation) {
+                    hostDevicesManager.reserveDevicesForVm(vmProfile.getId(), plannedDestination.getHost().getId());;
+
                     VMReservationVO vmReservation =
                             new VMReservationVO(vm.getId(), plannedDestination.getDataCenter().getId(), plannedDestination.getPod().getId(), plannedDestination.getCluster()
                                     .getId(), plannedDestination.getHost().getId());
