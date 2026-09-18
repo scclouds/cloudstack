@@ -472,7 +472,10 @@ public class HostDevicesManagerImpl extends ManagerBase implements HostDevicesMa
             @Override
             public void doInTransactionWithoutResult(TransactionStatus status) {
                 for (HostDeviceVO dev : devices) {
-                    dev.releaseFromVM();
+                    dev.setAccountId(null);
+                    dev.setDomainId(null);
+                    dev.setInstanceId(null);
+                    dev.setState(HostDevice.State.Free);
                     // TODO ERIK: aqui precisa limpar os devices do tipo storage
                     hostDeviceDao.update(dev.getId(), dev);
                 }

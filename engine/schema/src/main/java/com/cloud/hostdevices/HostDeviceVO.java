@@ -275,11 +275,4 @@ public class HostDeviceVO implements HostDevice {
     public boolean canBeUpdated() {
         return this.state == State.Disabled || this.state == State.Free;
     }
-
-    public void releaseFromVM() {
-        this.instanceId = null;
-        this.accountId = null;
-        this.domainId = null;
-        this.state = State.Free;
-    }
 }
