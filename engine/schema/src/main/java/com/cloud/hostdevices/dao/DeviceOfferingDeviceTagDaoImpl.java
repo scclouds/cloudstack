@@ -18,7 +18,6 @@
 package com.cloud.hostdevices.dao;
 
 import com.cloud.hostdevices.DeviceOfferingDeviceTagVO;
-import com.cloud.hostdevices.DeviceOfferingVO;
 import com.cloud.utils.db.GenericDaoBase;
 import com.cloud.utils.db.SearchBuilder;
 import com.cloud.utils.db.SearchCriteria;
@@ -49,7 +48,7 @@ public class DeviceOfferingDeviceTagDaoImpl extends GenericDaoBase<DeviceOfferin
         return listBy(sc).stream().map(DeviceOfferingDeviceTagVO::getDeviceTag).collect(Collectors.toList());
     }
 
-    public List<String> getDeviceOfferingsTags(List<DeviceOfferingVO> deviceOfferings) {
+    public List<String> getDeviceOfferingsTags(List<? extends DeviceOffering> deviceOfferings) {
         if (CollectionUtils.isEmpty(deviceOfferings)) {
             return new ArrayList<>();
         }
