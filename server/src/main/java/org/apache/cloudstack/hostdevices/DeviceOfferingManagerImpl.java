@@ -284,33 +284,47 @@ public class DeviceOfferingManagerImpl extends ManagerBase implements DeviceOffe
         List<String> deviceTags = updateDeviceOfferingCmd.getTags();
         String stringState = updateDeviceOfferingCmd.getState();
 
-        DeviceOfferingVO deviceOffering = getDeviceOfferingAndCheckAccess(id, caller);
-
-        DeviceOffering.State state = null;
-        if (stringState != null) {
-            state = EnumUtils.getEnum(DeviceOffering.State.class, stringState);
-            if (state == null) {
-                logger.error("Invalid state [{}] provided for device offering update.", stringState);
-                throw new InvalidParameterValueException(String.format("Invalid state [%s] provided. Valid states are: Active and Inactive", stringState));
-            }
-        }
-
-        if (deviceTags != null && CollectionUtils.isEmpty(deviceTags)) {
-            logger.error("No device tag was provided, cancelling device offering update.");
-            throw new InvalidParameterValueException("You must inform at least one device tag for the device offering.");
-        }
-
-        if (displayName != null) {
-            deviceOffering.setName(displayName);
-        }
-        if (description != null) {
-            deviceOffering.setDescription(description);
-        }
-        if (state != null) {
-            deviceOffering.setState(state);
-        }
-
         return Transaction.execute((TransactionCallback<DeviceOfferingVO>) status -> {
+            DeviceOfferingVO deviceOffering = deviceOfferingDao.lockRow(id, true);
+
+            if (deviceOffering == null) {
+                logger.error("Device offering with ID [{}] could not be found.", id);
+                throw new InvalidParameterValueException(String.format("Could not find device offering with ID [%s].", id));
+            }
+
+            if (!deviceOffering.getIsPublic() && !accountManager.isRootAdmin(caller.getAccountId())) {
+                Domain domain = domainDao.findById(caller.getDomainId());
+
+                if (deviceOffering.getDomainId() != null && !deviceOffering.getDomainId().equals(domain.getId())) {
+                    logger.error("Device offering with ID [{}] is not public and does not belong to the caller's domain.", id);
+                    throw new PermissionDeniedException("You do not have permission to use this device offering.");
+                }
+            }
+
+            DeviceOffering.State state = null;
+            if (stringState != null) {
+                state = EnumUtils.getEnum(DeviceOffering.State.class, stringState);
+                if (state == null) {
+                    logger.error("Invalid state [{}] provided for device offering update.", stringState);
+                    throw new InvalidParameterValueException(String.format("Invalid state [%s] provided. Valid states are: Active and Inactive", stringState));
+                }
+            }
+
+            if (deviceTags != null && CollectionUtils.isEmpty(deviceTags)) {
+                logger.error("No device tag was provided, cancelling device offering update.");
+                throw new InvalidParameterValueException("You must inform at least one device tag for the device offering.");
+            }
+
+            if (displayName != null) {
+                deviceOffering.setName(displayName);
+            }
+            if (description != null) {
+                deviceOffering.setDescription(description);
+            }
+            if (state != null) {
+                deviceOffering.setState(state);
+            }
+
             deviceOfferingDao.update(deviceOffering.getId(), deviceOffering);
             updateDeviceOfferingTags(deviceOffering.getId(), deviceTags);
 
@@ -429,7 +443,7 @@ public class DeviceOfferingManagerImpl extends ManagerBase implements DeviceOffe
             throw new InvalidParameterValueException(String.format("Could not find device offering with ID [%s].", deviceOfferingId));
         }
 
-        if (!deviceOffering.getIsPublic()) {
+        if (!deviceOffering.getIsPublic() && !accountManager.isRootAdmin(caller.getAccountId())) {
             Domain domain = domainDao.findById(caller.getDomainId());
 
             if (deviceOffering.getDomainId() != null && !deviceOffering.getDomainId().equals(domain.getId())) {
@@ -437,10 +451,11 @@ public class DeviceOfferingManagerImpl extends ManagerBase implements DeviceOffe
                 throw new PermissionDeniedException("You do not have permission to use this device offering.");
             }
 
-            if (deviceOffering.getZoneId() != null && !deviceOffering.getZoneId().equals(domain.getId())) {
-                logger.error("Device offering with ID [{}] is not public and does not belong to the caller's zone.", deviceOfferingId);
-                throw new PermissionDeniedException("You do not have permission to use this device offering.");
-            }
+            // TODO ERIK: nao sei como ver isso
+//            if (deviceOffering.getZoneId() != null && !deviceOffering.getZoneId().equals(domain.get())) {
+//                logger.error("Device offering with ID [{}] is not public and does not belong to the caller's zone.", deviceOfferingId);
+//                throw new PermissionDeniedException("You do not have permission to use this device offering.");
+//            }
         }
 
         return deviceOffering;
