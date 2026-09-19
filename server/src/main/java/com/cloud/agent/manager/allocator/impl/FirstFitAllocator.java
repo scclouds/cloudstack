@@ -37,6 +37,7 @@ import com.cloud.host.HostVO;
 import com.cloud.host.dao.HostDetailsDao;
 import com.cloud.hostdevices.DeviceOfferingVO;
 import com.cloud.hostdevices.dao.DeviceOfferingDao;
+import org.apache.cloudstack.hostdevices.HostDevicesManager;
 import com.cloud.offering.ServiceOffering;
 import com.cloud.resource.ResourceManager;
 import com.cloud.service.dao.ServiceOfferingDetailsDao;
@@ -99,6 +100,8 @@ public class FirstFitAllocator extends BaseAllocator {
     VMInstanceDetailsDao vmInstanceDetailsDao;
     @Inject
     DeviceOfferingDao deviceOfferingDao;
+    @Inject
+    HostDevicesManager hostDevicesManager;
 
     boolean _checkHvm = true;
 
@@ -179,7 +182,7 @@ public class FirstFitAllocator extends BaseAllocator {
         }
 
         clusterHosts.removeIf(host -> {
-            if (_resourceMgr.doesHostMatchDeviceOfferingTags(host, deviceOfferings, vmId)) {
+            if (hostDevicesManager.doesHostMatchDeviceOfferingTags(host, deviceOfferings, vmId)) {
                 return false;
             }
 

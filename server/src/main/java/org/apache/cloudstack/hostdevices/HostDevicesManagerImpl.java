@@ -70,6 +70,7 @@ import org.apache.logging.log4j.ThreadContext;
 import javax.inject.Inject;
 import javax.naming.ConfigurationException;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
@@ -692,6 +693,57 @@ public class HostDevicesManagerImpl extends ManagerBase implements HostDevicesMa
 
         return selectedDevices;
     }
+    @Override
+    public boolean doesHostMatchDeviceOfferingTags(Host host, List<? extends DeviceOffering> deviceOfferings, Long virtualMachineId) {
+        if (CollectionUtils.isEmpty(deviceOfferings)) {
+            logger.debug("No device offerings were informed, therefore host {} satisfies the device offering requirements.", host.getId());
+            return true;
+        }
+
+        List<String> deviceOfferingsTags = deviceOfferingDeviceTagDao.getDeviceOfferingsTags(deviceOfferings);
+
+        if (CollectionUtils.isEmpty(deviceOfferingsTags)) {
+            logger.debug("The informed device offerings have no device tags, therefore host {} satisfies the device offering requirements.", host.getId());
+            return true;
+        }
+
+        List<HostDeviceVO> hostDevices = hostDeviceDao.listHostDevicesForOfferingAndVmCheck(host.getId(), deviceOfferingsTags, virtualMachineId);
+
+        if (hostDevices.size() < deviceOfferingsTags.size()) {
+            logger.debug("Host {} has {} candidate devices, which is less than the {} devices required by the device offerings.", host.getId(), hostDevices.size(), deviceOfferingsTags.size());
+            return false;
+        }
+
+        List<String> hostDevicesTags = hostDevices.stream().map(HostDeviceVO::getDeviceTag).collect(Collectors.toList());
+
+        return validateHostDevicesAgainstDeviceOfferings(deviceOfferingsTags, hostDevicesTags);
+    }
+
+    protected boolean validateHostDevicesAgainstDeviceOfferings(List<String> deviceOfferingsTags, List<String> hostDevicesTags) {
+        Map<String, Integer> offeringTagsCountMap = new HashMap<>();
+        Map<String, Integer> devicesTagsCountMap = new HashMap<>();
+
+        for (String tag : deviceOfferingsTags) {
+            offeringTagsCountMap.merge(tag, 1, Integer::sum);
+        }
+
+        for (String tag : hostDevicesTags) {
+            devicesTagsCountMap.merge(tag, 1, Integer::sum);
+        }
+
+        for (Map.Entry<String, Integer> entry : offeringTagsCountMap.entrySet()) {
+            String tag = entry.getKey();
+            int required = entry.getValue();
+            int returned = devicesTagsCountMap.getOrDefault(tag, 0);
+
+            if (returned < required) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
     private void triggerAutomaticScanForClusters() {
         ThreadContext.put(LOGCONTEXTID, UuidUtils.first(UUID.randomUUID().toString()));
 

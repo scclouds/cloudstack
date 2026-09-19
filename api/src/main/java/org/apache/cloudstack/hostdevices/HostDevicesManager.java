@@ -17,6 +17,7 @@
 
 package org.apache.cloudstack.hostdevices;
 
+import com.cloud.host.Host;
 import com.cloud.user.Account;
 import com.cloud.utils.component.Manager;
 import com.cloud.utils.component.PluggableService;
@@ -57,4 +58,6 @@ public interface HostDevicesManager extends Configurable, Manager, PluggableServ
     void updateVMHostDevicesOwnership(Long vmId, Account newAccount);
 
     void reserveDevicesForVm(Long vmId, Long selectedHostId);
+
+    boolean doesHostMatchDeviceOfferingTags(Host host, List<? extends DeviceOffering> deviceOfferings, Long virtualMachineId);
 }
