@@ -47,11 +47,11 @@ public class DeviceOfferingResponse extends BaseResponse {
 
     @SerializedName(ApiConstants.DOMAIN_ID)
     @Param(description = "the ID of the domain the device offering is dedicated to", since = "4.24.0")
-    private Long domainId;
+    private String domainId;
 
     @SerializedName(ApiConstants.ZONE_ID)
     @Param(description = "the ID of the zone the device offering is dedicated to", since = "4.24.0")
-    private Long zoneId;
+    private String zoneId;
 
     @SerializedName(ApiConstants.CREATED)
     @Param(description = "the date the device offering was created", since = "4.24.0")
@@ -101,19 +101,19 @@ public class DeviceOfferingResponse extends BaseResponse {
         this.state = state;
     }
 
-    public Long getDomainId() {
+    public String getDomainId() {
         return domainId;
     }
 
-    public void setDomainId(Long domainId) {
+    public void setDomainId(String domainId) {
         this.domainId = domainId;
     }
 
-    public Long getZoneId() {
+    public String getZoneId() {
         return zoneId;
     }
 
-    public void setZoneId(Long zoneId) {
+    public void setZoneId(String zoneId) {
         this.zoneId = zoneId;
     }
 

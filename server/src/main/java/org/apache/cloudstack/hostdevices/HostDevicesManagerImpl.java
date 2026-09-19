@@ -39,7 +39,6 @@ import com.cloud.hostdevices.dao.DeviceOfferingDeviceTagDao;
 import com.cloud.hostdevices.dao.HostDeviceDao;
 import com.cloud.hypervisor.Hypervisor;
 import com.cloud.org.Cluster;
-import com.cloud.resource.ResourceManager;
 import com.cloud.user.Account;
 import com.cloud.user.AccountManager;
 import com.cloud.utils.Pair;
@@ -74,6 +73,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
+import java.util.function.Function;
 import java.util.UUID;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
@@ -103,8 +103,6 @@ public class HostDevicesManagerImpl extends ManagerBase implements HostDevicesMa
     private DeviceOfferingDao deviceOfferingDao;
     @Inject
     private DeviceOfferingDeviceTagDao deviceOfferingDeviceTagDao;
-    @Inject
-    private ResourceManager resourceManager;
 
     private ScheduledExecutorService scheduledExecutor;
     private static final String LOGCONTEXTID = "logcontextid";
@@ -648,6 +646,7 @@ public class HostDevicesManagerImpl extends ManagerBase implements HostDevicesMa
                 selectedHostId);
 
         List<String> offeringsTags = deviceOfferingDeviceTagDao.getDeviceOfferingsTags(vmAssignedOfferings);
+        Map<String, Long> requiredDevicesPerTag = offeringsTags.stream().collect(Collectors.groupingBy(Function.identity(), Collectors.counting()));
 
         Transaction.execute(new TransactionCallbackNoReturn() {
             @Override
@@ -659,12 +658,9 @@ public class HostDevicesManagerImpl extends ManagerBase implements HostDevicesMa
                     throw new CloudRuntimeException("No available host devices found for host with id " + selectedHostId);
                 }
 
-                if (!resourceManager.validateHostDevicesAgainstDeviceOfferings(offeringsTags, availableDevices.stream().map(HostDeviceVO::getDeviceTag).collect(Collectors.toList()))) {
-                    logger.debug("The available host devices do not satisfy the device offering requirements for VM {}.", vmId);
-                    throw new CloudRuntimeException("The available host devices do not satisfy the device offering requirements for VM " + vmId);
-                }
+                List<HostDeviceVO> devicesToReserve = selectDevicesToReserve(availableDevices, requiredDevicesPerTag, vmId);
 
-                for (HostDeviceVO device : availableDevices) {
+                for (HostDeviceVO device : devicesToReserve) {
                     device.setAccountId(vm.getAccountId());
                     device.setDomainId(vm.getDomainId());
                     device.setInstanceId(vmId);
@@ -676,6 +672,26 @@ public class HostDevicesManagerImpl extends ManagerBase implements HostDevicesMa
         });
     }
 
+    protected List<HostDeviceVO> selectDevicesToReserve(List<HostDeviceVO> availableDevices, Map<String, Long> requiredDevicesPerTag, Long vmId) {
+        Map<String, List<HostDeviceVO>> availableDevicesPerTag = availableDevices.stream().collect(Collectors.groupingBy(HostDeviceVO::getDeviceTag));
+        List<HostDeviceVO> selectedDevices = new ArrayList<>();
+
+        for (Map.Entry<String, Long> requirement : requiredDevicesPerTag.entrySet()) {
+            String deviceTag = requirement.getKey();
+            int requiredAmount = requirement.getValue().intValue();
+            List<HostDeviceVO> candidates = availableDevicesPerTag.getOrDefault(deviceTag, new ArrayList<>());
+
+            if (candidates.size() < requiredAmount) {
+                logger.debug("The host has {} available devices with tag [{}], but VM {} requires {}.", candidates.size(), deviceTag, vmId, requiredAmount);
+                throw new CloudRuntimeException(String.format("The host does not have enough available devices with tag [%s] for VM %s. Required: %s, available: %s.",
+                        deviceTag, vmId, requiredAmount, candidates.size()));
+            }
+
+            selectedDevices.addAll(candidates.subList(0, requiredAmount));
+        }
+
+        return selectedDevices;
+    }
     private void triggerAutomaticScanForClusters() {
         ThreadContext.put(LOGCONTEXTID, UuidUtils.first(UUID.randomUUID().toString()));
 
