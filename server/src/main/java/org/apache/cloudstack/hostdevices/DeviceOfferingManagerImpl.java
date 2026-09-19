@@ -17,6 +17,8 @@
 
 package org.apache.cloudstack.hostdevices;
 
+import com.cloud.event.ActionEvent;
+import com.cloud.event.EventTypes;
 import com.cloud.dc.DataCenter;
 import com.cloud.dc.dao.DataCenterDao;
 import com.cloud.domain.Domain;
@@ -32,6 +34,8 @@ import com.cloud.hostdevices.dao.VMInstanceDeviceOfferingsDao;
 import com.cloud.user.Account;
 import com.cloud.user.AccountManager;
 import com.cloud.utils.component.ManagerBase;
+import com.cloud.utils.Pair;
+import com.cloud.utils.db.Filter;
 import com.cloud.utils.db.Transaction;
 import com.cloud.utils.db.TransactionCallback;
 import com.cloud.utils.db.TransactionCallbackNoReturn;
@@ -75,6 +79,7 @@ public class DeviceOfferingManagerImpl extends ManagerBase implements DeviceOffe
     private VMInstanceDeviceOfferingsDao vmInstanceDeviceOfferingsDao;
 
     @Override
+    @ActionEvent(eventType = EventTypes.EVENT_DEVICE_OFFERING_CREATE, eventDescription = "creating device offering")
     public DeviceOffering createDeviceOffering(CreateDeviceOfferingCmd cmd) {
         Account caller = CallContext.current().getCallingAccount();
         Long domainId = cmd.getDomainId();
@@ -133,6 +138,7 @@ public class DeviceOfferingManagerImpl extends ManagerBase implements DeviceOffe
     }
 
     @Override
+    @ActionEvent(eventType = EventTypes.EVENT_DEVICE_OFFERING_ASSIGN, eventDescription = "assigning device offering to VM")
     public boolean assignVirtualMachineToDeviceOffering(Long virtualMachineId, Long deviceOfferingId) {
         Account caller = CallContext.current().getCallingAccount();
 
@@ -157,6 +163,7 @@ public class DeviceOfferingManagerImpl extends ManagerBase implements DeviceOffe
     }
 
     @Override
+    @ActionEvent(eventType = EventTypes.EVENT_DEVICE_OFFERING_REMOVE, eventDescription = "removing device offering from VM")
     public boolean removeVirtualMachineFromDeviceOffering(Long virtualMachineId, Long deviceOfferingId) {
         Account caller = CallContext.current().getCallingAccount();
 
@@ -180,7 +187,7 @@ public class DeviceOfferingManagerImpl extends ManagerBase implements DeviceOffe
     }
 
     @Override
-    public List<DeviceOfferingVO> listDeviceOfferings(ListDeviceOfferingsCmd listDeviceOfferingsCmd) {
+    public Pair<List<? extends DeviceOffering>, Integer> listDeviceOfferings(ListDeviceOfferingsCmd listDeviceOfferingsCmd) {
         Account caller = CallContext.current().getCallingAccount();
         String name = listDeviceOfferingsCmd.getName();
         Long domainId = listDeviceOfferingsCmd.getDomainId();
@@ -225,7 +232,10 @@ public class DeviceOfferingManagerImpl extends ManagerBase implements DeviceOffe
             showOnlyPublic = null;
         }
 
-        return deviceOfferingDao.listDeviceOfferings(name, domainIds, zoneId, deviceTags, state, showOnlyPublic);
+        Filter filter = new Filter(DeviceOfferingVO.class, "id", true, listDeviceOfferingsCmd.getStartIndex(), listDeviceOfferingsCmd.getPageSizeVal());
+        Pair<List<DeviceOfferingVO>, Integer> result = deviceOfferingDao.listDeviceOfferings(listDeviceOfferingsCmd.getId(), name, domainIds, zoneId, deviceTags, state, showOnlyPublic, filter);
+
+        return new Pair<>(result.first(), result.second());
     }
 
     @Override
@@ -236,8 +246,21 @@ public class DeviceOfferingManagerImpl extends ManagerBase implements DeviceOffe
         response.setName(offering.getName());
         response.setDescription(offering.getDescription());
         response.setState(offering.getState().toString());
-        response.setDomainId(offering.getDomainId());
-        response.setZoneId(offering.getZoneId());
+        if (offering.getDomainId() != null) {
+            Domain offeringDomain = domainDao.findById(offering.getDomainId());
+
+            if (offeringDomain != null) {
+                response.setDomainId(offeringDomain.getUuid());
+            }
+        }
+
+        if (offering.getZoneId() != null) {
+            DataCenter offeringZone = dataCenterDao.findById(offering.getZoneId());
+
+            if (offeringZone != null) {
+                response.setZoneId(offeringZone.getUuid());
+            }
+        }
         response.setCreated(offering.getCreated());
         response.setRemoved(offering.getRemoved());
         response.setIsPublic(offering.getIsPublic());
@@ -276,6 +299,7 @@ public class DeviceOfferingManagerImpl extends ManagerBase implements DeviceOffe
     }
 
     @Override
+    @ActionEvent(eventType = EventTypes.EVENT_DEVICE_OFFERING_EDIT, eventDescription = "updating device offering")
     public DeviceOffering updateDeviceOffering(UpdateDeviceOfferingCmd updateDeviceOfferingCmd) {
         Account caller = CallContext.current().getCallingAccount();
         Long id = updateDeviceOfferingCmd.getId();
@@ -339,26 +363,30 @@ public class DeviceOfferingManagerImpl extends ManagerBase implements DeviceOffe
 
     @Override
     public boolean canAccountAccessOffering(DeviceOffering deviceOffering, Account newAccount) {
+        // TODO ERIK: Ver sobre a questão de limitação a nivel de zona
+
         if (deviceOffering.getIsPublic()) {
             return true;
         }
 
         Domain offeringDomain = domainDao.findById(deviceOffering.getDomainId());
-        // TODO: Ver sobre a questão de limitação a nivel de zona
-//        DataCenter offeringZone = dataCenterDao.findById(deviceOffering.getZoneId());
-//
-//        Account.Type accountType = newAccount.getType();
-//        if (Account.Type.NORMAL.equals(accountType)) {
-//
-//        }
 
-        // TODO: verificar se é melhor dar exceção genérica ou fazer validaçaõ específica
-        accountManager.checkAccess(newAccount, offeringDomain);
+        if (offeringDomain == null) {
+            return false;
+        }
+
+        try {
+            accountManager.checkAccess(newAccount, offeringDomain);
+        } catch (PermissionDeniedException e) {
+            logger.debug("Account [{}] does not have access to the domain of device offering [{}].", newAccount.getUuid(), deviceOffering.getUuid());
+            return false;
+        }
 
         return true;
     }
 
     @Override
+    @ActionEvent(eventType = EventTypes.EVENT_DEVICE_OFFERING_DELETE, eventDescription = "deleting device offering")
     public boolean deleteOffering(Long id) {
         Account caller = CallContext.current().getCallingAccount();
 
@@ -416,10 +444,7 @@ public class DeviceOfferingManagerImpl extends ManagerBase implements DeviceOffe
             throw new InvalidParameterValueException(String.format("Could not find domain with ID [%s].", domainId));
         }
 
-        if (domain.getId() != caller.getDomainId()) {
-            logger.error("Caller [{}] does not have access to domain with ID [{}].", caller, domainId);
-            throw new PermissionDeniedException(String.format("You do not have permission to access domain with ID [%s].", domainId));
-        }
+        accountManager.checkAccess(caller, domain);
 
         return domain;
     }

@@ -24,6 +24,8 @@ import com.cloud.dc.ClusterDetailsDao;
 import com.cloud.dc.ClusterDetailsVO;
 import com.cloud.dc.ClusterVO;
 import com.cloud.dc.dao.ClusterDao;
+import com.cloud.event.ActionEvent;
+import com.cloud.event.EventTypes;
 import com.cloud.domain.Domain;
 import com.cloud.domain.dao.DomainDao;
 import com.cloud.exception.InvalidParameterValueException;
@@ -45,6 +47,7 @@ import com.cloud.utils.Pair;
 import com.cloud.utils.UuidUtils;
 import com.cloud.utils.component.ManagerBase;
 import com.cloud.utils.concurrency.NamedThreadFactory;
+import com.cloud.utils.db.Filter;
 import com.cloud.utils.db.Transaction;
 import com.cloud.utils.db.TransactionCallback;
 import com.cloud.utils.db.TransactionCallbackNoReturn;
@@ -135,6 +138,7 @@ public class HostDevicesManagerImpl extends ManagerBase implements HostDevicesMa
     }
 
     @Override
+    @ActionEvent(eventType = EventTypes.EVENT_HOST_DEVICE_SCAN, eventDescription = "scanning host devices")
     public void scanHostDevice(ScanHostDevicesCmd cmd) {
         Long hostId = cmd.getHostId();
         Long clusterId = cmd.getClusterId();
@@ -315,7 +319,7 @@ public class HostDevicesManagerImpl extends ManagerBase implements HostDevicesMa
     }
 
     @Override
-    public List<? extends HostDevice> listHostDevices(ListHostDevicesCmd cmd) {
+    public Pair<List<? extends HostDevice>, Integer> listHostDevices(ListHostDevicesCmd cmd) {
         Account caller = CallContext.current().getCallingAccount();
         Long hostDeviceId = cmd.getId();
         Long accountId = cmd.getAccountId();
@@ -381,7 +385,10 @@ public class HostDevicesManagerImpl extends ManagerBase implements HostDevicesMa
         accountId = accountIdDomainsList.first();
         List<Long> domainIds = accountIdDomainsList.second();
 
-        return hostDeviceDao.listHostDevices(hostDeviceId, accountId, domainIds, hostId, virtualMachineId, deviceTag, state, type);
+        Filter filter = new Filter(HostDeviceVO.class, "id", true, cmd.getStartIndex(), cmd.getPageSizeVal());
+        Pair<List<HostDeviceVO>, Integer> result = hostDeviceDao.listHostDevices(hostDeviceId, accountId, domainIds, hostId, virtualMachineId, deviceTag, state, type, filter);
+
+        return new Pair<>(result.first(), result.second());
     }
 
     @Override
@@ -431,6 +438,7 @@ public class HostDevicesManagerImpl extends ManagerBase implements HostDevicesMa
     }
 
     @Override
+    @ActionEvent(eventType = EventTypes.EVENT_HOST_DEVICE_UPDATE, eventDescription = "updating host device")
     public HostDevice updateHostDevice(UpdateHostDeviceCmd updateHostDeviceCmd) {
         Boolean enabled = updateHostDeviceCmd.getEnabled();
         String displayName = updateHostDeviceCmd.getDisplayName();

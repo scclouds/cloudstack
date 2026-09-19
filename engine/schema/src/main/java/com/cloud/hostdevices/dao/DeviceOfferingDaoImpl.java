@@ -28,6 +28,9 @@ import org.apache.cloudstack.hostdevices.DeviceOffering;
 import org.apache.commons.collections.CollectionUtils;
 import org.springframework.stereotype.Component;
 
+import com.cloud.utils.Pair;
+import com.cloud.utils.db.Filter;
+
 import javax.annotation.PostConstruct;
 import javax.inject.Inject;
 import java.util.ArrayList;
@@ -74,9 +77,14 @@ public class DeviceOfferingDaoImpl extends GenericDaoBase<DeviceOfferingVO, Long
     }
 
     @Override
-    public List<DeviceOfferingVO> listDeviceOfferings(String name, List<Long> domainIds, Long zoneId, List<String> deviceTags, DeviceOffering.State state, Boolean showOnlyPublic) {
+    public Pair<List<DeviceOfferingVO>, Integer> listDeviceOfferings(Long id, String name, List<Long> domainIds, Long zoneId, List<String> deviceTags, DeviceOffering.State state, Boolean showOnlyPublic, Filter filter) {
         SearchCriteria<DeviceOfferingVO> sc = CollectionUtils.isEmpty(deviceTags) ? deviceOfferingSearch.create() : deviceOfferingWithTagsSearch.create();
-        sc.setParametersIfNotNull("name", name);
+        sc.setParametersIfNotNull("id", id);
+
+        if (name != null) {
+            sc.setParameters("name", "%" + name + "%");
+        }
+
         sc.setParametersIfNotNull("zoneId", zoneId);
         sc.setParametersIfNotNull("state", state);
         sc.setParametersIfNotNull("isPublic", showOnlyPublic);
@@ -89,7 +97,7 @@ public class DeviceOfferingDaoImpl extends GenericDaoBase<DeviceOfferingVO, Long
             sc.setJoinParametersIfNotNull("deviceTagSearch", "deviceTag", deviceTags.toArray());
         }
 
-        return listBy(sc);
+        return searchAndCount(sc, filter);
     }
 
     @Override
@@ -107,7 +115,8 @@ public class DeviceOfferingDaoImpl extends GenericDaoBase<DeviceOfferingVO, Long
     private SearchBuilder<DeviceOfferingVO> getBaseSearchBuilder() {
         SearchBuilder<DeviceOfferingVO> sc = createSearchBuilder();
 
-        sc.and("name", sc.entity().getName(), SearchCriteria.Op.EQ);
+        sc.and("id", sc.entity().getId(), SearchCriteria.Op.EQ);
+        sc.and("name", sc.entity().getName(), SearchCriteria.Op.LIKE);
         sc.and("domainIds", sc.entity().getDomainId(), SearchCriteria.Op.IN);
         sc.and("zoneId", sc.entity().getZoneId(), SearchCriteria.Op.EQ);
         sc.and("state", sc.entity().getState(), SearchCriteria.Op.EQ);

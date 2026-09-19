@@ -420,6 +420,17 @@ public class EventTypes {
     public static final String EVENT_GPU_DEVICE_EDIT = "GPU.DEVICE.EDIT";
     public static final String EVENT_GPU_DEVICE_DELETE = "GPU.DEVICE.DELETE";
 
+    // Host devices
+    public static final String EVENT_HOST_DEVICE_SCAN = "HOST.DEVICE.SCAN";
+    public static final String EVENT_HOST_DEVICE_UPDATE = "HOST.DEVICE.UPDATE";
+
+    // Device offerings
+    public static final String EVENT_DEVICE_OFFERING_CREATE = "DEVICE.OFFERING.CREATE";
+    public static final String EVENT_DEVICE_OFFERING_EDIT = "DEVICE.OFFERING.EDIT";
+    public static final String EVENT_DEVICE_OFFERING_DELETE = "DEVICE.OFFERING.DELETE";
+    public static final String EVENT_DEVICE_OFFERING_ASSIGN = "DEVICE.OFFERING.ASSIGN";
+    public static final String EVENT_DEVICE_OFFERING_REMOVE = "DEVICE.OFFERING.REMOVE";
+
     // Network offerings
     public static final String EVENT_NETWORK_OFFERING_CREATE = "NETWORK.OFFERING.CREATE";
     public static final String EVENT_NETWORK_OFFERING_CLONE = "NETWORK.OFFERING.CLONE";
