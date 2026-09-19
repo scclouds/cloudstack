@@ -440,6 +440,7 @@ StateListener<State, VirtualMachine.Event, VirtualMachine>, Configurable {
 
                         if (checkIfHostFitsPlannerUsage(dest.getHost(), DeploymentPlanner.PlannerResourceUsage.Shared)) {
                             // found destination
+                            hostDevicesManager.reserveDevicesForVm(vmProfile.getId(), dest.getHost().getId());
                             return dest;
                         } else {
                             // find another host - seems some concurrent
@@ -558,6 +559,9 @@ StateListener<State, VirtualMachine.Event, VirtualMachine>, Configurable {
                     for (Volume vol : readyAndReusedVolumes) {
                         storageVolMap.remove(vol);
                     }
+
+                    hostDevicesManager.reserveDevicesForVm(vmProfile.getId(), lastHost.getId());
+
                     DeployDestination dest = new DeployDestination(dc, pod, cluster, lastHost, storageVolMap, displayStorage);
                     logger.debug("Returning Deployment Destination: {}", dest);
                     return dest;
@@ -665,6 +669,9 @@ StateListener<State, VirtualMachine.Event, VirtualMachine>, Configurable {
                 for (Volume vol : readyAndReusedVolumes) {
                     storageVolMap.remove(vol);
                 }
+
+                hostDevicesManager.reserveDevicesForVm(vmProfile.getId(), host.getId());
+
                 DeployDestination dest = new DeployDestination(dc, pod, cluster, host, storageVolMap, displayStorage);
                 logger.debug("Returning Deployment Destination: {}", dest);
                 return dest;
