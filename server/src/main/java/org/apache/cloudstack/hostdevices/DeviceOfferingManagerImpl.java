@@ -19,12 +19,14 @@ package org.apache.cloudstack.hostdevices;
 
 import com.cloud.event.ActionEvent;
 import com.cloud.event.EventTypes;
+import com.cloud.configuration.Resource;
 import com.cloud.dc.DataCenter;
 import com.cloud.dc.dao.DataCenterDao;
 import com.cloud.domain.Domain;
 import com.cloud.domain.dao.DomainDao;
 import com.cloud.exception.InvalidParameterValueException;
 import com.cloud.exception.PermissionDeniedException;
+import com.cloud.exception.ResourceAllocationException;
 import com.cloud.hostdevices.DeviceOfferingDeviceTagVO;
 import com.cloud.hostdevices.DeviceOfferingVO;
 import com.cloud.hostdevices.VMInstanceDeviceOfferingsVO;
@@ -33,6 +35,7 @@ import com.cloud.hostdevices.dao.DeviceOfferingDeviceTagDao;
 import com.cloud.hostdevices.dao.VMInstanceDeviceOfferingsDao;
 import com.cloud.user.Account;
 import com.cloud.user.AccountManager;
+import com.cloud.user.ResourceLimitService;
 import com.cloud.utils.component.ManagerBase;
 import com.cloud.utils.Pair;
 import com.cloud.utils.db.Filter;
@@ -77,6 +80,8 @@ public class DeviceOfferingManagerImpl extends ManagerBase implements DeviceOffe
     private AccountManager accountManager;
     @Inject
     private VMInstanceDeviceOfferingsDao vmInstanceDeviceOfferingsDao;
+    @Inject
+    private ResourceLimitService resourceLimitMgr;
 
     @Override
     @ActionEvent(eventType = EventTypes.EVENT_DEVICE_OFFERING_CREATE, eventDescription = "creating device offering")
@@ -139,7 +144,7 @@ public class DeviceOfferingManagerImpl extends ManagerBase implements DeviceOffe
 
     @Override
     @ActionEvent(eventType = EventTypes.EVENT_DEVICE_OFFERING_ASSIGN, eventDescription = "assigning device offering to VM")
-    public boolean assignVirtualMachineToDeviceOffering(Long virtualMachineId, Long deviceOfferingId) {
+    public boolean assignVirtualMachineToDeviceOffering(Long virtualMachineId, Long deviceOfferingId) throws ResourceAllocationException {
         Account caller = CallContext.current().getCallingAccount();
 
         VirtualMachine vm = getVMAndCheckAccess(virtualMachineId, caller);
@@ -156,6 +161,8 @@ public class DeviceOfferingManagerImpl extends ManagerBase implements DeviceOffe
             logger.error("VM with ID [{}] already has this device offering assigned, cancelling assignment.", virtualMachineId);
             throw new InvalidParameterValueException(String.format("VM with ID [%s] already has this device offering assigned.", virtualMachineId));
         }
+
+        checkVmOwnerHostDeviceLimit(vm, deviceOfferingId);
 
         vmInstanceDeviceOfferingsDao.persist(new VMInstanceDeviceOfferingsVO(virtualMachineId, deviceOfferingId));
 
@@ -434,6 +441,22 @@ public class DeviceOfferingManagerImpl extends ManagerBase implements DeviceOffe
         for (String tag : newTags) {
             deviceOfferingDeviceTagsDao.persist(new DeviceOfferingDeviceTagVO(offeringId, tag));
         }
+    }
+
+    protected void checkVmOwnerHostDeviceLimit(VirtualMachine vm, Long deviceOfferingId) throws ResourceAllocationException {
+        List<String> offeringTags = deviceOfferingDeviceTagsDao.getDeviceOfferingTags(deviceOfferingId);
+
+        if (CollectionUtils.isEmpty(offeringTags)) {
+            return;
+        }
+
+        Account owner = accountManager.getActiveAccountById(vm.getAccountId());
+
+        if (owner == null) {
+            throw new CloudRuntimeException(String.format("Could not find the owner of VM [%s].", vm.getUuid()));
+        }
+
+        resourceLimitMgr.checkResourceLimit(owner, Resource.ResourceType.host_device, offeringTags.size());
     }
 
     private Domain getDomainAndCheckAccess(Long domainId, Account caller) {

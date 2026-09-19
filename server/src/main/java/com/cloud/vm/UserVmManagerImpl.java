@@ -8495,7 +8495,7 @@ public class UserVmManagerImpl extends ManagerBase implements UserVmManager, Vir
 
         updateSnapshotPolicyOwnership(volumes, newAccount);
         updateBackupScheduleOwnership(vm, newAccount);
-        hostDevicesManager.updateVMHostDevicesOwnership(vm.getId(), newAccount);
+        hostDevicesManager.updateVMHostDevicesOwnership(vm.getId(), oldAccount, newAccount);
 
         try {
             updateVmNetwork(cmd, caller, vm, newAccount, template);

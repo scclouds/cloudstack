@@ -18,6 +18,7 @@
 package org.apache.cloudstack.api.command.user.hostdevices;
 
 import com.cloud.exception.ConcurrentOperationException;
+import com.cloud.exception.ResourceAllocationException;
 import org.apache.cloudstack.api.APICommand;
 import org.apache.cloudstack.api.ApiConstants;
 import org.apache.cloudstack.api.ApiErrorCode;
@@ -72,7 +73,7 @@ public class AssignVirtualMachineToDeviceOfferingCmd extends BaseCmd {
     /////////////////////////////////////////////////////
 
     @Override
-    public void execute() throws ServerApiException, ConcurrentOperationException {
+    public void execute() throws ServerApiException, ConcurrentOperationException, ResourceAllocationException {
         boolean success = deviceOfferingManager.assignVirtualMachineToDeviceOffering(getVirtualMachineId(), getDeviceOfferingId());
         if (success) {
             SuccessResponse response = new SuccessResponse(getCommandName());
