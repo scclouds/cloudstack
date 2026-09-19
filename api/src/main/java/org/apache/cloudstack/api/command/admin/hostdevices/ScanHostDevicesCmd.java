@@ -17,13 +17,15 @@
 
 package org.apache.cloudstack.api.command.admin.hostdevices;
 
+import com.cloud.event.EventTypes;
 import com.cloud.exception.ConcurrentOperationException;
 import com.cloud.user.Account;
 import org.apache.cloudstack.acl.RoleType;
 import org.apache.cloudstack.api.ACL;
 import org.apache.cloudstack.api.APICommand;
 import org.apache.cloudstack.api.ApiConstants;
-import org.apache.cloudstack.api.BaseCmd;
+import org.apache.cloudstack.api.ApiCommandResourceType;
+import org.apache.cloudstack.api.BaseAsyncCmd;
 import org.apache.cloudstack.api.Parameter;
 import org.apache.cloudstack.api.ServerApiException;
 import org.apache.cloudstack.api.response.ClusterResponse;
@@ -41,7 +43,7 @@ import javax.inject.Inject;
         responseHasSensitiveInfo = false,
         authorized = {RoleType.Admin},
         since = "4.24.0")
-public class ScanHostDevicesCmd extends BaseCmd {
+public class ScanHostDevicesCmd extends BaseAsyncCmd {
 
     @Inject
     private HostDevicesManager hostDevicesManager;
@@ -92,5 +94,20 @@ public class ScanHostDevicesCmd extends BaseCmd {
     @Override
     public long getEntityOwnerId() {
         return Account.ACCOUNT_ID_SYSTEM;
+    }
+
+    @Override
+    public String getEventType() {
+        return EventTypes.EVENT_HOST_DEVICE_SCAN;
+    }
+
+    @Override
+    public String getEventDescription() {
+        return "scanning host devices";
+    }
+
+    @Override
+    public ApiCommandResourceType getApiResourceType() {
+        return ApiCommandResourceType.Host;
     }
 }

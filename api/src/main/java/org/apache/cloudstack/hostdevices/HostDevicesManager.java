@@ -19,6 +19,7 @@ package org.apache.cloudstack.hostdevices;
 
 import com.cloud.host.Host;
 import com.cloud.user.Account;
+import com.cloud.utils.Pair;
 import com.cloud.utils.component.Manager;
 import com.cloud.utils.component.PluggableService;
 import org.apache.cloudstack.api.command.admin.hostdevices.ScanHostDevicesCmd;
@@ -43,7 +44,7 @@ public interface HostDevicesManager extends Configurable, Manager, PluggableServ
 
     void scanHostDevice(ScanHostDevicesCmd cmd);
 
-    List<? extends HostDevice> listHostDevices(ListHostDevicesCmd cmd);
+    Pair<List<? extends HostDevice>, Integer> listHostDevices(ListHostDevicesCmd cmd);
 
     HostDeviceResponse generateHostDeviceResponse(HostDevice device);
 

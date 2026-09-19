@@ -18,6 +18,7 @@
 package org.apache.cloudstack.hostdevices;
 
 import com.cloud.user.Account;
+import com.cloud.utils.Pair;
 import com.cloud.utils.component.Manager;
 import com.cloud.utils.component.PluggableService;
 import com.cloud.vm.VirtualMachine;
@@ -36,7 +37,7 @@ public interface DeviceOfferingManager extends Configurable, Manager, PluggableS
 
     boolean removeVirtualMachineFromDeviceOffering(Long virtualMachineId, Long deviceOfferingId);
 
-    List<? extends DeviceOffering> listDeviceOfferings(ListDeviceOfferingsCmd listDeviceOfferingsCmd);
+    Pair<List<? extends DeviceOffering>, Integer> listDeviceOfferings(ListDeviceOfferingsCmd listDeviceOfferingsCmd);
 
     DeviceOfferingResponse generateDeviceOfferingResponse(DeviceOffering offering);
 

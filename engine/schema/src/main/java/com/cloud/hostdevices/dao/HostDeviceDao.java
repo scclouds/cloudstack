@@ -18,6 +18,8 @@
 package com.cloud.hostdevices.dao;
 
 import com.cloud.hostdevices.HostDeviceVO;
+import com.cloud.utils.Pair;
+import com.cloud.utils.db.Filter;
 import com.cloud.utils.db.GenericDao;
 import org.apache.cloudstack.hostdevices.HostDevice;
 
@@ -28,7 +30,7 @@ public interface HostDeviceDao extends GenericDao<HostDeviceVO, Long> {
 
     List<HostDeviceVO> listHostDevicesAvailableForAllocation(Long hostId, List<String> deviceTags);
 
-    List<HostDeviceVO> listHostDevices(Long hostDeviceId, Long accountId, List<Long> domainIds, Long hostId, Long virtualMachineId, String deviceTag, HostDevice.State state, HostDevice.Type type);
+    Pair<List<HostDeviceVO>, Integer> listHostDevices(Long hostDeviceId, Long accountId, List<Long> domainIds, Long hostId, Long virtualMachineId, String deviceTag, HostDevice.State state, HostDevice.Type type, Filter filter);
 
     List<HostDeviceVO> listHostDevicesByVmId(Long vmId);
 

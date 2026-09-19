@@ -18,6 +18,7 @@
 package org.apache.cloudstack.api.command.user.hostdevices;
 
 import com.cloud.exception.ConcurrentOperationException;
+import com.cloud.utils.Pair;
 import org.apache.cloudstack.api.ACL;
 import org.apache.cloudstack.api.APICommand;
 import org.apache.cloudstack.api.ApiConstants;
@@ -99,15 +100,15 @@ public class ListDeviceOfferingsCmd extends BaseListCmd {
 
     @Override
     public void execute() throws ServerApiException, ConcurrentOperationException {
-        List<? extends DeviceOffering> deviceOfferings = deviceOfferingManager.listDeviceOfferings(this);
+        Pair<List<? extends DeviceOffering>, Integer> deviceOfferings = deviceOfferingManager.listDeviceOfferings(this);
 
         List<DeviceOfferingResponse> responseList = new ArrayList<DeviceOfferingResponse>();
-        for (DeviceOffering offering : deviceOfferings) {
+        for (DeviceOffering offering : deviceOfferings.first()) {
             responseList.add(deviceOfferingManager.generateDeviceOfferingResponse(offering));
         }
 
         ListResponse<DeviceOfferingResponse> response = new ListResponse<>();
-        response.setResponses(responseList);
+        response.setResponses(responseList, deviceOfferings.second());
         response.setObjectName("deviceofferings");
         response.setResponseName(getCommandName());
         setResponseObject(response);

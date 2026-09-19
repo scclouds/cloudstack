@@ -18,6 +18,8 @@
 package com.cloud.hostdevices.dao;
 
 import com.cloud.hostdevices.HostDeviceVO;
+import com.cloud.utils.Pair;
+import com.cloud.utils.db.Filter;
 import com.cloud.utils.db.GenericDaoBase;
 import com.cloud.utils.db.SearchBuilder;
 import com.cloud.utils.db.SearchCriteria;
@@ -105,7 +107,7 @@ public class HostDeviceDaoImpl extends GenericDaoBase<HostDeviceVO, Long> implem
     }
 
     @Override
-    public List<HostDeviceVO> listHostDevices(Long hostDeviceId, Long accountId, List<Long> domainIds, Long hostId, Long virtualMachineId, String deviceTag, HostDevice.State state, HostDevice.Type type) {
+    public Pair<List<HostDeviceVO>, Integer> listHostDevices(Long hostDeviceId, Long accountId, List<Long> domainIds, Long hostId, Long virtualMachineId, String deviceTag, HostDevice.State state, HostDevice.Type type, Filter filter) {
         SearchCriteria<HostDeviceVO> sc = hostDevicesSearch.create();
 
         sc.setParametersIfNotNull(ID, hostDeviceId);
@@ -120,7 +122,7 @@ public class HostDeviceDaoImpl extends GenericDaoBase<HostDeviceVO, Long> implem
             sc.setParametersIfNotNull(DOMAIN_ID, domainIds.toArray());
         }
 
-        return listBy(sc);
+        return searchAndCount(sc, filter);
     }
 
     @Override
