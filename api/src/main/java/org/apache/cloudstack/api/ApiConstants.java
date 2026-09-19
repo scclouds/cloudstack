@@ -1436,6 +1436,12 @@ public class ApiConstants {
     public static final String HOST_DEVICE_ID = "hostdeviceid";
     public static final String HAS_DEVICE_ATTACHED = "hasdeviceattached";
     public static final String HOST_DEVICES = "hostdevices";
+    public static final String PCI_NAME = "pciname";
+    public static final String PCI_CLASS = "pciclass";
+    public static final String PCI_DOMAIN = "pcidomain";
+    public static final String PCI_BUS = "pcibus";
+    public static final String PCI_SLOT = "pcislot";
+    public static final String PCI_FUNCTION = "pcifunction";
 
     public static final String PARAMETER_DESCRIPTION_ACTIVATION_RULE = "Quota tariff's activation rule. It can receive a JS script that results in either " +
             "a boolean or a numeric value: if it results in a boolean value, the tariff value will be applied according to the result; if it results in a numeric value, the " +

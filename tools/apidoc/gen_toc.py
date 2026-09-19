@@ -286,7 +286,13 @@ known_categories = {
     'downloadValidationScreenshot': 'Backup and Recovery',
     'createDeviceOffering': 'Host devices',
     'updateDeviceOffering': 'Host devices',
+    'deleteDeviceOffering': 'Host devices',
     'listDeviceOfferings': 'Host devices',
+    'assignVirtualMachineToDeviceOffering': 'Host devices',
+    'removeVirtualMachineFromDeviceOffering': 'Host devices',
+    'scanHostDevices': 'Host devices',
+    'listHostDevices': 'Host devices',
+    'updateHostDevice': 'Host devices',
 }
 
 

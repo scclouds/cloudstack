@@ -314,7 +314,7 @@ public class ResourceLimitManagerImpl extends ManagerBase implements ResourceLim
             projectResourceLimitMap.put(Resource.ResourceType.backup_storage.name(), Long.parseLong(_configDao.getValue(BackupManager.DefaultMaxProjectBackupStorage.key())));
             projectResourceLimitMap.put(Resource.ResourceType.bucket.name(), Long.parseLong(_configDao.getValue(BucketApiService.DefaultMaxProjectBuckets.key())));
             projectResourceLimitMap.put(Resource.ResourceType.object_storage.name(), Long.parseLong(_configDao.getValue(BucketApiService.DefaultMaxProjectObjectStorage.key())));
-            projectResourceLimitMap.put(Resource.ResourceType.host_device.name(), Long.parseLong(_configDao.getValue(HostDevicesManager.DefaultMaxProjectHostDevices.key())));
+            projectResourceLimitMap.put(Resource.ResourceType.host_device.name(), HostDevicesManager.DefaultMaxProjectHostDevices.value());
 
             accountResourceLimitMap.put(Resource.ResourceType.public_ip.name(), Long.parseLong(_configDao.getValue(Config.DefaultMaxAccountPublicIPs.key())));
             accountResourceLimitMap.put(Resource.ResourceType.snapshot.name(), Long.parseLong(_configDao.getValue(Config.DefaultMaxAccountSnapshots.key())));
@@ -333,7 +333,7 @@ public class ResourceLimitManagerImpl extends ManagerBase implements ResourceLim
             accountResourceLimitMap.put(Resource.ResourceType.backup_storage.name(), Long.parseLong(_configDao.getValue(BackupManager.DefaultMaxAccountBackupStorage.key())));
             accountResourceLimitMap.put(Resource.ResourceType.bucket.name(), Long.parseLong(_configDao.getValue(BucketApiService.DefaultMaxAccountBuckets.key())));
             accountResourceLimitMap.put(Resource.ResourceType.object_storage.name(), Long.parseLong(_configDao.getValue(BucketApiService.DefaultMaxAccountObjectStorage.key())));
-            accountResourceLimitMap.put(Resource.ResourceType.host_device.name(), Long.parseLong(_configDao.getValue(HostDevicesManager.DefaultMaxAccountHostDevices.key())));
+            accountResourceLimitMap.put(Resource.ResourceType.host_device.name(), HostDevicesManager.DefaultMaxAccountHostDevices.value());
 
             domainResourceLimitMap.put(Resource.ResourceType.public_ip.name(), Long.parseLong(_configDao.getValue(Config.DefaultMaxDomainPublicIPs.key())));
             domainResourceLimitMap.put(Resource.ResourceType.snapshot.name(), Long.parseLong(_configDao.getValue(Config.DefaultMaxDomainSnapshots.key())));
@@ -352,7 +352,7 @@ public class ResourceLimitManagerImpl extends ManagerBase implements ResourceLim
             domainResourceLimitMap.put(Resource.ResourceType.backup_storage.name(), Long.parseLong(_configDao.getValue(BackupManager.DefaultMaxDomainBackupStorage.key())));
             domainResourceLimitMap.put(Resource.ResourceType.bucket.name(), Long.parseLong(_configDao.getValue(BucketApiService.DefaultMaxDomainBuckets.key())));
             domainResourceLimitMap.put(Resource.ResourceType.object_storage.name(), Long.parseLong(_configDao.getValue(BucketApiService.DefaultMaxDomainObjectStorage.key())));
-            domainResourceLimitMap.put(Resource.ResourceType.host_device.name(), Long.parseLong(_configDao.getValue(HostDevicesManager.DefaultMaxDomainHostDevices.key())));
+            domainResourceLimitMap.put(Resource.ResourceType.host_device.name(), HostDevicesManager.DefaultMaxDomainHostDevices.value());
         } catch (NumberFormatException e) {
             logger.error("NumberFormatException during configuration", e);
             throw new ConfigurationException("Configuration failed due to NumberFormatException, see log for the stacktrace");

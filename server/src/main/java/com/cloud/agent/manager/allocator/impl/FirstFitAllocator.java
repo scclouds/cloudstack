@@ -178,12 +178,14 @@ public class FirstFitAllocator extends BaseAllocator {
             return;
         }
 
-        for (HostVO host : clusterHosts) {
-            if (!_resourceMgr.doesHostMatchesDeviceOfferingsTags(host, deviceOfferings, vmId)) {
-                logger.debug("Adding host [{}] to avoid set, because this host does not match the device offerings tags for the VM [{}].", host, vmProfile);
-                clusterHosts.remove(host);
+        clusterHosts.removeIf(host -> {
+            if (_resourceMgr.doesHostMatchDeviceOfferingTags(host, deviceOfferings, vmId)) {
+                return false;
             }
-        }
+
+            logger.debug("Removing host [{}] from the suitable hosts list, because this host does not match the device offerings tags for the VM [{}].", host, vmProfile);
+            return true;
+        });
     }
 
     /**
