@@ -54,11 +54,11 @@ public class CreateDeviceOfferingCmd extends BaseCmd {
     private String description;
 
     @ACL
-    @Parameter(name = "domainId", type = CommandType.LONG, required = false, description = "the domain for the device offering to be dedicated to. Mutually exclusive with the zoneId parameter.")
+    @Parameter(name = "domainId", type = CommandType.UUID, required = false, description = "the domain for the device offering to be dedicated to. Mutually exclusive with the zoneId parameter.")
     private Long domainId;
 
     @ACL
-    @Parameter(name = "zoneId", type = CommandType.LONG, required = false, description = "the zone for device offering to be dedicated to. Mutually exclusive with the domainId parameter.")
+    @Parameter(name = "zoneId", type = CommandType.UUID, required = false, description = "the zone for device offering to be dedicated to. Mutually exclusive with the domainId parameter.")
     private Long zoneId;
 
     @Parameter(name = ApiConstants.DEVICE_TAGS, type = CommandType.LIST, collectionType = CommandType.STRING, required = true, description = "a comma separated list of device tags for the device offering. If the offering should have multiple equal tags, a colon and the number of tags must be inserted after the tag name. For example, devicetags=tag1:2,tag2 would create a device offering with two equal tags named tag1 and one tag named tag2.")
