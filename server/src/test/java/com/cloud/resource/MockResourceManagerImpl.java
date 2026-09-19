@@ -739,7 +739,7 @@ public class MockResourceManagerImpl extends ManagerBase implements ResourceMana
     }
 
     @Override
-    public boolean doesHostMatchesDeviceOfferingsTags(HostVO host, List<DeviceOfferingVO> deviceOfferings, Long virtualMachineId) {
+    public boolean doesHostMatchDeviceOfferingTags(HostVO host, List<DeviceOfferingVO> deviceOfferings, Long virtualMachineId) {
         return false;
     }
 

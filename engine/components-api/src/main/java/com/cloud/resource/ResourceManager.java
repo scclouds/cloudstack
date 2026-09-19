@@ -276,7 +276,7 @@ public interface ResourceManager extends ResourceService, Configurable {
 
     List<HostVO> getEligibleUpAndEnabledHostsInZoneForStorageConnection(DataStore dataStore, long zoneId, HypervisorType hypervisorType);
 
-    boolean doesHostMatchesDeviceOfferingsTags(HostVO host, List<DeviceOfferingVO> deviceOfferings, Long virtualMachineId);
+    boolean doesHostMatchDeviceOfferingTags(HostVO host, List<DeviceOfferingVO> deviceOfferings, Long virtualMachineId);
 
     boolean validateHostDevicesAgainstDeviceOfferings(List<String> deviceOfferingsTags, List<String> hostDevicesTags);
 }

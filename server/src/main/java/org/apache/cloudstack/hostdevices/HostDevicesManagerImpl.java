@@ -1,3 +1,20 @@
+// Licensed to the Apache Software Foundation (ASF) under one
+// or more contributor license agreements.  See the NOTICE file
+// distributed with this work for additional information
+// regarding copyright ownership.  The ASF licenses this file
+// to you under the Apache License, Version 2.0 (the
+// "License"); you may not use this file except in compliance
+// with the License.  You may obtain a copy of the License at
+//
+//   http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing,
+// software distributed under the License is distributed on an
+// "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+// KIND, either express or implied.  See the License for the
+// specific language governing permissions and limitations
+// under the License.
+
 package org.apache.cloudstack.hostdevices;
 
 import com.cloud.agent.AgentManager;
@@ -10,6 +27,7 @@ import com.cloud.dc.dao.ClusterDao;
 import com.cloud.domain.Domain;
 import com.cloud.domain.dao.DomainDao;
 import com.cloud.exception.InvalidParameterValueException;
+import com.cloud.exception.PermissionDeniedException;
 import com.cloud.host.Host;
 import com.cloud.host.HostVO;
 import com.cloud.host.dao.HostDao;
@@ -90,6 +108,8 @@ public class HostDevicesManagerImpl extends ManagerBase implements HostDevicesMa
 
     private ScheduledExecutorService scheduledExecutor;
     private static final String LOGCONTEXTID = "logcontextid";
+    private static final long AUTOMATIC_SCAN_INITIAL_DELAY_IN_SECONDS = 60L;
+    private static final long AUTOMATIC_SCAN_TASK_INTERVAL_IN_SECONDS = 300L;
     private static final ObjectMapper MAPPER = createMapper();
 
     public HostDevicesManagerImpl() {
@@ -100,9 +120,19 @@ public class HostDevicesManagerImpl extends ManagerBase implements HostDevicesMa
         super.configure(name, params);
 
         scheduledExecutor = Executors.newSingleThreadScheduledExecutor(new NamedThreadFactory("AutomaticDeviceScanScheduler"));
-        scheduledExecutor.scheduleAtFixedRate(this::triggerAutomaticScanForClusters, 60, 300, TimeUnit.SECONDS);
+        scheduledExecutor.scheduleAtFixedRate(this::triggerAutomaticScanForClusters, AUTOMATIC_SCAN_INITIAL_DELAY_IN_SECONDS,
+                AUTOMATIC_SCAN_TASK_INTERVAL_IN_SECONDS, TimeUnit.SECONDS);
 
         return true;
+    }
+
+    @Override
+    public boolean stop() {
+        if (scheduledExecutor != null) {
+            scheduledExecutor.shutdownNow();
+        }
+
+        return super.stop();
     }
 
     @Override
@@ -114,7 +144,7 @@ public class HostDevicesManagerImpl extends ManagerBase implements HostDevicesMa
 
         if (!caller.getType().equals(Account.Type.ADMIN)) {
             logger.error("Cancelling devices scan because caller is not ROOT admin.");
-            throw new InvalidParameterValueException("Scanning host devices is not allowed for non-ROOT Admins.");
+            throw new PermissionDeniedException("Scanning host devices is not allowed for non-ROOT Admins.");
         }
 
         List<HostVO> hostsListForDeviceScan = getHostsListForDeviceScan(zoneId, clusterId, hostId);
@@ -124,7 +154,7 @@ public class HostDevicesManagerImpl extends ManagerBase implements HostDevicesMa
             throw new InvalidParameterValueException("Failed to retrieve hosts for device scan.");
         }
 
-        logger.debug("Selected {} hosts for device scan: {}", hostsListForDeviceScan.size(), hostsListForDeviceScan.stream().map(HostVO::getId));
+        logger.debug("Selected {} hosts for device scan: {}", hostsListForDeviceScan.size(), hostsListForDeviceScan.stream().map(HostVO::getId).collect(Collectors.toList()));
 
         hostsListForDeviceScan.forEach(this::scanHostDevices);
     }
@@ -215,7 +245,7 @@ public class HostDevicesManagerImpl extends ManagerBase implements HostDevicesMa
                 hostDao.lockRow(host.getId(), true);
 
                 List<HostDeviceVO> currentDevices = hostDeviceDao.listHostDevicesByHostId(host.getId());
-                logger.debug("The following host devices are registered for host with ID {}: {}", host.getId(), currentDevices.stream().map(HostDeviceVO::getPciName));
+                logger.debug("The following host devices are registered for host with ID {}: {}", host.getId(), currentDevices.stream().map(HostDeviceVO::getPciName).collect(Collectors.toList()));
 
                 List<HostDeviceVO> mappedIncomingDevices = incomingDevices.stream().map(d -> HostDeviceVO.mapLibvirtDevice(d, host.getId())).collect(Collectors.toList());
 
@@ -257,10 +287,8 @@ public class HostDevicesManagerImpl extends ManagerBase implements HostDevicesMa
 
         for (HostDeviceVO device : missingDevices) {
             device.setState(HostDevice.State.Missing);
-            hostDeviceDao.persist(device);
+            hostDeviceDao.update(device.getId(), device);
         }
-
-        incomingDevices.removeIf(id -> missingDevices.stream().anyMatch(md -> md.getPciName().equals(id.getPciName())));
     }
 
     private void handleUnregisteredDevices(List<HostDeviceVO> currentDevices, List<HostDeviceVO> incomingDevices) {
@@ -381,8 +409,10 @@ public class HostDevicesManagerImpl extends ManagerBase implements HostDevicesMa
             if (vm != null) {
                 res.setInstanceId(vm.getUuid());
             }
+        }
 
-            Account account = accountManager.getActiveAccountById(device.getInstanceId());
+        if (device.getAccountId() != null) {
+            Account account = accountManager.getActiveAccountById(device.getAccountId());
             if (account != null) {
                 res.setAccountId(account.getUuid());
 
@@ -550,7 +580,7 @@ public class HostDevicesManagerImpl extends ManagerBase implements HostDevicesMa
 
                     dev.setState(HostDevice.State.valueOf(previousState));
                     hostDeviceDao.update(dev.getId(), dev);
-                    hostDetailsDao.expungeDetailByHostAndName(hostId, pciName);
+                    hostDetailsDao.removeDetailByHostAndName(hostId, pciName);
                 }
             }
         });
@@ -649,6 +679,16 @@ public class HostDevicesManagerImpl extends ManagerBase implements HostDevicesMa
     private void triggerAutomaticScanForClusters() {
         ThreadContext.put(LOGCONTEXTID, UuidUtils.first(UUID.randomUUID().toString()));
 
+        try {
+            scanClustersWithAutomaticScanEnabled();
+        } catch (Exception e) {
+            logger.error("Unexpected failure during the automatic host device scan task.", e);
+        } finally {
+            ThreadContext.remove(LOGCONTEXTID);
+        }
+    }
+
+    private void scanClustersWithAutomaticScanEnabled() {
         List<ClusterVO> clusters = clusterDao.listAll()
                 .stream()
                 .filter(c -> Hypervisor.HypervisorType.KVM.equals(c.getHypervisorType()))
@@ -707,8 +747,6 @@ public class HostDevicesManagerImpl extends ManagerBase implements HostDevicesMa
                     logger.error("Failed to execute automatic device scan for host {} in cluster {}: {}", host.getId(), cluster.getId(), e.getMessage());
                 }
             }
-
-            clusterDetailsDao.persist(cluster.getId(), HostDevicesManager.LAST_HOST_DEVICE_SCAN_EXECUTION_TIMESTAMP, String.valueOf(System.currentTimeMillis() / 1000L));
         }
     }
 

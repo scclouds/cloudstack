@@ -1,3 +1,20 @@
+// Licensed to the Apache Software Foundation (ASF) under one
+// or more contributor license agreements.  See the NOTICE file
+// distributed with this work for additional information
+// regarding copyright ownership.  The ASF licenses this file
+// to you under the Apache License, Version 2.0 (the
+// "License"); you may not use this file except in compliance
+// with the License.  You may obtain a copy of the License at
+//
+//   http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing,
+// software distributed under the License is distributed on an
+// "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+// KIND, either express or implied.  See the License for the
+// specific language governing permissions and limitations
+// under the License.
+
 package org.apache.cloudstack.utils.libvirt.model;
 
 public class PciDevice implements LibvirtDevice {
@@ -11,7 +28,7 @@ public class PciDevice implements LibvirtDevice {
     private String productName;
     private String vendorId;
     private String vendorName;
-    private final String deviceType;
+    private String deviceType;
 
     public PciDevice() {
         this.deviceType = "pci";
@@ -51,6 +68,10 @@ public class PciDevice implements LibvirtDevice {
         return classCode;
     }
 
+    public void setClassCode(String classCode) {
+        this.classCode = classCode;
+    }
+
     public String getDomain() {
         return domain;
     }
@@ -71,6 +92,10 @@ public class PciDevice implements LibvirtDevice {
         return slot;
     }
 
+    public void setSlot(String slot) {
+        this.slot = slot;
+    }
+
     public String getFunction() {
         return function;
     }
@@ -83,16 +108,32 @@ public class PciDevice implements LibvirtDevice {
         return productId;
     }
 
+    public void setProductId(String productId) {
+        this.productId = productId;
+    }
+
     public String getVendorId() {
         return vendorId;
+    }
+
+    public void setVendorId(String vendorId) {
+        this.vendorId = vendorId;
     }
 
     public String getProductName() {
         return productName;
     }
 
+    public void setProductName(String productName) {
+        this.productName = productName;
+    }
+
     public String getVendorName() {
         return vendorName;
+    }
+
+    public void setVendorName(String vendorName) {
+        this.vendorName = vendorName;
     }
 
     @Override

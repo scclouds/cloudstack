@@ -1536,8 +1536,8 @@ public class ResourceManagerImpl extends ManagerBase implements ResourceManager,
         }
 
         ActionEventUtils.onStartedActionEvent(CallContext.current().getCallingUserId(), CallContext.current().getCallingAccountId(), EventTypes.EVENT_MAINTENANCE_PREPARE, String.format("starting maintenance for host %s", host), hostId, null, true, 0);
-        _agentMgr.pullAgentToMaintenance(hostId);
         hostDevicesManager.putHostDevicesInMaintenanceMode(hostId);
+        _agentMgr.pullAgentToMaintenance(hostId);
 
         /* TODO: move below to listener */
         if (host.getType() == Host.Type.Routing) {
@@ -1693,9 +1693,9 @@ public class ResourceManagerImpl extends ManagerBase implements ResourceManager,
         }
 
         List<HostDeviceVO> attachedDevices = hostDeviceDao.listHostDevicesByHostIdAndState(hostId, HostDevice.State.Attached);
-        if(CollectionUtils.isNotEmpty(attachedDevices)) {
+        if (CollectionUtils.isNotEmpty(attachedDevices)) {
             logger.error("Host {} has {} devices attached. We will not allow maintenance mode because it will be necessary to migrate VMs.", host, attachedDevices.stream().map(HostDeviceVO::getPciName).collect(Collectors.toList()));
-            throw new CloudRuntimeException("Failed to put host into maintenance mode because host has attached host devices. You need to dettach all host devices from VMs before putting the host into maintenance.");
+            throw new CloudRuntimeException("Failed to put host into maintenance mode because host has attached host devices. You need to detach all host devices from VMs before putting the host into maintenance.");
         }
 
         if (_hostDao.countBy(host.getClusterId(), ResourceState.PrepareForMaintenance, ResourceState.ErrorInPrepareForMaintenance) > 0) {
@@ -2519,7 +2519,7 @@ public class ResourceManagerImpl extends ManagerBase implements ResourceManager,
     }
 
     @Override
-    public boolean doesHostMatchesDeviceOfferingsTags(HostVO host, List<DeviceOfferingVO> deviceOfferings, Long virtualMachineId) {
+    public boolean doesHostMatchDeviceOfferingTags(HostVO host, List<DeviceOfferingVO> deviceOfferings, Long virtualMachineId) {
         List<String> deviceOfferingsTags = deviceOfferingDeviceTagDao.getDeviceOfferingsTags(deviceOfferings);
         List<HostDeviceVO> hostDevices = hostDeviceDao.listHostDevicesForOfferingAndVmCheck(host.getId(), deviceOfferingsTags, virtualMachineId);
 

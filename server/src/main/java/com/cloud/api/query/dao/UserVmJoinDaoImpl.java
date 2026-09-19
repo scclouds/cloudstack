@@ -605,10 +605,14 @@ public class UserVmJoinDaoImpl extends GenericDaoBaseWithTagInformation<UserVmJo
                 hostDeviceResponse.setDisplayName(hostDevice.getDisplayName());
                 hostDeviceResponse.setType(hostDevice.getType().toString());
                 hostDeviceResponse.setState(hostDevice.getState().toString());
-                hostDevice.setInstanceId(userVm.getId());
+                hostDeviceResponse.setInstanceId(userVm.getUuid());
 
-                if (caller.getType() == Account.Type.ADMIN) {
-                    hostDeviceResponse.setHostId(hostDevice.getHostId().toString());
+                if (caller.getType() == Account.Type.ADMIN && hostDevice.getHostId() != null) {
+                    HostVO deviceHost = hostDao.findById(hostDevice.getHostId());
+
+                    if (deviceHost != null) {
+                        hostDeviceResponse.setHostId(deviceHost.getUuid());
+                    }
                 }
 
                 hostDevices.add(hostDeviceResponse);

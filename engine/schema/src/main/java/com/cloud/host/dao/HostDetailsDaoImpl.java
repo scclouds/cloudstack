@@ -177,7 +177,7 @@ public class HostDetailsDaoImpl extends GenericDaoBase<DetailVO, Long> implement
     }
 
     @Override
-    public void expungeDetailByHostAndName(long hostId, String name) {
+    public void removeDetailByHostAndName(long hostId, String name) {
         SearchCriteria<DetailVO> sc = DetailSearch.create();
         sc.setParameters("hostId", hostId);
         sc.setParameters("name", name);

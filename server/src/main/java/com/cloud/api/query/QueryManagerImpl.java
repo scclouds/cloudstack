@@ -676,7 +676,7 @@ public class QueryManagerImpl extends MutualExclusiveIdsManagerBase implements Q
     private BackupDao backupDao;
 
     @Inject
-    private VMInstanceDeviceOfferingsDao VMInstanceDeviceOfferingsDao;
+    private VMInstanceDeviceOfferingsDao vmInstanceDeviceOfferingsDao;
 
     @Inject
     private HostDeviceDao hostDeviceDao;
@@ -1623,7 +1623,7 @@ public class QueryManagerImpl extends MutualExclusiveIdsManagerBase implements Q
         }
 
         if (deviceOfferingId != null) {
-            SearchBuilder<VMInstanceDeviceOfferingsVO> deviceOfferingSearch = VMInstanceDeviceOfferingsDao.createSearchBuilder();
+            SearchBuilder<VMInstanceDeviceOfferingsVO> deviceOfferingSearch = vmInstanceDeviceOfferingsDao.createSearchBuilder();
             deviceOfferingSearch.and("deviceOfferingId", deviceOfferingSearch.entity().getDeviceOfferingId(), Op.EQ);
             userVmSearchBuilder.join("deviceOffering", deviceOfferingSearch, deviceOfferingSearch.entity().getVirtualMachineId(), userVmSearchBuilder.entity().getId(), JoinBuilder.JoinType.INNER);
         }
@@ -1637,7 +1637,7 @@ public class QueryManagerImpl extends MutualExclusiveIdsManagerBase implements Q
         if (hasDeviceAttached != null) {
             SearchBuilder<HostDeviceVO> hostDeviceSearch = hostDeviceDao.createSearchBuilder();
             hostDeviceSearch.and("hasDeviceAttached", hostDeviceSearch.entity().getInstanceId(), hasDeviceAttached ? Op.NNULL : Op.NULL);
-            userVmSearchBuilder.join("hostDevice", hostDeviceSearch, hostDeviceSearch.entity().getInstanceId(), userVmSearchBuilder.entity().getId(), hasDeviceAttached ? JoinBuilder.JoinType.INNER : JoinBuilder.JoinType.LEFT);
+            userVmSearchBuilder.join("hasHostDevice", hostDeviceSearch, hostDeviceSearch.entity().getInstanceId(), userVmSearchBuilder.entity().getId(), hasDeviceAttached ? JoinBuilder.JoinType.INNER : JoinBuilder.JoinType.LEFT);
         }
 
         SearchCriteria<UserVmVO> userVmSearchCriteria = userVmSearchBuilder.create();

@@ -1,3 +1,20 @@
+// Licensed to the Apache Software Foundation (ASF) under one
+// or more contributor license agreements.  See the NOTICE file
+// distributed with this work for additional information
+// regarding copyright ownership.  The ASF licenses this file
+// to you under the Apache License, Version 2.0 (the
+// "License"); you may not use this file except in compliance
+// with the License.  You may obtain a copy of the License at
+//
+//   http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing,
+// software distributed under the License is distributed on an
+// "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+// KIND, either express or implied.  See the License for the
+// specific language governing permissions and limitations
+// under the License.
+
 package org.apache.cloudstack.api.command.user.hostdevices;
 
 import com.cloud.exception.ConcurrentOperationException;
@@ -24,8 +41,8 @@ import java.util.List;
         description = "Lists registered host devices",
         responseObject = HostDeviceResponse.class,
         requestHasSensitiveInfo = false,
-        responseHasSensitiveInfo = true,
-        since = "?")
+        responseHasSensitiveInfo = false,
+        since = "4.24.0")
 public class ListHostDevicesCmd extends BaseListCmd {
     @Inject
     private HostDevicesManager hostDevicesManager;
@@ -46,7 +63,7 @@ public class ListHostDevicesCmd extends BaseListCmd {
     @Parameter(name = ApiConstants.VIRTUAL_MACHINE_ID, type = CommandType.UUID, entityType = UserVmResponse.class, description = "The ID of the virtual machine the device is attached to.")
     private Long virtualMachineId;
 
-    @Parameter(name = ApiConstants.DEVICE_TAG, type = CommandType.STRING, entityType = String.class, description = "The device tag to be searched for in host devices.")
+    @Parameter(name = ApiConstants.DEVICE_TAG, type = CommandType.STRING, description = "The device tag to be searched for in host devices.")
     private String deviceTag;
 
     @Parameter(name = ApiConstants.STATE, type = CommandType.STRING, description = "The state of the host device. Possible states are: Attached, Disabled, Failure, Free, HostInMaintenance and Missing . By default, devices in the Disabled state will be hidden.")

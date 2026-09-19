@@ -1,3 +1,20 @@
+// Licensed to the Apache Software Foundation (ASF) under one
+// or more contributor license agreements.  See the NOTICE file
+// distributed with this work for additional information
+// regarding copyright ownership.  The ASF licenses this file
+// to you under the Apache License, Version 2.0 (the
+// "License"); you may not use this file except in compliance
+// with the License.  You may obtain a copy of the License at
+//
+//   http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing,
+// software distributed under the License is distributed on an
+// "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+// KIND, either express or implied.  See the License for the
+// specific language governing permissions and limitations
+// under the License.
+
 package org.apache.cloudstack.hostdevices;
 
 import com.cloud.dc.DataCenter;
@@ -83,7 +100,7 @@ public class DeviceOfferingManagerImpl extends ManagerBase implements DeviceOffe
             Domain domain = domainDao.findById(domainId);
 
             if (domain == null) {
-                logger.error("Domain with ID [{}] could not be found, cancelling offering creation.");
+                logger.error("Domain with ID [{}] could not be found, cancelling offering creation.", domainId);
                 throw new InvalidParameterValueException("Could not find domain with the informed ID.");
             }
         }
@@ -92,19 +109,19 @@ public class DeviceOfferingManagerImpl extends ManagerBase implements DeviceOffe
             DataCenter dataCenter = dataCenterDao.findById(zoneId);
 
             if (dataCenter == null) {
-                logger.error("Zone with ID [{}] could not be found, cancelling offering creation.");
+                logger.error("Zone with ID [{}] could not be found, cancelling offering creation.", zoneId);
                 throw new InvalidParameterValueException("Could not find zone with the informed ID.");
             }
         }
 
-        DeviceOffering nameDeviceOffering = deviceOfferingDao.findByName(name);
-
-        if (nameDeviceOffering != null) {
-            logger.error("Device offering with name [{}] already exists, cancelling creation.", name);
-            throw new InvalidParameterValueException("A device offering with the same name already exists.");
-        }
-
         return Transaction.execute((TransactionCallback<DeviceOfferingVO>) status -> {
+            DeviceOffering nameDeviceOffering = deviceOfferingDao.findByName(name);
+
+            if (nameDeviceOffering != null) {
+                logger.error("Device offering with name [{}] already exists, cancelling creation.", name);
+                throw new InvalidParameterValueException("A device offering with the same name already exists.");
+            }
+
             DeviceOfferingVO newOffering = deviceOfferingDao.persist(new DeviceOfferingVO(cmd.getName(), cmd.getDescription(), domainId, zoneId));
 
             for (String tag : parseDeviceOfferingTagsParameter(cmd.getTags())) {
@@ -113,23 +130,6 @@ public class DeviceOfferingManagerImpl extends ManagerBase implements DeviceOffe
 
             return newOffering;
         });
-    }
-
-    @Override
-    public DeviceOfferingResponse createDeviceOfferingResponse(DeviceOffering deviceOffering) {
-        DeviceOfferingResponse response = new DeviceOfferingResponse();
-
-        response.setId(deviceOffering.getUuid());
-        response.setName(deviceOffering.getName());
-        response.setDescription(deviceOffering.getDescription());
-        response.setState(deviceOffering.getState().toString());
-        response.setDomainId(deviceOffering.getDomainId());
-        response.setZoneID(deviceOffering.getZoneId());
-        response.setCreated(deviceOffering.getCreated());
-        response.setRemoved(deviceOffering.getRemoved());
-        response.setPublic(deviceOffering.getIsPublic());
-
-        return response;
     }
 
     @Override
@@ -237,10 +237,10 @@ public class DeviceOfferingManagerImpl extends ManagerBase implements DeviceOffe
         response.setDescription(offering.getDescription());
         response.setState(offering.getState().toString());
         response.setDomainId(offering.getDomainId());
-        response.setZoneID(offering.getZoneId());
+        response.setZoneId(offering.getZoneId());
         response.setCreated(offering.getCreated());
         response.setRemoved(offering.getRemoved());
-        response.setPublic(offering.getIsPublic());
+        response.setIsPublic(offering.getIsPublic());
 
         List<String> deviceTags = deviceOfferingDeviceTagsDao.getDeviceOfferingTags(offering.getId());
         if (CollectionUtils.isNotEmpty(deviceTags)) {
@@ -367,26 +367,27 @@ public class DeviceOfferingManagerImpl extends ManagerBase implements DeviceOffe
             throw new PermissionDeniedException("This action is only permitted for admins.");
         }
 
-        DeviceOfferingVO deviceOffering = deviceOfferingDao.findById(id);
-        if (deviceOffering == null) {
-            logger.error("Device offering with ID [{}] could not be found.", id);
-            throw new InvalidParameterValueException(String.format("Could not find device offering with ID [%s].", id));
-        }
-
-        List<VMInstanceDeviceOfferingsVO> assignedVMs = vmInstanceDeviceOfferingsDao.listByOfferingId(id);
-
-        if (CollectionUtils.isNotEmpty(assignedVMs)) {
-            logger.error("Cannot delete device offering with ID [{}] because the following VMs are still assigned to it: {}.", assignedVMs.stream().map(VMInstanceDeviceOfferingsVO::getVirtualMachineId).collect(Collectors.toList()));
-            throw new InvalidParameterValueException(String.format("Cannot delete device offering with ID [%s] because it is still assigned to VMs.", id));
-        }
-
         Transaction.execute(new TransactionCallbackNoReturn() {
             @Override
             public void doInTransactionWithoutResult(TransactionStatus status) {
+                DeviceOfferingVO deviceOffering = deviceOfferingDao.lockRow(id, true);
+
+                if (deviceOffering == null) {
+                    logger.error("Device offering with ID [{}] could not be found.", id);
+                    throw new InvalidParameterValueException(String.format("Could not find device offering with ID [%s].", id));
+                }
+
+                List<VMInstanceDeviceOfferingsVO> assignedVMs = vmInstanceDeviceOfferingsDao.listByOfferingId(id);
+
+                if (CollectionUtils.isNotEmpty(assignedVMs)) {
+                    logger.error("Cannot delete device offering with ID [{}] because the following VMs are still assigned to it: {}.", id, assignedVMs.stream().map(VMInstanceDeviceOfferingsVO::getVirtualMachineId).collect(Collectors.toList()));
+                    throw new InvalidParameterValueException(String.format("Cannot delete device offering with ID [%s] because it is still assigned to VMs.", id));
+                }
+
                 deviceOffering.setState(DeviceOffering.State.Inactive);
                 deviceOfferingDao.update(deviceOffering.getId(), deviceOffering);
                 deviceOfferingDao.remove(id);
-                deviceOfferingDeviceTagsDao.removeOfferingTags(id);
+                deviceOfferingDeviceTagsDao.expungeByOfferingId(id);
             }
         });
 

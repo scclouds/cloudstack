@@ -2048,7 +2048,7 @@ StateListener<State, VirtualMachine.Event, VirtualMachine>, Configurable {
                 }
 
                 if (saveReservation) {
-                    hostDevicesManager.reserveDevicesForVm(vmProfile.getId(), plannedDestination.getHost().getId());;
+                    hostDevicesManager.reserveDevicesForVm(vmProfile.getId(), plannedDestination.getHost().getId());
 
                     VMReservationVO vmReservation =
                             new VMReservationVO(vm.getId(), plannedDestination.getDataCenter().getId(), plannedDestination.getPod().getId(), plannedDestination.getCluster()

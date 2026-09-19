@@ -1,6 +1,25 @@
+// Licensed to the Apache Software Foundation (ASF) under one
+// or more contributor license agreements.  See the NOTICE file
+// distributed with this work for additional information
+// regarding copyright ownership.  The ASF licenses this file
+// to you under the Apache License, Version 2.0 (the
+// "License"); you may not use this file except in compliance
+// with the License.  You may obtain a copy of the License at
+//
+//   http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing,
+// software distributed under the License is distributed on an
+// "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+// KIND, either express or implied.  See the License for the
+// specific language governing permissions and limitations
+// under the License.
+
 package com.cloud.hostdevices;
 
 import org.apache.cloudstack.hostdevices.HostDevice;
+import org.apache.cloudstack.utils.reflectiontostringbuilderutils.ReflectionToStringBuilderUtils;
+import org.apache.commons.lang3.StringUtils;
 import org.apache.cloudstack.utils.libvirt.model.LibvirtDevice;
 import org.apache.cloudstack.utils.libvirt.model.PciDevice;
 
@@ -59,11 +78,11 @@ public class HostDeviceVO implements HostDevice {
     private String deviceTag;
 
     @Column(name = "created")
-    @Temporal(value = TemporalType.DATE)
+    @Temporal(value = TemporalType.TIMESTAMP)
     private Date created;
 
     @Column(name = "removed")
-    @Temporal(value = TemporalType.DATE)
+    @Temporal(value = TemporalType.TIMESTAMP)
     private Date removed;
 
     @Column(name = "state")
@@ -102,9 +121,17 @@ public class HostDeviceVO implements HostDevice {
         this.pciDeviceId = device.getProductId();
         this.state = State.Disabled;
         this.type = HostDevice.Type.getFromClassCode(device.getClassCode());
-        this.displayName = String.format("%s - %s", device.getProductName(), device.getVendorName());
+        this.displayName = buildDisplayName(device);
         this.deviceTag = this.type.toString();
         this.hostId = hostId;
+    }
+
+    private static String buildDisplayName(PciDevice device) {
+        if (StringUtils.isAllBlank(device.getProductName(), device.getVendorName())) {
+            return device.getName();
+        }
+
+        return String.format("%s - %s", device.getProductName(), device.getVendorName());
     }
 
     public static HostDeviceVO mapLibvirtDevice(LibvirtDevice libvirtDevice, Long hostId) {
@@ -274,5 +301,10 @@ public class HostDeviceVO implements HostDevice {
 
     public boolean canBeUpdated() {
         return this.state == State.Disabled || this.state == State.Free;
+    }
+
+    @Override
+    public String toString() {
+        return String.format("Host device %s", ReflectionToStringBuilderUtils.reflectOnlySelectedFields(this, "id", "uuid", "pciName", "deviceTag", "state", "type", "hostId", "instanceId"));
     }
 }

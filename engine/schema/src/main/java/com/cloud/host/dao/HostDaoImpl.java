@@ -518,6 +518,7 @@ public class HostDaoImpl extends GenericDaoBase<HostVO, Long> implements HostDao
         searchBuilderFindByIdTypeClusterIdPodIdDcIdAndWithoutRuleTag.done();
 
         hostHypervisorStatusTypeHypervisorSearch = createSearchBuilder();
+        hostHypervisorStatusTypeHypervisorSearch.and("id", hostHypervisorStatusTypeHypervisorSearch.entity().getId(), Op.EQ);
         hostHypervisorStatusTypeHypervisorSearch.and("hypervisor", hostHypervisorStatusTypeHypervisorSearch.entity().getHypervisorType(), Op.EQ);
         hostHypervisorStatusTypeHypervisorSearch.and("status", hostHypervisorStatusTypeHypervisorSearch.entity().getStatus(), Op.EQ);
         hostHypervisorStatusTypeHypervisorSearch.and("type", hostHypervisorStatusTypeHypervisorSearch.entity().getType(), Op.EQ);
@@ -1612,6 +1613,7 @@ public class HostDaoImpl extends GenericDaoBase<HostVO, Long> implements HostDao
     public HostVO findUpAndRoutingHypervisorHostById(long hostId, HypervisorType hypervisorType) {
         SearchCriteria<HostVO> sc = hostHypervisorStatusTypeHypervisorSearch.create();
 
+        sc.setParameters("id", hostId);
         sc.setParameters("hypervisor", hypervisorType.toString());
         sc.setParameters("status", Status.Up);
         sc.setParameters("type", Type.Routing);

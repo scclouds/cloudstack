@@ -22,6 +22,7 @@ import com.cloud.agent.AgentManager;
 import com.cloud.dc.ClusterVO;
 import com.cloud.dc.dao.ClusterDao;
 import com.cloud.exception.InvalidParameterValueException;
+import com.cloud.exception.PermissionDeniedException;
 import com.cloud.host.dao.HostDao;
 import com.cloud.hypervisor.Hypervisor;
 import com.cloud.user.Account;
@@ -71,28 +72,28 @@ public class HostDevicesManagerImplTest {
     }
 
     @Test
-    public void testScanHostDevicesCaseNotAdminThrowsInvalidParameterValueException() {
+    public void testScanHostDevicesCaseNotAdminThrowsPermissionDeniedException() {
         Mockito.when(mockAccount.getType()).thenReturn(Account.Type.NORMAL);
 
-        Assert.assertThrows(InvalidParameterValueException.class, () -> {
+        Assert.assertThrows(PermissionDeniedException.class, () -> {
             hostDevicesManager.scanHostDevice(mockScanHostDevices);
         });
     }
 
     @Test
     public void testScanHostDevicesCaseNullHostListThrowsInvalidParameterValueException() {
-        Mockito.doReturn(null).when(hostDevicesManager).getHostsListForDeviceScan(Mockito.anyLong(), Mockito.anyLong(), Mockito.anyLong());
+        Mockito.doReturn(null).when(hostDevicesManager).getHostsListForDeviceScan(Mockito.any(), Mockito.any(), Mockito.any());
         Assert.assertThrows(InvalidParameterValueException.class, () -> {
             hostDevicesManager.scanHostDevice(mockScanHostDevices);
         });
-        Mockito.verify(hostDevicesManager, Mockito.times(1)).getHostsListForDeviceScan(Mockito.anyLong(), Mockito.anyLong(), Mockito.anyLong());
+        Mockito.verify(hostDevicesManager, Mockito.times(1)).getHostsListForDeviceScan(Mockito.any(), Mockito.any(), Mockito.any());
     }
 
     @Test
     public void testGetHostsListForDeviceScanHostNotFoundThrowsInvalidParameterValueException() {
         Mockito.when(hostDao.findUpAndRoutingHypervisorHostById(Mockito.anyLong(), Mockito.any(Hypervisor.HypervisorType.class))).thenReturn(null);
         Assert.assertThrows(InvalidParameterValueException.class, () -> {
-            hostDevicesManager.getHostsListForDeviceScan(Mockito.anyLong(), Mockito.anyLong(), Mockito.anyLong());
+            hostDevicesManager.getHostsListForDeviceScan(1L, 1L, 1L);
         });
         Mockito.verify(hostDao, Mockito.times(1)).findUpAndRoutingHypervisorHostById(Mockito.anyLong(), Mockito.any(Hypervisor.HypervisorType.class));
     }
@@ -110,7 +111,7 @@ public class HostDevicesManagerImplTest {
     public void testGetHostsListForDeviceScanClusterNotKVMThrowsInvalidParameterValueException() {
         Mockito.when(mockCluster.getHypervisorType()).thenReturn(Hypervisor.HypervisorType.VMware);
         Mockito.when(clusterDao.findById(Mockito.anyLong())).thenReturn(mockCluster);
-                Assert.assertThrows(InvalidParameterValueException.class, () -> {
+        Assert.assertThrows(InvalidParameterValueException.class, () -> {
             hostDevicesManager.getHostsListForDeviceScan(1L, 1L, null);
         });
         Mockito.verify(clusterDao, Mockito.times(1)).findById(Mockito.anyLong());

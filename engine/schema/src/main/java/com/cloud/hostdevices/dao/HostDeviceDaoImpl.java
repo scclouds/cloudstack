@@ -1,3 +1,20 @@
+// Licensed to the Apache Software Foundation (ASF) under one
+// or more contributor license agreements.  See the NOTICE file
+// distributed with this work for additional information
+// regarding copyright ownership.  The ASF licenses this file
+// to you under the Apache License, Version 2.0 (the
+// "License"); you may not use this file except in compliance
+// with the License.  You may obtain a copy of the License at
+//
+//   http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing,
+// software distributed under the License is distributed on an
+// "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+// KIND, either express or implied.  See the License for the
+// specific language governing permissions and limitations
+// under the License.
+
 package com.cloud.hostdevices.dao;
 
 import com.cloud.hostdevices.HostDeviceVO;
@@ -5,8 +22,10 @@ import com.cloud.utils.db.GenericDaoBase;
 import com.cloud.utils.db.SearchBuilder;
 import com.cloud.utils.db.SearchCriteria;
 import org.apache.cloudstack.hostdevices.HostDevice;
+import org.apache.commons.collections.CollectionUtils;
 import org.springframework.stereotype.Component;
 
+import java.util.ArrayList;
 import java.util.List;
 
 @Component
@@ -32,7 +51,7 @@ public class HostDeviceDaoImpl extends GenericDaoBase<HostDeviceVO, Long> implem
         hostDevicesSearch = createSearchBuilder();
         hostDevicesSearch.and(ID, hostDevicesSearch.entity().getId(), SearchCriteria.Op.EQ);
         hostDevicesSearch.and(ACCOUNT_ID, hostDevicesSearch.entity().getAccountId(), SearchCriteria.Op.EQ);
-        hostDevicesSearch.and(DOMAIN_ID, hostDevicesSearch.entity().getDomainId(), SearchCriteria.Op.EQ);
+        hostDevicesSearch.and(DOMAIN_ID, hostDevicesSearch.entity().getDomainId(), SearchCriteria.Op.IN);
         hostDevicesSearch.and(HOST_ID, hostDevicesSearch.entity().getHostId(), SearchCriteria.Op.EQ);
         hostDevicesSearch.and(VIRTUAL_MACHINE_ID, hostDevicesSearch.entity().getInstanceId(), SearchCriteria.Op.EQ);
         hostDevicesSearch.and(STATE, hostDevicesSearch.entity().getState(), SearchCriteria.Op.EQ);
@@ -72,14 +91,15 @@ public class HostDeviceDaoImpl extends GenericDaoBase<HostDeviceVO, Long> implem
 
     @Override
     public List<HostDeviceVO> listHostDevicesAvailableForAllocation(Long hostId, List<String> deviceTags) {
+        if (CollectionUtils.isEmpty(deviceTags)) {
+            return new ArrayList<>();
+        }
+
         SearchCriteria<HostDeviceVO> sc = hostDevicesAvailableForAllocationSearch.create();
 
         sc.setParameters(HOST_ID, hostId);
         sc.setParameters(STATE, HostDevice.State.Free);
-
-        if (deviceTags != null) {
-            sc.setParameters(DEVICE_TAG_IN, deviceTags.toArray());
-        }
+        sc.setParameters(DEVICE_TAG_IN, deviceTags.toArray());
 
         return lockRows(sc, null, true);
     }
@@ -148,16 +168,17 @@ public class HostDeviceDaoImpl extends GenericDaoBase<HostDeviceVO, Long> implem
 
     @Override
     public List<HostDeviceVO> listHostDevicesForOfferingAndVmCheck(Long hostId, List<String> deviceOfferingsTags, Long virtualMachineId) {
+        if (CollectionUtils.isEmpty(deviceOfferingsTags) || virtualMachineId == null) {
+            return new ArrayList<>();
+        }
+
         SearchCriteria<HostDeviceVO> sc = offeringAndVMSearch.create();
 
         sc.setParameters(HOST_ID, hostId);
         sc.setParameters(STATE, HostDevice.State.Free);
-        sc.setParametersIfNotNull(VIRTUAL_MACHINE_ID, virtualMachineId);
+        sc.setParameters(VIRTUAL_MACHINE_ID, virtualMachineId);
         sc.setParameters(OR_STATE, HostDevice.State.Attached);
-
-        if (deviceOfferingsTags != null) {
-            sc.setParameters(DEVICE_TAG_IN, deviceOfferingsTags.toArray());
-        }
+        sc.setParameters(DEVICE_TAG_IN, deviceOfferingsTags.toArray());
 
         return listBy(sc);
     }

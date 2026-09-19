@@ -18,6 +18,7 @@
 package org.apache.cloudstack.api.command.admin.hostdevices;
 
 import com.cloud.exception.ConcurrentOperationException;
+import com.cloud.user.Account;
 import org.apache.cloudstack.acl.RoleType;
 import org.apache.cloudstack.api.ACL;
 import org.apache.cloudstack.api.APICommand;
@@ -37,9 +38,9 @@ import javax.inject.Inject;
         description = "Scans for available host PCI devices and saves them to the database",
         responseObject = SuccessResponse.class,
         requestHasSensitiveInfo = false,
-        responseHasSensitiveInfo = true,
+        responseHasSensitiveInfo = false,
         authorized = {RoleType.Admin},
-        since = "?")
+        since = "4.24.0")
 public class ScanHostDevicesCmd extends BaseCmd {
 
     @Inject
@@ -90,6 +91,6 @@ public class ScanHostDevicesCmd extends BaseCmd {
 
     @Override
     public long getEntityOwnerId() {
-        return 0;
+        return Account.ACCOUNT_ID_SYSTEM;
     }
 }

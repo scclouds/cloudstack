@@ -1775,7 +1775,7 @@ public class AccountManagerImpl extends ManagerBase implements AccountManager, M
         }
     }
 
-@Override
+    @Override
     public Long finalizeAccountIdAndCheckCallerAccess(String accountName, Long domainId, Long projectId) {
         Account caller = getCurrentCallingAccount();
 
@@ -1828,7 +1828,7 @@ public class AccountManagerImpl extends ManagerBase implements AccountManager, M
     @Override
     public Pair<Long, List<Long>> finalizeListingFiltersBasedOnRecursiveAndListAll(Boolean listRecursively, Boolean listAll, Boolean wasDomainInformed, Long accountId, List<Long> domainsList) {
         long callerId = CallContext.current().getCallingAccountId();
-         Pair<Long, List<Long>> finalAccountAndDomainsList = new Pair<>(accountId, domainsList);
+        Pair<Long, List<Long>> finalAccountAndDomainsList = new Pair<>(accountId, domainsList);
 
         if (!isAdmin(callerId)) {
             logger.debug("Ignoring listAll or recursive listing because the caller is not Admin.");

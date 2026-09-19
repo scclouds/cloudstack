@@ -46,7 +46,6 @@ import com.cloud.gpu.dao.VgpuProfileDao;
 import com.cloud.hostdevices.DeviceOfferingVO;
 import com.cloud.hostdevices.HostDeviceVO;
 import com.cloud.hostdevices.dao.DeviceOfferingDao;
-import com.cloud.hostdevices.dao.DeviceOfferingDeviceTagDao;
 import com.cloud.hostdevices.dao.HostDeviceDao;
 import com.cloud.network.vpc.VpcVO;
 import com.cloud.network.vpc.dao.VpcDao;
@@ -166,8 +165,6 @@ public abstract class HypervisorGuruBase extends AdapterBase implements Hypervis
     private DeviceOfferingDao deviceOfferingDao;
     @Inject
     private HostDeviceDao hostDeviceDao;
-    @Inject
-    private DeviceOfferingDeviceTagDao deviceOfferingDeviceTagDao;
 
     public static ConfigKey<Boolean> VmMinMemoryEqualsMemoryDividedByMemOverprovisioningFactor = new ConfigKey<Boolean>("Advanced", Boolean.class, "vm.min.memory.equals.memory.divided.by.mem.overprovisioning.factor", "true",
             "If we set this to 'true', a minimum memory (memory/ mem.overprovisioning.factor) will be set to the VM, independent of using a scalable service offering or not.", true, ConfigKey.Scope.Cluster);
@@ -407,7 +404,8 @@ public abstract class HypervisorGuruBase extends AdapterBase implements Hypervis
         List<HostDeviceVO> hostDevices = hostDeviceDao.listHostDevicesByVmId(vmProfile.getId());
 
         if (CollectionUtils.isEmpty(hostDevices)) {
-            logger.error("The VM has device offerings assigned {}, but no host device was found attached to the VM. Blocking the deployment because there is probably an error.", vmDeviceOfferings.stream().map(DeviceOfferingVO::getUuid).collect(Collectors.toList()));
+            logger.error("The VM has the device offerings {} assigned, but no host device was found attached to the VM. Blocking the deployment because there is probably an error.", vmDeviceOfferings.stream().map(DeviceOfferingVO::getUuid).collect(Collectors.toList()));
+            throw new CloudRuntimeException(String.format("No host device is attached to VM [%s] even though it has device offerings assigned.", vmProfile.getUuid()));
         }
 
         return hostDevices.stream().map(HostDeviceTO::new).collect(Collectors.toList());
