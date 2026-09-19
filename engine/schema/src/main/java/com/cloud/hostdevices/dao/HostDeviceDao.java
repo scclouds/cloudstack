@@ -17,7 +17,11 @@ public interface HostDeviceDao extends GenericDao<HostDeviceVO, Long> {
 
     List<HostDeviceVO> listHostDevicesByHostIdAndState(Long hostId, HostDevice.State state);
 
+    List<HostDeviceVO> listAndLockHostDevicesByHostIdAndState(Long hostId, HostDevice.State state);
+
     List<HostDeviceVO> listHostDevicesByAccountId(long accountId);
 
     List<HostDeviceVO> listHostDevicesForOfferingAndVmCheck(Long hostId, List<String> deviceOfferingsTags, Long virtualMachineId);
+
+    List<HostDeviceVO> listAndLockHostDevicesByVmId(Long vmId);
 }

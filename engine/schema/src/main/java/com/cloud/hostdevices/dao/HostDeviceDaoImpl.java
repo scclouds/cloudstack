@@ -10,7 +10,7 @@ import org.springframework.stereotype.Component;
 import java.util.List;
 
 @Component
-public class HostDeviceDaoImpl extends GenericDaoBase<HostDeviceVO, Long> implements HostDeviceDao  {
+public class HostDeviceDaoImpl extends GenericDaoBase<HostDeviceVO, Long> implements HostDeviceDao {
     public static final String ID = "id";
     public static final String ACCOUNT_ID = "accountId";
     public static final String DOMAIN_ID = "domainId";
@@ -81,7 +81,7 @@ public class HostDeviceDaoImpl extends GenericDaoBase<HostDeviceVO, Long> implem
             sc.setParameters(DEVICE_TAG_IN, deviceTags.toArray());
         }
 
-        return listBy(sc);
+        return lockRows(sc, null, true);
     }
 
     @Override
@@ -111,6 +111,13 @@ public class HostDeviceDaoImpl extends GenericDaoBase<HostDeviceVO, Long> implem
     }
 
     @Override
+    public List<HostDeviceVO> listAndLockHostDevicesByVmId(Long vmId) {
+        SearchCriteria<HostDeviceVO> sc = vmHostDeviceSearch.create();
+        sc.setParameters(VIRTUAL_MACHINE_ID, vmId);
+        return lockRows(sc, null, true);
+    }
+
+    @Override
     public List<HostDeviceVO> listHostDevicesByHostIdAndState(Long hostId, HostDevice.State state) {
         SearchCriteria<HostDeviceVO> sc = hostDevicesSearch.create();
 
@@ -118,6 +125,16 @@ public class HostDeviceDaoImpl extends GenericDaoBase<HostDeviceVO, Long> implem
         sc.setParameters(STATE, state);
 
         return listBy(sc);
+    }
+
+    @Override
+    public List<HostDeviceVO> listAndLockHostDevicesByHostIdAndState(Long hostId, HostDevice.State state) {
+        SearchCriteria<HostDeviceVO> sc = hostDevicesSearch.create();
+
+        sc.setParametersIfNotNull(HOST_ID, hostId);
+        sc.setParameters(STATE, state);
+
+        return lockRows(sc, null, true);
     }
 
     @Override

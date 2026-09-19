@@ -29,6 +29,7 @@ import com.cloud.utils.UuidUtils;
 import com.cloud.utils.component.ManagerBase;
 import com.cloud.utils.concurrency.NamedThreadFactory;
 import com.cloud.utils.db.Transaction;
+import com.cloud.utils.db.TransactionCallback;
 import com.cloud.utils.db.TransactionCallbackNoReturn;
 import com.cloud.utils.db.TransactionStatus;
 import com.cloud.utils.exception.CloudRuntimeException;
@@ -208,27 +209,33 @@ public class HostDevicesManagerImpl extends ManagerBase implements HostDevicesMa
     }
 
     private void compareIncomingDevicesWithExistingOnes(List<? extends LibvirtDevice> incomingDevices, HostVO host) {
-        List<HostDeviceVO> currentDevices = hostDeviceDao.listHostDevicesByHostId(host.getId());
-        logger.debug("The following host devices are registered for host with ID {}: {}", host.getId(), currentDevices.stream().map(HostDeviceVO::getPciName));
+        Transaction.execute(new TransactionCallbackNoReturn() {
+            @Override
+            public void doInTransactionWithoutResult(TransactionStatus status) {
+                hostDao.lockRow(host.getId(), true);
 
-        List<HostDeviceVO> mappedIncomingDevices = incomingDevices.stream().map(d -> HostDeviceVO.mapLibvirtDevice(d, host.getId())).collect(Collectors.toList());
+                List<HostDeviceVO> currentDevices = hostDeviceDao.listHostDevicesByHostId(host.getId());
+                logger.debug("The following host devices are registered for host with ID {}: {}", host.getId(), currentDevices.stream().map(HostDeviceVO::getPciName));
 
-        if (currentDevices.isEmpty()) {
-            logger.info("As no device is saved for the host yet, we will save all the devices returned by the agent to the database.");
+                List<HostDeviceVO> mappedIncomingDevices = incomingDevices.stream().map(d -> HostDeviceVO.mapLibvirtDevice(d, host.getId())).collect(Collectors.toList());
 
-            // TODO ERIK: ver se precisa disso, não faz diferença se salvar ou não, só executar dnv
-            for (HostDeviceVO device : mappedIncomingDevices) {
-                hostDeviceDao.persist(device);
+                if (currentDevices.isEmpty()) {
+                    logger.info("As no device is saved for the host yet, we will save all the devices returned by the agent to the database.");
+
+                    for (HostDeviceVO device : mappedIncomingDevices) {
+                        hostDeviceDao.persist(device);
+                    }
+
+                    return;
+                }
+
+                logger.debug("Handling devices that are not registered on the database");
+
+                handleMissingDevices(currentDevices, mappedIncomingDevices);
+
+                handleUnregisteredDevices(currentDevices, mappedIncomingDevices);
             }
-
-            return;
-        }
-
-        logger.debug("Handling devices that are not registered on the database");
-
-        handleMissingDevices(currentDevices, mappedIncomingDevices);
-
-        handleUnregisteredDevices(currentDevices, mappedIncomingDevices);
+        });
     }
 
     private void handleMissingDevices(List<HostDeviceVO> registeredDevices, List<HostDeviceVO> incomingDevices) {
@@ -247,16 +254,11 @@ public class HostDevicesManagerImpl extends ManagerBase implements HostDevicesMa
         }
 
         logger.debug("Found the following missing devices. {}", missingDevices);
-        Transaction.execute(new TransactionCallbackNoReturn() {
-            // TODO ERIK: tem que criar o alerta e mandar o email pros operadores - ver se manda um pra cada device ou a lista com todos
-            @Override
-            public void doInTransactionWithoutResult(TransactionStatus status) {
-                for (HostDeviceVO device : missingDevices) {
-                    device.setState(HostDevice.State.Missing);
-                    hostDeviceDao.persist(device);
-                }
-            }
-        });
+
+        for (HostDeviceVO device : missingDevices) {
+            device.setState(HostDevice.State.Missing);
+            hostDeviceDao.persist(device);
+        }
 
         incomingDevices.removeIf(id -> missingDevices.stream().anyMatch(md -> md.getPciName().equals(id.getPciName())));
     }
@@ -271,7 +273,6 @@ public class HostDevicesManagerImpl extends ManagerBase implements HostDevicesMa
                 .collect(Collectors.toList());
         logger.debug("Found the following unregistered devices: {}", unregisteredDevices);
 
-        // TODO ERIK: ver se precisa disso, não faz diferença se salvar ou não, só executar dnv
         for (HostDeviceVO device : unregisteredDevices) {
             logger.debug("Saving unregistered device [{}] to the database.", device.getPciName());
             hostDeviceDao.persist(device);
@@ -411,43 +412,47 @@ public class HostDevicesManagerImpl extends ManagerBase implements HostDevicesMa
             throw new InvalidParameterValueException("At least one of the following parameters must be provided: enabled, displayName, tags, type");
         }
 
-        HostDeviceVO device = hostDeviceDao.findById(updateHostDeviceCmd.getDeviceId());
+        HostDeviceVO updatedDevice = Transaction.execute((TransactionCallback<HostDeviceVO>) status -> {
+            HostDeviceVO device = hostDeviceDao.lockRow(updateHostDeviceCmd.getDeviceId(), true);
 
-        if (device == null) {
-            logger.debug("Host device with ID {} was not found", updateHostDeviceCmd.getDeviceId());
-            throw new InvalidParameterValueException("Host device with id " + updateHostDeviceCmd.getDeviceId() + " was not found.");
-        }
-
-        if (!device.canBeUpdated()) {
-            logger.error("Current device state is {}. Only devices in Disabled or Free state can be updated.", device.getState());
-            throw new InvalidParameterValueException(String.format("Devices in state %s cannot be updated. Valid states for update are %s and %s.", device.getState(), HostDevice.State.Disabled, HostDevice.State.Free));
-        }
-
-        HostDevice.Type newDeviceType = null;
-        if (type != null) {
-            newDeviceType = HostDevice.Type.getFromString(type);
-            if (newDeviceType == null) {
-                throw new InvalidParameterValueException(String.format("Invalid host device type: %s. Supported types are: %s", type, Arrays.toString(HostDevice.Type.values())));
+            if (device == null) {
+                logger.debug("Host device with ID {} was not found", updateHostDeviceCmd.getDeviceId());
+                throw new InvalidParameterValueException("Host device with id " + updateHostDeviceCmd.getDeviceId() + " was not found.");
             }
-        }
 
-        if (enabled != null) {
-            device.setState(enabled ? HostDevice.State.Free : HostDevice.State.Disabled);
-        }
+            if (!device.canBeUpdated()) {
+                logger.error("Current device state is {}. Only devices in Disabled or Free state can be updated.", device.getState());
+                throw new InvalidParameterValueException(String.format("Devices in state %s cannot be updated. Valid states for update are %s and %s.", device.getState(), HostDevice.State.Disabled, HostDevice.State.Free));
+            }
 
-        if (displayName != null) {
-            device.setDisplayName(displayName);
-        }
-        if (tag != null) {
-            device.setDeviceTag(tag);
-        }
-        if (type != null) {
-            device.setType(newDeviceType);
-        }
+            HostDevice.Type newDeviceType = null;
+            if (type != null) {
+                newDeviceType = HostDevice.Type.getFromString(type);
+                if (newDeviceType == null) {
+                    throw new InvalidParameterValueException(String.format("Invalid host device type: %s. Supported types are: %s", type, Arrays.toString(HostDevice.Type.values())));
+                }
+            }
 
-        hostDeviceDao.update(device.getId(), device);
+            if (enabled != null) {
+                device.setState(enabled ? HostDevice.State.Free : HostDevice.State.Disabled);
+            }
 
-        return device;
+            if (displayName != null) {
+                device.setDisplayName(displayName);
+            }
+            if (tag != null) {
+                device.setDeviceTag(tag);
+            }
+            if (type != null) {
+                device.setType(newDeviceType);
+            }
+
+            hostDeviceDao.update(device.getId(), device);
+
+            return device;
+        });
+
+        return updatedDevice;
     }
 
     @Override
@@ -460,17 +465,17 @@ public class HostDevicesManagerImpl extends ManagerBase implements HostDevicesMa
             throw new CloudRuntimeException("Virtual machine with id " + vmId + " was not found.");
         }
 
-        List<HostDeviceVO> devices = hostDeviceDao.listHostDevicesByVmId(vmId);
-        if (CollectionUtils.isEmpty(devices)) {
-            logger.debug("No host devices found for VM with ID {}. Skipping devices release process.", vmId);
-            return;
-        }
-
-        logger.info("The following devices will be released from VM {}: {}", vmId, devices.stream().map(HostDeviceVO::getPciName).collect(Collectors.toList()));
-
         Transaction.execute(new TransactionCallbackNoReturn() {
             @Override
             public void doInTransactionWithoutResult(TransactionStatus status) {
+                List<HostDeviceVO> devices = hostDeviceDao.listAndLockHostDevicesByVmId(vmId);
+                if (CollectionUtils.isEmpty(devices)) {
+                    logger.debug("No host devices found for VM with ID {}. Skipping devices release process.", vmId);
+                    return;
+                }
+
+                logger.info("The following devices will be released from VM {}: {}", vmId, devices.stream().map(HostDeviceVO::getPciName).collect(Collectors.toList()));
+
                 for (HostDeviceVO dev : devices) {
                     dev.setAccountId(null);
                     dev.setDomainId(null);
@@ -492,19 +497,18 @@ public class HostDevicesManagerImpl extends ManagerBase implements HostDevicesMa
             throw new CloudRuntimeException("Host with id " + hostId + " was not found.");
         }
 
-        List<HostDeviceVO> devices = hostDeviceDao.listHostDevicesByHostIdAndState(hostId, HostDevice.State.Attached);
-        if (CollectionUtils.isEmpty(devices)) {
-            logger.debug("No host devices found for host with ID {}", hostId);
-            return;
-        }
-
-        Map<String, String> deviceNameToStateMap = devices.stream()
-                .collect(Collectors.toMap(HostDeviceVO::getPciName, d -> d.getState().toString()));
-
-        logger.info("The following devices will be put in maintenance mode for host {}: {}", hostId, devices.stream().map(HostDeviceVO::getPciName).collect(Collectors.toList()));
         Transaction.execute(new TransactionCallbackNoReturn() {
             @Override
             public void doInTransactionWithoutResult(TransactionStatus status) {
+                List<HostDeviceVO> devices = hostDeviceDao.listAndLockHostDevicesByHostIdAndState(hostId, HostDevice.State.Free);
+                if (CollectionUtils.isEmpty(devices)) {
+                    logger.debug("No host devices found for host with ID {} to be put in maintenance mode.", hostId);
+                    return;
+                }
+
+                logger.info("The following devices will be put in maintenance mode for host {}: {}", hostId, devices.stream().map(HostDeviceVO::getPciName).collect(Collectors.toList()));
+                Map<String, String> deviceNameToStateMap = devices.stream().collect(Collectors.toMap(HostDeviceVO::getPciName, d -> d.getState().toString()));
+
                 for (HostDeviceVO dev : devices) {
                     dev.setState(HostDevice.State.HostInMaintenance);
                     hostDeviceDao.update(dev.getId(), dev);
@@ -524,17 +528,18 @@ public class HostDevicesManagerImpl extends ManagerBase implements HostDevicesMa
             throw new CloudRuntimeException("Host with id " + hostId + " was not found.");
         }
 
-        List<HostDeviceVO> devices = hostDeviceDao.listHostDevicesByHostIdAndState(hostId, HostDevice.State.HostInMaintenance);
-        if (CollectionUtils.isEmpty(devices)) {
-            logger.debug("No host devices in maintenance found for host with ID {}", hostId);
-            return;
-        }
-
-        Map<String, String> hostDetails = hostDetailsDao.findDetails(hostId);
-
         Transaction.execute(new TransactionCallbackNoReturn() {
             @Override
             public void doInTransactionWithoutResult(TransactionStatus status) {
+                List<HostDeviceVO> devices = hostDeviceDao.listAndLockHostDevicesByHostIdAndState(hostId, HostDevice.State.HostInMaintenance);
+
+                if (CollectionUtils.isEmpty(devices)) {
+                    logger.debug("No host devices in maintenance found for host with ID {}", hostId);
+                    return;
+                }
+
+                Map<String, String> hostDetails = hostDetailsDao.findDetails(hostId);
+
                 for (HostDeviceVO dev : devices) {
                     String pciName = dev.getPciName();
                     String previousState = hostDetails.get(pciName);
@@ -561,11 +566,12 @@ public class HostDevicesManagerImpl extends ManagerBase implements HostDevicesMa
         }
 
         logger.info("Updating ownership of host devices for VM {} to account {}.", vmId, newAccount.getUuid());
-        List<HostDeviceVO> hostDevices = hostDeviceDao.listHostDevicesByVmId(vmId);
 
         Transaction.execute(new TransactionCallbackNoReturn() {
             @Override
             public void doInTransactionWithoutResult(TransactionStatus status) {
+                List<HostDeviceVO> hostDevices = hostDeviceDao.listAndLockHostDevicesByVmId(vmId);
+
                 for (HostDeviceVO device : hostDevices) {
                     device.setAccountId(newAccount.getId());
                     device.setDomainId(newAccount.getDomainId());
@@ -611,23 +617,23 @@ public class HostDevicesManagerImpl extends ManagerBase implements HostDevicesMa
                 vmAssignedOfferings.stream().map(DeviceOfferingVO::getUuid).collect(Collectors.toList()),
                 selectedHostId);
 
-
         List<String> offeringsTags = deviceOfferingDeviceTagDao.getDeviceOfferingsTags(vmAssignedOfferings);
-        List<HostDeviceVO> availableDevices = hostDeviceDao.listHostDevicesAvailableForAllocation(selectedHostId, offeringsTags);
-
-        if (CollectionUtils.isEmpty(availableDevices)) {
-            logger.debug("No available host devices found for host with ID {}", selectedHostId);
-            throw new CloudRuntimeException("No available host devices found for host with id " + selectedHostId);
-        }
-
-        if (!resourceManager.validateHostDevicesAgainstDeviceOfferings(offeringsTags, availableDevices.stream().map(HostDeviceVO::getDeviceTag).collect(Collectors.toList()))) {
-            logger.debug("The available host devices do not satisfy the device offering requirements for VM {}.", vmId);
-            throw new CloudRuntimeException("The available host devices do not satisfy the device offering requirements for VM " + vmId);
-        }
 
         Transaction.execute(new TransactionCallbackNoReturn() {
             @Override
             public void doInTransactionWithoutResult(TransactionStatus status) {
+                List<HostDeviceVO> availableDevices = hostDeviceDao.listHostDevicesAvailableForAllocation(selectedHostId, offeringsTags);
+
+                if (CollectionUtils.isEmpty(availableDevices)) {
+                    logger.debug("No available host devices found for host with ID {}", selectedHostId);
+                    throw new CloudRuntimeException("No available host devices found for host with id " + selectedHostId);
+                }
+
+                if (!resourceManager.validateHostDevicesAgainstDeviceOfferings(offeringsTags, availableDevices.stream().map(HostDeviceVO::getDeviceTag).collect(Collectors.toList()))) {
+                    logger.debug("The available host devices do not satisfy the device offering requirements for VM {}.", vmId);
+                    throw new CloudRuntimeException("The available host devices do not satisfy the device offering requirements for VM " + vmId);
+                }
+
                 for (HostDeviceVO device : availableDevices) {
                     device.setAccountId(vm.getAccountId());
                     device.setDomainId(vm.getDomainId());
@@ -643,7 +649,6 @@ public class HostDevicesManagerImpl extends ManagerBase implements HostDevicesMa
     private void triggerAutomaticScanForClusters() {
         ThreadContext.put(LOGCONTEXTID, UuidUtils.first(UUID.randomUUID().toString()));
 
-        // TODO ERIK: talvez fosse legal ter um threshold: se executou X segundos antes do tempo, não executa de novo
         List<ClusterVO> clusters = clusterDao.listAll()
                 .stream()
                 .filter(c -> Hypervisor.HypervisorType.KVM.equals(c.getHypervisorType()))
@@ -653,17 +658,38 @@ public class HostDevicesManagerImpl extends ManagerBase implements HostDevicesMa
         logger.info("Automatic device scan task started. Found {} clusters with automatic scan enabled.", clusters.size());
 
         for (ClusterVO cluster : clusters) {
-            Integer scanInterval = HostDeviceAutomaticScanInterval.valueIn(cluster.getId());
-            ClusterDetailsVO hostLastExecution = clusterDetailsDao.findDetail(cluster.getId(), HostDevicesManager.LAST_HOST_DEVICE_SCAN_EXECUTION_TIMESTAMP);
+            boolean shouldExecute = Transaction.execute((TransactionCallback<Boolean>) status -> {
+                clusterDao.lockRow(cluster.getId(), true);
 
-            if (hostLastExecution != null) {
-                logger.debug("Found the following last execution timestamp for cluster {}: {}", cluster.getId(), hostLastExecution.getValue());
-                long lastExecutionTimestamp = Long.parseLong(hostLastExecution.getValue());
-                long currentTimestamp = System.currentTimeMillis() / 1000L;
-                if (currentTimestamp - lastExecutionTimestamp < scanInterval) {
-                    logger.info("Skipping automatic device scan for cluster {} because the last execution was {} seconds ago, which is less than the configured interval of {} seconds.", cluster.getId(), currentTimestamp - lastExecutionTimestamp, scanInterval);
-                    continue;
+                Integer scanInterval = HostDeviceAutomaticScanInterval.valueIn(cluster.getId());
+                long now = System.currentTimeMillis() / 1000L;
+
+                ClusterDetailsVO clusterLastExecution = clusterDetailsDao.findDetail(cluster.getId(), HostDevicesManager.LAST_HOST_DEVICE_SCAN_EXECUTION_TIMESTAMP);
+
+                if (clusterLastExecution != null) {
+                    logger.debug("Found the following last execution timestamp for cluster {}: {}", cluster.getId(), clusterLastExecution.getValue());
+                    long lastExecutionTimestamp = Long.parseLong(clusterLastExecution.getValue());
+
+                    if (now - lastExecutionTimestamp < scanInterval) {
+                        logger.info("Skipping automatic device scan for cluster {} because the last execution was {} seconds ago, which is less than the configured interval of {} seconds.", cluster.getId(), now - lastExecutionTimestamp, scanInterval);
+                        return false;
+                    }
+
+                    logger.debug("Updating last execution timestamp for cluster {} to {}", cluster.getId(), now);
+                    clusterLastExecution.setValue(String.valueOf(now));
+                    clusterDetailsDao.update(clusterLastExecution.getId(), clusterLastExecution);
+
+                    return true;
                 }
+
+                logger.debug("This is the first execution for cluster {}. Creating new entry for it with current timestamp.", cluster.getId());
+                clusterDetailsDao.persist(cluster.getId(), HostDevicesManager.LAST_HOST_DEVICE_SCAN_EXECUTION_TIMESTAMP, String.valueOf(now));
+
+                return true;
+            });
+
+            if (!shouldExecute) {
+                continue;
             }
 
             List<HostVO> hosts = hostDao.listAllRoutingHostsUpInClusters(List.of(cluster.getId()), Hypervisor.HypervisorType.KVM);
@@ -685,7 +711,6 @@ public class HostDevicesManagerImpl extends ManagerBase implements HostDevicesMa
             clusterDetailsDao.persist(cluster.getId(), HostDevicesManager.LAST_HOST_DEVICE_SCAN_EXECUTION_TIMESTAMP, String.valueOf(System.currentTimeMillis() / 1000L));
         }
     }
-
 
     @Override
     public String getConfigComponentName() {
