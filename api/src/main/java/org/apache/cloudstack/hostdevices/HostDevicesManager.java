@@ -56,7 +56,7 @@ public interface HostDevicesManager extends Configurable, Manager, PluggableServ
 
     void removeHostDevicesFromMaintenanceMode(long hostId);
 
-    void updateVMHostDevicesOwnership(Long vmId, Account newAccount);
+    void updateVMHostDevicesOwnership(Long vmId, Account oldAccount, Account newAccount);
 
     void reserveDevicesForVm(Long vmId, Long selectedHostId);
 

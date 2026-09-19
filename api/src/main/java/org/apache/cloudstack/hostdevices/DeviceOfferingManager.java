@@ -17,6 +17,7 @@
 
 package org.apache.cloudstack.hostdevices;
 
+import com.cloud.exception.ResourceAllocationException;
 import com.cloud.user.Account;
 import com.cloud.utils.Pair;
 import com.cloud.utils.component.Manager;
@@ -33,7 +34,7 @@ import java.util.List;
 public interface DeviceOfferingManager extends Configurable, Manager, PluggableService {
     DeviceOffering createDeviceOffering(CreateDeviceOfferingCmd cmd);
 
-    boolean assignVirtualMachineToDeviceOffering(Long virtualMachineId, Long deviceOfferingId);
+    boolean assignVirtualMachineToDeviceOffering(Long virtualMachineId, Long deviceOfferingId) throws ResourceAllocationException;
 
     boolean removeVirtualMachineFromDeviceOffering(Long virtualMachineId, Long deviceOfferingId);
 
