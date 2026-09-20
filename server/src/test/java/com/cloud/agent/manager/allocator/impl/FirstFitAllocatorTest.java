@@ -29,6 +29,7 @@ import com.cloud.deploy.DeploymentPlanner;
 import com.cloud.host.Host;
 import com.cloud.host.HostVO;
 import com.cloud.host.dao.HostDao;
+import com.cloud.hostdevices.dao.DeviceOfferingDao;
 import com.cloud.offering.ServiceOffering;
 import com.cloud.resource.ResourceManager;
 import com.cloud.service.ServiceOfferingDetailsVO;
@@ -42,6 +43,7 @@ import com.cloud.vm.VirtualMachineProfile;
 import com.cloud.vm.dao.VMInstanceDetailsDao;
 import org.apache.cloudstack.api.ApiConstants;
 import org.apache.cloudstack.framework.config.dao.ConfigurationDao;
+import org.apache.cloudstack.hostdevices.HostDevicesManager;
 import org.junit.Assert;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -78,6 +80,12 @@ public class FirstFitAllocatorTest {
 
   @Mock
   ConfigurationDao configDao;
+
+  @Mock
+  DeviceOfferingDao deviceOfferingDao;
+
+  @Mock
+  HostDevicesManager hostDevicesManager;
 
   @Spy
   @InjectMocks

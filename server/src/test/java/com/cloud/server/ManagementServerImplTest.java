@@ -69,6 +69,7 @@ import org.apache.cloudstack.framework.config.ConfigKey;
 import org.apache.cloudstack.framework.config.dao.ConfigurationDao;
 import org.apache.cloudstack.framework.config.impl.ConfigurationVO;
 import org.apache.cloudstack.framework.extensions.manager.ExtensionsManager;
+import org.apache.cloudstack.hostdevices.DeviceOfferingManager;
 import org.apache.cloudstack.userdata.UserDataManager;
 
 import com.cloud.cpu.CPU;
@@ -212,6 +213,9 @@ public class ManagementServerImplTest {
 
     @Mock
     DpdkHelper dpdkHelper;
+
+    @Mock
+    DeviceOfferingManager deviceOfferingManager;
 
     @Mock
     AffinityGroupVMMapDao affinityGroupVMMapDao;

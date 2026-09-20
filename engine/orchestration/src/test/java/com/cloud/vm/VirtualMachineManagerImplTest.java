@@ -74,6 +74,7 @@ import org.apache.cloudstack.framework.extensions.manager.ExtensionsManager;
 import org.apache.cloudstack.framework.extensions.vo.ExtensionDetailsVO;
 import org.apache.cloudstack.framework.jobs.dao.VmWorkJobDao;
 import org.apache.cloudstack.framework.jobs.impl.VmWorkJobVO;
+import org.apache.cloudstack.hostdevices.HostDevicesManager;
 import org.apache.cloudstack.storage.datastore.db.PrimaryDataStoreDao;
 import org.apache.cloudstack.storage.datastore.db.StoragePoolVO;
 import org.apache.cloudstack.storage.to.VolumeObjectTO;
@@ -264,6 +265,8 @@ public class VirtualMachineManagerImplTest {
     private ResourceManager _resourceMgr;
     @Mock
     private DeploymentPlanningManager _dpMgr;
+    @Mock
+    private HostDevicesManager hostDeviceManager;
     @Mock
     private HypervisorGuruManager _hvGuruMgr;
     @Mock

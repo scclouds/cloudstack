@@ -1403,6 +1403,7 @@ public class VirtualMachineManagerImpl extends ManagerBase implements VirtualMac
         boolean canRetry = true;
         ExcludeList avoids = null;
         long deployedHostId = -1;
+        final boolean vmAlreadyHadHostDevices = hostDeviceManager.hasHostDevicesReservedForVm(vm.getId());
         try {
             final Journal journal = start.second().getJournal();
 
@@ -1521,6 +1522,10 @@ public class VirtualMachineManagerImpl extends ManagerBase implements VirtualMac
                 }
 
                 try {
+                    if (!hostDeviceManager.reserveDevicesForVm(vm.getId(), destHostId)) {
+                        throw new InsufficientServerCapacityException(String.format("Host %s does not have the host devices required by %s.", dest.getHost(), vm), Host.class, destHostId);
+                    }
+
                     resetVmNicsDeviceId(vm.getId());
 
                     processPrepareExternalProvisioning(firstStart, dest.getHost(), vmProfile, dest.getDataCenter());
@@ -1552,8 +1557,6 @@ public class VirtualMachineManagerImpl extends ManagerBase implements VirtualMac
                     }
 
                     vmGuru.finalizeVirtualMachineProfile(vmProfile, dest, ctx);
-
-                    hostDeviceManager.reserveDevicesForVm(vm.getId(), destHostId);
 
                     final VirtualMachineTO vmTO = hvGuru.implement(vmProfile);
                     updateVmMetadataManufacturerAndProduct(vmTO, vm);
@@ -1714,11 +1717,16 @@ public class VirtualMachineManagerImpl extends ManagerBase implements VirtualMac
                         final Step prevStep = work.getStep();
                         _workDao.updateStep(work, Step.Release);
 
-                        if ((prevStep == Step.Started || prevStep == Step.Starting) && startAnswer != null && startAnswer.getResult()) {
-                            cleanup(vmGuru, vmProfile, work, Event.OperationFailed, false);
+                        final boolean vmStartSucceeded = startAnswer != null && startAnswer.getResult();
+                        boolean isVmStopped;
+                        if ((prevStep == Step.Started || prevStep == Step.Starting) && vmStartSucceeded) {
+                            isVmStopped = cleanup(vmGuru, vmProfile, work, Event.OperationFailed, false);
                         } else {
                             cleanup(vmGuru, vmProfile, work, Event.OperationFailed, true);
+                            isVmStopped = !vmStartSucceeded;
                         }
+
+                        releaseHostDevicesOfFailedStart(vm, vmAlreadyHadHostDevices, isVmStopped);
                     }
                 }
             }
@@ -1758,6 +1766,23 @@ public class VirtualMachineManagerImpl extends ManagerBase implements VirtualMac
             }
             String message = String.format(messageTmpl, vm.getHostName(), vm.getUuid(), details);
             throw new CloudRuntimeException(message, lastKnownError);
+        }
+    }
+
+    protected void releaseHostDevicesOfFailedStart(VMInstanceVO vm, boolean vmHadHostDevices, boolean vmStopped) {
+        if (vmHadHostDevices) {
+            return;
+        }
+
+        if (!vmStopped) {
+            logger.warn("Keeping the host devices of {} because it could not be confirmed that the VM is stopped.", vm);
+            return;
+        }
+
+        try {
+            hostDeviceManager.releaseHostDevicesForVm(vm.getId());
+        } catch (final Exception e) {
+            logger.error("Failed to release the host devices reserved for {} by the start attempt that failed.", vm, e);
         }
     }
 

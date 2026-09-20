@@ -58,7 +58,11 @@ public interface HostDevicesManager extends Configurable, Manager, PluggableServ
 
     void updateVMHostDevicesOwnership(Long vmId, Account oldAccount, Account newAccount);
 
-    void reserveDevicesForVm(Long vmId, Long selectedHostId);
+    boolean reserveDevicesForVm(Long vmId, Long selectedHostId);
+
+    boolean hasHostDevicesReservedForVm(Long vmId);
 
     boolean doesHostMatchDeviceOfferingTags(Host host, List<? extends DeviceOffering> deviceOfferings, Long virtualMachineId);
+
+    boolean doesHostMatchVmDeviceOfferings(Host host, Long virtualMachineId);
 }

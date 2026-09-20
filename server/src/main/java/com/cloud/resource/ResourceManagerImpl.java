@@ -1804,6 +1804,11 @@ public class ResourceManagerImpl extends ManagerBase implements ResourceManager,
         for (VMInstanceVO vm : allVmsOnHost) {
             State vmState = vm.getState();
             if (vmState == State.Starting || vmState == State.Running || vmState == State.Stopping) {
+                if (hostDevicesManager.hasHostDevicesReservedForVm(vm.getId())) {
+                    logger.error("Skipping HA on VM {} as it is attached to one or more devices on host {}.", vm, host);
+                    continue;
+                }
+
                 _haMgr.scheduleRestart(vm, false, HighAvailabilityManager.ReasonType.HostDegraded);
             }
         }

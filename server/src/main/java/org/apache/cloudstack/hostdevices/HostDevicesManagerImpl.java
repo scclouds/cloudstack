@@ -640,7 +640,7 @@ public class HostDevicesManagerImpl extends ManagerBase implements HostDevicesMa
     }
 
     @Override
-    public void reserveDevicesForVm(Long vmId, Long selectedHostId) {
+    public boolean reserveDevicesForVm(Long vmId, Long selectedHostId) {
         VMInstanceVO vm = virtualMachineDao.findById(vmId);
 
         if (vm == null) {
@@ -655,18 +655,24 @@ public class HostDevicesManagerImpl extends ManagerBase implements HostDevicesMa
             throw new CloudRuntimeException("Host with id " + selectedHostId + " was not found.");
         }
 
-        List<HostDeviceVO> assignedDevices = hostDeviceDao.listHostDevicesByVmId(vmId);
-        if (CollectionUtils.isNotEmpty(assignedDevices)) {
-            logger.debug("VM {} already has the following devices assigned: {}. Therefore, the reservation process will be skipped.", vmId, assignedDevices.stream().map(HostDeviceVO::getPciName).collect(Collectors.toList()));
-            return;
-        }
-
-        logger.info("No host devices are currently assigned to VM {}. Searching for device offerings assigned to VM.", vmId);
         List<DeviceOfferingVO> vmAssignedOfferings = deviceOfferingDao.listVirtualMachineDeviceOfferings(vmId);
 
         if (CollectionUtils.isEmpty(vmAssignedOfferings)) {
             logger.debug("No device offerings are assigned to VM {}. Therefore, the reservation process will be skipped.", vmId);
-            return;
+            return true;
+        }
+
+        List<HostDeviceVO> assignedDevices = hostDeviceDao.listHostDevicesByVmId(vmId);
+        if (CollectionUtils.isNotEmpty(assignedDevices)) {
+            List<String> devicesPciNames = assignedDevices.stream().map(HostDeviceVO::getPciName).collect(Collectors.toList());
+
+            if (assignedDevices.stream().anyMatch(device -> !selectedHostId.equals(device.getHostId()))) {
+                logger.error("VM {} holds devices {} that are not in host {}. It cannot be started in this host.", vmId, devicesPciNames, selectedHostId);
+                throw new CloudRuntimeException(String.format("VM %s is bound to devices that are not in host %s, therefore it cannot be started in it.", vm.getUuid(), host.getUuid()));
+            }
+
+            logger.debug("VM {} already has the following devices assigned: {}. Therefore, the reservation process will be skipped.", vmId, devicesPciNames);
+            return true;
         }
 
         logger.info("The following device offerings are assigned to VM {}: {}. Trying to reserve matching devices in host {}.",
@@ -684,30 +690,33 @@ public class HostDevicesManagerImpl extends ManagerBase implements HostDevicesMa
         }
 
         try (CheckedReservation hostDeviceReservation = new CheckedReservation(owner, Resource.ResourceType.host_device, null, (long) offeringsTags.size(), reservationDao, resourceLimitMgr)) {
-            Transaction.execute(new TransactionCallbackNoReturn() {
-                @Override
-                public void doInTransactionWithoutResult(TransactionStatus status) {
-                    List<HostDeviceVO> availableDevices = hostDeviceDao.listHostDevicesAvailableForAllocation(selectedHostId, offeringsTags);
+            return Transaction.execute((TransactionCallback<Boolean>) status -> {
+                List<HostDeviceVO> availableDevices = hostDeviceDao.listHostDevicesAvailableForAllocation(selectedHostId, offeringsTags);
 
-                    if (CollectionUtils.isEmpty(availableDevices)) {
-                        logger.debug("No available host devices found for host with ID {}", selectedHostId);
-                        throw new CloudRuntimeException("No available host devices found for host with id " + selectedHostId);
-                    }
-
-                    List<HostDeviceVO> devicesToReserve = selectDevicesToReserve(availableDevices, requiredDevicesPerTag, vmId);
-
-                    for (HostDeviceVO device : devicesToReserve) {
-                        device.setAccountId(vm.getAccountId());
-                        device.setDomainId(vm.getDomainId());
-                        device.setInstanceId(vmId);
-                        device.setState(HostDevice.State.Attached);
-                        hostDeviceDao.update(device.getId(), device);
-                        logger.debug("Reserved host device [{} - {}] for VM {}.", device.getDisplayName(), device.getPciName(), vm.getUuid());
-                    }
-
-                    long amount = devicesToReserve.size();
-                    resourceLimitMgr.incrementResourceCount(vm.getAccountId(), Resource.ResourceType.host_device, amount);
+                if (CollectionUtils.isEmpty(availableDevices)) {
+                    logger.debug("No available host devices found for host with ID {}", selectedHostId);
+                    return false;
                 }
+
+                List<HostDeviceVO> devicesToReserve = selectDevicesToReserve(availableDevices, requiredDevicesPerTag, vmId);
+
+                if (devicesToReserve == null) {
+                    return false;
+                }
+
+                for (HostDeviceVO device : devicesToReserve) {
+                    device.setAccountId(vm.getAccountId());
+                    device.setDomainId(vm.getDomainId());
+                    device.setInstanceId(vmId);
+                    device.setState(HostDevice.State.Attached);
+                    hostDeviceDao.update(device.getId(), device);
+                    logger.debug("Reserved host device [{} - {}] for VM {}.", device.getDisplayName(), device.getPciName(), vm.getUuid());
+                }
+
+                long amount = devicesToReserve.size();
+                resourceLimitMgr.incrementResourceCount(vm.getAccountId(), Resource.ResourceType.host_device, amount);
+
+                return true;
             });
         } catch (ResourceAllocationException e) {
             logger.debug("Account [{}] cannot allocate {} more host devices: {}", owner.getUuid(), offeringsTags.size(), e.getMessage());
@@ -726,8 +735,7 @@ public class HostDevicesManagerImpl extends ManagerBase implements HostDevicesMa
 
             if (candidates.size() < requiredAmount) {
                 logger.debug("The host has {} available devices with tag [{}], but VM {} requires {}.", candidates.size(), deviceTag, vmId, requiredAmount);
-                throw new CloudRuntimeException(String.format("The host does not have enough available devices with tag [%s] for VM %s. Required: %s, available: %s.",
-                        deviceTag, vmId, requiredAmount, candidates.size()));
+                return null;
             }
 
             selectedDevices.addAll(candidates.subList(0, requiredAmount));
@@ -735,6 +743,17 @@ public class HostDevicesManagerImpl extends ManagerBase implements HostDevicesMa
 
         return selectedDevices;
     }
+
+    @Override
+    public boolean hasHostDevicesReservedForVm(Long vmId) {
+        return CollectionUtils.isNotEmpty(hostDeviceDao.listHostDevicesByVmId(vmId));
+    }
+
+    @Override
+    public boolean doesHostMatchVmDeviceOfferings(Host host, Long virtualMachineId) {
+        return doesHostMatchDeviceOfferingTags(host, deviceOfferingDao.listVirtualMachineDeviceOfferings(virtualMachineId), virtualMachineId);
+    }
+
     @Override
     public boolean doesHostMatchDeviceOfferingTags(Host host, List<? extends DeviceOffering> deviceOfferings, Long virtualMachineId) {
         if (CollectionUtils.isEmpty(deviceOfferings)) {
@@ -744,9 +763,14 @@ public class HostDevicesManagerImpl extends ManagerBase implements HostDevicesMa
 
         List<String> deviceOfferingsTags = deviceOfferingDeviceTagDao.getDeviceOfferingsTags(deviceOfferings);
 
-        if (CollectionUtils.isEmpty(deviceOfferingsTags)) {
-            logger.debug("The informed device offerings have no device tags, therefore host {} satisfies the device offering requirements.", host.getId());
-            return true;
+        if (virtualMachineId != null) {
+            List<HostDeviceVO> vmDevices = hostDeviceDao.listHostDevicesByVmId(virtualMachineId);
+
+            if (CollectionUtils.isNotEmpty(vmDevices)) {
+                boolean areDevicesInThisHost = vmDevices.stream().allMatch(device ->  Long.valueOf(host.getId()).equals(device.getHostId()));
+                logger.debug("VM {} holds devices {}, therefore host {} {} the device offering requirements.", virtualMachineId, vmDevices.stream().map(HostDeviceVO::getPciName).collect(Collectors.toList()), host.getId(), areDevicesInThisHost ? "satisfies" : "does not satisfy");
+                return areDevicesInThisHost;
+            }
         }
 
         List<HostDeviceVO> hostDevices = hostDeviceDao.listHostDevicesForOfferingAndVmCheck(host.getId(), deviceOfferingsTags, virtualMachineId);
