@@ -19,6 +19,7 @@ package org.apache.cloudstack.quota.activationrule.presetvariables;
 
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
@@ -30,6 +31,7 @@ import com.cloud.dc.ClusterDetailsVO;
 import com.cloud.host.HostTagVO;
 import com.cloud.hostdevices.DeviceOfferingVO;
 import com.cloud.hostdevices.dao.DeviceOfferingDao;
+import com.cloud.hostdevices.dao.DeviceOfferingDeviceTagDao;
 import com.cloud.hypervisor.Hypervisor;
 import com.cloud.network.dao.NetworkVO;
 import com.cloud.network.vpc.VpcOfferingVO;
@@ -201,6 +203,9 @@ public class PresetVariableHelper {
 
     @Inject
     DeviceOfferingDao deviceOfferingDao;
+
+    @Inject
+    DeviceOfferingDeviceTagDao deviceOfferingDeviceTagDao;
 
     protected boolean backupSnapshotAfterTakingSnapshot = SnapshotInfo.BackupSnapshotAfterTakingSnapshot.value();
 
@@ -410,12 +415,20 @@ public class PresetVariableHelper {
             presetVariableDeviceOffering.setDomainId(deviceOffering.getDomainId());
             presetVariableDeviceOffering.setZoneId(deviceOffering.getZoneId());
             // TODO ERIK: ver como fazer com offering removida
-            presetVariableDeviceOffering.setTags(deviceOfferingDao.listDeviceOfferingTags(deviceOffering.getId()));
+            presetVariableDeviceOffering.setTags(getDeviceOfferingTags(deviceOffering.getId()));
 
             presetVariableDeviceOfferings.add(presetVariableDeviceOffering);
         }
 
         return presetVariableDeviceOfferings;
+    }
+
+    private List<String> getDeviceOfferingTags(long deviceOfferingId) {
+        return deviceOfferingDeviceTagDao.getDeviceOfferingTags(deviceOfferingId)
+                .entrySet()
+                .stream()
+                .flatMap(tagToAmount -> Collections.nCopies(tagToAmount.getValue(), tagToAmount.getKey()).stream())
+                .collect(Collectors.toList());
     }
 
     protected void logNotLoadingMessageInTrace(String resource, int usageType) {
