@@ -277,21 +277,9 @@ public class DeviceOfferingManagerImpl extends ManagerBase implements DeviceOffe
 
     @Override
     public void unassignVmFromOfferings(Long vmId) {
-        VirtualMachine vm = vmInstanceDao.findById(vmId);
+        int unassignedOfferings = vmInstanceDeviceOfferingsDao.expungeByVmId(vmId);
 
-        if (vm == null) {
-            logger.error("VM with ID [{}] could not be found.", vmId);
-            throw new InvalidParameterValueException(String.format("Could not find VM with ID [%s].", vmId));
-        }
-
-        List<VMInstanceDeviceOfferingsVO> existingAssignmentsForVM = vmInstanceDeviceOfferingsDao.listByVmId(vmId);
-        if (CollectionUtils.isEmpty(existingAssignmentsForVM)) {
-            logger.info("VM with ID [{}] has no device offerings assigned, nothing to unassign.", vmId);
-            return;
-        }
-
-        logger.debug("Unassigning device offerings {} from VM with ID [{}].", existingAssignmentsForVM.stream().map(VMInstanceDeviceOfferingsVO::getDeviceOfferingId).collect(Collectors.toList()), vmId);
-        vmInstanceDeviceOfferingsDao.expungeByVmId(vmId);
+        logger.debug("Unassigned {} device offerings from VM with ID [{}].", unassignedOfferings, vmId);
     }
 
     @Override
