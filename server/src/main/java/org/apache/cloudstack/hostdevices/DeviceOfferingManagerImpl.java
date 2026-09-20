@@ -314,9 +314,18 @@ public class DeviceOfferingManagerImpl extends ManagerBase implements DeviceOffe
                 throw new InvalidParameterValueException(String.format("Could not find device offering with ID [%s].", id));
             }
 
-            if (deviceTags != null && CollectionUtils.isEmpty(deviceTags)) {
-                logger.error("No device tag was provided, cancelling device offering update.");
-                throw new InvalidParameterValueException("You must inform at least one device tag for the device offering.");
+            if (deviceTags != null) {
+                if (CollectionUtils.isEmpty(deviceTags)) {
+                    logger.error("No device tag was provided, cancelling device offering update.");
+                    throw new InvalidParameterValueException("You must inform at least one device tag for the device offering.");
+                }
+
+                List<VMInstanceDeviceOfferingsVO> offeringAssignments = vmInstanceDeviceOfferingsDao.listByOfferingId(id);
+
+                if (CollectionUtils.isNotEmpty(offeringAssignments)) {
+                    logger.error("The following VMs are assigned to this offering: {}, so tag update is not allowed.", offeringAssignments.stream().map(VMInstanceDeviceOfferingsVO::getVirtualMachineId));
+                    throw new CloudRuntimeException("Offering tags update is not allowed because this offering is assigned to VMs.");
+                }
             }
 
             if (displayName != null) {
