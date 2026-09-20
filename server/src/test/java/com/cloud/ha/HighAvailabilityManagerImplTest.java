@@ -62,6 +62,7 @@ import com.cloud.host.Host;
 import com.cloud.host.HostVO;
 import com.cloud.host.Status;
 import com.cloud.host.dao.HostDao;
+import com.cloud.hostdevices.dao.HostDeviceDao;
 import com.cloud.hypervisor.Hypervisor.HypervisorType;
 import com.cloud.network.VpcVirtualNetworkApplianceService;
 import com.cloud.resource.ResourceManager;
@@ -136,6 +137,8 @@ public class HighAvailabilityManagerImplTest {
     VpcVirtualNetworkApplianceService routerService;
     @Mock
     UserVmManager userVmManager;
+    @Mock
+    HostDeviceDao hostDeviceDao;
 
     @Mock
     private HaWorkVO mockWork;

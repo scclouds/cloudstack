@@ -95,6 +95,7 @@ import org.apache.cloudstack.engine.subsystem.api.storage.StoragePoolAllocator;
 import org.apache.cloudstack.framework.config.ConfigKey;
 import org.apache.cloudstack.framework.config.dao.ConfigurationDao;
 import org.apache.cloudstack.framework.messagebus.MessageBus;
+import org.apache.cloudstack.hostdevices.HostDevicesManager;
 import org.apache.cloudstack.storage.datastore.db.PrimaryDataStoreDao;
 import org.apache.cloudstack.storage.datastore.db.StoragePoolVO;
 import org.apache.cloudstack.test.utils.SpringUtils;
@@ -224,6 +225,9 @@ public class DeploymentPlanningManagerImplTest {
     @Mock
     DataStoreManager _dataStoreManager;
 
+    @Mock
+    HostDevicesManager hostDevicesManager;
+
     @Inject
     HostPodDao _podDao;
 
@@ -279,6 +283,7 @@ public class DeploymentPlanningManagerImplTest {
         _dpm.setStoragePoolAllocators(Arrays.asList(allocator));
 
         Mockito.when(host.getId()).thenReturn(hostId);
+        Mockito.when(hostDevicesManager.doesHostMatchVmDeviceOfferings(ArgumentMatchers.any(), ArgumentMatchers.any())).thenReturn(true);
         Mockito.doNothing().when(_dpm).avoidDisabledResources(vmProfile, dc, avoids);
     }
 

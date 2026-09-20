@@ -440,7 +440,6 @@ StateListener<State, VirtualMachine.Event, VirtualMachine>, Configurable {
 
                         if (checkIfHostFitsPlannerUsage(dest.getHost(), DeploymentPlanner.PlannerResourceUsage.Shared)) {
                             // found destination
-                            hostDevicesManager.reserveDevicesForVm(vmProfile.getId(), dest.getHost().getId());
                             return dest;
                         } else {
                             // find another host - seems some concurrent
@@ -560,8 +559,6 @@ StateListener<State, VirtualMachine.Event, VirtualMachine>, Configurable {
                         storageVolMap.remove(vol);
                     }
 
-                    hostDevicesManager.reserveDevicesForVm(vmProfile.getId(), lastHost.getId());
-
                     DeployDestination dest = new DeployDestination(dc, pod, cluster, lastHost, storageVolMap, displayStorage);
                     logger.debug("Returning Deployment Destination: {}", dest);
                     return dest;
@@ -606,6 +603,12 @@ StateListener<State, VirtualMachine.Event, VirtualMachine>, Configurable {
             return false;
         }
 
+        if (!hostDevicesManager.doesHostMatchVmDeviceOfferings(host, vm.getId())) {
+            logger.debug("Cannot deploy VM [{}] in its last host [{}] because this host does not have the host devices required by the VM. Skipping this and trying other available hosts.",
+                    vm, host.getId());
+            return false;
+        }
+
         if (volumesRequireEncryption && !Boolean.parseBoolean(host.getDetail(Host.HOST_VOLUME_ENCRYPTION))) {
             logger.warn("The last host of this VM {} does not support volume encryption, which is required by this VM.", host);
             return false;
@@ -633,6 +636,11 @@ StateListener<State, VirtualMachine.Event, VirtualMachine>, Configurable {
         }
         if (avoids.shouldAvoid(host)) {
             logger.debug("Cannot deploy VM [{}] to host [{}] because this host is in the avoid set.", vm, host);
+            return null;
+        }
+
+        if (!hostDevicesManager.doesHostMatchVmDeviceOfferings(host, vm.getId())) {
+            logger.debug("Cannot deploy VM [{}] to host [{}] because this host does not have the host devices required by the VM.", vm, host);
             return null;
         }
 
@@ -669,8 +677,6 @@ StateListener<State, VirtualMachine.Event, VirtualMachine>, Configurable {
                 for (Volume vol : readyAndReusedVolumes) {
                     storageVolMap.remove(vol);
                 }
-
-                hostDevicesManager.reserveDevicesForVm(vmProfile.getId(), host.getId());
 
                 DeployDestination dest = new DeployDestination(dc, pod, cluster, host, storageVolMap, displayStorage);
                 logger.debug("Returning Deployment Destination: {}", dest);
@@ -2048,8 +2054,6 @@ StateListener<State, VirtualMachine.Event, VirtualMachine>, Configurable {
                 }
 
                 if (saveReservation) {
-                    hostDevicesManager.reserveDevicesForVm(vmProfile.getId(), plannedDestination.getHost().getId());
-
                     VMReservationVO vmReservation =
                             new VMReservationVO(vm.getId(), plannedDestination.getDataCenter().getId(), plannedDestination.getPod().getId(), plannedDestination.getCluster()
                                     .getId(), plannedDestination.getHost().getId());

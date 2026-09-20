@@ -451,6 +451,12 @@ public class HighAvailabilityManagerImpl extends ManagerBase implements Configur
         if (vm.getHostId() == null) {
             return false;
         }
+
+        if (CollectionUtils.isNotEmpty(hostDeviceDao.listHostDevicesByVmId(vm.getId()))) {
+            logger.error("Skipping migration of VM {} as it is attached to one or more devices on host {}.", vm, vm.getHostId());
+            return false;
+        }
+
         if (!VmHaEnabled.valueIn(vm.getDataCenterId())) {
             String message = String.format("Unable to schedule migration for the VM %s on host %s, VM high availability manager is disabled.", vm, _hostDao.findById(vm.getHostId()));
             if (logger.isDebugEnabled()) {

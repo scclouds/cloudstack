@@ -652,6 +652,7 @@ import org.apache.cloudstack.framework.config.impl.ConfigurationSubGroupVO;
 import org.apache.cloudstack.framework.config.impl.ConfigurationVO;
 import org.apache.cloudstack.framework.extensions.manager.ExtensionsManager;
 import org.apache.cloudstack.framework.security.keystore.KeystoreManager;
+import org.apache.cloudstack.hostdevices.DeviceOfferingManager;
 import org.apache.cloudstack.managed.context.ManagedContextRunnable;
 import org.apache.cloudstack.management.ManagementServerHost;
 import org.apache.cloudstack.query.QueryService;
@@ -1015,6 +1016,8 @@ public class ManagementServerImpl extends MutualExclusiveIdsManagerBase implemen
     private ServiceOfferingDao _offeringDao;
     @Inject
     private DeploymentPlanningManager _dpMgr;
+    @Inject
+    private DeviceOfferingManager deviceOfferingManager;
     @Inject
     private GuestOsDetailsDao _guestOsDetailsDao;
     @Inject
@@ -1515,6 +1518,11 @@ public class ManagementServerImpl extends MutualExclusiveIdsManagerBase implemen
         // GPU check
         if (_serviceOfferingDetailsDao.findDetail(vm.getServiceOfferingId(), GPU.Keys.pciDevice.toString()) != null) {
             logger.info("Live Migration of GPU enabled VM : {} is not supported", vm);
+            return new Ternary<>(new Pair<>(new ArrayList<>(), 0), new ArrayList<>(), new HashMap<>());
+        }
+
+        if (deviceOfferingManager.isVmAssignedToDeviceOfferings(vm)) {
+            logger.info("Migration of VM {} is not supported because it is assigned to device offerings", vm);
             return new Ternary<>(new Pair<>(new ArrayList<>(), 0), new ArrayList<>(), new HashMap<>());
         }
 
