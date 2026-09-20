@@ -19,16 +19,17 @@ package org.apache.cloudstack.quota.activationrule.presetvariables;
 
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Collections;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 import com.cloud.dc.ClusterDetailsDao;
 import com.cloud.dc.ClusterDetailsVO;
 import com.cloud.host.HostTagVO;
+import com.cloud.hostdevices.DeviceOfferingDeviceTagVO;
 import com.cloud.hostdevices.DeviceOfferingVO;
 import com.cloud.hostdevices.dao.DeviceOfferingDao;
 import com.cloud.hostdevices.dao.DeviceOfferingDeviceTagDao;
@@ -423,12 +424,10 @@ public class PresetVariableHelper {
         return presetVariableDeviceOfferings;
     }
 
-    private List<String> getDeviceOfferingTags(long deviceOfferingId) {
-        return deviceOfferingDeviceTagDao.getDeviceOfferingTags(deviceOfferingId)
-                .entrySet()
-                .stream()
-                .flatMap(tagToAmount -> Collections.nCopies(tagToAmount.getValue(), tagToAmount.getKey()).stream())
-                .collect(Collectors.toList());
+    private Set<String> getDeviceOfferingTags(long deviceOfferingId) {
+        List<DeviceOfferingDeviceTagVO> offerings = deviceOfferingDeviceTagDao.getDeviceOfferingTags(deviceOfferingId);
+
+        return offerings.stream().map(DeviceOfferingDeviceTagVO::getDeviceTag).collect(Collectors.toSet());
     }
 
     protected void logNotLoadingMessageInTrace(String resource, int usageType) {

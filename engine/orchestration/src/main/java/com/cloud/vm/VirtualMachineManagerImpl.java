@@ -1780,7 +1780,7 @@ public class VirtualMachineManagerImpl extends ManagerBase implements VirtualMac
         }
 
         try {
-            hostDeviceManager.releaseHostDevicesForVm(vm.getId());
+            hostDeviceManager.releaseHostDevicesForVm(vm.getId(), null);
         } catch (final Exception e) {
             logger.error("Failed to release the host devices reserved for {} by the start attempt that failed.", vm, e);
         }
@@ -2751,7 +2751,7 @@ public class VirtualMachineManagerImpl extends ManagerBase implements VirtualMac
         deleteVMSnapshots(vm, expunge);
 
         gpuService.deallocateAllGpuDevicesForVm(vm.getId());
-        hostDeviceManager.releaseHostDevicesForVm(vm.getId());
+        hostDeviceManager.releaseHostDevicesForVm(vm.getId(), null);
         deviceOfferingManager.unassignVmFromOfferings(vm.getId());
 
         Transaction.execute(new TransactionCallbackWithExceptionNoReturn<CloudRuntimeException>() {

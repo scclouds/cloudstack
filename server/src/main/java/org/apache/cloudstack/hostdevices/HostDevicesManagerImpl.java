@@ -87,6 +87,7 @@ import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
@@ -523,7 +524,7 @@ public class HostDevicesManagerImpl extends ManagerBase implements HostDevicesMa
     }
 
     @Override
-    public void releaseHostDevicesForVm(Long vmId) {
+    public void releaseHostDevicesForVm(Long vmId, Map<String, Integer> deviceTags) {
         VirtualMachine vm = virtualMachineDao.findById(vmId);
 
         if (vm == null) {
@@ -534,15 +535,50 @@ public class HostDevicesManagerImpl extends ManagerBase implements HostDevicesMa
         Transaction.execute(new TransactionCallbackNoReturn() {
             @Override
             public void doInTransactionWithoutResult(TransactionStatus status) {
-                List<HostDeviceVO> devices = hostDeviceDao.listAndLockHostDevicesByVmId(vmId);
-                if (CollectionUtils.isEmpty(devices)) {
+                Set<String> tags = deviceTags.keySet();
+                List<HostDeviceVO> totalDevices = hostDeviceDao.listAndLockHostDevicesByVmId(vmId, tags);
+
+                if (CollectionUtils.isEmpty(totalDevices)) {
                     logger.debug("No host devices found for VM with ID {}. Skipping devices release process.", vmId);
                     return;
                 }
 
-                logger.info("The following devices will be released from VM {}: {}", vmId, devices.stream().map(HostDeviceVO::getPciName).collect(Collectors.toList()));
+                List<HostDeviceVO> filteredDevices = totalDevices;
 
-                for (HostDeviceVO dev : devices) {
+                if (deviceTags != null) {
+                    Map<String, List<HostDeviceVO>> devicesCount = new HashMap<>();
+
+                    filteredDevices = totalDevices
+                            .stream()
+                            .filter(dev -> {
+                                String deviceTag = dev.getDeviceTag();
+
+                                if (!tags.contains(deviceTag)) {
+                                    return false;
+                                }
+
+                                int currentCount = devicesCount.getOrDefault(deviceTag, new ArrayList<>()).size();
+                                if (currentCount < deviceTags.get(deviceTag)) {
+                                    List<HostDeviceVO> seenDevices = devicesCount.getOrDefault(deviceTag, new ArrayList<>());
+                                    seenDevices.add(dev);
+                                    devicesCount.put(deviceTag, seenDevices);
+                                    return true;
+                                }
+
+                                return false;
+                            })
+                            .collect(Collectors.toList());
+                }
+
+                logger.info("The following devices will be released from VM {}: {}", vmId, filteredDevices.stream().map(HostDeviceVO::getPciName).collect(Collectors.toList()));
+
+                List<HostDeviceVO> devicesOutsideAttachedState = filteredDevices.stream().filter(d -> !HostDevice.State.Attached.equals(d.getState())).collect(Collectors.toList());
+                if (!devicesOutsideAttachedState.isEmpty()) {
+                    logger.error("The following devices are not in Attached state: {}. Cancelling device releasing process.", devicesOutsideAttachedState.stream().map(HostDeviceVO::getPciName).collect(Collectors.toList()));
+                    throw new CloudRuntimeException("There are inconsistent devices attached to this VM. Please, normalize them before release.");
+                }
+
+                for (HostDeviceVO dev : filteredDevices) {
                     dev.setAccountId(null);
                     dev.setDomainId(null);
                     dev.setInstanceId(null);
@@ -551,7 +587,7 @@ public class HostDevicesManagerImpl extends ManagerBase implements HostDevicesMa
                     hostDeviceDao.update(dev.getId(), dev);
                 }
 
-                long amount = devices.size();
+                long amount = filteredDevices.size();
                 resourceLimitMgr.decrementResourceCount(vm.getAccountId(), Resource.ResourceType.host_device, amount);
             }
         });
@@ -639,7 +675,7 @@ public class HostDevicesManagerImpl extends ManagerBase implements HostDevicesMa
         Transaction.execute(new TransactionCallbackNoReturn() {
             @Override
             public void doInTransactionWithoutResult(TransactionStatus status) {
-                List<HostDeviceVO> hostDevices = hostDeviceDao.listAndLockHostDevicesByVmId(vmId);
+                List<HostDeviceVO> hostDevices = hostDeviceDao.listAndLockHostDevicesByVmId(vmId, null);
 
                 if (CollectionUtils.isEmpty(hostDevices)) {
                     logger.debug("No host devices found for VM with ID {}. Skipping devices ownership update.", vmId);
@@ -707,9 +743,9 @@ public class HostDevicesManagerImpl extends ManagerBase implements HostDevicesMa
             throw new CloudRuntimeException("Account with id " + vm.getAccountId() + " was not found.");
         }
 
-        Map<String, Integer> offeringsTags = deviceOfferingDeviceTagDao.getDeviceOfferingsTags(vmAssignedOfferings);
+        Map<String, Integer> offeringsTags = DeviceOfferingHelper.getDeviceOfferingToAmountMap(deviceOfferingDeviceTagDao.getDeviceOfferingsTags(vmAssignedOfferings));
 
-        try (CheckedReservation hostDeviceReservation = new CheckedReservation(owner, Resource.ResourceType.host_device, null, (long) countOfferingTagsAmount(offeringsTags), reservationDao, resourceLimitMgr)) {
+        try (CheckedReservation hostDeviceReservation = new CheckedReservation(owner, Resource.ResourceType.host_device, null, (long) DeviceOfferingHelper.countOfferingTagsAmount(offeringsTags), reservationDao, resourceLimitMgr)) {
             return Transaction.execute((TransactionCallback<Boolean>) status -> {
                 List<HostDeviceVO> availableDevices = hostDeviceDao.listHostDevicesAvailableForAllocation(selectedHostId, new ArrayList<>(offeringsTags.keySet()));
 
@@ -781,7 +817,7 @@ public class HostDevicesManagerImpl extends ManagerBase implements HostDevicesMa
             return true;
         }
 
-        Map<String, Integer> deviceOfferingsTags = deviceOfferingDeviceTagDao.getDeviceOfferingsTags(deviceOfferings);
+        Map<String, Integer> deviceOfferingsTags = DeviceOfferingHelper.getDeviceOfferingToAmountMap(deviceOfferingDeviceTagDao.getDeviceOfferingsTags(deviceOfferings));
 
         if (virtualMachineId != null) {
             List<HostDeviceVO> vmDevices = hostDeviceDao.listHostDevicesByVmId(virtualMachineId);
@@ -795,7 +831,7 @@ public class HostDevicesManagerImpl extends ManagerBase implements HostDevicesMa
 
         List<HostDeviceVO> hostDevices = hostDeviceDao.listHostDevicesForOfferingAndVmCheck(host.getId(), new ArrayList<>(deviceOfferingsTags.keySet()), virtualMachineId);
 
-        int necessaryDeviceAmount = countOfferingTagsAmount(deviceOfferingsTags);
+        int necessaryDeviceAmount = DeviceOfferingHelper.countOfferingTagsAmount(deviceOfferingsTags);
         if (hostDevices.size() < necessaryDeviceAmount) {
             logger.debug("Host {} has {} candidate devices, which is less than the {} devices required by the device offerings.", host.getId(), hostDevices.size(), necessaryDeviceAmount);
             return false;
@@ -824,10 +860,6 @@ public class HostDevicesManagerImpl extends ManagerBase implements HostDevicesMa
         }
 
         return true;
-    }
-
-    private int countOfferingTagsAmount(Map<String, Integer> tagToAmountMap) {
-        return tagToAmountMap.values().stream().mapToInt(Integer::intValue).sum();
     }
 
     private void triggerAutomaticScanForClusters() {

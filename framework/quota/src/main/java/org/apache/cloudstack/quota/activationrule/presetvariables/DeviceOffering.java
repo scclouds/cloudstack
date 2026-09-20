@@ -17,21 +17,21 @@
 
 package org.apache.cloudstack.quota.activationrule.presetvariables;
 
-import java.util.List;
+import java.util.Set;
 
 public class DeviceOffering extends GenericPresetVariable {
     @PresetVariableDefinition(description = "List of tags of the device offering (i.e.: [\"tag1\", \"tag2\"]).")
-    private List<String> tags;
+    private Set<String> tags;
     @PresetVariableDefinition(description = "The ID of the domain to which the device offering belongs.")
     private Long domainId;
     @PresetVariableDefinition(description = "The ID of the zone to which the device offering belongs.")
     private Long zoneId;
 
-    public List<String> getTags() {
+    public Set<String> getTags() {
         return tags;
     }
 
-    public void setTags(List<String> tags) {
+    public void setTags(Set<String> tags) {
         this.tags = tags;
     }
 

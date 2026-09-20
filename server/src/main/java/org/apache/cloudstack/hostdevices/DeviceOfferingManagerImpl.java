@@ -86,6 +86,8 @@ public class DeviceOfferingManagerImpl extends ManagerBase implements DeviceOffe
     private VMInstanceDeviceOfferingsDao vmInstanceDeviceOfferingsDao;
     @Inject
     private ResourceLimitService resourceLimitMgr;
+    @Inject
+    private HostDevicesManager hostDevicesManager;
 
     private static final int MAX_DEVICE_TAG_LENGTH = 255;
     private static final int MAX_DEVICE_TAG_AMOUNT = 10;
@@ -180,20 +182,24 @@ public class DeviceOfferingManagerImpl extends ManagerBase implements DeviceOffe
 
         VirtualMachine vm = getVMAndCheckAccess(virtualMachineId, caller);
 
-        if (vm.getState().equals(VirtualMachine.State.Running)) {
-            logger.error("VM with ID [{}] is running, cannot remove device offering.", virtualMachineId);
-            throw new InvalidParameterValueException(String.format("VM with ID [%s] is running. Please stop it to remove device offering.", virtualMachineId));
+        if (vm.getState().equals(VirtualMachine.State.Stopped)) {
+            logger.error("VM with ID [{}] not stopped, cannot remove device offering.", virtualMachineId);
+            throw new InvalidParameterValueException(String.format("VM with ID [%s] is stopped. Please stop it to remove device offering.", virtualMachineId));
         }
 
         DeviceOfferingVO offering = getDeviceOfferingAndCheckAccess(deviceOfferingId, caller, vm);
 
-        VMInstanceDeviceOfferingsVO assignedDeviceOffering = vmInstanceDeviceOfferingsDao.findByVmIdAndDeviceId(virtualMachineId, offering.getId());
-        if (assignedDeviceOffering == null) {
+        VMInstanceDeviceOfferingsVO deviceOfferingAssignment = vmInstanceDeviceOfferingsDao.findByVmIdAndDeviceId(virtualMachineId, offering.getId());
+        if (deviceOfferingAssignment == null) {
             logger.error("VM with ID [{}] does not have this device offering assigned, cannot remove.", virtualMachineId);
             throw new InvalidParameterValueException(String.format("VM with ID [%s] does not have this device offering assigned.", virtualMachineId));
         }
 
-        vmInstanceDeviceOfferingsDao.expunge(assignedDeviceOffering.getId());
+        Map<String, Integer> offeringTags = DeviceOfferingHelper.getDeviceOfferingToAmountMap(deviceOfferingDeviceTagsDao.getDeviceOfferingTags(offering.getId()));
+
+        hostDevicesManager.releaseHostDevicesForVm(virtualMachineId, offeringTags);
+
+        vmInstanceDeviceOfferingsDao.expunge(deviceOfferingAssignment.getId());
         return true;
     }
 
@@ -267,7 +273,7 @@ public class DeviceOfferingManagerImpl extends ManagerBase implements DeviceOffe
         response.setRemoved(offering.getRemoved());
         response.setIsPublic(offering.getIsPublic());
 
-        Map<String, Integer> deviceTags = deviceOfferingDeviceTagsDao.getDeviceOfferingTags(offering.getId());
+        Map<String, Integer> deviceTags = DeviceOfferingHelper.getDeviceOfferingToAmountMap(deviceOfferingDeviceTagsDao.getDeviceOfferingTags(offering.getId()));
         if (MapUtils.isNotEmpty(deviceTags)) {
             response.setDeviceTags(deviceTags);
         }
@@ -408,7 +414,7 @@ public class DeviceOfferingManagerImpl extends ManagerBase implements DeviceOffe
     }
 
     protected void checkVmOwnerHostDeviceLimit(VirtualMachine vm, Long deviceOfferingId) throws ResourceAllocationException {
-        Map<String, Integer> offeringTags = deviceOfferingDeviceTagsDao.getDeviceOfferingTags(deviceOfferingId);
+        Map<String, Integer> offeringTags = DeviceOfferingHelper.getDeviceOfferingToAmountMap(deviceOfferingDeviceTagsDao.getDeviceOfferingTags(deviceOfferingId));
 
         if (MapUtils.isEmpty(offeringTags)) {
             return;
