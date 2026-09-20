@@ -17,24 +17,37 @@
 
 package com.cloud.hostdevices;
 
+import org.apache.commons.lang3.StringUtils;
+
 import javax.persistence.Column;
 import javax.persistence.Entity;
+import javax.persistence.GeneratedValue;
+import javax.persistence.GenerationType;
+import javax.persistence.Id;
 import javax.persistence.Table;
+import java.util.Locale;
 
 @Entity
 @Table(name = "device_offering_device_tags")
 public class DeviceOfferingDeviceTagVO {
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @Column(name = "id")
+    private Long id;
     @Column(name = "device_offering_id")
     private Long deviceOfferingId;
     @Column(name = "device_tag")
     private String deviceTag;
+    @Column(name = "amount")
+    private Integer amount;
 
     public DeviceOfferingDeviceTagVO() {
     }
 
-    public DeviceOfferingDeviceTagVO(Long deviceOfferingId, String deviceTag) {
+    public DeviceOfferingDeviceTagVO(Long deviceOfferingId, String deviceTag, Integer amount) {
         this.deviceOfferingId = deviceOfferingId;
-        this.deviceTag = deviceTag;
+        this.deviceTag = StringUtils.lowerCase(StringUtils.trim(deviceTag), Locale.ROOT);
+        this.amount = amount;
     }
 
     public Long getDeviceOfferingId() {
@@ -43,5 +56,13 @@ public class DeviceOfferingDeviceTagVO {
 
     public String getDeviceTag() {
         return deviceTag;
+    }
+
+    public Integer getAmount() {
+        return amount;
+    }
+
+    public Long getId() {
+        return id;
     }
 }

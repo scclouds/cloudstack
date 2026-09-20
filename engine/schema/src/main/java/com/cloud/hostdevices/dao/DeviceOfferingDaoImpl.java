@@ -34,7 +34,10 @@ import com.cloud.utils.db.Filter;
 import javax.annotation.PostConstruct;
 import javax.inject.Inject;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 
 @Component
 public class DeviceOfferingDaoImpl extends GenericDaoBase<DeviceOfferingVO, Long> implements DeviceOfferingDao {
@@ -109,7 +112,13 @@ public class DeviceOfferingDaoImpl extends GenericDaoBase<DeviceOfferingVO, Long
 
     @Override
     public List<String> listDeviceOfferingTags(Long deviceOfferingId) {
-        return deviceOfferingDeviceTagDao.getDeviceOfferingTags(deviceOfferingId);
+        Map<String, Integer> tagToAmount = deviceOfferingDeviceTagDao.getDeviceOfferingTags(deviceOfferingId);
+
+        return tagToAmount
+                .entrySet()
+                .stream()
+                .flatMap(tag -> Collections.nCopies(tag.getValue(), tag.getKey()).stream())
+                .collect(Collectors.toList());
     }
 
     private SearchBuilder<DeviceOfferingVO> getBaseSearchBuilder() {

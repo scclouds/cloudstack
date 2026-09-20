@@ -34,6 +34,7 @@ import javax.persistence.Table;
 import javax.persistence.Temporal;
 import javax.persistence.TemporalType;
 import java.util.Date;
+import java.util.Locale;
 import java.util.UUID;
 
 @Entity
@@ -122,7 +123,7 @@ public class HostDeviceVO implements HostDevice {
         this.state = State.Disabled;
         this.type = HostDevice.Type.getFromClassCode(device.getClassCode());
         this.displayName = buildDisplayName(device);
-        this.deviceTag = this.type.toString();
+        setDeviceTag(this.type.toString());
         this.hostId = hostId;
     }
 
@@ -160,7 +161,7 @@ public class HostDeviceVO implements HostDevice {
     }
 
     public void setDisplayName(String displayName) {
-        this.displayName = displayName;
+        this.displayName = StringUtils.trim(displayName);
     }
 
     public String getPciName() {
@@ -232,7 +233,7 @@ public class HostDeviceVO implements HostDevice {
     }
 
     public void setDeviceTag(String deviceTag) {
-        this.deviceTag = deviceTag;
+        this.deviceTag = StringUtils.lowerCase(StringUtils.trim(deviceTag), Locale.ROOT);
     }
 
     public Date getCreated() {

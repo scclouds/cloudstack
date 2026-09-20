@@ -704,8 +704,10 @@ CREATE TABLE IF NOT EXISTS `cloud`.`device_offering_device_tags` (
   `id` bigint unsigned NOT NULL auto_increment COMMENT 'Row ID',
   `device_offering_id` bigint unsigned NOT NULL COMMENT 'Device offering id. Foreign key that points to the device_offerings table',
   `device_tag` varchar(255) NOT NULL COMMENT 'Device tag, used to assign it to devices offerings',
+  `amount` int NOT NULL COMMENT 'Device tag amount, used to define how many devices should be provisioned',
   PRIMARY KEY (`id`),
   INDEX `i_device_offering_device_tags_device_tag` (`device_tag`),
+  CONSTRAINT `uc_device_offering_device_tags` UNIQUE (`device_offering_id`, `device_tag`),
   CONSTRAINT `fk_device_offering_device_tags_device_offering_id` FOREIGN KEY (`device_offering_id`) REFERENCES `device_offerings` (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
 

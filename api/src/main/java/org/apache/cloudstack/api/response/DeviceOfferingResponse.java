@@ -25,7 +25,7 @@ import com.cloud.serializer.Param;
 import org.apache.cloudstack.hostdevices.DeviceOffering;
 
 import java.util.Date;
-import java.util.List;
+import java.util.Map;
 
 @EntityReference(value = DeviceOffering.class)
 public class DeviceOfferingResponse extends BaseResponse {
@@ -67,7 +67,7 @@ public class DeviceOfferingResponse extends BaseResponse {
 
     @SerializedName(ApiConstants.DEVICE_TAGS)
     @Param(description = "the device tags of the device offering", since = "4.24.0")
-    private List<String> deviceTags;
+    private Map<String, Integer> deviceTags;
 
     public String getId() {
         return id;
@@ -141,11 +141,11 @@ public class DeviceOfferingResponse extends BaseResponse {
         this.isPublic = isPublic;
     }
 
-    public List<String> getDeviceTags() {
+    public Map<String, Integer> getDeviceTags() {
         return deviceTags;
     }
 
-    public void setDeviceTags(List<String> deviceTags) {
+    public void setDeviceTags(Map<String, Integer> deviceTags) {
         this.deviceTags = deviceTags;
     }
 }

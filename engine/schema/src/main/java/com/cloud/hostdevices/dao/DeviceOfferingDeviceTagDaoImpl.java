@@ -25,8 +25,9 @@ import org.apache.cloudstack.hostdevices.DeviceOffering;
 import org.apache.commons.collections.CollectionUtils;
 import org.springframework.stereotype.Component;
 
-import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 @Component
@@ -40,24 +41,22 @@ public class DeviceOfferingDeviceTagDaoImpl extends GenericDaoBase<DeviceOfferin
     }
 
     @Override
-    public List<String> getDeviceOfferingTags(Long deviceOfferingId) {
-        SearchCriteria<DeviceOfferingDeviceTagVO> sc = deviceOfferingDeviceTagSearch.create();
-
-        sc.setParameters("deviceOfferingId", List.of(deviceOfferingId).toArray());
-
-        return listBy(sc).stream().map(DeviceOfferingDeviceTagVO::getDeviceTag).collect(Collectors.toList());
+    public Map<String, Integer> getDeviceOfferingTags(Long deviceOfferingId) {
+        return getTagsAmount(List.of(deviceOfferingId));
     }
 
-    public List<String> getDeviceOfferingsTags(List<? extends DeviceOffering> deviceOfferings) {
+    @Override
+    public Map<String, Integer> getDeviceOfferingsTags(List<? extends DeviceOffering> deviceOfferings) {
         if (CollectionUtils.isEmpty(deviceOfferings)) {
-            return new ArrayList<>();
+            return new HashMap<>();
         }
+        return getTagsAmount(deviceOfferings.stream().map(DeviceOffering::getId).collect(Collectors.toList()));
+    }
 
-        List<Long> ids = deviceOfferings.stream().map(DeviceOffering::getId).collect(Collectors.toList());
+    private Map<String, Integer> getTagsAmount(List<Long> offeringIds) {
         SearchCriteria<DeviceOfferingDeviceTagVO> sc = deviceOfferingDeviceTagSearch.create();
-        sc.setParameters("deviceOfferingId", ids.toArray());
-
-        return listBy(sc).stream().map(DeviceOfferingDeviceTagVO::getDeviceTag).collect(Collectors.toList());
+        sc.setParameters("deviceOfferingId", offeringIds.toArray());
+        return listBy(sc).stream().collect(Collectors.toMap(DeviceOfferingDeviceTagVO::getDeviceTag, DeviceOfferingDeviceTagVO::getAmount, Integer::sum));
     }
 
     @Override

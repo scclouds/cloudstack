@@ -409,6 +409,7 @@ public class PresetVariableHelper {
             presetVariableDeviceOffering.setName(deviceOffering.getName());
             presetVariableDeviceOffering.setDomainId(deviceOffering.getDomainId());
             presetVariableDeviceOffering.setZoneId(deviceOffering.getZoneId());
+            // TODO ERIK: ver como fazer com offering removida
             presetVariableDeviceOffering.setTags(deviceOfferingDao.listDeviceOfferingTags(deviceOffering.getId()));
 
             presetVariableDeviceOfferings.add(presetVariableDeviceOffering);
