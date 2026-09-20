@@ -17,13 +17,13 @@
 
 package org.apache.cloudstack.hostdevices;
 
-import com.cloud.event.ActionEvent;
-import com.cloud.event.EventTypes;
 import com.cloud.configuration.Resource;
 import com.cloud.dc.DataCenter;
 import com.cloud.dc.dao.DataCenterDao;
 import com.cloud.domain.Domain;
 import com.cloud.domain.dao.DomainDao;
+import com.cloud.event.ActionEvent;
+import com.cloud.event.EventTypes;
 import com.cloud.exception.InvalidParameterValueException;
 import com.cloud.exception.PermissionDeniedException;
 import com.cloud.exception.ResourceAllocationException;
@@ -36,8 +36,8 @@ import com.cloud.hostdevices.dao.VMInstanceDeviceOfferingsDao;
 import com.cloud.user.Account;
 import com.cloud.user.AccountManager;
 import com.cloud.user.ResourceLimitService;
-import com.cloud.utils.component.ManagerBase;
 import com.cloud.utils.Pair;
+import com.cloud.utils.component.ManagerBase;
 import com.cloud.utils.db.Filter;
 import com.cloud.utils.db.Transaction;
 import com.cloud.utils.db.TransactionCallback;
@@ -56,13 +56,17 @@ import org.apache.cloudstack.api.response.DeviceOfferingResponse;
 import org.apache.cloudstack.context.CallContext;
 import org.apache.cloudstack.framework.config.ConfigKey;
 import org.apache.commons.collections.CollectionUtils;
+import org.apache.commons.collections4.MapUtils;
 import org.apache.commons.lang3.BooleanUtils;
 import org.apache.commons.lang3.EnumUtils;
 
 import javax.inject.Inject;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Locale;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 public class DeviceOfferingManagerImpl extends ManagerBase implements DeviceOfferingManager {
@@ -83,6 +87,9 @@ public class DeviceOfferingManagerImpl extends ManagerBase implements DeviceOffe
     @Inject
     private ResourceLimitService resourceLimitMgr;
 
+    private static final int MAX_DEVICE_TAG_LENGTH = 255;
+    private static final int MAX_DEVICE_TAG_AMOUNT = 10;
+
     @Override
     @ActionEvent(eventType = EventTypes.EVENT_DEVICE_OFFERING_CREATE, eventDescription = "creating device offering")
     public DeviceOffering createDeviceOffering(CreateDeviceOfferingCmd cmd) {
@@ -101,10 +108,7 @@ public class DeviceOfferingManagerImpl extends ManagerBase implements DeviceOffe
             throw new InvalidParameterValueException("Only one of domainId or zoneId can be specified, not both.");
         }
 
-        if (cmd.getTags().isEmpty()) {
-            logger.error("No device tag was provided, cancelling creation.");
-            throw new InvalidParameterValueException("You must inform at least one device tag for the device offering.");
-        }
+        Map<String, Integer> tagToAmount = parseDeviceOfferingTagsParameter(cmd.getTags());
 
         if (domainId != null) {
             Domain domain = domainDao.findById(domainId);
@@ -134,8 +138,8 @@ public class DeviceOfferingManagerImpl extends ManagerBase implements DeviceOffe
 
             DeviceOfferingVO newOffering = deviceOfferingDao.persist(new DeviceOfferingVO(cmd.getName(), cmd.getDescription(), domainId, zoneId));
 
-            for (String tag : parseDeviceOfferingTagsParameter(cmd.getTags())) {
-                deviceOfferingDeviceTagsDao.persist(new DeviceOfferingDeviceTagVO(newOffering.getId(), tag));
+            for (Map.Entry<String, Integer> tagAndAmount : tagToAmount.entrySet()) {
+                deviceOfferingDeviceTagsDao.persist(new DeviceOfferingDeviceTagVO(newOffering.getId(), tagAndAmount.getKey(), tagAndAmount.getValue()));
             }
 
             return newOffering;
@@ -181,9 +185,9 @@ public class DeviceOfferingManagerImpl extends ManagerBase implements DeviceOffe
             throw new InvalidParameterValueException(String.format("VM with ID [%s] is running. Please stop it to remove device offering.", virtualMachineId));
         }
 
-        getDeviceOfferingAndCheckAccess(deviceOfferingId, caller);
+        DeviceOfferingVO offering = getDeviceOfferingAndCheckAccess(deviceOfferingId, caller);
 
-        VMInstanceDeviceOfferingsVO assignedDeviceOffering = vmInstanceDeviceOfferingsDao.findByVmIdAndDeviceId(virtualMachineId, deviceOfferingId);
+        VMInstanceDeviceOfferingsVO assignedDeviceOffering = vmInstanceDeviceOfferingsDao.findByVmIdAndDeviceId(virtualMachineId, offering.getId());
         if (assignedDeviceOffering == null) {
             logger.error("VM with ID [{}] does not have this device offering assigned, cannot remove.", virtualMachineId);
             throw new InvalidParameterValueException(String.format("VM with ID [%s] does not have this device offering assigned.", virtualMachineId));
@@ -272,8 +276,8 @@ public class DeviceOfferingManagerImpl extends ManagerBase implements DeviceOffe
         response.setRemoved(offering.getRemoved());
         response.setIsPublic(offering.getIsPublic());
 
-        List<String> deviceTags = deviceOfferingDeviceTagsDao.getDeviceOfferingTags(offering.getId());
-        if (CollectionUtils.isNotEmpty(deviceTags)) {
+        Map<String, Integer> deviceTags = deviceOfferingDeviceTagsDao.getDeviceOfferingTags(offering.getId());
+        if (MapUtils.isNotEmpty(deviceTags)) {
             response.setDeviceTags(deviceTags);
         }
 
@@ -314,6 +318,8 @@ public class DeviceOfferingManagerImpl extends ManagerBase implements DeviceOffe
         String description = updateDeviceOfferingCmd.getDescription();
         List<String> deviceTags = updateDeviceOfferingCmd.getTags();
         String stringState = updateDeviceOfferingCmd.getState();
+
+        Map<String, Integer> tagToAmount = deviceTags == null ? null : parseDeviceOfferingTagsParameter(deviceTags);
 
         return Transaction.execute((TransactionCallback<DeviceOfferingVO>) status -> {
             DeviceOfferingVO deviceOffering = deviceOfferingDao.lockRow(id, true);
@@ -357,7 +363,7 @@ public class DeviceOfferingManagerImpl extends ManagerBase implements DeviceOffe
             }
 
             deviceOfferingDao.update(deviceOffering.getId(), deviceOffering);
-            updateDeviceOfferingTags(deviceOffering.getId(), deviceTags);
+            updateDeviceOfferingTags(deviceOffering.getId(), tagToAmount);
 
             return deviceOffering;
         });
@@ -429,24 +435,22 @@ public class DeviceOfferingManagerImpl extends ManagerBase implements DeviceOffe
         return true;
     }
 
-    private void updateDeviceOfferingTags(Long offeringId, List<String> deviceTags) {
-        if (deviceTags == null) {
+    private void updateDeviceOfferingTags(Long offeringId, Map<String, Integer> newTags) {
+        if (newTags == null) {
             return;
         }
 
-        List<String> newTags = parseDeviceOfferingTagsParameter(deviceTags);
-
         deviceOfferingDeviceTagsDao.expungeByOfferingId(offeringId);
 
-        for (String tag : newTags) {
-            deviceOfferingDeviceTagsDao.persist(new DeviceOfferingDeviceTagVO(offeringId, tag));
+        for (Map.Entry<String, Integer> tagAndAmount : newTags.entrySet()) {
+            deviceOfferingDeviceTagsDao.persist(new DeviceOfferingDeviceTagVO(offeringId, tagAndAmount.getKey(), tagAndAmount.getValue()));
         }
     }
 
     protected void checkVmOwnerHostDeviceLimit(VirtualMachine vm, Long deviceOfferingId) throws ResourceAllocationException {
-        List<String> offeringTags = deviceOfferingDeviceTagsDao.getDeviceOfferingTags(deviceOfferingId);
+        Map<String, Integer> offeringTags = deviceOfferingDeviceTagsDao.getDeviceOfferingTags(deviceOfferingId);
 
-        if (CollectionUtils.isEmpty(offeringTags)) {
+        if (MapUtils.isEmpty(offeringTags)) {
             return;
         }
 
@@ -456,7 +460,8 @@ public class DeviceOfferingManagerImpl extends ManagerBase implements DeviceOffe
             throw new CloudRuntimeException(String.format("Could not find the owner of VM [%s].", vm.getUuid()));
         }
 
-        resourceLimitMgr.checkResourceLimit(owner, Resource.ResourceType.host_device, offeringTags.size());
+        int totalAmountOfDevices = offeringTags.values().stream().mapToInt(Integer::intValue).sum();
+        resourceLimitMgr.checkResourceLimit(owner, Resource.ResourceType.host_device, totalAmountOfDevices);
     }
 
     private Domain getDomainAndCheckAccess(Long domainId, Account caller) {
@@ -510,33 +515,61 @@ public class DeviceOfferingManagerImpl extends ManagerBase implements DeviceOffe
         return deviceOffering;
     }
 
-    private List<String> parseDeviceOfferingTagsParameter(List<String> commandTags) {
+    private Map<String, Integer> parseDeviceOfferingTagsParameter(List<String> commandTags) {
         if (CollectionUtils.isEmpty(commandTags)) {
-            logger.error("No device tag was provided.");
+            logger.error("Could not parse device offering tags because none was provided.");
             throw new InvalidParameterValueException("You must inform at least one device tag for the device offering.");
         }
 
-        List<String> tags = new ArrayList<>();
+        Map<String, Integer> tagToAmount = new HashMap<>();
         for (String tag : commandTags) {
-            String[] tagAndAmount = tag.split(":");
-            String tagName = tagAndAmount[0];
-            int amount = 1;
+            String[] tagAndAmount = tag.split(":", -1);
 
-            if (tagAndAmount.length > 1) {
+            if (tagAndAmount.length > 2) {
+                logger.error("Invalid device tag [{}]. The expected format is tag or tag:amount.", tag);
+                throw new InvalidParameterValueException(String.format("Invalid device tag: %s. The expected format is tag or tag:amount.", tag));
+            }
+
+            String tagName = tagAndAmount[0].trim();
+
+            if (tagName.isBlank()) {
+                logger.error("Invalid device tag [{}]. The tag name cannot be empty.", tag);
+                throw new InvalidParameterValueException(String.format("Invalid device tag: %s. The tag name cannot be empty.", tag));
+            }
+
+            if (tagName.length() > MAX_DEVICE_TAG_LENGTH) {
+                logger.error("Invalid device tag [{}]. The tag name is longer than {} characters.", tagName, MAX_DEVICE_TAG_LENGTH);
+                throw new InvalidParameterValueException(String.format("Invalid device tag: %s. The tag name cannot be longer than %d characters.", tagName, MAX_DEVICE_TAG_LENGTH));
+            }
+
+            int amount = 1;
+            tagName = tagName.toLowerCase(Locale.ROOT);
+
+            if (tagAndAmount.length == 2) {
+                String stringAmount = tagAndAmount[1].trim();
+
                 try {
-                    amount = Integer.parseInt(tagAndAmount[1]);
+                    amount = Integer.parseInt(stringAmount);
                 } catch (NumberFormatException e) {
-                    logger.error("Invalid amount [{}] specified for device tag [{}].", tagAndAmount[1], tagName);
-                    throw new CloudRuntimeException(String.format("Invalid amount specified for tag: %s. Please, specify a valid integer amount.", tagName));
+                    logger.error("Invalid amount [{}] specified for device tag [{}].", stringAmount, tagName);
+                    throw new InvalidParameterValueException(String.format("Invalid amount specified for tag: %s. Please, specify a valid integer amount.", tagName));
+                }
+
+                if (amount < 1) {
+                    logger.error("Invalid amount [{}] specified for device tag [{}]. Amount must be greater than 0.", amount, tagName);
+                    throw new InvalidParameterValueException(String.format("Invalid amount specified for tag: %s. Amount must be greater than 0.", tagName));
                 }
             }
 
-            for (int i = 0; i < amount; i++) {
-                tags.add(tagName);
+            int totalAmount = tagToAmount.merge(tagName, amount, Integer::sum);
+
+            if (totalAmount > MAX_DEVICE_TAG_AMOUNT) {
+                logger.error("Invalid amount [{}] specified for device tag [{}]. Amount cannot be greater than {}.", totalAmount, tagName, MAX_DEVICE_TAG_AMOUNT);
+                throw new InvalidParameterValueException(String.format("Invalid amount specified for tag: %s. Amount cannot be greater than %d.", tagName, MAX_DEVICE_TAG_AMOUNT));
             }
         }
 
-        return tags;
+        return tagToAmount;
     }
 
     @Override

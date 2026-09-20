@@ -25,10 +25,10 @@ import com.cloud.dc.ClusterDetailsDao;
 import com.cloud.dc.ClusterDetailsVO;
 import com.cloud.dc.ClusterVO;
 import com.cloud.dc.dao.ClusterDao;
-import com.cloud.event.ActionEvent;
-import com.cloud.event.EventTypes;
 import com.cloud.domain.Domain;
 import com.cloud.domain.dao.DomainDao;
+import com.cloud.event.ActionEvent;
+import com.cloud.event.EventTypes;
 import com.cloud.exception.InvalidParameterValueException;
 import com.cloud.exception.PermissionDeniedException;
 import com.cloud.exception.ResourceAllocationException;
@@ -78,11 +78,10 @@ import org.apache.logging.log4j.ThreadContext;
 import javax.inject.Inject;
 import javax.naming.ConfigurationException;
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.Arrays;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.function.Function;
 import java.util.UUID;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
@@ -458,7 +457,12 @@ public class HostDevicesManagerImpl extends ManagerBase implements HostDevicesMa
             throw new InvalidParameterValueException("At least one of the following parameters must be provided: enabled, displayName, tags, type");
         }
 
-        HostDeviceVO updatedDevice = Transaction.execute((TransactionCallback<HostDeviceVO>) status -> {
+        if (tag != null && tag.isBlank()) {
+            logger.error("Cancelling host device update because the informed device tag is blank.");
+            throw new InvalidParameterValueException("The device tag cannot be blank.");
+        }
+
+        return Transaction.execute((TransactionCallback<HostDeviceVO>) status -> {
             HostDeviceVO device = hostDeviceDao.lockRow(updateHostDeviceCmd.getDeviceId(), true);
 
             if (device == null) {
@@ -483,12 +487,14 @@ public class HostDevicesManagerImpl extends ManagerBase implements HostDevicesMa
                 device.setState(enabled ? HostDevice.State.Free : HostDevice.State.Disabled);
             }
 
-            if (displayName != null) {
+            if (displayName != null && !displayName.isBlank()) {
                 device.setDisplayName(displayName);
             }
+
             if (tag != null) {
                 device.setDeviceTag(tag);
             }
+
             if (type != null) {
                 device.setType(newDeviceType);
             }
@@ -497,8 +503,6 @@ public class HostDevicesManagerImpl extends ManagerBase implements HostDevicesMa
 
             return device;
         });
-
-        return updatedDevice;
     }
 
     @Override
@@ -619,7 +623,7 @@ public class HostDevicesManagerImpl extends ManagerBase implements HostDevicesMa
             @Override
             public void doInTransactionWithoutResult(TransactionStatus status) {
                 List<HostDeviceVO> hostDevices = hostDeviceDao.listAndLockHostDevicesByVmId(vmId);
- 
+
                 if (CollectionUtils.isEmpty(hostDevices)) {
                     logger.debug("No host devices found for VM with ID {}. Skipping devices ownership update.", vmId);
                     return;
@@ -680,25 +684,24 @@ public class HostDevicesManagerImpl extends ManagerBase implements HostDevicesMa
                 vmAssignedOfferings.stream().map(DeviceOfferingVO::getUuid).collect(Collectors.toList()),
                 selectedHostId);
 
-        List<String> offeringsTags = deviceOfferingDeviceTagDao.getDeviceOfferingsTags(vmAssignedOfferings);
-        Map<String, Long> requiredDevicesPerTag = offeringsTags.stream().collect(Collectors.groupingBy(Function.identity(), Collectors.counting()));
-
         Account owner = accountManager.getActiveAccountById(vm.getAccountId());
 
         if (owner == null) {
             throw new CloudRuntimeException("Account with id " + vm.getAccountId() + " was not found.");
         }
 
-        try (CheckedReservation hostDeviceReservation = new CheckedReservation(owner, Resource.ResourceType.host_device, null, (long) offeringsTags.size(), reservationDao, resourceLimitMgr)) {
+        Map<String, Integer> offeringsTags = deviceOfferingDeviceTagDao.getDeviceOfferingsTags(vmAssignedOfferings);
+
+        try (CheckedReservation hostDeviceReservation = new CheckedReservation(owner, Resource.ResourceType.host_device, null, (long) countOfferingTagsAmount(offeringsTags), reservationDao, resourceLimitMgr)) {
             return Transaction.execute((TransactionCallback<Boolean>) status -> {
-                List<HostDeviceVO> availableDevices = hostDeviceDao.listHostDevicesAvailableForAllocation(selectedHostId, offeringsTags);
+                List<HostDeviceVO> availableDevices = hostDeviceDao.listHostDevicesAvailableForAllocation(selectedHostId, new ArrayList<>(offeringsTags.keySet()));
 
                 if (CollectionUtils.isEmpty(availableDevices)) {
                     logger.debug("No available host devices found for host with ID {}", selectedHostId);
                     return false;
                 }
 
-                List<HostDeviceVO> devicesToReserve = selectDevicesToReserve(availableDevices, requiredDevicesPerTag, vmId);
+                List<HostDeviceVO> devicesToReserve = selectDevicesToReserve(availableDevices, offeringsTags, vmId);
 
                 if (devicesToReserve == null) {
                     return false;
@@ -724,13 +727,13 @@ public class HostDevicesManagerImpl extends ManagerBase implements HostDevicesMa
         }
     }
 
-    protected List<HostDeviceVO> selectDevicesToReserve(List<HostDeviceVO> availableDevices, Map<String, Long> requiredDevicesPerTag, Long vmId) {
+    protected List<HostDeviceVO> selectDevicesToReserve(List<HostDeviceVO> availableDevices, Map<String, Integer> requiredDevicesPerTag, Long vmId) {
         Map<String, List<HostDeviceVO>> availableDevicesPerTag = availableDevices.stream().collect(Collectors.groupingBy(HostDeviceVO::getDeviceTag));
         List<HostDeviceVO> selectedDevices = new ArrayList<>();
 
-        for (Map.Entry<String, Long> requirement : requiredDevicesPerTag.entrySet()) {
+        for (Map.Entry<String, Integer> requirement : requiredDevicesPerTag.entrySet()) {
             String deviceTag = requirement.getKey();
-            int requiredAmount = requirement.getValue().intValue();
+            int requiredAmount = requirement.getValue();
             List<HostDeviceVO> candidates = availableDevicesPerTag.getOrDefault(deviceTag, new ArrayList<>());
 
             if (candidates.size() < requiredAmount) {
@@ -761,22 +764,23 @@ public class HostDevicesManagerImpl extends ManagerBase implements HostDevicesMa
             return true;
         }
 
-        List<String> deviceOfferingsTags = deviceOfferingDeviceTagDao.getDeviceOfferingsTags(deviceOfferings);
+        Map<String, Integer> deviceOfferingsTags = deviceOfferingDeviceTagDao.getDeviceOfferingsTags(deviceOfferings);
 
         if (virtualMachineId != null) {
             List<HostDeviceVO> vmDevices = hostDeviceDao.listHostDevicesByVmId(virtualMachineId);
 
             if (CollectionUtils.isNotEmpty(vmDevices)) {
-                boolean areDevicesInThisHost = vmDevices.stream().allMatch(device ->  Long.valueOf(host.getId()).equals(device.getHostId()));
+                boolean areDevicesInThisHost = vmDevices.stream().allMatch(device -> Long.valueOf(host.getId()).equals(device.getHostId()));
                 logger.debug("VM {} holds devices {}, therefore host {} {} the device offering requirements.", virtualMachineId, vmDevices.stream().map(HostDeviceVO::getPciName).collect(Collectors.toList()), host.getId(), areDevicesInThisHost ? "satisfies" : "does not satisfy");
                 return areDevicesInThisHost;
             }
         }
 
-        List<HostDeviceVO> hostDevices = hostDeviceDao.listHostDevicesForOfferingAndVmCheck(host.getId(), deviceOfferingsTags, virtualMachineId);
+        List<HostDeviceVO> hostDevices = hostDeviceDao.listHostDevicesForOfferingAndVmCheck(host.getId(), new ArrayList<>(deviceOfferingsTags.keySet()), virtualMachineId);
 
-        if (hostDevices.size() < deviceOfferingsTags.size()) {
-            logger.debug("Host {} has {} candidate devices, which is less than the {} devices required by the device offerings.", host.getId(), hostDevices.size(), deviceOfferingsTags.size());
+        int necessaryDeviceAmount = countOfferingTagsAmount(deviceOfferingsTags);
+        if (hostDevices.size() < necessaryDeviceAmount) {
+            logger.debug("Host {} has {} candidate devices, which is less than the {} devices required by the device offerings.", host.getId(), hostDevices.size(), necessaryDeviceAmount);
             return false;
         }
 
@@ -785,19 +789,14 @@ public class HostDevicesManagerImpl extends ManagerBase implements HostDevicesMa
         return validateHostDevicesAgainstDeviceOfferings(deviceOfferingsTags, hostDevicesTags);
     }
 
-    protected boolean validateHostDevicesAgainstDeviceOfferings(List<String> deviceOfferingsTags, List<String> hostDevicesTags) {
-        Map<String, Integer> offeringTagsCountMap = new HashMap<>();
+    protected boolean validateHostDevicesAgainstDeviceOfferings(Map<String, Integer> deviceOfferingsTags, List<String> hostDevicesTags) {
         Map<String, Integer> devicesTagsCountMap = new HashMap<>();
-
-        for (String tag : deviceOfferingsTags) {
-            offeringTagsCountMap.merge(tag, 1, Integer::sum);
-        }
 
         for (String tag : hostDevicesTags) {
             devicesTagsCountMap.merge(tag, 1, Integer::sum);
         }
 
-        for (Map.Entry<String, Integer> entry : offeringTagsCountMap.entrySet()) {
+        for (Map.Entry<String, Integer> entry : deviceOfferingsTags.entrySet()) {
             String tag = entry.getKey();
             int required = entry.getValue();
             int returned = devicesTagsCountMap.getOrDefault(tag, 0);
@@ -808,6 +807,10 @@ public class HostDevicesManagerImpl extends ManagerBase implements HostDevicesMa
         }
 
         return true;
+    }
+
+    private int countOfferingTagsAmount(Map<String, Integer> tagToAmountMap) {
+        return tagToAmountMap.values().stream().mapToInt(Integer::intValue).sum();
     }
 
     private void triggerAutomaticScanForClusters() {

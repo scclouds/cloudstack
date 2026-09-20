@@ -22,11 +22,12 @@ import com.cloud.utils.db.GenericDao;
 import org.apache.cloudstack.hostdevices.DeviceOffering;
 
 import java.util.List;
+import java.util.Map;
 
 public interface DeviceOfferingDeviceTagDao extends GenericDao<DeviceOfferingDeviceTagVO, Long> {
-    List<String> getDeviceOfferingTags(Long deviceOfferingId);
+    Map<String, Integer> getDeviceOfferingTags(Long deviceOfferingId);
 
-    List<String> getDeviceOfferingsTags(List<? extends DeviceOffering> deviceOfferings);
+    Map<String, Integer> getDeviceOfferingsTags(List<? extends DeviceOffering> deviceOfferings);
 
     void expungeByOfferingId(long id);
 
