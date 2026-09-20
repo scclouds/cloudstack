@@ -24,6 +24,7 @@ import com.cloud.utils.db.GenericDao;
 import org.apache.cloudstack.hostdevices.HostDevice;
 
 import java.util.List;
+import java.util.Set;
 
 public interface HostDeviceDao extends GenericDao<HostDeviceVO, Long> {
     List<HostDeviceVO> listHostDevicesByHostId(Long hostId);
@@ -42,5 +43,5 @@ public interface HostDeviceDao extends GenericDao<HostDeviceVO, Long> {
 
     List<HostDeviceVO> listHostDevicesForOfferingAndVmCheck(Long hostId, List<String> deviceOfferingsTags, Long virtualMachineId);
 
-    List<HostDeviceVO> listAndLockHostDevicesByVmId(Long vmId);
+    List<HostDeviceVO> listAndLockHostDevicesByVmId(Long vmId, Set<String> deviceTags);
 }
