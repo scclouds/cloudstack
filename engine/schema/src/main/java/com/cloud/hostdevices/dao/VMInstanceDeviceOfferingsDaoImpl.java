@@ -59,9 +59,9 @@ public class VMInstanceDeviceOfferingsDaoImpl extends GenericDaoBase<VMInstanceD
     }
 
     @Override
-    public void expungeByVmId(Long vmId) {
+    public int expungeByVmId(Long vmId) {
         SearchCriteria<VMInstanceDeviceOfferingsVO> sc = searchBuilder.create();
         sc.setParameters("virtualMachineId", vmId);
-        expunge(sc);
+        return expunge(sc);
     }
 }

@@ -27,5 +27,5 @@ public interface VMInstanceDeviceOfferingsDao extends GenericDao<VMInstanceDevic
     List<VMInstanceDeviceOfferingsVO> listByVmId(Long virtualMachineId);
     List<VMInstanceDeviceOfferingsVO> listByOfferingId(Long id);
     VMInstanceDeviceOfferingsVO findByVmIdAndDeviceId(Long vmId, Long deviceId);
-    void expungeByVmId(Long vmId);
+    int expungeByVmId(Long vmId);
 }
