@@ -74,6 +74,7 @@ import org.apache.cloudstack.reservation.dao.ReservationDao;
 import org.apache.cloudstack.utils.libvirt.mappers.serialization.LibvirtDeviceDeserializer;
 import org.apache.cloudstack.utils.libvirt.model.LibvirtDevice;
 import org.apache.commons.collections.CollectionUtils;
+import org.apache.commons.lang3.EnumUtils;
 import org.apache.commons.lang3.ObjectUtils;
 import org.apache.logging.log4j.ThreadContext;
 
@@ -365,25 +366,8 @@ public class HostDevicesManagerImpl extends ManagerBase implements HostDevicesMa
         String stringDeviceType = cmd.getType();
         String stringDeviceState = cmd.getState();
 
-        HostDevice.State state = null;
-        if (stringDeviceState != null) {
-            state = HostDevice.State.getFromString(stringDeviceState);
-
-            if (state == null) {
-                logger.debug("Invalid state [{}] provided for host device listing. Supported devices are: {}", stringDeviceState, Arrays.toString(HostDevice.State.values()));
-                throw new InvalidParameterValueException("Invalid state " + stringDeviceState + " provided for host device listing.");
-            }
-        }
-
-        HostDevice.Type type = null;
-        if (stringDeviceType != null) {
-            type = HostDevice.Type.getFromString(stringDeviceType);
-
-            if (type == null) {
-                logger.debug("Invalid type [{}] provided for host device listing. Supported devices are: {}", stringDeviceType, Arrays.toString(HostDevice.Type.values()));
-                throw new InvalidParameterValueException("Invalid type " + stringDeviceType + " provided for host device listing.");
-            }
-        }
+        HostDevice.State state = stringDeviceState == null ? null : parseEnumIgnoreCase(HostDevice.State.class, stringDeviceState);
+        HostDevice.Type type = stringDeviceType == null ? null : parseEnumIgnoreCase(HostDevice.Type.class, stringDeviceType);
 
         if (hostId != null) {
             Host host = hostDao.findById(hostId);
@@ -490,6 +474,8 @@ public class HostDevicesManagerImpl extends ManagerBase implements HostDevicesMa
             throw new InvalidParameterValueException("The device tag cannot be blank.");
         }
 
+        HostDevice.Type newDeviceType = type == null ? null : parseEnumIgnoreCase(HostDevice.Type.class, type);
+
         return Transaction.execute((TransactionCallback<HostDeviceVO>) status -> {
             HostDeviceVO device = hostDeviceDao.lockRow(updateHostDeviceCmd.getDeviceId(), true);
 
@@ -501,14 +487,6 @@ public class HostDevicesManagerImpl extends ManagerBase implements HostDevicesMa
             if (!device.canBeUpdated()) {
                 logger.error("Current device state is {}. Only devices in Disabled or Free state can be updated.", device.getState());
                 throw new InvalidParameterValueException(String.format("Devices in state %s cannot be updated. Valid states for update are %s and %s.", device.getState(), HostDevice.State.Disabled, HostDevice.State.Free));
-            }
-
-            HostDevice.Type newDeviceType = null;
-            if (type != null) {
-                newDeviceType = HostDevice.Type.getFromString(type);
-                if (newDeviceType == null) {
-                    throw new InvalidParameterValueException(String.format("Invalid host device type: %s. Supported types are: %s", type, Arrays.toString(HostDevice.Type.values())));
-                }
             }
 
             if (enabled != null) {
@@ -523,7 +501,7 @@ public class HostDevicesManagerImpl extends ManagerBase implements HostDevicesMa
                 device.setDeviceTag(tag);
             }
 
-            if (type != null) {
+            if (newDeviceType != null) {
                 device.setType(newDeviceType);
             }
 
@@ -531,6 +509,17 @@ public class HostDevicesManagerImpl extends ManagerBase implements HostDevicesMa
 
             return device;
         });
+    }
+
+    private <E extends Enum<E>> E parseEnumIgnoreCase(Class<E> enumClass, String value) {
+        E parsedValue = EnumUtils.getEnumIgnoreCase(enumClass, value);
+
+        if (parsedValue == null) {
+            String supportedValues = Arrays.toString(enumClass.getEnumConstants());
+            throw new InvalidParameterValueException(String.format("Invalid value provided %s. Supported values are: %s.", value, supportedValues));
+        }
+
+        return parsedValue;
     }
 
     @Override
@@ -905,7 +894,7 @@ public class HostDevicesManagerImpl extends ManagerBase implements HostDevicesMa
             }
 
             logger.info("Scanning host devices of {} hosts in cluster {}.", hosts.size(), cluster.getId());
-            Map<String, String> failureReasonByHostUuid = scanDevicesOfHosts(hosts);
+            Map<String, String> failureReasonByHostUuid = scanHostDevices(hosts);
 
             if (!failureReasonByHostUuid.isEmpty()) {
                 logger.warn("The automatic device scan of cluster {} failed for {} out of {} hosts.", cluster.getId(), failureReasonByHostUuid.size(), hosts.size());

@@ -26,29 +26,11 @@ import java.util.Date;
 
 public interface HostDevice extends Identity, InternalIdentity {
     enum State {
-        Attached, Disabled, Failure, Free, HostInMaintenance, Missing;
-
-        public static State getFromString(String state) {
-            for (State s : State.values()) {
-                if (s.name().equalsIgnoreCase(state)) {
-                    return s;
-                }
-            }
-            return null;
-        }
+        Attached, Disabled, Failure, Free, HostInMaintenance, Missing
     }
 
     enum Type {
         Display, Network, Storage, USB, Generic;
-
-        public static Type getFromString(String type) {
-            for (Type t : Type.values()) {
-                if (t.name().equalsIgnoreCase(type)) {
-                    return t;
-                }
-            }
-            return null;
-        }
 
         public static Type getFromClassCode(String classCode) {
             if (StringUtils.isBlank(classCode)) {

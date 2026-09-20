@@ -158,7 +158,7 @@ public class DeviceOfferingManagerImpl extends ManagerBase implements DeviceOffe
             throw new InvalidParameterValueException(String.format("VM is not in a valid state to assign device offering. Current state is [%s], and valid states are: %s", vm.getState(), Arrays.asList(VirtualMachine.State.Stopped, VirtualMachine.State.Running)));
         }
 
-        getDeviceOfferingAndCheckAccess(deviceOfferingId, caller);
+        getDeviceOfferingAndCheckAccess(deviceOfferingId, caller, vm);
 
         List<VMInstanceDeviceOfferingsVO> existingAssignmentsForVM = vmInstanceDeviceOfferingsDao.listByVmId(virtualMachineId);
         if (CollectionUtils.isNotEmpty(existingAssignmentsForVM) && existingAssignmentsForVM.stream().anyMatch(assignment -> assignment.getDeviceOfferingId().equals(deviceOfferingId))) {
@@ -185,7 +185,7 @@ public class DeviceOfferingManagerImpl extends ManagerBase implements DeviceOffe
             throw new InvalidParameterValueException(String.format("VM with ID [%s] is running. Please stop it to remove device offering.", virtualMachineId));
         }
 
-        DeviceOfferingVO offering = getDeviceOfferingAndCheckAccess(deviceOfferingId, caller);
+        DeviceOfferingVO offering = getDeviceOfferingAndCheckAccess(deviceOfferingId, caller, vm);
 
         VMInstanceDeviceOfferingsVO assignedDeviceOffering = vmInstanceDeviceOfferingsDao.findByVmIdAndDeviceId(virtualMachineId, offering.getId());
         if (assignedDeviceOffering == null) {
@@ -207,16 +207,7 @@ public class DeviceOfferingManagerImpl extends ManagerBase implements DeviceOffe
         String stringState = listDeviceOfferingsCmd.getState();
         Boolean listAll = listDeviceOfferingsCmd.getListAll();
 
-        DeviceOffering.State state = DeviceOffering.State.Active;
-        if (stringState != null) {
-            state = EnumUtils.getEnum(DeviceOffering.State.class, stringState);
-            if (state == null) {
-                logger.error("Invalid state [{}] provided for device offering listing.", stringState);
-                throw new InvalidParameterValueException(String.format("Invalid state [%s] provided. Valid states are: %s",
-                        stringState,
-                        EnumUtils.getEnumList(DeviceOffering.State.class).stream().map(Enum::name).collect(Collectors.joining(", "))));
-            }
-        }
+        DeviceOffering.State state = stringState == null ? DeviceOffering.State.Active : parseDeviceOfferingState(stringState);
 
         if (domainId != null) {
             getDomainAndCheckAccess(domainId, caller);
@@ -312,13 +303,13 @@ public class DeviceOfferingManagerImpl extends ManagerBase implements DeviceOffe
     @Override
     @ActionEvent(eventType = EventTypes.EVENT_DEVICE_OFFERING_EDIT, eventDescription = "updating device offering")
     public DeviceOffering updateDeviceOffering(UpdateDeviceOfferingCmd updateDeviceOfferingCmd) {
-        Account caller = CallContext.current().getCallingAccount();
         Long id = updateDeviceOfferingCmd.getId();
         String displayName = updateDeviceOfferingCmd.getName();
         String description = updateDeviceOfferingCmd.getDescription();
         List<String> deviceTags = updateDeviceOfferingCmd.getTags();
         String stringState = updateDeviceOfferingCmd.getState();
 
+        DeviceOffering.State state = stringState == null ? null : parseDeviceOfferingState(stringState);
         Map<String, Integer> tagToAmount = deviceTags == null ? null : parseDeviceOfferingTagsParameter(deviceTags);
 
         return Transaction.execute((TransactionCallback<DeviceOfferingVO>) status -> {
@@ -327,24 +318,6 @@ public class DeviceOfferingManagerImpl extends ManagerBase implements DeviceOffe
             if (deviceOffering == null) {
                 logger.error("Device offering with ID [{}] could not be found.", id);
                 throw new InvalidParameterValueException(String.format("Could not find device offering with ID [%s].", id));
-            }
-
-            if (!deviceOffering.getIsPublic() && !accountManager.isRootAdmin(caller.getAccountId())) {
-                Domain domain = domainDao.findById(caller.getDomainId());
-
-                if (deviceOffering.getDomainId() != null && !deviceOffering.getDomainId().equals(domain.getId())) {
-                    logger.error("Device offering with ID [{}] is not public and does not belong to the caller's domain.", id);
-                    throw new PermissionDeniedException("You do not have permission to use this device offering.");
-                }
-            }
-
-            DeviceOffering.State state = null;
-            if (stringState != null) {
-                state = EnumUtils.getEnum(DeviceOffering.State.class, stringState);
-                if (state == null) {
-                    logger.error("Invalid state [{}] provided for device offering update.", stringState);
-                    throw new InvalidParameterValueException(String.format("Invalid state [%s] provided. Valid states are: Active and Inactive", stringState));
-                }
             }
 
             if (deviceTags != null && CollectionUtils.isEmpty(deviceTags)) {
@@ -382,20 +355,19 @@ public class DeviceOfferingManagerImpl extends ManagerBase implements DeviceOffe
             return true;
         }
 
-        Domain offeringDomain = domainDao.findById(deviceOffering.getDomainId());
+        Long offeringDomainId = deviceOffering.getDomainId();
 
-        if (offeringDomain == null) {
+        if (offeringDomainId == null) {
             return false;
         }
 
-        try {
-            accountManager.checkAccess(newAccount, offeringDomain);
-        } catch (PermissionDeniedException e) {
+        boolean hasAccess = offeringDomainId.equals(newAccount.getDomainId()) || domainDao.isChildDomain(offeringDomainId, newAccount.getDomainId());
+
+        if (!hasAccess) {
             logger.debug("Account [{}] does not have access to the domain of device offering [{}].", newAccount.getUuid(), deviceOffering.getUuid());
-            return false;
         }
 
-        return true;
+        return hasAccess;
     }
 
     @Override
@@ -490,29 +462,44 @@ public class DeviceOfferingManagerImpl extends ManagerBase implements DeviceOffe
         return vm;
     }
 
-    private DeviceOfferingVO getDeviceOfferingAndCheckAccess(Long deviceOfferingId, Account caller) {
+    private DeviceOfferingVO getDeviceOfferingAndCheckAccess(Long deviceOfferingId, Account caller, VirtualMachine vm) {
         DeviceOfferingVO deviceOffering = deviceOfferingDao.findById(deviceOfferingId);
         if (deviceOffering == null) {
             logger.error("Device offering with ID [{}] could not be found.", deviceOfferingId);
             throw new InvalidParameterValueException(String.format("Could not find device offering with ID [%s].", deviceOfferingId));
         }
 
-        if (!deviceOffering.getIsPublic() && !accountManager.isRootAdmin(caller.getAccountId())) {
-            Domain domain = domainDao.findById(caller.getDomainId());
+        if (deviceOffering.getIsPublic() || accountManager.isRootAdmin(caller.getAccountId())) {
+            return deviceOffering;
+        }
 
-            if (deviceOffering.getDomainId() != null && !deviceOffering.getDomainId().equals(domain.getId())) {
-                logger.error("Device offering with ID [{}] is not public and does not belong to the caller's domain.", deviceOfferingId);
-                throw new PermissionDeniedException("You do not have permission to use this device offering.");
-            }
+        Account vmOwner = accountManager.getActiveAccountById(vm.getAccountId());
 
-            // TODO ERIK: nao sei como ver isso
+        if (!canAccountAccessOffering(deviceOffering, vmOwner)) {
+            logger.error("Device offering with ID [{}] is not public and does not belong to the domain of the owner of VM [{}].", deviceOfferingId, vm.getUuid());
+            throw new PermissionDeniedException("You do not have permission to use this device offering.");
+        }
+
+        // TODO ERIK: nao sei como ver isso
 //            if (deviceOffering.getZoneId() != null && !deviceOffering.getZoneId().equals(domain.get())) {
 //                logger.error("Device offering with ID [{}] is not public and does not belong to the caller's zone.", deviceOfferingId);
 //                throw new PermissionDeniedException("You do not have permission to use this device offering.");
 //            }
-        }
 
         return deviceOffering;
+    }
+
+    private DeviceOffering.State parseDeviceOfferingState(String stringState) {
+        DeviceOffering.State state = EnumUtils.getEnum(DeviceOffering.State.class, stringState);
+
+        if (state == null) {
+            logger.error("Invalid state [{}] provided for device offering.", stringState);
+            throw new InvalidParameterValueException(String.format("Invalid state [%s] provided. Valid states are: %s",
+                    stringState,
+                    EnumUtils.getEnumList(DeviceOffering.State.class).stream().map(Enum::name).collect(Collectors.joining(", "))));
+        }
+
+        return state;
     }
 
     private Map<String, Integer> parseDeviceOfferingTagsParameter(List<String> commandTags) {
