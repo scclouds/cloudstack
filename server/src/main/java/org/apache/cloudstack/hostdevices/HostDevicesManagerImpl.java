@@ -29,7 +29,9 @@ import com.cloud.domain.Domain;
 import com.cloud.domain.dao.DomainDao;
 import com.cloud.event.ActionEvent;
 import com.cloud.event.EventTypes;
+import com.cloud.exception.AgentUnavailableException;
 import com.cloud.exception.InvalidParameterValueException;
+import com.cloud.exception.OperationTimedoutException;
 import com.cloud.exception.PermissionDeniedException;
 import com.cloud.exception.ResourceAllocationException;
 import com.cloud.host.Host;
@@ -77,9 +79,11 @@ import org.apache.logging.log4j.ThreadContext;
 
 import javax.inject.Inject;
 import javax.naming.ConfigurationException;
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -167,7 +171,11 @@ public class HostDevicesManagerImpl extends ManagerBase implements HostDevicesMa
 
         logger.debug("Selected {} hosts for device scan: {}", hostsListForDeviceScan.size(), hostsListForDeviceScan.stream().map(HostVO::getId).collect(Collectors.toList()));
 
-        hostsListForDeviceScan.forEach(this::scanHostDevices);
+        Map<String, String> hostFailures = scanHostDevices(hostsListForDeviceScan);
+
+        if (!hostFailures.isEmpty()) {
+            throw new CloudRuntimeException(String.format("Failed to scan the devices of %d out of %d hosts: %s", hostFailures.size(), hostsListForDeviceScan.size(), hostFailures));
+        }
     }
 
     protected List<HostVO> getHostsListForDeviceScan(Long zoneId, Long clusterId, Long hostId) {
@@ -229,24 +237,44 @@ public class HostDevicesManagerImpl extends ManagerBase implements HostDevicesMa
     }
 
     protected void scanHostDevices(HostVO host) {
-        ScanDevicesCommand command = new ScanDevicesCommand();
+        logger.debug("Sending ScanDevicesCommand to host with ID {}", host.getId());
 
+        Answer answer;
         try {
-            logger.debug("Sending ScanDevicesCommand to host with ID {}", host.getId());
-            Answer answer = agentManager.send(host.getId(), command);
-
-            if (!answer.getResult()) {
-                logger.error("Some error occurred while trying to scan devices from host {}: {}", host.getId(), answer.getDetails());
-                throw new CloudRuntimeException("Failure to scan devices of host with ID " + host.getUuid() + " due to " + answer.getDetails());
-            }
-
-            List<? extends LibvirtDevice> returnedDevices = MAPPER.readValue(answer.getDetails(), MAPPER.getTypeFactory().constructCollectionType(List.class, LibvirtDevice.class));
-            compareIncomingDevicesWithExistingOnes(returnedDevices, host);
-            logger.info("Finished executing device scan for host {}", host.getId());
-        } catch (Exception e) {
-            logger.error("Failed to send ScanDevicesCommand to host with ID {}: {}", host.getId(), e.getMessage());
-            throw new CloudRuntimeException("Failure to scan devices of host with ID " + host.getUuid() + ". Please check the logs.");
+            answer = agentManager.send(host.getId(), new ScanDevicesCommand());
+        } catch (AgentUnavailableException | OperationTimedoutException e) {
+            throw new CloudRuntimeException(String.format("Failure to scan devices of host with ID %s due to %s", host.getUuid(), e.getMessage()), e);
         }
+
+        if (answer == null || !answer.getResult()) {
+            String details = answer == null ? "no answer was received from the host" : answer.getDetails();
+            throw new CloudRuntimeException(String.format("Failure to scan devices of host with ID %s due to %s", host.getUuid(), details));
+        }
+
+        List<? extends LibvirtDevice> returnedDevices;
+        try {
+            returnedDevices = MAPPER.readValue(answer.getDetails(), MAPPER.getTypeFactory().constructCollectionType(List.class, LibvirtDevice.class));
+        } catch (IOException e) {
+            throw new CloudRuntimeException(String.format("Failure to scan devices of host with ID %s because the returned devices could not be read: %s", host.getUuid(), e.getMessage()), e);
+        }
+
+        compareIncomingDevicesWithExistingOnes(returnedDevices, host);
+        logger.info("Finished executing device scan for host {}", host.getId());
+    }
+
+    protected Map<String, String> scanHostDevices(List<HostVO> hosts) {
+        Map<String, String> hostFailures = new LinkedHashMap<>();
+
+        for (HostVO host : hosts) {
+            try {
+                scanHostDevices(host);
+            } catch (Exception e) {
+                logger.error("Failed to scan devices of host with ID {}.", host.getId(), e);
+                hostFailures.put(host.getName(), e.getMessage() != null ? e.getMessage() : e.getClass().getSimpleName());
+            }
+        }
+
+        return hostFailures;
     }
 
     private void compareIncomingDevicesWithExistingOnes(List<? extends LibvirtDevice> incomingDevices, HostVO host) {
@@ -877,12 +905,10 @@ public class HostDevicesManagerImpl extends ManagerBase implements HostDevicesMa
             }
 
             logger.info("Scanning host devices of {} hosts in cluster {}.", hosts.size(), cluster.getId());
-            for (HostVO host : hosts) {
-                try {
-                    scanHostDevices(host);
-                } catch (Exception e) {
-                    logger.error("Failed to execute automatic device scan for host {} in cluster {}: {}", host.getId(), cluster.getId(), e.getMessage());
-                }
+            Map<String, String> failureReasonByHostUuid = scanDevicesOfHosts(hosts);
+
+            if (!failureReasonByHostUuid.isEmpty()) {
+                logger.warn("The automatic device scan of cluster {} failed for {} out of {} hosts.", cluster.getId(), failureReasonByHostUuid.size(), hosts.size());
             }
         }
     }
