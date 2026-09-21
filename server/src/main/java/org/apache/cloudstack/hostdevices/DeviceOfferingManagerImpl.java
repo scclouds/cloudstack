@@ -182,9 +182,9 @@ public class DeviceOfferingManagerImpl extends ManagerBase implements DeviceOffe
 
         VirtualMachine vm = getVMAndCheckAccess(virtualMachineId, caller);
 
-        if (vm.getState().equals(VirtualMachine.State.Stopped)) {
-            logger.error("VM with ID [{}] not stopped, cannot remove device offering.", virtualMachineId);
-            throw new InvalidParameterValueException(String.format("VM with ID [%s] is stopped. Please stop it to remove device offering.", virtualMachineId));
+        if (!VirtualMachine.State.Stopped.equals(vm.getState())) {
+            logger.error("VM with ID [{}] is not stopped, cannot remove device offering. Current state is [{}].", virtualMachineId, vm.getState());
+            throw new InvalidParameterValueException(String.format("VM with ID [%s] is not stopped. Current state is [%s]. Please stop it to remove device offering.", virtualMachineId, vm.getState()));
         }
 
         DeviceOfferingVO offering = getDeviceOfferingAndCheckAccess(deviceOfferingId, caller, vm);
