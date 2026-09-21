@@ -19,6 +19,7 @@ package org.apache.cloudstack.hostdevices;
 
 import com.cloud.hostdevices.DeviceOfferingDeviceTagVO;
 
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -35,5 +36,19 @@ public class DeviceOfferingHelper {
     public static Map<String, Integer> getDeviceOfferingToAmountMap(List<DeviceOfferingDeviceTagVO> offeringTags) {
         return offeringTags
                 .stream().collect(Collectors.toMap(DeviceOfferingDeviceTagVO::getDeviceTag, DeviceOfferingDeviceTagVO::getAmount, Integer::sum));
+    }
+
+    public static Map<String, Integer> getExceedingTagAmounts(Map<String, Integer> tagAmounts, Map<String, Integer> baseline) {
+        Map<String, Integer> difference = new HashMap<>();
+
+        tagAmounts.forEach((tag, amount) -> {
+            int remainingAmount = amount - baseline.getOrDefault(tag, 0);
+
+            if (remainingAmount > 0) {
+                difference.put(tag, remainingAmount);
+            }
+        });
+
+        return difference;
     }
 }

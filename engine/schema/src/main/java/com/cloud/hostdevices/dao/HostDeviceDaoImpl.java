@@ -29,7 +29,6 @@ import org.springframework.stereotype.Component;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Set;
 
 @Component
 public class HostDeviceDaoImpl extends GenericDaoBase<HostDeviceVO, Long> implements HostDeviceDao {
@@ -82,7 +81,6 @@ public class HostDeviceDaoImpl extends GenericDaoBase<HostDeviceVO, Long> implem
 
         vmHostDeviceSearch = createSearchBuilder();
         vmHostDeviceSearch.and(VIRTUAL_MACHINE_ID, vmHostDeviceSearch.entity().getInstanceId(), SearchCriteria.Op.EQ);
-        vmHostDeviceSearch.and(DEVICE_TAG_IN, vmHostDeviceSearch.entity().getDeviceTag(), SearchCriteria.Op.IN);
         vmHostDeviceSearch.done();
     }
 
@@ -135,14 +133,9 @@ public class HostDeviceDaoImpl extends GenericDaoBase<HostDeviceVO, Long> implem
     }
 
     @Override
-    public List<HostDeviceVO> listAndLockHostDevicesByVmId(Long vmId, Set<String> deviceTags) {
+    public List<HostDeviceVO> listAndLockHostDevicesByVmId(Long vmId) {
         SearchCriteria<HostDeviceVO> sc = vmHostDeviceSearch.create();
         sc.setParameters(VIRTUAL_MACHINE_ID, vmId);
-
-        if (deviceTags != null) {
-            sc.setParameters(DEVICE_TAG_IN, deviceTags.toArray());
-        }
-
         return lockRows(sc, null, true);
     }
 
