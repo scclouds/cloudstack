@@ -195,11 +195,20 @@ public class DeviceOfferingManagerImpl extends ManagerBase implements DeviceOffe
             throw new InvalidParameterValueException(String.format("VM with ID [%s] does not have this device offering assigned.", virtualMachineId));
         }
 
-        Map<String, Integer> offeringTags = DeviceOfferingHelper.getDeviceOfferingToAmountMap(deviceOfferingDeviceTagsDao.getDeviceOfferingTags(offering.getId()));
+        List<DeviceOfferingVO> remainingOfferings = deviceOfferingDao.listVirtualMachineDeviceOfferings(virtualMachineId)
+                .stream()
+                .filter(vmOffering -> !Long.valueOf(offering.getId()).equals(vmOffering.getId()))
+                .collect(Collectors.toList());
 
-        hostDevicesManager.releaseHostDevicesForVm(virtualMachineId, offeringTags);
+        Transaction.execute(new TransactionCallbackNoReturn() {
+            @Override
+            public void doInTransactionWithoutResult(TransactionStatus status) {
+                hostDevicesManager.releaseHostDevicesNotRequiredByOfferings(virtualMachineId, remainingOfferings);
 
-        vmInstanceDeviceOfferingsDao.expunge(deviceOfferingAssignment.getId());
+                vmInstanceDeviceOfferingsDao.expunge(deviceOfferingAssignment.getId());
+            }
+        });
+
         return true;
     }
 

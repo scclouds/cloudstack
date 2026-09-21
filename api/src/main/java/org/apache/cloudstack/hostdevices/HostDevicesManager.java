@@ -30,7 +30,6 @@ import org.apache.cloudstack.framework.config.ConfigKey;
 import org.apache.cloudstack.framework.config.Configurable;
 
 import java.util.List;
-import java.util.Map;
 
 public interface HostDevicesManager extends Configurable, Manager, PluggableService {
     ConfigKey<Long> DefaultMaxAccountHostDevices = new ConfigKey<>("Account Defaults", Long.class, "max.account.host.devices", "20",
@@ -54,7 +53,7 @@ public interface HostDevicesManager extends Configurable, Manager, PluggableServ
 
     void releaseHostDevicesForVm(Long vmId);
 
-    void releaseHostDevicesForVm(Long vmId, Map<String, Integer> deviceTags);
+    void releaseHostDevicesNotRequiredByOfferings(Long vmId, List<? extends DeviceOffering> remainingOfferings);
 
     void putHostDevicesInMaintenanceMode(Long hostId);
 
