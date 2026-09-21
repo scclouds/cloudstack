@@ -19,6 +19,7 @@ package org.apache.cloudstack.quota.activationrule.presetvariables;
 
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
@@ -424,10 +425,13 @@ public class PresetVariableHelper {
         return presetVariableDeviceOfferings;
     }
 
-    private Set<String> getDeviceOfferingTags(long deviceOfferingId) {
+    private List<String> getDeviceOfferingTags(long deviceOfferingId) {
         List<DeviceOfferingDeviceTagVO> offerings = deviceOfferingDeviceTagDao.getDeviceOfferingTags(deviceOfferingId);
 
-        return offerings.stream().map(DeviceOfferingDeviceTagVO::getDeviceTag).collect(Collectors.toSet());
+        return offerings
+                .stream()
+                .flatMap(tag -> Collections.nCopies(tag.getAmount(), tag.getDeviceTag()).stream())
+                .collect(Collectors.toList());
     }
 
     protected void logNotLoadingMessageInTrace(String resource, int usageType) {
