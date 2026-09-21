@@ -74,6 +74,7 @@ import org.apache.cloudstack.reservation.dao.ReservationDao;
 import org.apache.cloudstack.utils.libvirt.mappers.serialization.LibvirtDeviceDeserializer;
 import org.apache.cloudstack.utils.libvirt.model.LibvirtDevice;
 import org.apache.commons.collections.CollectionUtils;
+import org.apache.commons.collections.MapUtils;
 import org.apache.commons.lang3.EnumUtils;
 import org.apache.commons.lang3.ObjectUtils;
 import org.apache.logging.log4j.ThreadContext;
@@ -87,7 +88,6 @@ import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
@@ -524,7 +524,37 @@ public class HostDevicesManagerImpl extends ManagerBase implements HostDevicesMa
     }
 
     @Override
+    public void releaseHostDevicesForVm(Long vmId) {
+        VirtualMachine vm = getVirtualMachineOrThrow(vmId);
+
+        Transaction.execute(new TransactionCallbackNoReturn() {
+            @Override
+            public void doInTransactionWithoutResult(TransactionStatus status) {
+                releaseDevices(vm, hostDeviceDao.listAndLockHostDevicesByVmId(vmId, null));
+            }
+        });
+    }
+
+    @Override
     public void releaseHostDevicesForVm(Long vmId, Map<String, Integer> deviceTags) {
+        if (MapUtils.isEmpty(deviceTags)) {
+            logger.debug("No device tags were informed to release host devices from VM with ID {}. Skipping devices release process.", vmId);
+            return;
+        }
+
+        VirtualMachine vm = getVirtualMachineOrThrow(vmId);
+
+        Transaction.execute(new TransactionCallbackNoReturn() {
+            @Override
+            public void doInTransactionWithoutResult(TransactionStatus status) {
+                List<HostDeviceVO> vmDevices = hostDeviceDao.listAndLockHostDevicesByVmId(vmId, deviceTags.keySet());
+
+                releaseDevices(vm, selectDevicesToRelease(vmDevices, deviceTags));
+            }
+        });
+    }
+
+    private VirtualMachine getVirtualMachineOrThrow(Long vmId) {
         VirtualMachine vm = virtualMachineDao.findById(vmId);
 
         if (vm == null) {
@@ -532,65 +562,50 @@ public class HostDevicesManagerImpl extends ManagerBase implements HostDevicesMa
             throw new CloudRuntimeException("Virtual machine with id " + vmId + " was not found.");
         }
 
-        Transaction.execute(new TransactionCallbackNoReturn() {
-            @Override
-            public void doInTransactionWithoutResult(TransactionStatus status) {
-                Set<String> tags = deviceTags.keySet();
-                List<HostDeviceVO> totalDevices = hostDeviceDao.listAndLockHostDevicesByVmId(vmId, tags);
+        return vm;
+    }
 
-                if (CollectionUtils.isEmpty(totalDevices)) {
-                    logger.debug("No host devices found for VM with ID {}. Skipping devices release process.", vmId);
-                    return;
-                }
+    private List<HostDeviceVO> selectDevicesToRelease(List<HostDeviceVO> vmDevices, Map<String, Integer> tagToAmount) {
+        Map<String, Integer> selectedAmountPerTag = new HashMap<>();
+        List<HostDeviceVO> selectedDevices = new ArrayList<>();
 
-                List<HostDeviceVO> filteredDevices = totalDevices;
+        for (HostDeviceVO device : vmDevices) {
+            String tag = device.getDeviceTag();
 
-                if (deviceTags != null) {
-                    Map<String, List<HostDeviceVO>> devicesCount = new HashMap<>();
-
-                    filteredDevices = totalDevices
-                            .stream()
-                            .filter(dev -> {
-                                String deviceTag = dev.getDeviceTag();
-
-                                if (!tags.contains(deviceTag)) {
-                                    return false;
-                                }
-
-                                int currentCount = devicesCount.getOrDefault(deviceTag, new ArrayList<>()).size();
-                                if (currentCount < deviceTags.get(deviceTag)) {
-                                    List<HostDeviceVO> seenDevices = devicesCount.getOrDefault(deviceTag, new ArrayList<>());
-                                    seenDevices.add(dev);
-                                    devicesCount.put(deviceTag, seenDevices);
-                                    return true;
-                                }
-
-                                return false;
-                            })
-                            .collect(Collectors.toList());
-                }
-
-                logger.info("The following devices will be released from VM {}: {}", vmId, filteredDevices.stream().map(HostDeviceVO::getPciName).collect(Collectors.toList()));
-
-                List<HostDeviceVO> devicesOutsideAttachedState = filteredDevices.stream().filter(d -> !HostDevice.State.Attached.equals(d.getState())).collect(Collectors.toList());
-                if (!devicesOutsideAttachedState.isEmpty()) {
-                    logger.error("The following devices are not in Attached state: {}. Cancelling device releasing process.", devicesOutsideAttachedState.stream().map(HostDeviceVO::getPciName).collect(Collectors.toList()));
-                    throw new CloudRuntimeException("There are inconsistent devices attached to this VM. Please, normalize them before release.");
-                }
-
-                for (HostDeviceVO dev : filteredDevices) {
-                    dev.setAccountId(null);
-                    dev.setDomainId(null);
-                    dev.setInstanceId(null);
-                    dev.setState(HostDevice.State.Free);
-                    // TODO ERIK: aqui precisa limpar os devices do tipo storage
-                    hostDeviceDao.update(dev.getId(), dev);
-                }
-
-                long amount = filteredDevices.size();
-                resourceLimitMgr.decrementResourceCount(vm.getAccountId(), Resource.ResourceType.host_device, amount);
+            if (selectedAmountPerTag.getOrDefault(tag, 0) < tagToAmount.getOrDefault(tag, 0)) {
+                selectedAmountPerTag.merge(tag, 1, Integer::sum);
+                selectedDevices.add(device);
             }
-        });
+        }
+
+        return selectedDevices;
+    }
+
+    private void releaseDevices(VirtualMachine vm, List<HostDeviceVO> devices) {
+        if (CollectionUtils.isEmpty(devices)) {
+            logger.debug("No host devices to be released from VM with ID {}. Skipping devices release process.", vm.getId());
+            return;
+        }
+
+        logger.info("The following devices will be released from VM {}: {}", vm.getId(), devices.stream().map(HostDeviceVO::getPciName).collect(Collectors.toList()));
+
+        List<HostDeviceVO> devicesOutsideAttachedState = devices.stream().filter(d -> !HostDevice.State.Attached.equals(d.getState())).collect(Collectors.toList());
+        if (!devicesOutsideAttachedState.isEmpty()) {
+            logger.error("The following devices are not in Attached state: {}. Cancelling device releasing process.", devicesOutsideAttachedState.stream().map(HostDeviceVO::getPciName).collect(Collectors.toList()));
+            throw new CloudRuntimeException("There are inconsistent devices attached to this VM. Please, normalize them before release.");
+        }
+
+        for (HostDeviceVO dev : devices) {
+            dev.setAccountId(null);
+            dev.setDomainId(null);
+            dev.setInstanceId(null);
+            dev.setState(HostDevice.State.Free);
+            // TODO ERIK: aqui precisa limpar os devices do tipo storage
+            hostDeviceDao.update(dev.getId(), dev);
+        }
+
+        long amount = devices.size();
+        resourceLimitMgr.decrementResourceCount(vm.getAccountId(), Resource.ResourceType.host_device, amount);
     }
 
     @Override
