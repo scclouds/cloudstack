@@ -26,7 +26,7 @@ import java.util.Date;
 
 public interface HostDevice extends Identity, InternalIdentity {
     enum State {
-        Attached, Disabled, Failure, Free, HostInMaintenance, Missing
+        Attached, Cleaning, Disabled, Failure, Free, HostInMaintenance, Missing
     }
 
     enum Type {
