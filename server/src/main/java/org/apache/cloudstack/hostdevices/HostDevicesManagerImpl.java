@@ -20,6 +20,7 @@ package org.apache.cloudstack.hostdevices;
 import com.cloud.agent.AgentManager;
 import com.cloud.agent.api.Answer;
 import com.cloud.agent.api.ScanDevicesCommand;
+import com.cloud.agent.api.storage.EraseHostDeviceCommand;
 import com.cloud.configuration.Resource;
 import com.cloud.dc.ClusterDetailsDao;
 import com.cloud.dc.ClusterDetailsVO;
@@ -121,9 +122,11 @@ public class HostDevicesManagerImpl extends ManagerBase implements HostDevicesMa
     @Inject
     private ReservationDao reservationDao;
 
-    private ScheduledExecutorService scheduledExecutor;
+    private ScheduledExecutorService scanScheduledExecutor;
+    private ScheduledExecutorService cleanupScheduledExecutor;
     private static final String LOGCONTEXTID = "logcontextid";
-    private static final long AUTOMATIC_SCAN_INITIAL_DELAY_IN_SECONDS = 60L;
+    private static final long INITIAL_DELAY_IN_SECONDS = 60L;
+    private static final long AUTOMATIC_CLEANUP_TASK_INTERVAL_IN_SECONDS = 60L;
     private static final long AUTOMATIC_SCAN_TASK_INTERVAL_IN_SECONDS = 300L;
     private static final ObjectMapper MAPPER = createMapper();
 
@@ -131,20 +134,34 @@ public class HostDevicesManagerImpl extends ManagerBase implements HostDevicesMa
     }
 
     @Override
-    public boolean configure(String name, Map<String, Object> params) throws ConfigurationException {
-        super.configure(name, params);
+    public boolean start() {
+        super.start();
 
-        scheduledExecutor = Executors.newSingleThreadScheduledExecutor(new NamedThreadFactory("AutomaticDeviceScanScheduler"));
-        scheduledExecutor.scheduleAtFixedRate(this::triggerAutomaticScanForClusters, AUTOMATIC_SCAN_INITIAL_DELAY_IN_SECONDS,
-                AUTOMATIC_SCAN_TASK_INTERVAL_IN_SECONDS, TimeUnit.SECONDS);
+        scanScheduledExecutor = Executors.newSingleThreadScheduledExecutor(new NamedThreadFactory("AutomaticDeviceScanScheduler"));
+        scanScheduledExecutor.scheduleAtFixedRate(this::triggerAutomaticScanForClusters,
+                INITIAL_DELAY_IN_SECONDS,
+                AUTOMATIC_SCAN_TASK_INTERVAL_IN_SECONDS,
+                TimeUnit.SECONDS
+        );
+
+        cleanupScheduledExecutor = Executors.newSingleThreadScheduledExecutor(new NamedThreadFactory("AutomaticCleanupDeviceScheduler"));
+        cleanupScheduledExecutor.scheduleAtFixedRate(this::triggerDeviceCleanup,
+                INITIAL_DELAY_IN_SECONDS,
+                AUTOMATIC_CLEANUP_TASK_INTERVAL_IN_SECONDS,
+                TimeUnit.SECONDS
+        );
 
         return true;
     }
 
     @Override
     public boolean stop() {
-        if (scheduledExecutor != null) {
-            scheduledExecutor.shutdownNow();
+        if (scanScheduledExecutor != null) {
+            scanScheduledExecutor.shutdownNow();
+        }
+
+        if (cleanupScheduledExecutor != null) {
+            cleanupScheduledExecutor.shutdownNow();
         }
 
         return super.stop();
@@ -599,8 +616,9 @@ public class HostDevicesManagerImpl extends ManagerBase implements HostDevicesMa
             dev.setAccountId(null);
             dev.setDomainId(null);
             dev.setInstanceId(null);
-            dev.setState(HostDevice.State.Free);
-            // TODO ERIK: aqui precisa limpar os devices do tipo storage
+            HostDevice.Type devType = dev.getType();
+            HostDevice.State nextState = devType.equals(HostDevice.Type.Storage) ? HostDevice.State.Cleaning : HostDevice.State.Free;
+            dev.setState(nextState);
             hostDeviceDao.update(dev.getId(), dev);
         }
 
@@ -950,6 +968,40 @@ public class HostDevicesManagerImpl extends ManagerBase implements HostDevicesMa
             if (!failureReasonByHostUuid.isEmpty()) {
                 logger.warn("The automatic device scan of cluster {} failed for {} out of {} hosts.", cluster.getId(), failureReasonByHostUuid.size(), hosts.size());
             }
+        }
+    }
+
+    private void triggerDeviceCleanup() {
+        ThreadContext.put(LOGCONTEXTID, UuidUtils.first(UUID.randomUUID().toString()));
+
+        try {
+            cleanupStorageDevices();
+        } catch (Exception e) {
+            logger.error("Unexpected failure during the automatic host device cleanup task.", e);
+        } finally {
+            ThreadContext.remove(LOGCONTEXTID);
+        }
+    }
+
+    protected void cleanupStorageDevices() {
+        List<HostDeviceVO> devicesToClean = hostDeviceDao.listAndLockHostDevicesByState(HostDevice.State.Cleaning);
+
+        logger.info("Automatic device cleanup task started. Found {} devices in the Cleaning state to cleanup.", devicesToClean.size());
+
+        for (HostDeviceVO device : devicesToClean) {
+            HostVO deviceHost = hostDao.findById(device.getHostId());
+
+            logger.debug("Erasing content of storage device [{} - {}]  of host [{}]", device.getDisplayName(), device.getPciName(), deviceHost);
+
+            try {
+                //TODO ERIK: ver se faz sentido usar a config global de timeout
+                Answer answer = agentManager.send(deviceHost.getId(), new EraseHostDeviceCommand(device.getPciName()));
+            } catch (OperationTimedoutException e) {
+                throw new RuntimeException(e);
+            } catch (AgentUnavailableException e) {
+                throw new RuntimeException(e);
+            }
+
         }
     }
 

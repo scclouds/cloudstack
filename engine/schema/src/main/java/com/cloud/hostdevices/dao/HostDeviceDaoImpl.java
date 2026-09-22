@@ -160,6 +160,15 @@ public class HostDeviceDaoImpl extends GenericDaoBase<HostDeviceVO, Long> implem
     }
 
     @Override
+    public List<HostDeviceVO> listAndLockHostDevicesByState(HostDevice.State state) {
+        SearchCriteria<HostDeviceVO> sc = hostDevicesSearch.create();
+
+        sc.setParameters(STATE, state);
+
+        return lockRows(sc, null, true);
+    }
+
+    @Override
     public List<HostDeviceVO> listHostDevicesByAccountId(long accountId) {
         SearchCriteria<HostDeviceVO> sc = hostDevicesSearch.create();
 
