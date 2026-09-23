@@ -612,6 +612,7 @@ public class UserVmJoinDaoImpl extends GenericDaoBaseWithTagInformation<UserVmJo
 
                     if (deviceHost != null) {
                         hostDeviceResponse.setHostId(deviceHost.getUuid());
+                        hostDeviceResponse.setHostname(deviceHost.getName());
                     }
                 }
 

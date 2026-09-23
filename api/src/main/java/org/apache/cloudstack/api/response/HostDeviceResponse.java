@@ -104,6 +104,10 @@ public class HostDeviceResponse extends BaseResponse {
     @Param(description = "the ID of the host the device belongs to", since = "4.23.0")
     private String hostId;
 
+    @SerializedName(ApiConstants.HOST_NAME)
+    @Param(description = "the name of the host the device belongs to", since = "4.23.0")
+    private String hostName;
+
     public String getId() {
         return id;
     }
@@ -254,5 +258,13 @@ public class HostDeviceResponse extends BaseResponse {
 
     public void setHostId(String hostId) {
         this.hostId = hostId;
+    }
+
+    public String getHostname() {
+        return hostName;
+    }
+
+    public void setHostname(String hostName) {
+        this.hostName = hostName;
     }
 }
