@@ -470,6 +470,8 @@ public class HostDevicesManagerImpl extends ManagerBase implements HostDevicesMa
             res.setHostId(host.getUuid());
         }
 
+        res.setObjectName("hostdevices");
+
         return res;
     }
 
