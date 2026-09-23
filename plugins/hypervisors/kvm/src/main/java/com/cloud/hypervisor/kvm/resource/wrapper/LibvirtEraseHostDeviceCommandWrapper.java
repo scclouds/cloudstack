@@ -26,12 +26,12 @@ public class LibvirtEraseHostDeviceCommandWrapper extends CommandWrapper<EraseHo
                 throw new CloudRuntimeException("Device with PCI name " + pciName + " not found.");
             }
 
-            
-
         } catch (Exception e) {
             String errorMessage = "Failed to erase host device due to " + e.getMessage();
             logger.error(errorMessage, e);
             return new ScanDevicesAnswer(command, false, errorMessage);
         }
+
+        return new Answer(command, true, null);
     }
 }

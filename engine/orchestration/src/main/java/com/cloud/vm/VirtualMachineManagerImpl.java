@@ -1721,7 +1721,8 @@ public class VirtualMachineManagerImpl extends ManagerBase implements VirtualMac
                         final boolean vmStartSucceeded = startAnswer != null && startAnswer.getResult();
                         boolean isVmStopped;
                         if ((prevStep == Step.Started || prevStep == Step.Starting) && vmStartSucceeded) {
-                            isVmStopped = cleanup(vmGuru, vmProfile, work, Event.OperationFailed, false);
+                            Pair<Boolean, String> result = cleanup(vmGuru, vmProfile, work, Event.OperationFailed, false);
+                            isVmStopped = result.first();
                         } else {
                             cleanup(vmGuru, vmProfile, work, Event.OperationFailed, true);
                             isVmStopped = !vmStartSucceeded;
