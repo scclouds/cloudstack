@@ -468,6 +468,7 @@ public class HostDevicesManagerImpl extends ManagerBase implements HostDevicesMa
         Host host = hostDao.findById(device.getHostId());
         if (host != null) {
             res.setHostId(host.getUuid());
+            res.setHostname(host.getName());
         }
 
         res.setObjectName("hostdevices");
