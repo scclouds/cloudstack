@@ -65,7 +65,7 @@ public class UpdateHostDeviceCmd extends BaseCmd  {
     @Parameter(name = ApiConstants.DEVICE_TAG, type = CommandType.STRING, description = "The tags for the host device")
     private String tag;
 
-    @Parameter(name = ApiConstants.TYPE, type = CommandType.STRING, description = "The type of the host device")
+    @Parameter(name = ApiConstants.TYPE, type = CommandType.STRING, description = "The type of the host device. Supported values are: Display, Network, Storage, USB and Generic. Case insensitive.")
     private String type;
 
     public Long getDeviceId() {

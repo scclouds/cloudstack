@@ -155,6 +155,7 @@ export default {
         case 'yes':
         case 'compressed':
         case 'valid':
+        case 'free':
           status = 'success'
           break
         case 'alert':
@@ -174,6 +175,7 @@ export default {
         case 'notvalid':
         case 'unabletovalidate':
         case 'compressionerror':
+        case 'failure':
           status = 'error'
           break
         case 'migrating':
@@ -201,6 +203,9 @@ export default {
         case 'backup':
         case 'partiallyallocated':
         case 'uncompressed':
+        case 'attached':
+        case 'hostinmaintenance':
+        case 'missing':
           status = 'warning'
           break
       }
@@ -209,9 +214,12 @@ export default {
     getStatusColor (state) {
       switch (state.toLowerCase()) {
         case 'scheduled':
+        case 'cleaning':
           return 'blue'
         case 'reserved':
           return 'orange'
+        case 'missing':
+          return 'purple'
         default:
           return null
       }

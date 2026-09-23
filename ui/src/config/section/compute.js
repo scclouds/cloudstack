@@ -22,6 +22,7 @@ import { getAPI, postAPI, getBaseUrl } from '@/api'
 import { getLatestKubernetesIsoParams } from '@/utils/acsrepo'
 import kubernetesIcon from '@/assets/icons/kubernetes.svg?inline'
 import { escapeHtml } from '@/utils/util'
+import hostDevices from '@/config/section/hostDevices'
 
 const attachedIsoCount = (record) => (record.isos && record.isos.length) || (record.isoid ? 1 : 0)
 // Server pre-computes the effective cap (cluster-scoped vm.iso.max.count clamped to the
@@ -484,6 +485,7 @@ export default {
         }
       ]
     },
+    hostDevices,
     {
       name: 'vmsnapshot',
       title: 'label.vm.snapshots',
