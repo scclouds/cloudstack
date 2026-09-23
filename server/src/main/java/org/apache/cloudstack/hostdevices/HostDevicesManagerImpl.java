@@ -449,7 +449,8 @@ public class HostDevicesManagerImpl extends ManagerBase implements HostDevicesMa
         if (device.getInstanceId() != null) {
             VirtualMachine vm = virtualMachineDao.findById(device.getInstanceId());
             if (vm != null) {
-                res.setInstanceId(vm.getUuid());
+                res.setVirtualMachineId(vm.getUuid());
+                res.setVirtualMachineName(vm.getName());
             }
         }
 
@@ -457,10 +458,12 @@ public class HostDevicesManagerImpl extends ManagerBase implements HostDevicesMa
             Account account = accountManager.getActiveAccountById(device.getAccountId());
             if (account != null) {
                 res.setAccountId(account.getUuid());
+                res.setAccount(account.getAccountName());
 
                 Domain domain = domainDao.findById(account.getDomainId());
                 if (domain != null) {
                     res.setDomainId(domain.getUuid());
+                    res.setDomain(domain.getName());
                 }
             }
         }
