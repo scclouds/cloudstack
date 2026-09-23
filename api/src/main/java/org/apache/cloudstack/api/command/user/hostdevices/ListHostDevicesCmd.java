@@ -118,7 +118,6 @@ public class ListHostDevicesCmd extends BaseListCmd {
 
         ListResponse<HostDeviceResponse> response = new ListResponse<HostDeviceResponse>();
         response.setResponses(responseList, hostDevices.second());
-        response.setObjectName("hostdevices");
         response.setResponseName(getCommandName());
         setResponseObject(response);
     }
