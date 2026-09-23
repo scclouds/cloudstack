@@ -986,7 +986,6 @@ public class HostDevicesManagerImpl extends ManagerBase implements HostDevicesMa
         List<HostDeviceVO> devicesToClean = hostDeviceDao.listAndLockHostDevicesByState(HostDevice.State.Cleaning);
 
         logger.info("Automatic device cleanup task started. Found {} devices in the Cleaning state to cleanup.", devicesToClean.size());
-
         for (HostDeviceVO device : devicesToClean) {
             HostVO deviceHost = hostDao.findById(device.getHostId());
 
