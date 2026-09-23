@@ -95,6 +95,13 @@ public class XmlObject {
         return elements.get(key);
     }
 
+
+    public String getTextFromInnerTag(String tagName) {
+        XmlObject tag = get(tagName);
+
+        return tag != null ? tag.getText() : null;
+    }
+
     public <T> T get(String elementStr) {
         String[] strs = elementStr.split("\\.");
         List<String> lst = new ArrayList<String>(strs.length);

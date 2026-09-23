@@ -29,18 +29,18 @@ public class PciDeviceMapper implements DeviceMapper<PciDevice> {
 
     @Override
     public PciDevice parse(XmlObject deviceDefinition) {
-        String name = getTextFromTag(deviceDefinition, "name");
+        String name = deviceDefinition.getTextFromInnerTag("name");
         XmlObject capabilityTag = deviceDefinition.get("capability");
 
         if (capabilityTag == null) {
             throw new CloudRuntimeException("Failed to parse PCI device definition. Missing capability tag for device " + name);
         }
 
-        String domain = getTextFromTag(capabilityTag, "domain");
-        String bus = getTextFromTag(capabilityTag, "bus");
-        String slot = getTextFromTag(capabilityTag, "slot");
-        String function = getTextFromTag(capabilityTag, "function");
-        String classCode = getTextFromTag(capabilityTag, "class");
+        String domain = capabilityTag.getTextFromInnerTag("domain");
+        String bus = capabilityTag.getTextFromInnerTag("bus");
+        String slot = capabilityTag.getTextFromInnerTag("slot");
+        String function = capabilityTag.getTextFromInnerTag("function");
+        String classCode = capabilityTag.getTextFromInnerTag("class");
 
         XmlObject productTag = capabilityTag.get("product");
         String productId = getElementAsString(productTag, "id");
@@ -83,12 +83,6 @@ public class PciDeviceMapper implements DeviceMapper<PciDevice> {
         Object element = xmlObject.getElement(elementName);
 
         return element == null ? null : element.toString();
-    }
-
-    private String getTextFromTag(XmlObject xmlObject, String tagName) {
-        XmlObject tag = xmlObject.get(tagName);
-
-        return tag != null ? tag.getText() : null;
     }
 
     @Override
