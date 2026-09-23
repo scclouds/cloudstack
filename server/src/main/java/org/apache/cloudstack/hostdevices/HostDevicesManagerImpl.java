@@ -80,7 +80,6 @@ import org.apache.commons.lang3.ObjectUtils;
 import org.apache.logging.log4j.ThreadContext;
 
 import javax.inject.Inject;
-import javax.naming.ConfigurationException;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
