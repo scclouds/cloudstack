@@ -19,6 +19,7 @@ package org.apache.cloudstack.api.command.user.hostdevices;
 
 import com.cloud.exception.ConcurrentOperationException;
 import com.cloud.exception.ResourceAllocationException;
+import org.apache.cloudstack.acl.RoleType;
 import org.apache.cloudstack.api.APICommand;
 import org.apache.cloudstack.api.ApiConstants;
 import org.apache.cloudstack.api.ApiErrorCode;
@@ -34,7 +35,11 @@ import org.apache.cloudstack.hostdevices.DeviceOfferingManager;
 
 import javax.inject.Inject;
 
-@APICommand(name = "assignVirtualMachineToDeviceOffering", description = "Assigns a device offering to a virtual machine.", responseObject = SuccessResponse.class)
+@APICommand(name = "assignVirtualMachineToDeviceOffering",
+        description = "Assigns a device offering to a virtual machine.",
+        responseObject = SuccessResponse.class,
+        authorized = {RoleType.Admin, RoleType.DomainAdmin, RoleType.ResourceAdmin, RoleType.User}
+)
 public class AssignVirtualMachineToDeviceOfferingCmd extends BaseCmd {
     @Inject
     private DeviceOfferingManager deviceOfferingManager;

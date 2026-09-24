@@ -20,6 +20,7 @@ package org.apache.cloudstack.api.command.user.hostdevices;
 import com.cloud.exception.ConcurrentOperationException;
 import com.cloud.user.Account;
 import com.cloud.uservm.UserVm;
+import org.apache.cloudstack.acl.RoleType;
 import org.apache.cloudstack.api.APICommand;
 import org.apache.cloudstack.api.ApiConstants;
 import org.apache.cloudstack.api.ApiErrorCode;
@@ -33,7 +34,11 @@ import org.apache.cloudstack.hostdevices.DeviceOfferingManager;
 
 import javax.inject.Inject;
 
-@APICommand(name = "removeVirtualMachineFromDeviceOffering", description = "Removes a device offering from a virtual machine.", responseObject = SuccessResponse.class)
+@APICommand(name = "removeVirtualMachineFromDeviceOffering",
+        description = "Removes a device offering from a virtual machine.",
+        responseObject = SuccessResponse.class,
+        authorized = {RoleType.Admin, RoleType.DomainAdmin, RoleType.ResourceAdmin, RoleType.User}
+)
 public class RemoveVirtualMachineFromDeviceOfferingCmd extends BaseCmd {
     @Inject
     private DeviceOfferingManager deviceOfferingManager;

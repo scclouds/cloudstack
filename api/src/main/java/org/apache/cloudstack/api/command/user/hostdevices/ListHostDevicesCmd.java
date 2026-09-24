@@ -43,7 +43,8 @@ import java.util.List;
         responseObject = HostDeviceResponse.class,
         requestHasSensitiveInfo = false,
         responseHasSensitiveInfo = false,
-        since = "4.24.0")
+        since = "4.24.0",
+        authorized = {RoleType.Admin, RoleType.DomainAdmin, RoleType.ResourceAdmin, RoleType.User})
 public class ListHostDevicesCmd extends BaseListCmd {
     @Inject
     private HostDevicesManager hostDevicesManager;

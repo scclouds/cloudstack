@@ -30,43 +30,51 @@ import java.util.Map;
 @EntityReference(value = DeviceOffering.class)
 public class DeviceOfferingResponse extends BaseResponse {
     @SerializedName(ApiConstants.ID)
-    @Param(description = "the ID of the device offering", since = "4.24.0")
+    @Param(description = "the ID of the device offering", since = "24.0")
     private String id;
 
     @SerializedName(ApiConstants.NAME)
-    @Param(description = "the name of the device offering", since = "4.24.0")
+    @Param(description = "the name of the device offering", since = "24.0")
     private String name;
 
     @SerializedName(ApiConstants.DESCRIPTION)
-    @Param(description = "the description of the device offering", since = "4.24.0")
+    @Param(description = "the description of the device offering", since = "24.0")
     private String description;
 
     @SerializedName(ApiConstants.STATE)
-    @Param(description = "the state of the device offering", since = "4.24.0")
+    @Param(description = "the state of the device offering", since = "24.0")
     private String state;
 
     @SerializedName(ApiConstants.DOMAIN_ID)
-    @Param(description = "the ID of the domain the device offering is dedicated to", since = "4.24.0")
+    @Param(description = "the ID of the domain the device offering is dedicated to", since = "24.0")
     private String domainId;
 
+    @SerializedName(ApiConstants.DOMAIN)
+    @Param(description = "the name of the domain the device offering is dedicated to", since = "24.0")
+    private String domain;
+
     @SerializedName(ApiConstants.ZONE_ID)
-    @Param(description = "the ID of the zone the device offering is dedicated to", since = "4.24.0")
+    @Param(description = "the ID of the zone the device offering is dedicated to", since = "24.0")
     private String zoneId;
 
+    @SerializedName(ApiConstants.ZONE)
+    @Param(description = "the name of the zone the device offering is dedicated to", since = "24.0")
+    private String zone;
+
     @SerializedName(ApiConstants.CREATED)
-    @Param(description = "the date the device offering was created", since = "4.24.0")
+    @Param(description = "the date the device offering was created", since = "24.0")
     private Date created;
 
     @SerializedName(ApiConstants.REMOVED)
-    @Param(description = "the date the device offering was removed", since = "4.24.0")
+    @Param(description = "the date the device offering was removed", since = "24.0")
     private Date removed;
 
     @SerializedName(ApiConstants.IS_PUBLIC)
-    @Param(description = "true if the device offering is available for all domains and zones", since = "4.24.0")
+    @Param(description = "true if the device offering is available for all domains and zones", since = "24.0")
     private Boolean isPublic;
 
     @SerializedName(ApiConstants.DEVICE_TAGS)
-    @Param(description = "the device tags of the device offering", since = "4.24.0")
+    @Param(description = "the device tags of the device offering", since = "24.0")
     private Map<String, Integer> deviceTags;
 
     public String getId() {
@@ -109,12 +117,28 @@ public class DeviceOfferingResponse extends BaseResponse {
         this.domainId = domainId;
     }
 
+    public String getDomain() {
+        return domain;
+    }
+
+    public void setDomain(String domain) {
+        this.domain = domain;
+    }
+
     public String getZoneId() {
         return zoneId;
     }
 
     public void setZoneId(String zoneId) {
         this.zoneId = zoneId;
+    }
+
+    public String getZone() {
+        return zone;
+    }
+
+    public void setZone(String zone) {
+        this.zone = zone;
     }
 
     public Date getCreated() {
