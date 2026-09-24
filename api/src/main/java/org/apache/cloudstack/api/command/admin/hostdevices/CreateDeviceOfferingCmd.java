@@ -26,6 +26,8 @@ import org.apache.cloudstack.api.BaseCmd;
 import org.apache.cloudstack.api.Parameter;
 import org.apache.cloudstack.api.ServerApiException;
 import org.apache.cloudstack.api.response.DeviceOfferingResponse;
+import org.apache.cloudstack.api.response.DomainResponse;
+import org.apache.cloudstack.api.response.ZoneResponse;
 import org.apache.cloudstack.context.CallContext;
 import org.apache.cloudstack.hostdevices.DeviceOffering;
 import org.apache.cloudstack.hostdevices.DeviceOfferingManager;
@@ -47,18 +49,18 @@ public class CreateDeviceOfferingCmd extends BaseCmd {
     //////////////// API parameters /////////////////////
     /////////////////////////////////////////////////////
 
-    @Parameter(name = "name", type = CommandType.STRING, required = true, description = "the name for the device offering")
+    @Parameter(name = ApiConstants.NAME, type = CommandType.STRING, required = true, description = "the name for the device offering")
     private String name;
 
-    @Parameter(name = "description", type = CommandType.STRING, required = true, description = "the description for the device offering")
+    @Parameter(name = ApiConstants.DESCRIPTION, type = CommandType.STRING, required = true, description = "the description for the device offering")
     private String description;
 
     @ACL
-    @Parameter(name = "domainId", type = CommandType.UUID, required = false, description = "the domain for the device offering to be dedicated to. Mutually exclusive with the zoneId parameter.")
+    @Parameter(name = ApiConstants.DOMAIN_ID, type = CommandType.UUID, entityType = DomainResponse.class, required = false, description = "the domain for the device offering to be dedicated to. Mutually exclusive with the zoneId parameter.")
     private Long domainId;
 
     @ACL
-    @Parameter(name = "zoneId", type = CommandType.UUID, required = false, description = "the zone for device offering to be dedicated to. Mutually exclusive with the domainId parameter.")
+    @Parameter(name = ApiConstants.ZONE_ID, type = CommandType.UUID, entityType = ZoneResponse.class, required = false, description = "the zone for device offering to be dedicated to. Mutually exclusive with the domainId parameter.")
     private Long zoneId;
 
     @Parameter(name = ApiConstants.DEVICE_TAGS, type = CommandType.LIST, collectionType = CommandType.STRING, required = true, description = "a comma separated list of device tags for the device offering. If the offering should have multiple equal tags, a colon and the number of tags must be inserted after the tag name. For example, devicetags=tag1:2,tag2 would create a device offering with two equal tags named tag1 and one tag named tag2.")
