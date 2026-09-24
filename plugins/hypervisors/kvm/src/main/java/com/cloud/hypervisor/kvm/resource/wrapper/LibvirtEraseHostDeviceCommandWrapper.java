@@ -16,6 +16,7 @@ import org.libvirt.Device;
 import org.libvirt.LibvirtException;
 
 import java.util.Arrays;
+import java.util.List;
 
 @ResourceWrapper(handles = EraseHostDeviceCommand.class)
 public class LibvirtEraseHostDeviceCommandWrapper extends CommandWrapper<EraseHostDeviceCommand, Answer, LibvirtComputingResource> {
@@ -28,8 +29,12 @@ public class LibvirtEraseHostDeviceCommandWrapper extends CommandWrapper<EraseHo
      */
     // TODO ERIK: nome temporario por causa do checkstyle do projeto
     private final String lsblkCommand = "/usr/bin/lsblk -e 7 -n -d -o NAME";
-    private final String udevCommand = "/usr/bin/udevadm info --query=property --path=";
+    private final String udevCommand = "/usr/bin/udevadm info --query=property --name=";
     private final String devicePrefix = "/dev/";
+    private final String nvmeFormatCommand = "/usr/sbin/nvme format ";
+    private final String defaultFormatCommand = "/usr/sbin/blkdiscard -f ";
+
+    private final List<HostDeviceEraser> hostDeviceErasers = List.of(new NVMEHostDeviceEraser(), new DefaultHostdeviceEraser());
 
     @Override
     public Answer execute(EraseHostDeviceCommand command, LibvirtComputingResource libvirtComputingResource) {
@@ -77,18 +82,27 @@ public class LibvirtEraseHostDeviceCommandWrapper extends CommandWrapper<EraseHo
                     continue;
                 }
 
-                logger.info("Device {} matches the PCI identifier {}. Proceeding with erasure.", deviceName, devicePciIdentifier);
-//                Script.runSimpleBashScript("wipefs -a " + deviceName);
-//                logger.info("Successfully erased device {}.", deviceName);
-                return new ScanDevicesAnswer(command, true, null);
+                logger.info("Device {} matches the PCI identifier {}.", deviceName, devicePciIdentifier);
+
+                for (HostDeviceEraser eraser : hostDeviceErasers) {
+                    if (eraser.canErase(deviceName)) {
+                        logger.info("Eraser {} supports device {}. Proceeding with erasure.", eraser.getClass().getSimpleName(), deviceName);
+                        boolean isDeviceErased = eraser.eraseDevice(deviceName);
+                        logger.info("Erasure result: {}", isDeviceErased);
+                        return new ScanDevicesAnswer(command, isDeviceErased, null);
+                    }
+
+                    logger.trace("Eraser {} does not support device {}. Trying next eraser.", eraser.getClass().getSimpleName(), deviceName);
+                }
             }
+
+            logger.error("Device {} could not be erased.", pciName);
+            return new ScanDevicesAnswer(command, false, null);
         } catch (Exception e) {
             String errorMessage = "Failed to erase host device due to " + e.getMessage();
             logger.error(errorMessage, e);
             return new ScanDevicesAnswer(command, false, errorMessage);
         }
-
-        return new Answer(command, true, null);
     }
 
     private String getDeviceSystemPath(Device libvirtDevice) throws LibvirtException {
@@ -154,5 +168,74 @@ public class LibvirtEraseHostDeviceCommandWrapper extends CommandWrapper<EraseHo
         logger.info("Extracted PCI identifiers from path: {}", formattedPciIdentifier);
 
         return formattedPciIdentifier;
+    }
+
+    private class DefaultHostdeviceEraser implements HostDeviceEraser {
+        @Override
+        public boolean canErase(String devicePath) {
+            return true;
+        }
+
+        @Override
+        public boolean eraseDevice(String devicePath) {
+            int result = Script.executeCommandForExitValue(defaultFormatCommand + devicePath);
+
+            if (result == -1) {
+                logger.error("Failed to erase device {}. blkdiscard command returned null.", devicePath);
+                return false;
+            }
+
+            if (result > 0) {
+                logger.error("Failed to erase device {}. blkdiscard command returned exit code: {}", devicePath, result);
+                return false;
+            }
+
+            logger.info("Successfully erased device {}.", devicePath);
+            return true;
+        }
+    }
+
+    private class NVMEHostDeviceEraser implements HostDeviceEraser {
+        @Override
+        public boolean canErase(String devicePath) {
+            if (!devicePath.startsWith("/dev/nvme")) {
+                logger.warn("Device {} is not an NVMe device. Skipping erasure.", devicePath);
+                return false;
+            }
+
+            String result = Script.runSimpleBashScriptWithFullResult(String.format("nvme id-ctrl %s -H | grep -E 'Format NVM Supported'", devicePath), 60000);
+
+            if (result == null || !result.contains("Format NVM Supported")) {
+                logger.warn("Device {} does not support NVMe format. Skipping erasure.", devicePath);
+                return false;
+            }
+
+            return true;
+        }
+
+        @Override
+        public boolean eraseDevice(String devicePath) {
+            // TODO ERIK: ver sobre timeout do script e do comando do nvme
+            String formatResult = Script.runSimpleBashScript(nvmeFormatCommand + devicePath);
+
+            if (formatResult == null) {
+                logger.error("Failed to erase NVMe device {}. Format command returned null.", devicePath);
+                return false;
+            }
+
+            if (!formatResult.contains("success")) {
+                logger.error("Failed to erase NVMe device {}. Format command output: {}", devicePath, formatResult);
+                return false;
+            }
+
+            logger.info("Successfully erased NVMe device {}.", devicePath);
+            return true;
+        }
+    }
+
+    private interface HostDeviceEraser {
+        boolean canErase(String devicePath);
+
+        boolean eraseDevice(String devicePath);
     }
 }

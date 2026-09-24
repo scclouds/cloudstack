@@ -989,6 +989,7 @@ public class HostDevicesManagerImpl extends ManagerBase implements HostDevicesMa
     }
 
     protected void cleanupStorageDevices() {
+        // TODO ERIK: Ver se precisa de transação - não parece, não vai estar sendo usado devido ao estado
         List<HostDeviceVO> devicesToClean = hostDeviceDao.listAndLockHostDevicesByState(HostDevice.State.Cleaning);
 
         logger.info("Automatic device cleanup task started. Found {} devices in the Cleaning state to cleanup.", devicesToClean.size());
@@ -1000,13 +1001,24 @@ public class HostDevicesManagerImpl extends ManagerBase implements HostDevicesMa
             try {
                 //TODO ERIK: ver se faz sentido usar a config global de timeout
                 Answer answer = agentManager.send(deviceHost.getId(), new EraseHostDeviceCommand(device.getPciName()));
-            } catch (OperationTimedoutException e) {
-                throw new RuntimeException(e);
-            } catch (AgentUnavailableException e) {
-                throw new RuntimeException(e);
-            }
 
+                if (!answer.getResult()) {
+                    logger.error("Failed to erase content of storage device [{} - {}] of host [{}]. Please check the Agent logs for the failure reason. We will try to clean the remaining devices", device.getDisplayName(), device.getPciName(), deviceHost);
+                    continue;
+                }
+
+                // TODO ERIK: ver se tem que dar um sleep antes de mudar o estado, pra garantir que o device realmente foi limpo
+                device.setState(HostDevice.State.Free);
+                hostDeviceDao.update(device.getId(), device);
+                logger.info("Successfully erased content of storage device [{} - {}] of host [{}].", device.getDisplayName(), device.getPciName(), deviceHost);
+            } catch (OperationTimedoutException e) {
+                throw new CloudRuntimeException(String.format("Timeout occurred while trying to erase content of storage device [%s - %s] of host [%s]. Please check the Agent logs for the failure reason.", device.getDisplayName(), device.getPciName(), deviceHost), e);
+            } catch (AgentUnavailableException e) {
+                throw new CloudRuntimeException(String.format("Could not reach Agent when trying to erase content of storage device [%s - %s] of host [%s].", device.getDisplayName(), device.getPciName(), deviceHost), e);
+            }
         }
+
+        logger.info("Automatic device cleanup task completed.");
     }
 
     @Override
