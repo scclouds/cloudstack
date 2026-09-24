@@ -19,6 +19,7 @@ package org.apache.cloudstack.api.command.user.hostdevices;
 
 import com.cloud.exception.ConcurrentOperationException;
 import com.cloud.utils.Pair;
+import org.apache.cloudstack.acl.RoleType;
 import org.apache.cloudstack.api.ACL;
 import org.apache.cloudstack.api.APICommand;
 import org.apache.cloudstack.api.ApiConstants;
@@ -41,7 +42,8 @@ import java.util.List;
         responseObject = DeviceOfferingResponse.class,
         requestHasSensitiveInfo = false,
         responseHasSensitiveInfo = false,
-        since = "4.24.0")
+        since = "4.24.0",
+        authorized = {RoleType.Admin, RoleType.DomainAdmin, RoleType.ResourceAdmin, RoleType.User})
 public class ListDeviceOfferingsCmd extends BaseListCmd {
     @Inject
     private DeviceOfferingManager deviceOfferingManager;

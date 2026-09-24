@@ -268,6 +268,7 @@ public class DeviceOfferingManagerImpl extends ManagerBase implements DeviceOffe
 
             if (offeringDomain != null) {
                 response.setDomainId(offeringDomain.getUuid());
+                response.setDomain(offeringDomain.getName());
             }
         }
 
@@ -276,6 +277,7 @@ public class DeviceOfferingManagerImpl extends ManagerBase implements DeviceOffe
 
             if (offeringZone != null) {
                 response.setZoneId(offeringZone.getUuid());
+                response.setZone(offeringZone.getName());
             }
         }
         response.setCreated(offering.getCreated());
@@ -286,6 +288,8 @@ public class DeviceOfferingManagerImpl extends ManagerBase implements DeviceOffe
         if (MapUtils.isNotEmpty(deviceTags)) {
             response.setDeviceTags(deviceTags);
         }
+
+        response.setObjectName("deviceoffering");
 
         return response;
     }
