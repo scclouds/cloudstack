@@ -662,7 +662,7 @@ export default {
       icon: 'usb-outlined',
       permission: ['listDeviceOfferings'],
       resourceType: 'DeviceOffering',
-      columns: ['name', 'description', 'state', 'devicetags', 'domain', 'zone'],
+      columns: ['name', 'description', 'state', { field: 'devicetags', customTitle: 'device.tags' }, 'domain', 'zone'],
       details: ['description', 'devicetags', 'domainid', 'zoneid'],
       filters: () => {
         if (['Admin', 'DomainAdmin'].includes(store.getters.userInfo.roletype)) {
