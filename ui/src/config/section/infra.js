@@ -29,6 +29,7 @@ import systemVms from '@/config/section/infra/systemVms'
 import routers from '@/config/section/infra/routers'
 import ilbvms from '@/config/section/infra/ilbvms'
 import managementServers from '@/config/section/infra/managementServers'
+import hostDevicesManagement from '@/config/section/infra/hostDevicesManagement'
 
 export default {
   name: 'infra',
@@ -57,6 +58,7 @@ export default {
     routers,
     ilbvms,
     managementServers,
+    hostDevicesManagement,
     {
       name: 'cpusocket',
       title: 'label.cpu.sockets',

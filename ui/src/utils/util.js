@@ -155,3 +155,9 @@ export function isValidIPv4Cidr (rule, value) {
     resolve()
   })
 }
+
+export function parseDeviceTags (tags, separator = ' = ') {
+  if (!tags) return ''
+
+  return Object.entries(tags).map(([key, value]) => `${key}${separator}${value}`).join(',')
+}

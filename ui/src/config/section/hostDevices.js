@@ -15,36 +15,10 @@
 // specific language governing permissions and limitations
 // under the License.
 
-import store from '@/store'
-
 export default {
-  name: 'hostdevices',
-  title: 'label.hostdevices',
+  name: 'hostdevice',
+  title: 'label.host.devices',
   icon: 'link-outlined',
   permission: ['listHostDevices'],
-  columns () {
-    const columns = ['displayname', 'devicetag', 'state', 'type', 'virtualmachinename', 'account', 'domain']
-
-    if (store.getters.userInfo.roletype === 'Admin') {
-      columns.push('hostname')
-    }
-
-    return columns
-  },
-  actions: [
-    {
-      api: 'updateHostDevice',
-      icon: 'edit-outlined',
-      label: 'label.action.edit.hostdevice',
-      dataView: true,
-      popup: true,
-      show: (record) => { return ['Disabled', 'Free'].includes(record.state) },
-      args: ['id', 'displayname', 'devicetag', 'type', 'enabled'],
-      mapping: {
-        id: {
-          value: (record) => { return record.id }
-        }
-      }
-    }
-  ]
+  columns: ['displayname', 'devicetag', 'state', 'type', 'virtualmachinename', 'account', 'domain']
 }

@@ -232,6 +232,15 @@
           <div>{{ dataResource[item] }}</div>
         </div>
       </a-list-item>
+      <a-list-item v-else-if="item === 'devicetags'">
+        <div>
+          <strong>{{ $t('label.device.tags') }}</strong>
+          <br/>
+          <a-tag v-for="(tagAmount, tagKey, index) in dataResource[item]" :key="index" style="margin-bottom: 5px; margin-right: 5px">
+            {{ tagKey }} = {{ tagAmount }}
+          </a-tag>
+        </div>
+      </a-list-item>
       <div v-else-if="item === 'backupofferingdetails'">
         <a-list-item
           v-for="(value, key) in dataResource[item]"
@@ -313,7 +322,7 @@ export default {
   },
   computed: {
     customDisplayItems () {
-      var items = ['ip4routes', 'ip6routes', 'privatemtu', 'publicmtu', 'provider', 'details', 'parameters', 'secretkey', 'backupofferingdetails']
+      var items = ['ip4routes', 'ip6routes', 'privatemtu', 'publicmtu', 'provider', 'details', 'parameters', 'secretkey', 'backupofferingdetails', 'devicetags']
       if (this.$route.meta.name === 'webhookdeliveries') {
         items.push('startdate')
         items.push('enddate')
