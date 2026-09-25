@@ -164,3 +164,9 @@ export function addProjectFilter (params, resource) {
   }
   return params
 }
+
+export function parseDeviceTags (tags, separator = ' = ') {
+  if (!tags) return ''
+
+  return Object.entries(tags).map(([key, value]) => `${key}${separator}${value}`).join(',')
+}

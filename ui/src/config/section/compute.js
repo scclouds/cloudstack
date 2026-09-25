@@ -242,6 +242,35 @@ export default {
           component: shallowRef(defineAsyncComponent(() => import('@/views/compute/CreateSnapshotWizard.vue')))
         },
         {
+          api: 'assignVirtualMachineToDeviceOffering',
+          icon: 'usb-outlined',
+          label: 'label.assign.device.offering',
+          dataView: true,
+          args: ['virtualmachineid', 'deviceofferingid'],
+          mapping: {
+            deviceofferingid: {
+              api: 'listDeviceOfferings',
+              params: () => {
+                return { listall: true }
+              }
+            },
+            virtualmachineid: {
+              value: record => {
+                return record.id
+              }
+            }
+          }
+        },
+        {
+          api: 'removeVirtualMachineFromDeviceOffering',
+          icon: 'scissor-outlined',
+          label: 'label.remove.device.offering',
+          dataView: true,
+          popup: true,
+          show: (record) => { return record.deviceofferings },
+          component: shallowRef(defineAsyncComponent(() => import('@/views/compute/RemoveVirtualMachineFromDeviceOffering.vue')))
+        },
+        {
           api: 'assignVirtualMachineToBackupOffering',
           icon: 'folder-add-outlined',
           label: 'label.backup.offering.assign',

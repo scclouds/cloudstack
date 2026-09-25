@@ -62,11 +62,18 @@ export default {
     name: 'comments',
     component: shallowRef(defineAsyncComponent(() => import('@/components/view/AnnotationsTab.vue')))
   }],
-  related: [{
-    name: 'vm',
-    title: 'label.instances',
-    param: 'hostid'
-  }],
+  related: [
+    {
+      name: 'vm',
+      title: 'label.instances',
+      param: 'hostid'
+    },
+    {
+      name: 'hostdevice',
+      title: 'label.host.devices',
+      param: 'hostid'
+    }
+  ],
   actions: [
     {
       api: 'addHost',
@@ -337,6 +344,21 @@ export default {
       show: (record) => {
         return record.resourcestate === 'Degraded'
       }
+    },
+    {
+      api: 'scanHostDevices',
+      icon: 'scan-outlined',
+      label: 'label.action.scan.host.devices',
+      message: 'message.action.scan.host.devices',
+      docHelp: 'adminguide/hosts.html#scanning-host-devices',
+      args: ['hostid'],
+      mapping: {
+        hostid: {
+          value: (record) => { return record.id }
+        }
+      },
+      dataView: true,
+      show: (record) => { return ['Enabled', 'Disabled', 'Maintenance'].includes(record.resourcestate) }
     },
     {
       api: 'deleteHost',

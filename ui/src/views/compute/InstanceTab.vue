@@ -104,6 +104,20 @@
           resourceType="VirtualMachine"
           :loading="loading"/>
       </a-tab-pane>
+      <a-tab-pane :tab="$t('label.device.offerings')" key="deviceofferings" v-if="dataResource.deviceofferings && dataResource.deviceofferings.length > 0">
+        <ListResourceTable
+          :items="dataResource.deviceofferings"
+          :columns="['name', 'description', 'devicetags']"
+          :routerlinks="(record) => { return { name: '/deviceoffering/' + record.id } }"
+          :showSearch="false"/>
+      </a-tab-pane>
+      <a-tab-pane :tab="$t('label.host.devices')" key="hostdevices" v-if="dataResource.hostdevices && dataResource.hostdevices.length > 0">
+        <ListResourceTable
+          :items="dataResource.hostdevices"
+          :columns="['displayname', 'state', 'type', 'devicetag']"
+          :routerlinks="(record) => { return { displayname: '/hostdevice/' + record.id } }"
+          :showSearch="false"/>
+      </a-tab-pane>
       <a-tab-pane :tab="$t('label.settings')" key="settings">
         <DetailSettings :resource="dataResource" :loading="loading" />
       </a-tab-pane>

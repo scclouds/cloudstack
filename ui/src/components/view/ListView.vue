@@ -1058,6 +1058,11 @@
       <template v-if="column.key === 'vgpuActions'">
         <slot name="actionButtons" :record="record" :actions="actions"></slot>
       </template>
+      <template v-if="column.key === 'devicetags'">
+        <a-tag v-for="(tagAmount, tagKey, index) in record.devicetags" :key="index" style="margin-bottom: 5px; margin-right: 5px">
+          {{ tagKey }} = {{ tagAmount }}
+        </a-tag>
+      </template>
     </template>
     <template #footer>
       <span v-if="hasSelected">
@@ -1222,7 +1227,7 @@ export default {
           '/computeoffering', '/systemoffering', '/diskoffering', '/backupoffering', '/networkoffering', '/vpcoffering',
           '/tungstenfabric', '/oauthsetting', '/guestos', '/guestoshypervisormapping', '/webhook', 'webhookdeliveries', 'webhookfilters', '/quotatariff', '/sharedfs',
           '/ipv4subnets', '/managementserver', '/gpucard', '/gpudevices', '/vgpuprofile', '/extension', '/snapshotpolicy', '/backupschedule',
-          '/kmskey', '/hsmprofile', '/dnsserver', '/dnszone'].join('|'))
+          '/kmskey', '/hsmprofile', '/dnsserver', '/dnszone', '/deviceoffering'].join('|'))
           .test(this.$route.path)
     },
     enableGroupAction () {

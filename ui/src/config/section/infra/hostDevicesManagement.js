@@ -16,9 +16,25 @@
 // under the License.
 
 export default {
-  name: 'hostdevice',
-  title: 'label.host.devices',
+  name: 'hostdevicesmanagement',
+  title: 'label.host.devices.management',
   icon: 'link-outlined',
   permission: ['listHostDevices'],
-  columns: ['displayname', 'devicetag', 'state', 'type', 'virtualmachinename', 'account', 'domain']
+  columns: ['displayname', 'devicetag', 'state', 'type', 'virtualmachinename', 'account', 'domain', 'hostname'],
+  actions: [
+    {
+      api: 'updateHostDevice',
+      icon: 'edit-outlined',
+      label: 'label.action.edit.hostdevice',
+      dataView: true,
+      popup: true,
+      show: (record) => { return ['Disabled', 'Free'].includes(record.state) },
+      args: ['id', 'displayname', 'devicetag', 'type', 'enabled'],
+      mapping: {
+        id: {
+          value: (record) => { return record.id }
+        }
+      }
+    }
+  ]
 }

@@ -655,6 +655,98 @@ export default {
         popup: true,
         groupMap: (selection) => { return selection.map(x => { return { id: x } }) }
       }]
+    },
+    {
+      name: 'deviceoffering',
+      title: 'label.device.offerings',
+      icon: 'usb-outlined',
+      permission: ['listDeviceOfferings'],
+      resourceType: 'DeviceOffering',
+      columns: ['name', 'description', 'state', 'devicetags', 'domain', 'zone'],
+      details: ['description', 'devicetags', 'domainid', 'zoneid'],
+      filters: () => {
+        if (['Admin', 'DomainAdmin'].includes(store.getters.userInfo.roletype)) {
+          return ['active', 'inactive']
+        }
+        return []
+      },
+      tabs: [
+        {
+          name: 'details',
+          component: shallowRef(defineAsyncComponent(() => import('@/components/view/DetailsTab.vue')))
+        }
+      ],
+      actions: [
+        {
+          api: 'createDeviceOffering',
+          icon: 'plus-outlined',
+          label: 'label.add.device.offering',
+          listView: true,
+          popup: true,
+          component: shallowRef(defineAsyncComponent(() => import('@/views/offering/AddDeviceOffering.vue')))
+        },
+        {
+          api: 'updateDeviceOffering',
+          icon: 'edit-outlined',
+          label: 'label.edit',
+          dataView: true,
+          popup: true,
+          component: shallowRef(defineAsyncComponent(() => import('@/views/offering/UpdateDeviceOffering.vue')))
+        },
+        {
+          api: 'assignVirtualMachineToDeviceOffering',
+          icon: 'link-outlined',
+          label: 'label.assign.device.offering',
+          dataView: true,
+          args: ['virtualmachineid', 'deviceofferingid'],
+          mapping: {
+            deviceofferingid: {
+              value: (record, params) => { return record.id }
+            },
+            virtualmachineid: {
+              api: 'listVirtualMachines',
+              params: () => { return { listall: true, details: 'min' } }
+            }
+          }
+        },
+        {
+          api: 'updateDeviceOffering',
+          icon: 'pause-circle-outlined',
+          label: 'label.action.disable.device.offering',
+          message: 'message.action.disable.device.offering',
+          dataView: true,
+          popup: true,
+          mapping: {
+            state: {
+              value: () => { return 'Inactive' }
+            }
+          },
+          show: (record) => { return record.state === 'Active' }
+        },
+        {
+          api: 'updateDeviceOffering',
+          icon: 'play-circle-outlined',
+          label: 'label.action.enable.device.offering',
+          message: 'message.action.enable.device.offering',
+          dataView: true,
+          args: ['state'],
+          mapping: {
+            state: {
+              value: () => { return 'Active' }
+            }
+          },
+          popup: true,
+          show: (record) => { return record.state !== 'Active' }
+        },
+        {
+          api: 'deleteDeviceOffering',
+          icon: 'delete-outlined',
+          label: 'label.remove.device.offering',
+          message: 'message.confirm.delete.device.offering',
+          dataView: true,
+          popup: true
+        }
+      ]
     }
   ]
 }

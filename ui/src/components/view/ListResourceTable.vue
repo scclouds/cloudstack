@@ -54,6 +54,10 @@
             {{ $bytesToHumanReadableSize(text) }}
           </template>
 
+          <template v-else-if="column.key === 'devicetags'">
+            <a-tag>{{ parseDeviceTags(text) }}</a-tag>
+          </template>
+
           <template v-else>
             {{ text }}
           </template>
@@ -85,6 +89,7 @@
 import { getAPI } from '@/api'
 import { mixinDevice } from '@/utils/mixin.js'
 import Status from '@/components/widgets/Status'
+import { parseDeviceTags } from '@/utils/util'
 
 export default {
   name: 'ListResourceTable',
@@ -163,6 +168,7 @@ export default {
     this.fetchData()
   },
   methods: {
+    parseDeviceTags,
     fetchData () {
       if (this.items && this.items.length > 0) {
         this.dataSource = this.items

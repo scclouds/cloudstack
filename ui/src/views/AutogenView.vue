@@ -908,7 +908,7 @@ export default {
       if (['volume'].includes(routeName)) {
         return 'user'
       }
-      if (['event', 'computeoffering', 'systemoffering', 'diskoffering', 'quotatariff'].includes(routeName)) {
+      if (['event', 'computeoffering', 'systemoffering', 'diskoffering', 'quotatariff', 'deviceoffering'].includes(routeName)) {
         return 'active'
       }
       return 'self'
@@ -2118,7 +2118,7 @@ export default {
         } else {
           query.clustertype = filter === 'cloud.managed' ? 'CloudManaged' : 'ExternalManaged'
         }
-      } else if (['computeoffering', 'systemoffering', 'diskoffering'].includes(this.$route.name)) {
+      } else if (['computeoffering', 'systemoffering', 'diskoffering', 'deviceoffering'].includes(this.$route.name)) {
         query.state = filter
       } else if (['extension'].includes(this.$route.name)) {
         if (filter === 'all') {
