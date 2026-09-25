@@ -36,6 +36,7 @@ import javax.inject.Inject;
 import com.cloud.hostdevices.DeviceOfferingVO;
 import com.cloud.hostdevices.HostDeviceVO;
 import com.cloud.hostdevices.dao.DeviceOfferingDao;
+import com.cloud.hostdevices.dao.DeviceOfferingDeviceTagDao;
 import com.cloud.hostdevices.dao.HostDeviceDao;
 import org.apache.cloudstack.affinity.AffinityGroupResponse;
 import org.apache.cloudstack.annotation.AnnotationService;
@@ -56,6 +57,7 @@ import org.apache.cloudstack.backup.dao.BackupOfferingDao;
 import org.apache.cloudstack.context.CallContext;
 import org.apache.cloudstack.extension.ExtensionHelper;
 import org.apache.cloudstack.framework.config.dao.ConfigurationDao;
+import org.apache.cloudstack.hostdevices.DeviceOfferingHelper;
 import org.apache.cloudstack.query.QueryService;
 import org.apache.cloudstack.vm.lease.VMLeaseManager;
 import org.apache.commons.collections.CollectionUtils;
@@ -159,6 +161,8 @@ public class UserVmJoinDaoImpl extends GenericDaoBaseWithTagInformation<UserVmJo
     private HostDeviceDao hostDeviceDao;
     @Inject
     private DeviceOfferingDao deviceOfferingDao;
+    @Inject
+    private DeviceOfferingDeviceTagDao deviceOfferingDeviceTagDao;
 
     private final SearchBuilder<UserVmJoinVO> VmDetailSearch;
     private final SearchBuilder<UserVmJoinVO> activeVmByIsoSearch;
@@ -586,9 +590,12 @@ public class UserVmJoinDaoImpl extends GenericDaoBaseWithTagInformation<UserVmJo
             List<DeviceOfferingResponse> responses = new ArrayList<>();
 
             for (DeviceOfferingVO deviceOffering : deviceOfferings) {
+                Map<String, Integer> offeringTags = DeviceOfferingHelper.getDeviceOfferingToAmountMap(deviceOfferingDeviceTagDao.getDeviceOfferingTags(deviceOffering.getId()));
                 DeviceOfferingResponse deviceOfferingResponse = new DeviceOfferingResponse();
                 deviceOfferingResponse.setId(deviceOffering.getUuid());
                 deviceOfferingResponse.setName(deviceOffering.getName());
+                deviceOfferingResponse.setDescription(deviceOffering.getDescription());
+                deviceOfferingResponse.setDeviceTags(offeringTags);
                 responses.add(deviceOfferingResponse);
             }
 
@@ -605,6 +612,7 @@ public class UserVmJoinDaoImpl extends GenericDaoBaseWithTagInformation<UserVmJo
                 hostDeviceResponse.setDisplayName(hostDevice.getDisplayName());
                 hostDeviceResponse.setType(hostDevice.getType().toString());
                 hostDeviceResponse.setState(hostDevice.getState().toString());
+                hostDeviceResponse.setDeviceTag(hostDevice.getDeviceTag());
 
                 if (caller.getType() == Account.Type.ADMIN && hostDevice.getHostId() != null) {
                     HostVO deviceHost = hostDao.findById(hostDevice.getHostId());
