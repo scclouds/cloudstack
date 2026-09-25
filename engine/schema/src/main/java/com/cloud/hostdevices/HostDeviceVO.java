@@ -78,6 +78,9 @@ public class HostDeviceVO implements HostDevice {
     @Column(name = "device_tag")
     private String deviceTag;
 
+    @Column(name = "one_time_use")
+    private Boolean oneTimeUse;
+
     @Column(name = "created")
     @Temporal(value = TemporalType.TIMESTAMP)
     private Date created;
@@ -108,6 +111,8 @@ public class HostDeviceVO implements HostDevice {
 
     public HostDeviceVO() {
         this.uuid = UUID.randomUUID().toString();
+        this.state = State.Disabled;
+        this.oneTimeUse = false;
     }
 
     public HostDeviceVO(PciDevice device, Long hostId) {
@@ -120,7 +125,6 @@ public class HostDeviceVO implements HostDevice {
         this.pciFunction = device.getFunction();
         this.pciVendorId = device.getVendorId();
         this.pciDeviceId = device.getProductId();
-        this.state = State.Disabled;
         this.type = HostDevice.Type.getFromClassCode(device.getClassCode());
         this.displayName = buildDisplayName(device);
         setDeviceTag(this.type.toString());
@@ -300,8 +304,17 @@ public class HostDeviceVO implements HostDevice {
         this.hostId = hostId;
     }
 
+    @Override
+    public Boolean getOneTimeUse() {
+        return oneTimeUse;
+    }
+
+    public void setOneTimeUse(Boolean oneTimeUse) {
+        this.oneTimeUse = oneTimeUse;
+    }
+
     public boolean canBeUpdated() {
-        return this.state == State.Disabled || this.state == State.Free;
+        return INVALID_UPDATE_STATES.contains(this.state);
     }
 
     @Override

@@ -20,7 +20,7 @@ package org.apache.cloudstack.hostdevices;
 import com.cloud.agent.AgentManager;
 import com.cloud.agent.api.Answer;
 import com.cloud.agent.api.ScanDevicesCommand;
-import com.cloud.agent.api.storage.EraseHostDeviceCommand;
+import com.cloud.alert.AlertManager;
 import com.cloud.configuration.Resource;
 import com.cloud.dc.ClusterDetailsDao;
 import com.cloud.dc.ClusterDetailsVO;
@@ -30,11 +30,7 @@ import com.cloud.domain.Domain;
 import com.cloud.domain.dao.DomainDao;
 import com.cloud.event.ActionEvent;
 import com.cloud.event.EventTypes;
-import com.cloud.exception.AgentUnavailableException;
-import com.cloud.exception.InvalidParameterValueException;
-import com.cloud.exception.OperationTimedoutException;
-import com.cloud.exception.PermissionDeniedException;
-import com.cloud.exception.ResourceAllocationException;
+import com.cloud.exception.*;
 import com.cloud.host.Host;
 import com.cloud.host.HostVO;
 import com.cloud.host.dao.HostDao;
@@ -54,17 +50,14 @@ import com.cloud.utils.Pair;
 import com.cloud.utils.UuidUtils;
 import com.cloud.utils.component.ManagerBase;
 import com.cloud.utils.concurrency.NamedThreadFactory;
-import com.cloud.utils.db.Filter;
-import com.cloud.utils.db.Transaction;
-import com.cloud.utils.db.TransactionCallback;
-import com.cloud.utils.db.TransactionCallbackNoReturn;
-import com.cloud.utils.db.TransactionStatus;
+import com.cloud.utils.db.*;
 import com.cloud.utils.exception.CloudRuntimeException;
 import com.cloud.vm.VMInstanceVO;
 import com.cloud.vm.VirtualMachine;
 import com.cloud.vm.dao.VMInstanceDao;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.module.SimpleModule;
+import org.apache.cloudstack.alert.AlertService.AlertType;
 import org.apache.cloudstack.api.command.admin.hostdevices.ScanHostDevicesCmd;
 import org.apache.cloudstack.api.command.admin.hostdevices.UpdateHostDeviceCmd;
 import org.apache.cloudstack.api.command.user.hostdevices.ListHostDevicesCmd;
@@ -81,16 +74,11 @@ import org.apache.logging.log4j.ThreadContext;
 
 import javax.inject.Inject;
 import java.io.IOException;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.HashMap;
-import java.util.LinkedHashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.UUID;
+import java.util.*;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 
 public class HostDevicesManagerImpl extends ManagerBase implements HostDevicesManager {
@@ -120,12 +108,12 @@ public class HostDevicesManagerImpl extends ManagerBase implements HostDevicesMa
     private ResourceLimitService resourceLimitMgr;
     @Inject
     private ReservationDao reservationDao;
+    @Inject
+    private AlertManager alertManager;
 
     private ScheduledExecutorService scanScheduledExecutor;
-    private ScheduledExecutorService cleanupScheduledExecutor;
     private static final String LOGCONTEXTID = "logcontextid";
     private static final long INITIAL_DELAY_IN_SECONDS = 60L;
-    private static final long AUTOMATIC_CLEANUP_TASK_INTERVAL_IN_SECONDS = 60L;
     private static final long AUTOMATIC_SCAN_TASK_INTERVAL_IN_SECONDS = 300L;
     private static final ObjectMapper MAPPER = createMapper();
 
@@ -143,13 +131,6 @@ public class HostDevicesManagerImpl extends ManagerBase implements HostDevicesMa
                 TimeUnit.SECONDS
         );
 
-        cleanupScheduledExecutor = Executors.newSingleThreadScheduledExecutor(new NamedThreadFactory("AutomaticCleanupDeviceScheduler"));
-        cleanupScheduledExecutor.scheduleAtFixedRate(this::triggerDeviceCleanup,
-                INITIAL_DELAY_IN_SECONDS,
-                AUTOMATIC_CLEANUP_TASK_INTERVAL_IN_SECONDS,
-                TimeUnit.SECONDS
-        );
-
         return true;
     }
 
@@ -157,10 +138,6 @@ public class HostDevicesManagerImpl extends ManagerBase implements HostDevicesMa
     public boolean stop() {
         if (scanScheduledExecutor != null) {
             scanScheduledExecutor.shutdownNow();
-        }
-
-        if (cleanupScheduledExecutor != null) {
-            cleanupScheduledExecutor.shutdownNow();
         }
 
         return super.stop();
@@ -345,6 +322,9 @@ public class HostDevicesManagerImpl extends ManagerBase implements HostDevicesMa
             device.setState(HostDevice.State.Missing);
             hostDeviceDao.update(device.getId(), device);
         }
+
+        logger.debug("Sending alerts to operators about missing devices.");
+        sendAlertAboutMissingDevices(missingDevices);
     }
 
     private void handleUnregisteredDevices(List<HostDeviceVO> currentDevices, List<HostDeviceVO> incomingDevices) {
@@ -429,6 +409,7 @@ public class HostDevicesManagerImpl extends ManagerBase implements HostDevicesMa
 
     @Override
     public HostDeviceResponse generateHostDeviceResponse(HostDevice device) {
+        // TODO ERIK: colocar builder com response de admin e de user
         HostDeviceResponse res = new HostDeviceResponse();
 
         res.setId(device.getUuid());
@@ -445,6 +426,7 @@ public class HostDevicesManagerImpl extends ManagerBase implements HostDevicesMa
         res.setState(device.getState().toString());
         res.setType(device.getType().toString());
         res.setDeviceTag(device.getDeviceTag());
+        res.setOneTimeUse(device.getOneTimeUse());
 
         if (device.getInstanceId() != null) {
             VirtualMachine vm = virtualMachineDao.findById(device.getInstanceId());
@@ -507,8 +489,8 @@ public class HostDevicesManagerImpl extends ManagerBase implements HostDevicesMa
             }
 
             if (!device.canBeUpdated()) {
-                logger.error("Current device state is {}. Only devices in Disabled or Free state can be updated.", device.getState());
-                throw new InvalidParameterValueException(String.format("Devices in state %s cannot be updated. Valid states for update are %s and %s.", device.getState(), HostDevice.State.Disabled, HostDevice.State.Free));
+                logger.error("Could not update host device state. Current device state is {} and invalid states are {}.", device.getState(), HostDevice.INVALID_UPDATE_STATES);
+                throw new InvalidParameterValueException(String.format("Could not update device because it is in state [%s] and updating devices in states %s is not allowed.", device.getState(), HostDevice.INVALID_UPDATE_STATES));
             }
 
             if (enabled != null) {
@@ -525,6 +507,10 @@ public class HostDevicesManagerImpl extends ManagerBase implements HostDevicesMa
 
             if (newDeviceType != null) {
                 device.setType(newDeviceType);
+            }
+
+            if (updateHostDeviceCmd.getOneTimeUse() != null) {
+                device.setOneTimeUse(updateHostDeviceCmd.getOneTimeUse());
             }
 
             hostDeviceDao.update(device.getId(), device);
@@ -548,12 +534,13 @@ public class HostDevicesManagerImpl extends ManagerBase implements HostDevicesMa
     public void releaseHostDevicesForVm(Long vmId) {
         VirtualMachine vm = getVirtualMachineOrThrow(vmId);
 
-        Transaction.execute(new TransactionCallbackNoReturn() {
-            @Override
-            public void doInTransactionWithoutResult(TransactionStatus status) {
-                releaseDevices(vm, hostDeviceDao.listAndLockHostDevicesByVmId(vmId));
-            }
-        });
+        List<HostDeviceVO> releasedDevices = Transaction.execute(
+                (TransactionCallback<List<HostDeviceVO>>) status ->
+                        releaseDevices(vm, hostDeviceDao.listAndLockHostDevicesByVmId(vmId)));
+
+        // TODO ERIK: talvez seja overkill, mas nao me parece correto prender o fluxo até que o alerta seja enviado. rever isso
+        logger.debug("Sending alerts to operators about host devices that were released from VM with ID {} and require cleanup.", vmId);
+        sendAlertAboutCleanupDevices(releasedDevices);
     }
 
     @Override
@@ -561,15 +548,74 @@ public class HostDevicesManagerImpl extends ManagerBase implements HostDevicesMa
         VirtualMachine vm = getVirtualMachineOrThrow(vmId);
         Map<String, Integer> requiredDevicesPerTag = DeviceOfferingHelper.getDeviceOfferingToAmountMap(deviceOfferingDeviceTagDao.getDeviceOfferingsTags(remainingOfferings));
 
-        Transaction.execute(new TransactionCallbackNoReturn() {
-            @Override
-            public void doInTransactionWithoutResult(TransactionStatus status) {
-                List<HostDeviceVO> vmDevices = hostDeviceDao.listAndLockHostDevicesByVmId(vmId);
-                Map<String, Integer> surplusDevicesPerTag = DeviceOfferingHelper.getExceedingTagAmounts(countDevicesPerTag(vmDevices), requiredDevicesPerTag);
+        List<HostDeviceVO> releasedDevices = Transaction.execute(
+                (TransactionCallback<List<HostDeviceVO>>) status -> {
+                    List<HostDeviceVO> vmDevices = hostDeviceDao.listAndLockHostDevicesByVmId(vmId);
+                    Map<String, Integer> surplusDevicesPerTag = DeviceOfferingHelper.getExceedingTagAmounts(countDevicesPerTag(vmDevices), requiredDevicesPerTag);
 
-                releaseDevices(vm, selectDevicesToRelease(vmDevices, surplusDevicesPerTag));
-            }
-        });
+                    return releaseDevices(vm, selectDevicesToRelease(vmDevices, surplusDevicesPerTag));
+                });
+
+        logger.debug("Sending alerts to operators about host devices that were released from VM with ID {} and require cleanup.", vmId);
+        sendAlertAboutCleanupDevices(releasedDevices);
+    }
+
+    private void sendAlertAboutCleanupDevices(List<HostDeviceVO> devices) {
+        List<HostDeviceVO> filteredDevices = filterDevicesForAlert(devices, HostDevice.State.NeedsCleanup);
+
+        if (filteredDevices.isEmpty()) {
+            return;
+        }
+
+        String subject = "Cleanup operation needed";
+        String body = "This host device was released from a VM and requires manual normalization to be available to users again.";
+        sendAlertAboutDevices(filteredDevices, AlertType.ALERT_TYPE_HOST_DEVICE_NEEDS_CLEANUP, subject, body);
+    }
+
+    private void sendAlertAboutMissingDevices(List<HostDeviceVO> devices) {
+        List<HostDeviceVO> filteredDevices = filterDevicesForAlert(devices, HostDevice.State.Missing);
+
+        if (filteredDevices.isEmpty()) {
+            return;
+        }
+
+        String subject = "Missing host device found during scan";
+        String body = "This host device was not found during the host scan and requires attention. Please check the physical device for any issues.";
+        sendAlertAboutDevices(filteredDevices, AlertType.ALERT_TYPE_HOST_DEVICE_MISSING, subject, body);
+    }
+
+    private List<HostDeviceVO> filterDevicesForAlert(List<HostDeviceVO> devices, HostDevice.State stateFilter) {
+        if (CollectionUtils.isEmpty(devices)) {
+            logger.debug("No host devices were received for alert sending. Skipping alert sending.");
+            return new ArrayList<>();
+        }
+
+        List<HostDeviceVO> filteredDevices = devices.stream().filter(d -> d.getState().equals(stateFilter)).collect(Collectors.toList());
+
+        if (CollectionUtils.isEmpty(filteredDevices)) {
+            logger.debug("No host devices that match [{}] state filter were found. Skipping alert sending.");
+            return new ArrayList<>();
+        }
+
+        logger.debug("Found {} host devices that match the [{}] filter. Sending alert to operators.", filteredDevices.size(), stateFilter);
+        return filteredDevices;
+    }
+
+    private void sendAlertAboutDevices(List<HostDeviceVO> devices, AlertType alertType, String baseSubject, String baseBody) {
+        List<Long> hostIds = devices.stream().map(HostDeviceVO::getHostId).collect(Collectors.toList());
+        List<HostVO> devicesHosts = hostDao.listByIds(hostIds);
+        Map<Long, HostVO> idToHost = devicesHosts.stream().collect(Collectors.toMap(HostVO::getId, Function.identity()));
+
+        for (HostDeviceVO device : devices) {
+            String deviceSuffix = String.format(" - Host device [%s]", device.getDisplayName());
+            String subject = baseSubject + deviceSuffix;
+
+            HostVO host = idToHost.get(device.getHostId());
+            String body = baseBody + String.format("\nDevice [%s] (ID: %s) from host [%s] (ID: %s)", device.getDisplayName(), device.getUuid(), host.getName(), host.getUuid());
+
+            alertManager.sendAlert(alertType, host.getDataCenterId(), host.getPodId(), subject, body);
+            logger.debug("Dispatched [{}] alert to operators about host device [{}].", alertType, device.getDisplayName());
+        }
     }
 
     private Map<String, Integer> countDevicesPerTag(List<HostDeviceVO> devices) {
@@ -603,10 +649,10 @@ public class HostDevicesManagerImpl extends ManagerBase implements HostDevicesMa
         return selectedDevices;
     }
 
-    private void releaseDevices(VirtualMachine vm, List<HostDeviceVO> devices) {
+    private List<HostDeviceVO> releaseDevices(VirtualMachine vm, List<HostDeviceVO> devices) {
         if (CollectionUtils.isEmpty(devices)) {
             logger.debug("No host devices to be released from VM with ID {}. Skipping devices release process.", vm.getId());
-            return;
+            return new ArrayList<>();
         }
 
         logger.info("The following devices will be released from VM {}: {}", vm.getId(), devices.stream().map(HostDeviceVO::getPciName).collect(Collectors.toList()));
@@ -621,14 +667,15 @@ public class HostDevicesManagerImpl extends ManagerBase implements HostDevicesMa
             dev.setAccountId(null);
             dev.setDomainId(null);
             dev.setInstanceId(null);
-            HostDevice.Type devType = dev.getType();
-            HostDevice.State nextState = devType.equals(HostDevice.Type.Storage) ? HostDevice.State.Cleaning : HostDevice.State.Free;
+            HostDevice.State nextState = dev.getOneTimeUse() ? HostDevice.State.NeedsCleanup : HostDevice.State.Free;
             dev.setState(nextState);
             hostDeviceDao.update(dev.getId(), dev);
         }
 
         long amount = devices.size();
         resourceLimitMgr.decrementResourceCount(vm.getAccountId(), Resource.ResourceType.host_device, amount);
+
+        return devices;
     }
 
     @Override
@@ -974,51 +1021,6 @@ public class HostDevicesManagerImpl extends ManagerBase implements HostDevicesMa
                 logger.warn("The automatic device scan of cluster {} failed for {} out of {} hosts.", cluster.getId(), failureReasonByHostUuid.size(), hosts.size());
             }
         }
-    }
-
-    private void triggerDeviceCleanup() {
-        ThreadContext.put(LOGCONTEXTID, UuidUtils.first(UUID.randomUUID().toString()));
-
-        try {
-            cleanupStorageDevices();
-        } catch (Exception e) {
-            logger.error("Unexpected failure during the automatic host device cleanup task.", e);
-        } finally {
-            ThreadContext.remove(LOGCONTEXTID);
-        }
-    }
-
-    protected void cleanupStorageDevices() {
-        // TODO ERIK: Ver se precisa de transação - não parece, não vai estar sendo usado devido ao estado
-        List<HostDeviceVO> devicesToClean = hostDeviceDao.listAndLockHostDevicesByState(HostDevice.State.Cleaning);
-
-        logger.info("Automatic device cleanup task started. Found {} devices in the Cleaning state to cleanup.", devicesToClean.size());
-        for (HostDeviceVO device : devicesToClean) {
-            HostVO deviceHost = hostDao.findById(device.getHostId());
-
-            logger.debug("Erasing content of storage device [{} - {}]  of host [{}]", device.getDisplayName(), device.getPciName(), deviceHost);
-
-            try {
-                //TODO ERIK: ver se faz sentido usar a config global de timeout
-                Answer answer = agentManager.send(deviceHost.getId(), new EraseHostDeviceCommand(device.getPciName()));
-
-                if (!answer.getResult()) {
-                    logger.error("Failed to erase content of storage device [{} - {}] of host [{}]. Please check the Agent logs for the failure reason. We will try to clean the remaining devices", device.getDisplayName(), device.getPciName(), deviceHost);
-                    continue;
-                }
-
-                // TODO ERIK: ver se tem que dar um sleep antes de mudar o estado, pra garantir que o device realmente foi limpo
-                device.setState(HostDevice.State.Free);
-                hostDeviceDao.update(device.getId(), device);
-                logger.info("Successfully erased content of storage device [{} - {}] of host [{}].", device.getDisplayName(), device.getPciName(), deviceHost);
-            } catch (OperationTimedoutException e) {
-                throw new CloudRuntimeException(String.format("Timeout occurred while trying to erase content of storage device [%s - %s] of host [%s]. Please check the Agent logs for the failure reason.", device.getDisplayName(), device.getPciName(), deviceHost), e);
-            } catch (AgentUnavailableException e) {
-                throw new CloudRuntimeException(String.format("Could not reach Agent when trying to erase content of storage device [%s - %s] of host [%s].", device.getDisplayName(), device.getPciName(), deviceHost), e);
-            }
-        }
-
-        logger.info("Automatic device cleanup task completed.");
     }
 
     @Override

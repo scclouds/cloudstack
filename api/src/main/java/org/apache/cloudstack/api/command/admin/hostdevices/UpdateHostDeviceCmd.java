@@ -68,6 +68,9 @@ public class UpdateHostDeviceCmd extends BaseCmd  {
     @Parameter(name = ApiConstants.TYPE, type = CommandType.STRING, description = "The type of the host device. Supported values are: Display, Network, Storage, USB and Generic. Case insensitive.")
     private String type;
 
+    @Parameter(name = ApiConstants.ONE_TIME_USE, type = CommandType.BOOLEAN, description = "Whether the host device is for marked as one-time-use. Devices in this state will become unavailable after release, and operators must manually enable them again.")
+    private Boolean oneTimeUse;
+
     public Long getDeviceId() {
         return deviceId;
     }
@@ -86,6 +89,10 @@ public class UpdateHostDeviceCmd extends BaseCmd  {
 
     public String getType() {
         return type;
+    }
+
+    public Boolean getOneTimeUse() {
+        return oneTimeUse;
     }
 
     @Override
