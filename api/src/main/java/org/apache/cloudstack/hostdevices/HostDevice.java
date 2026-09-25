@@ -23,11 +23,14 @@ import org.apache.cloudstack.api.Identity;
 import org.apache.cloudstack.api.InternalIdentity;
 
 import java.util.Date;
+import java.util.List;
 
 public interface HostDevice extends Identity, InternalIdentity {
     enum State {
-        Attached, Cleaning, Disabled, Failure, Free, HostInMaintenance, Missing
+        Attached, NeedsCleanup, Disabled, Free, HostInMaintenance, Missing
     }
+
+    List<State> INVALID_UPDATE_STATES = List.of(State.Attached, State.HostInMaintenance);
 
     enum Type {
         Display, Network, Storage, USB, Generic;
@@ -109,4 +112,6 @@ public interface HostDevice extends Identity, InternalIdentity {
     Long getDomainId();
 
     Long getHostId();
+
+    Boolean getOneTimeUse();
 }

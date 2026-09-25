@@ -120,6 +120,10 @@ public class HostDeviceResponse extends BaseResponse {
     @Param(description = "the name of the host the device belongs to", since = "24.0.0")
     private String hostName;
 
+    @SerializedName(ApiConstants.ONE_TIME_USE)
+    @Param(description = "indicates if the host device is for one-time use only", since = "24.0.0")
+    private Boolean oneTimeUse;
+
     public String getId() {
         return id;
     }
@@ -298,5 +302,13 @@ public class HostDeviceResponse extends BaseResponse {
 
     public void setHostname(String hostName) {
         this.hostName = hostName;
+    }
+
+    public Boolean getOneTimeUse() {
+        return oneTimeUse;
+    }
+
+    public void setOneTimeUse(Boolean oneTimeUse) {
+        this.oneTimeUse = oneTimeUse;
     }
 }

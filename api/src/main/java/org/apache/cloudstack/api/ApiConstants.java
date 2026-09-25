@@ -962,6 +962,7 @@ public class ApiConstants {
     public static final String NIC_UUID = "nicuuid";
     public static final String VM_UUID = "vmuuid";
     public static final String ONE_WAY = "oneway";
+    public static final String ONE_TIME_USE = "onetimeuse";
     public static final String POLICY = "policy";
     public static final String VM = "vm";
     public static final String FIREWALL_POLICY = "firewallpolicy";

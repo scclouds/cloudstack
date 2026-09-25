@@ -34,6 +34,7 @@ CREATE TABLE IF NOT EXISTS `cloud`.`host_pci_devices` (
   `pci_vendor_id` varchar(255) NOT NULL COMMENT 'Device vendor identifier',
   `pci_device_id` varchar(255) NOT NULL COMMENT 'Device identifier, set by its vendor',
   `device_tag` varchar(255) NOT NULL COMMENT 'Device tag, used to assign it to devices offerings',
+  `one_time_use` tinyint(1) NOT NULL DEFAULT '0' COMMENT 'Whether the device will stay unavailable after releasing for manual cleanup or not',
   `created` datetime NOT NULL COMMENT 'Device creation timestamp',
   `removed` datetime DEFAULT NULL COMMENT 'Device removal timestamp',
   `state` varchar(255) NOT NULL COMMENT 'Device state',
