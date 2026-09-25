@@ -232,6 +232,15 @@
           <div>{{ dataResource[item] }}</div>
         </div>
       </a-list-item>
+      <a-list-item v-else-if="item === 'devicetag'">
+        <div>
+          <strong>{{ $t('label.devicetag') }}</strong>
+          <br/>
+          <a-tag style="margin-bottom: 5px; margin-right: 5px">
+            {{ dataResource[item] }}
+          </a-tag>
+        </div>
+      </a-list-item>
       <a-list-item v-else-if="item === 'devicetags'">
         <div>
           <strong>{{ $t('label.device.tags') }}</strong>
@@ -239,6 +248,20 @@
           <a-tag v-for="(tagAmount, tagKey, index) in dataResource[item]" :key="index" style="margin-bottom: 5px; margin-right: 5px">
             {{ tagKey }} = {{ tagAmount }}
           </a-tag>
+        </div>
+      </a-list-item>
+      <a-list-item v-else-if="['pciname', 'pcidomain', 'pciclass', 'pcibus', 'pcislot', 'pcifunction', 'vendorid'].includes(item)">
+        <div>
+          <strong>{{ $t('label.' + String(item).toLowerCase()) }}</strong>
+          <br/>
+          <div>{{ dataResource[item] }}</div>
+        </div>
+      </a-list-item>
+      <a-list-item v-else-if="item === 'onetimeuse'">
+        <div>
+          <strong>{{ $t('label.' + String(item).toLowerCase()) }}</strong>
+          <br/>
+          <div>{{ dataResource[item] ? 'Yes' : 'No' }}</div>
         </div>
       </a-list-item>
       <div v-else-if="item === 'backupofferingdetails'">
@@ -322,7 +345,7 @@ export default {
   },
   computed: {
     customDisplayItems () {
-      var items = ['ip4routes', 'ip6routes', 'privatemtu', 'publicmtu', 'provider', 'details', 'parameters', 'secretkey', 'backupofferingdetails', 'devicetags']
+      var items = ['ip4routes', 'ip6routes', 'privatemtu', 'publicmtu', 'provider', 'details', 'parameters', 'secretkey', 'backupofferingdetails', 'devicetag', 'devicetags']
       if (this.$route.meta.name === 'webhookdeliveries') {
         items.push('startdate')
         items.push('enddate')
