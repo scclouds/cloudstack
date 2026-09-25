@@ -8297,10 +8297,11 @@ public class UserVmManagerImpl extends ManagerBase implements UserVmManager, Vir
 
     private void validateIfNewOwnerHasAccessToDeviceOfferings(UserVmVO vm, Account newAccount) {
         List<? extends DeviceOffering> deviceOfferings = deviceOfferingManager.getDeviceOfferingsByVmId(vm.getId());
+        DataCenter resourceZone = dataCenterDao.findById(vm.getDataCenterId());
 
         for (DeviceOffering deviceOffering : deviceOfferings) {
-            if (!deviceOfferingManager.canAccountAccessOffering(deviceOffering, newAccount)) {
-                throw new CloudRuntimeException(String.format("New owner [%s] does not have access to the device offering [%s] associated with VM [%s].", newAccount.getUuid(), deviceOffering.getUuid(), vm.getUuid()));
+            if (!deviceOffering.getIsPublic()) {
+                _accountMgr.checkAccess(newAccount, deviceOffering, resourceZone);
             }
         }
     }

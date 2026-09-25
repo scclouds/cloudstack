@@ -111,6 +111,7 @@ import org.apache.cloudstack.framework.config.dao.ConfigurationDao;
 import org.apache.cloudstack.framework.jobs.impl.AsyncJobVO;
 import org.apache.cloudstack.framework.messagebus.MessageBus;
 import org.apache.cloudstack.framework.messagebus.PublishScope;
+import org.apache.cloudstack.hostdevices.DeviceOffering;
 import org.apache.cloudstack.kms.KMSManager;
 import org.apache.cloudstack.managed.context.ManagedContextRunnable;
 import org.apache.cloudstack.query.QueryService;
@@ -4287,6 +4288,18 @@ public class AccountManagerImpl extends ManagerBase implements AccountManager, M
 
         assert false : "How can all of the security checkers pass on checking this caller?";
         throw new PermissionDeniedException("There's no way to confirm " + account + " has access to " + bof);
+    }
+
+    @Override
+    public void checkAccess(Account account, DeviceOffering deviceOffering, DataCenter zone) throws PermissionDeniedException {
+        for (SecurityChecker checker : _securityCheckers) {
+            if (checker.checkAccess(account, deviceOffering, zone)) {
+                logger.debug("Access granted to {} to {} by {}", account, deviceOffering, checker.getName());
+                return;
+            }
+        }
+
+        throw new PermissionDeniedException("There's no way to confirm " + account + " has access to " + deviceOffering);
     }
 
     @Override
