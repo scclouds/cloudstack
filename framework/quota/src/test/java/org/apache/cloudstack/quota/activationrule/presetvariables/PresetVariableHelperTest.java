@@ -30,6 +30,7 @@ import java.util.Set;
 import com.cloud.dc.ClusterDetailsDao;
 import com.cloud.dc.ClusterDetailsVO;
 import com.cloud.host.HostTagVO;
+import com.cloud.hostdevices.dao.DeviceOfferingDao;
 import com.cloud.hypervisor.Hypervisor;
 import com.cloud.network.Network;
 import com.cloud.network.dao.NetworkVO;
@@ -205,6 +206,9 @@ public class PresetVariableHelperTest {
     @Mock
     VpcOfferingDao vpcOfferingDaoMock;
 
+    @Mock
+    DeviceOfferingDao deviceOfferingDaoMock;
+
     List<Integer> runningAndAllocatedVmUsageTypes = Arrays.asList(UsageTypes.RUNNING_VM, UsageTypes.ALLOCATED_VM);
     List<Integer> templateAndIsoUsageTypes = Arrays.asList(UsageTypes.TEMPLATE, UsageTypes.ISO);
 
@@ -244,7 +248,19 @@ public class PresetVariableHelperTest {
         value.setResourceCounting(getResourceCountingForTests());
         value.setNetworkOffering(getNetworkOfferingForTests());
         value.setVpcOffering(getVpcOfferingForTests());
+        value.setDeviceOfferings(getDeviceOfferingForTests());
         return value;
+    }
+
+    private List<DeviceOffering> getDeviceOfferingForTests() {
+        DeviceOffering deviceOffering = new DeviceOffering();
+        deviceOffering.setId("device_offering_id");
+        deviceOffering.setName("device_offering_name");
+        deviceOffering.setTags(Arrays.asList("tag1", "tag2"));
+        deviceOffering.setDomainId(1L);
+        deviceOffering.setZoneId(1L);
+
+        return List.of(deviceOffering);
     }
 
     private ComputingResources getComputingResourcesForTests() {
