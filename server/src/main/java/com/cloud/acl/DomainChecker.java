@@ -31,6 +31,7 @@ import org.apache.cloudstack.context.CallContext;
 import org.apache.cloudstack.dns.DnsProviderManager;
 import org.apache.cloudstack.dns.DnsServer;
 import org.apache.cloudstack.dns.DnsZone;
+import org.apache.cloudstack.hostdevices.DeviceOffering;
 import org.apache.cloudstack.query.QueryService;
 import org.apache.cloudstack.resourcedetail.dao.DiskOfferingDetailsDao;
 import org.springframework.stereotype.Component;
@@ -513,6 +514,46 @@ public class DomainChecker extends AdapterBase implements SecurityChecker {
                 }
             }
         }
+
+
+
+        return hasAccess;
+    }
+
+    @Override
+    public boolean checkAccess(Account account, DeviceOffering deviceOffering, DataCenter zone) throws PermissionDeniedException {
+        boolean hasAccess = false;
+        if (account == null || deviceOffering == null) {
+            hasAccess = true;
+        } else {
+            if (_accountService.isRootAdmin(account.getId())) {
+                hasAccess = true;
+            }
+            else if (_accountService.isNormalUser(account.getId())
+                    || account.getType() == Account.Type.RESOURCE_DOMAIN_ADMIN
+                    || _accountService.isDomainAdmin(account.getId())
+                    || account.getType() == Account.Type.PROJECT) {
+                final Long deviceOfferingDomainId = deviceOffering.getDomainId();
+                if (deviceOfferingDomainId == null) {
+                    hasAccess = true;
+                } else {
+                        if (_domainDao.isChildDomain(deviceOfferingDomainId, account.getDomainId())) {
+                            hasAccess = true;
+                        }
+                }
+            }
+        }
+
+        // Check for zones
+        if (hasAccess && deviceOffering != null && zone != null) {
+            Long deviceOfferingZoneId = deviceOffering.getZoneId();
+            if (deviceOfferingZoneId == null) {
+                hasAccess = true;
+            } else {
+                hasAccess = deviceOfferingZoneId == zone.getId();
+            }
+        }
+
         return hasAccess;
     }
 

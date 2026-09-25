@@ -359,29 +359,6 @@ public class DeviceOfferingManagerImpl extends ManagerBase implements DeviceOffe
     }
 
     @Override
-    public boolean canAccountAccessOffering(DeviceOffering deviceOffering, Account newAccount) {
-        // TODO ERIK: Ver sobre a questão de limitação a nivel de zona
-
-        if (deviceOffering.getIsPublic()) {
-            return true;
-        }
-
-        Long offeringDomainId = deviceOffering.getDomainId();
-
-        if (offeringDomainId == null) {
-            return false;
-        }
-
-        boolean hasAccess = offeringDomainId.equals(newAccount.getDomainId()) || domainDao.isChildDomain(offeringDomainId, newAccount.getDomainId());
-
-        if (!hasAccess) {
-            logger.debug("Account [{}] does not have access to the domain of device offering [{}].", newAccount.getUuid(), deviceOffering.getUuid());
-        }
-
-        return hasAccess;
-    }
-
-    @Override
     @ActionEvent(eventType = EventTypes.EVENT_DEVICE_OFFERING_DELETE, eventDescription = "deleting device offering")
     public boolean deleteOffering(Long id) {
         Account caller = CallContext.current().getCallingAccount();
@@ -486,16 +463,9 @@ public class DeviceOfferingManagerImpl extends ManagerBase implements DeviceOffe
 
         Account vmOwner = accountManager.getActiveAccountById(vm.getAccountId());
 
-        if (!canAccountAccessOffering(deviceOffering, vmOwner)) {
-            logger.error("Device offering with ID [{}] is not public and does not belong to the domain of the owner of VM [{}].", deviceOfferingId, vm.getUuid());
-            throw new PermissionDeniedException("You do not have permission to use this device offering.");
+        if (!deviceOffering.getIsPublic()) {
+            accountManager.checkAccess(vmOwner, deviceOffering, dataCenterDao.findById(vm.getDataCenterId()));
         }
-
-        // TODO ERIK: nao sei como ver isso
-//            if (deviceOffering.getZoneId() != null && !deviceOffering.getZoneId().equals(domain.get())) {
-//                logger.error("Device offering with ID [{}] is not public and does not belong to the caller's zone.", deviceOfferingId);
-//                throw new PermissionDeniedException("You do not have permission to use this device offering.");
-//            }
 
         return deviceOffering;
     }
