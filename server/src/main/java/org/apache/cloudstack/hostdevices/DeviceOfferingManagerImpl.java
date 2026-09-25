@@ -165,7 +165,7 @@ public class DeviceOfferingManagerImpl extends ManagerBase implements DeviceOffe
         List<VMInstanceDeviceOfferingsVO> existingAssignmentsForVM = vmInstanceDeviceOfferingsDao.listByVmId(virtualMachineId);
         if (CollectionUtils.isNotEmpty(existingAssignmentsForVM) && existingAssignmentsForVM.stream().anyMatch(assignment -> assignment.getDeviceOfferingId().equals(deviceOfferingId))) {
             logger.error("VM with ID [{}] already has this device offering assigned, cancelling assignment.", virtualMachineId);
-            throw new InvalidParameterValueException(String.format("VM with ID [%s] already has this device offering assigned.", virtualMachineId));
+            throw new InvalidParameterValueException(String.format("VM with ID [%s] already has this device offering assigned.", vm.getUuid()));
         }
 
         checkVmOwnerHostDeviceLimit(vm, deviceOfferingId);
@@ -192,7 +192,7 @@ public class DeviceOfferingManagerImpl extends ManagerBase implements DeviceOffe
         VMInstanceDeviceOfferingsVO deviceOfferingAssignment = vmInstanceDeviceOfferingsDao.findByVmIdAndDeviceId(virtualMachineId, offering.getId());
         if (deviceOfferingAssignment == null) {
             logger.error("VM with ID [{}] does not have this device offering assigned, cannot remove.", virtualMachineId);
-            throw new InvalidParameterValueException(String.format("VM with ID [%s] does not have this device offering assigned.", virtualMachineId));
+            throw new InvalidParameterValueException(String.format("VM with ID [%s] does not have this device offering assigned.", vm.getUuid()));
         }
 
         List<DeviceOfferingVO> remainingOfferings = deviceOfferingDao.listVirtualMachineDeviceOfferings(virtualMachineId)
