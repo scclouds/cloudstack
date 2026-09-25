@@ -314,7 +314,7 @@ public class HostDeviceVO implements HostDevice {
     }
 
     public boolean canBeUpdated() {
-        return INVALID_UPDATE_STATES.contains(this.state);
+        return !INVALID_UPDATE_STATES.contains(this.state);
     }
 
     @Override
