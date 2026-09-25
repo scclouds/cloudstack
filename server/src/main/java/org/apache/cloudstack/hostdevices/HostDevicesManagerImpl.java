@@ -429,19 +429,9 @@ public class HostDevicesManagerImpl extends ManagerBase implements HostDevicesMa
 
         res.setId(device.getUuid());
         res.setDisplayName(device.getDisplayName());
-        res.setPciName(device.getPciName());
-        res.setPciDomain(device.getPciDomain());
-        res.setPciClass(device.getPciClass());
-        res.setPciSlot(device.getPciSlot());
-        res.setPciFunction(device.getPciFunction());
-        res.setVendorId(device.getPciVendorId());
-        res.setDeviceId(device.getPciDeviceId());
-        res.setCreated(device.getCreated());
-        res.setRemoved(device.getRemoved());
         res.setState(device.getState().toString());
         res.setType(device.getType().toString());
         res.setDeviceTag(device.getDeviceTag());
-        res.setOneTimeUse(device.getOneTimeUse());
 
         if (device.getInstanceId() != null) {
             VirtualMachine vm = virtualMachineDao.findById(device.getInstanceId());
@@ -465,10 +455,24 @@ public class HostDevicesManagerImpl extends ManagerBase implements HostDevicesMa
             }
         }
 
-        Host host = hostDao.findById(device.getHostId());
-        if (host != null) {
-            res.setHostId(host.getUuid());
-            res.setHostname(host.getName());
+        Account caller = CallContext.current().getCallingAccount();
+        if (caller.getType().equals(Account.Type.ADMIN)) {
+            res.setPciName(device.getPciName());
+            res.setPciDomain(device.getPciDomain());
+            res.setPciClass(device.getPciClass());
+            res.setPciSlot(device.getPciSlot());
+            res.setPciFunction(device.getPciFunction());
+            res.setVendorId(device.getPciVendorId());
+            res.setDeviceId(device.getPciDeviceId());
+            res.setCreated(device.getCreated());
+            res.setRemoved(device.getRemoved());
+            res.setOneTimeUse(device.getOneTimeUse());
+
+            Host host = hostDao.findById(device.getHostId());
+            if (host != null) {
+                res.setHostId(host.getUuid());
+                res.setHostname(host.getName());
+            }
         }
 
         res.setObjectName("hostdevices");

@@ -15,10 +15,21 @@
 // specific language governing permissions and limitations
 // under the License.
 
+import store from '@/store'
+
 export default {
   name: 'hostdevice',
   title: 'label.host.devices',
   icon: 'link-outlined',
   permission: ['listHostDevices'],
-  columns: ['displayname', 'devicetag', 'state', 'type', 'virtualmachinename', 'account', 'domain']
+  columns: ['displayname', 'devicetag', 'state', 'type', 'virtualmachinename', 'account', 'domain'],
+  details: () => {
+    const details = ['devicetag', 'state', 'type']
+
+    if (store.getters.userInfo.roletype === 'Admin') {
+      details.push('pciname', 'pcidomain', 'pciclass', 'pcibus', 'pcislot', 'pcifunction', 'deviceid', 'vendorid')
+    }
+
+    return details
+  }
 }
