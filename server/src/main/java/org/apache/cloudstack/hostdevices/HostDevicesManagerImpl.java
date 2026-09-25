@@ -424,7 +424,6 @@ public class HostDevicesManagerImpl extends ManagerBase implements HostDevicesMa
 
     @Override
     public HostDeviceResponse generateHostDeviceResponse(HostDevice device) {
-        // TODO ERIK: colocar builder com response de admin e de user
         HostDeviceResponse res = new HostDeviceResponse();
 
         res.setId(device.getUuid());
