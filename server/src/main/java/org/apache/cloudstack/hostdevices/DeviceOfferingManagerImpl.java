@@ -501,7 +501,7 @@ public class DeviceOfferingManagerImpl extends ManagerBase implements DeviceOffe
     }
 
     private DeviceOffering.State parseDeviceOfferingState(String stringState) {
-        DeviceOffering.State state = EnumUtils.getEnum(DeviceOffering.State.class, stringState);
+        DeviceOffering.State state = EnumUtils.getEnumIgnoreCase(DeviceOffering.State.class, stringState);
 
         if (state == null) {
             logger.error("Invalid state [{}] provided for device offering.", stringState);
