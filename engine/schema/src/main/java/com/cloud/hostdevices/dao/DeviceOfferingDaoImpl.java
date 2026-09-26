@@ -46,11 +46,16 @@ public class DeviceOfferingDaoImpl extends GenericDaoBase<DeviceOfferingVO, Long
     private SearchBuilder<DeviceOfferingVO> deviceOfferingSearch;
     private SearchBuilder<DeviceOfferingVO> deviceOfferingWithTagsSearch;
     private SearchBuilder<DeviceOfferingVO> deviceOfferingWithVMSearch;
+    private SearchBuilder<DeviceOfferingVO> deviceOfferingNameSearch;
 
     @PostConstruct
     private void init() {
         deviceOfferingSearch = getBaseSearchBuilder();
         deviceOfferingSearch.done();
+
+        deviceOfferingNameSearch = createSearchBuilder();
+        deviceOfferingNameSearch.and("name", deviceOfferingNameSearch.entity().getName(), SearchCriteria.Op.EQ);
+        deviceOfferingNameSearch.done();
 
         deviceOfferingWithVMSearch = getBaseSearchBuilder();
         SearchBuilder<VMInstanceDeviceOfferingsVO> vmSearchBuilder = vmDeviceOfferingsDao.createSearchBuilder();
@@ -102,8 +107,8 @@ public class DeviceOfferingDaoImpl extends GenericDaoBase<DeviceOfferingVO, Long
 
     @Override
     public DeviceOfferingVO findByName(String name) {
-        SearchCriteria<DeviceOfferingVO> sc = deviceOfferingSearch.create();
-        sc.setParametersIfNotNull("name", name);
+        SearchCriteria<DeviceOfferingVO> sc = deviceOfferingNameSearch.create();
+        sc.setParameters("name", name);
         return findOneBy(sc);
     }
 

@@ -59,6 +59,7 @@ import org.apache.commons.collections.CollectionUtils;
 import org.apache.commons.collections4.MapUtils;
 import org.apache.commons.lang3.BooleanUtils;
 import org.apache.commons.lang3.EnumUtils;
+import org.apache.commons.lang3.StringUtils;
 
 import javax.inject.Inject;
 import java.util.ArrayList;
@@ -98,11 +99,17 @@ public class DeviceOfferingManagerImpl extends ManagerBase implements DeviceOffe
         Account caller = CallContext.current().getCallingAccount();
         Long domainId = cmd.getDomainId();
         Long zoneId = cmd.getZoneId();
-        String name = cmd.getName();
+        String name = StringUtils.trim(cmd.getName());
+        String description = StringUtils.trim(cmd.getDescription());
 
         if (!caller.getType().equals(Account.Type.ADMIN)) {
             logger.error("Cancelling creation because caller [{}] tried to create a device offering without being admin.", caller);
             throw new PermissionDeniedException("This action is only allowed for admins.");
+        }
+
+        if (StringUtils.isBlank(name)) {
+            logger.error("Cancelling device offering creation because the informed name is blank.");
+            throw new InvalidParameterValueException("The device offering name cannot be blank.");
         }
 
         if (domainId != null && zoneId != null) {
@@ -138,7 +145,7 @@ public class DeviceOfferingManagerImpl extends ManagerBase implements DeviceOffe
                 throw new InvalidParameterValueException("A device offering with the same name already exists.");
             }
 
-            DeviceOfferingVO newOffering = deviceOfferingDao.persist(new DeviceOfferingVO(cmd.getName(), cmd.getDescription(), domainId, zoneId));
+            DeviceOfferingVO newOffering = deviceOfferingDao.persist(new DeviceOfferingVO(name, description, domainId, zoneId));
 
             for (Map.Entry<String, Integer> tagAndAmount : tagToAmount.entrySet()) {
                 deviceOfferingDeviceTagsDao.persist(new DeviceOfferingDeviceTagVO(newOffering.getId(), tagAndAmount.getKey(), tagAndAmount.getValue()));
@@ -311,10 +318,15 @@ public class DeviceOfferingManagerImpl extends ManagerBase implements DeviceOffe
     @ActionEvent(eventType = EventTypes.EVENT_DEVICE_OFFERING_EDIT, eventDescription = "updating device offering")
     public DeviceOffering updateDeviceOffering(UpdateDeviceOfferingCmd updateDeviceOfferingCmd) {
         Long id = updateDeviceOfferingCmd.getId();
-        String displayName = updateDeviceOfferingCmd.getName();
-        String description = updateDeviceOfferingCmd.getDescription();
+        String displayName = StringUtils.trim(updateDeviceOfferingCmd.getName());
+        String description = StringUtils.trim(updateDeviceOfferingCmd.getDescription());
         List<String> deviceTags = updateDeviceOfferingCmd.getTags();
         String stringState = updateDeviceOfferingCmd.getState();
+
+        if (displayName != null && displayName.isBlank()) {
+            logger.error("Cancelling device offering update because the informed name is blank.");
+            throw new InvalidParameterValueException("The device offering name cannot be blank.");
+        }
 
         DeviceOffering.State state = stringState == null ? null : parseDeviceOfferingState(stringState);
         Map<String, Integer> tagToAmount = deviceTags == null ? null : parseDeviceOfferingTagsParameter(deviceTags);
@@ -337,6 +349,13 @@ public class DeviceOfferingManagerImpl extends ManagerBase implements DeviceOffe
             }
 
             if (displayName != null) {
+                DeviceOfferingVO nameDeviceOffering = deviceOfferingDao.findByName(displayName);
+
+                if (nameDeviceOffering != null && nameDeviceOffering.getId() != deviceOffering.getId()) {
+                    logger.error("Device offering with name [{}] already exists, cancelling update.", displayName);
+                    throw new InvalidParameterValueException("A device offering with the same name already exists.");
+                }
+
                 deviceOffering.setName(displayName);
             }
             if (description != null) {
