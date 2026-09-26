@@ -611,7 +611,7 @@ public class HostDevicesManagerImpl extends ManagerBase implements HostDevicesMa
         List<HostDeviceVO> filteredDevices = devices.stream().filter(d -> d.getState().equals(stateFilter)).collect(Collectors.toList());
 
         if (CollectionUtils.isEmpty(filteredDevices)) {
-            logger.debug("No host devices that match [{}] state filter were found. Skipping alert sending.");
+            logger.debug("No host devices that match [{}] state filter were found. Skipping alert sending.", stateFilter);
             return new ArrayList<>();
         }
 
