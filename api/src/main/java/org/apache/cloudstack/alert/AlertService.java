@@ -88,6 +88,7 @@ public interface AlertService {
         public static final AlertType ALERT_TYPE_BACKUP_VALIDATION_CLEANUP_FAILED = new AlertType((short)37, "ALERT.BACKUP.VALIDATION.CLEANUP_FAILED", true, true);
         public static final AlertType ALERT_TYPE_HOST_DEVICE_NEEDS_CLEANUP = new AlertType((short)38, "ALERT.HOST.DEVICE.NEEDS.CLEANUP", true, true);
         public static final AlertType ALERT_TYPE_HOST_DEVICE_MISSING = new AlertType((short)39, "ALERT.HOST.DEVICE.MISSING", true, true);
+        public static final AlertType ALERT_TYPE_HOST_DEVICE_RECOVERED = new AlertType((short)40, "ALERT.HOST.DEVICE.RECOVERED", true, true);
 
         public short getType() {
             return type;

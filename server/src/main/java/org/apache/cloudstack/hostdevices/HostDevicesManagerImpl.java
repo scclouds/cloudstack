@@ -89,11 +89,11 @@ import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
-import java.util.function.Function;
 import java.util.stream.Collectors;
 
 public class HostDevicesManagerImpl extends ManagerBase implements HostDevicesManager {
@@ -131,6 +131,7 @@ public class HostDevicesManagerImpl extends ManagerBase implements HostDevicesMa
     private static final long INITIAL_DELAY_IN_SECONDS = 60L;
     private static final long AUTOMATIC_SCAN_TASK_INTERVAL_IN_SECONDS = 300L;
     private static final ObjectMapper MAPPER = createMapper();
+    private static final List<HostDevice.State> STATES_IGNORED_WHEN_MISSING = List.of(HostDevice.State.Missing, HostDevice.State.NeedsCleanup, HostDevice.State.HostInMaintenance);
 
     public HostDevicesManagerImpl() {
     }
@@ -287,48 +288,62 @@ public class HostDevicesManagerImpl extends ManagerBase implements HostDevicesMa
     }
 
     private void compareIncomingDevicesWithExistingOnes(List<? extends LibvirtDevice> incomingDevices, HostVO host) {
-        Transaction.execute(new TransactionCallbackNoReturn() {
-            @Override
-            public void doInTransactionWithoutResult(TransactionStatus status) {
-                hostDao.lockRow(host.getId(), true);
+        DeviceScanReconciliation reconciliation = Transaction.execute((TransactionCallback<DeviceScanReconciliation>) status -> {
+            hostDao.lockRow(host.getId(), true);
 
-                List<HostDeviceVO> currentDevices = hostDeviceDao.listHostDevicesByHostId(host.getId());
-                logger.debug("The following host devices are registered for host with ID {}: {}", host.getId(), currentDevices.stream().map(HostDeviceVO::getPciName).collect(Collectors.toList()));
+            List<HostDeviceVO> currentDevices = hostDeviceDao.listHostDevicesByHostId(host.getId());
+            logger.debug("The following host devices are registered for host with ID {}: {}", host.getId(), currentDevices.stream().map(HostDeviceVO::getPciName).collect(Collectors.toList()));
 
-                List<HostDeviceVO> mappedIncomingDevices = incomingDevices.stream().map(d -> HostDeviceVO.mapLibvirtDevice(d, host.getId())).collect(Collectors.toList());
+            List<HostDeviceVO> mappedIncomingDevices = incomingDevices.stream().map(d -> HostDeviceVO.mapLibvirtDevice(d, host.getId())).collect(Collectors.toList());
 
-                if (currentDevices.isEmpty()) {
-                    logger.info("As no device is saved for the host yet, we will save all the devices returned by the agent to the database.");
-
-                    for (HostDeviceVO device : mappedIncomingDevices) {
-                        hostDeviceDao.persist(device);
-                    }
-
-                    return;
-                }
-
-                logger.debug("Handling devices that are not registered on the database");
-
-                handleMissingDevices(currentDevices, mappedIncomingDevices);
-
-                handleUnregisteredDevices(currentDevices, mappedIncomingDevices);
-            }
+            return reconcileHostDevices(currentDevices, mappedIncomingDevices, host.getId());
         });
+
+        sendAlertAboutMissingDevices(reconciliation.getMissingDevices(), reconciliation.getRegisteredDevices());
+        sendAlertAboutRecoveredDevices(reconciliation.getRecoveredDevices());
     }
 
-    private void handleMissingDevices(List<HostDeviceVO> registeredDevices, List<HostDeviceVO> incomingDevices) {
-        logger.debug("Checking for devices that were listed in the database, but were not returned by the host. Only Attached ones will be considered as missing.");
+    protected DeviceScanReconciliation reconcileHostDevices(List<HostDeviceVO> currentDevices, List<HostDeviceVO> incomingDevices, Long hostId) {
+        if (currentDevices.isEmpty()) {
+            logger.info("As no device is saved for the host yet, we will save all the devices returned by the agent to the database.");
+
+            for (HostDeviceVO device : incomingDevices) {
+                hostDeviceDao.persist(device);
+            }
+
+            return new DeviceScanReconciliation(new ArrayList<>(), new ArrayList<>(), incomingDevices);
+        }
+
+        if (incomingDevices.isEmpty()) {
+            logger.warn("Host with ID {} returned no devices, but {} devices are registered for it. This is likely a failure in the host, so the devices will not be marked as missing.", hostId, currentDevices.size());
+            return new DeviceScanReconciliation(new ArrayList<>(), new ArrayList<>(), new ArrayList<>());
+        }
+
+        Set<List<String>> incomingIdentities = incomingDevices.stream().map(this::getDeviceIdentity).collect(Collectors.toSet());
+        Set<List<String>> currentIdentities = currentDevices.stream().map(this::getDeviceIdentity).collect(Collectors.toSet());
+
+        List<HostDeviceVO> missingDevices = handleMissingDevices(currentDevices, incomingIdentities);
+        List<HostDeviceVO> recoveredDevices = handleRecoveredDevices(currentDevices, incomingIdentities);
+        List<HostDeviceVO> registeredDevices = handleUnregisteredDevices(incomingDevices, currentIdentities);
+
+        return new DeviceScanReconciliation(missingDevices, recoveredDevices, registeredDevices);
+    }
+
+    protected List<String> getDeviceIdentity(HostDevice device) {
+        return Arrays.asList(device.getPciName(), device.getPciVendorId(), device.getPciDeviceId());
+    }
+
+    private List<HostDeviceVO> handleMissingDevices(List<HostDeviceVO> registeredDevices, Set<List<String>> incomingIdentities) {
+        logger.debug("Checking for devices that were listed in the database, but were not returned by the host. Devices in states {} will be ignored.", STATES_IGNORED_WHEN_MISSING);
         List<HostDeviceVO> missingDevices = registeredDevices
                 .stream()
-                .filter(registered -> incomingDevices
-                        .stream()
-                        .noneMatch(incoming -> incoming.getPciName().equals(registered.getPciName())))
-                .filter(d -> d.getInstanceId() != null)
+                .filter(registered -> !incomingIdentities.contains(getDeviceIdentity(registered)))
+                .filter(registered -> !STATES_IGNORED_WHEN_MISSING.contains(registered.getState()))
                 .collect(Collectors.toList());
 
         if (missingDevices.isEmpty()) {
             logger.debug("No missing devices.");
-            return;
+            return missingDevices;
         }
 
         logger.debug("Found the following missing devices. {}", missingDevices);
@@ -338,23 +353,69 @@ public class HostDevicesManagerImpl extends ManagerBase implements HostDevicesMa
             hostDeviceDao.update(device.getId(), device);
         }
 
-        logger.debug("Sending alerts to operators about missing devices.");
-        sendAlertAboutMissingDevices(missingDevices);
+        return missingDevices;
     }
 
-    private void handleUnregisteredDevices(List<HostDeviceVO> currentDevices, List<HostDeviceVO> incomingDevices) {
+    private List<HostDeviceVO> handleRecoveredDevices(List<HostDeviceVO> registeredDevices, Set<List<String>> incomingIdentities) {
+        logger.debug("Checking for missing devices that were returned by the host again.");
+        List<HostDeviceVO> recoveredDevices = registeredDevices
+                .stream()
+                .filter(registered -> HostDevice.State.Missing.equals(registered.getState()))
+                .filter(registered -> incomingIdentities.contains(getDeviceIdentity(registered)))
+                .collect(Collectors.toList());
+
+        if (recoveredDevices.isEmpty()) {
+            logger.debug("No recovered devices.");
+            return recoveredDevices;
+        }
+
+        for (HostDeviceVO device : recoveredDevices) {
+            HostDevice.State nextState = device.getInstanceId() != null ? HostDevice.State.Attached : HostDevice.State.Disabled;
+            logger.debug("Host device [{}] was found again. Changing its state from [{}] to [{}].", device.getPciName(), device.getState(), nextState);
+            device.setState(nextState);
+            hostDeviceDao.update(device.getId(), device);
+        }
+
+        return recoveredDevices;
+    }
+
+    private List<HostDeviceVO> handleUnregisteredDevices(List<HostDeviceVO> incomingDevices, Set<List<String>> currentIdentities) {
         logger.debug("Checking for devices returned by the host, but not registered to the database to save them.");
         List<HostDeviceVO> unregisteredDevices = incomingDevices
                 .stream()
-                .filter(id -> currentDevices
-                        .stream()
-                        .noneMatch(c -> c.getPciName().equals(id.getPciName())))
+                .filter(incoming -> !currentIdentities.contains(getDeviceIdentity(incoming)))
                 .collect(Collectors.toList());
         logger.debug("Found the following unregistered devices: {}", unregisteredDevices);
 
         for (HostDeviceVO device : unregisteredDevices) {
             logger.debug("Saving unregistered device [{}] to the database.", device.getPciName());
             hostDeviceDao.persist(device);
+        }
+
+        return unregisteredDevices;
+    }
+
+    protected static class DeviceScanReconciliation {
+        private final List<HostDeviceVO> missingDevices;
+        private final List<HostDeviceVO> recoveredDevices;
+        private final List<HostDeviceVO> registeredDevices;
+
+        protected DeviceScanReconciliation(List<HostDeviceVO> missingDevices, List<HostDeviceVO> recoveredDevices, List<HostDeviceVO> registeredDevices) {
+            this.missingDevices = missingDevices;
+            this.recoveredDevices = recoveredDevices;
+            this.registeredDevices = registeredDevices;
+        }
+
+        protected List<HostDeviceVO> getMissingDevices() {
+            return missingDevices;
+        }
+
+        protected List<HostDeviceVO> getRecoveredDevices() {
+            return recoveredDevices;
+        }
+
+        protected List<HostDeviceVO> getRegisteredDevices() {
+            return registeredDevices;
         }
     }
 
@@ -581,25 +642,52 @@ public class HostDevicesManagerImpl extends ManagerBase implements HostDevicesMa
     private void sendAlertAboutCleanupDevices(List<HostDeviceVO> devices) {
         List<HostDeviceVO> filteredDevices = filterDevicesForAlert(devices, HostDevice.State.NeedsCleanup);
 
-        if (filteredDevices.isEmpty()) {
-            return;
-        }
-
         String subject = "Cleanup operation needed";
         String body = "This host device was released from a VM and requires manual normalization to be available to users again.";
-        sendAlertAboutDevices(filteredDevices, AlertType.ALERT_TYPE_HOST_DEVICE_NEEDS_CLEANUP, subject, body);
+
+        for (HostDeviceVO device : filteredDevices) {
+            sendAlertAboutDevice(device, AlertType.ALERT_TYPE_HOST_DEVICE_NEEDS_CLEANUP, subject, body);
+        }
     }
 
-    private void sendAlertAboutMissingDevices(List<HostDeviceVO> devices) {
+    private void sendAlertAboutMissingDevices(List<HostDeviceVO> devices, List<HostDeviceVO> registeredDevices) {
         List<HostDeviceVO> filteredDevices = filterDevicesForAlert(devices, HostDevice.State.Missing);
 
-        if (filteredDevices.isEmpty()) {
-            return;
+        Map<String, HostDeviceVO> registeredDevicesByPciName = new HashMap<>();
+
+        for (HostDeviceVO registeredDevice : registeredDevices) {
+            registeredDevicesByPciName.putIfAbsent(registeredDevice.getPciName(), registeredDevice);
         }
 
         String subject = "Missing host device found during scan";
-        String body = "This host device was not found during the host scan and requires attention. Please check the physical device for any issues.";
-        sendAlertAboutDevices(filteredDevices, AlertType.ALERT_TYPE_HOST_DEVICE_MISSING, subject, body);
+        String baseBody = "This host device was not found during the host scan and requires attention. Please check the physical device for any issues.";
+
+        for (HostDeviceVO device : filteredDevices) {
+            String body = baseBody;
+            HostDeviceVO replacement = registeredDevicesByPciName.get(device.getPciName());
+
+            if (replacement != null) {
+                body += String.format("\nA different device [%s] (vendor ID: %s, device ID: %s) was found in the same PCI address, so maybe it was just a replacement. If it is, ignore this email. The new device was registered in the Disabled state.",
+                        replacement.getDisplayName(), replacement.getPciVendorId(), replacement.getPciDeviceId());
+            }
+
+            sendAlertAboutDevice(device, AlertType.ALERT_TYPE_HOST_DEVICE_MISSING, subject, body);
+        }
+    }
+
+    private void sendAlertAboutRecoveredDevices(List<HostDeviceVO> devices) {
+        if (CollectionUtils.isEmpty(devices)) {
+            logger.debug("No recovered host devices were found. Skipping alert sending.");
+            return;
+        }
+
+        String subject = "Missing host device found again during scan";
+        String baseBody = "This host device was missing, but it was found again during the host scan. Please check the physical device.";
+
+        for (HostDeviceVO device : devices) {
+            String body = baseBody + String.format("\nThe device state was changed to [%s].", device.getState());
+            sendAlertAboutDevice(device, AlertType.ALERT_TYPE_HOST_DEVICE_RECOVERED, subject, body);
+        }
     }
 
     private List<HostDeviceVO> filterDevicesForAlert(List<HostDeviceVO> devices, HostDevice.State stateFilter) {
@@ -619,21 +707,14 @@ public class HostDevicesManagerImpl extends ManagerBase implements HostDevicesMa
         return filteredDevices;
     }
 
-    private void sendAlertAboutDevices(List<HostDeviceVO> devices, AlertType alertType, String baseSubject, String baseBody) {
-        List<Long> hostIds = devices.stream().map(HostDeviceVO::getHostId).collect(Collectors.toList());
-        List<HostVO> devicesHosts = hostDao.listByIds(hostIds);
-        Map<Long, HostVO> idToHost = devicesHosts.stream().collect(Collectors.toMap(HostVO::getId, Function.identity()));
+    private void sendAlertAboutDevice(HostDeviceVO device, AlertType alertType, String baseSubject, String baseBody) {
+        HostVO host = hostDao.findById(device.getHostId());
 
-        for (HostDeviceVO device : devices) {
-            String deviceSuffix = String.format(" - Host device [%s]", device.getDisplayName());
-            String subject = baseSubject + deviceSuffix;
+        String subject = baseSubject + String.format(" - Host device [%s]", device.getDisplayName());
+        String body = baseBody + String.format("\nDevice [%s] (ID: %s) from host [%s] (ID: %s)", device.getDisplayName(), device.getUuid(), host.getName(), host.getUuid());
 
-            HostVO host = idToHost.get(device.getHostId());
-            String body = baseBody + String.format("\nDevice [%s] (ID: %s) from host [%s] (ID: %s)", device.getDisplayName(), device.getUuid(), host.getName(), host.getUuid());
-
-            alertManager.sendAlert(alertType, host.getDataCenterId(), host.getPodId(), subject, body);
-            logger.debug("Dispatched [{}] alert to operators about host device [{}].", alertType, device.getDisplayName());
-        }
+        alertManager.sendAlert(alertType, host.getDataCenterId(), host.getPodId(), subject, body);
+        logger.debug("Dispatched [{}] alert to operators about host device [{}].", alertType, device.getDisplayName());
     }
 
     private Map<String, Integer> countDevicesPerTag(List<HostDeviceVO> devices) {
