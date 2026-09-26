@@ -277,6 +277,7 @@ import com.cloud.host.Host;
 import com.cloud.host.HostVO;
 import com.cloud.host.Status;
 import com.cloud.host.dao.HostDao;
+import com.cloud.hostdevices.dao.HostDeviceDao;
 import com.cloud.hypervisor.Hypervisor;
 import com.cloud.hypervisor.Hypervisor.HypervisorType;
 import com.cloud.hypervisor.dao.HypervisorCapabilitiesDao;
@@ -685,6 +686,8 @@ public class UserVmManagerImpl extends ManagerBase implements UserVmManager, Vir
     DeviceOfferingManager deviceOfferingManager;
     @Inject
     HostDevicesManager hostDevicesManager;
+    @Inject
+    HostDeviceDao hostDeviceDao;
 
     private ScheduledExecutorService _executor = null;
     private ScheduledExecutorService _vmIpFetchExecutor = null;
@@ -8267,6 +8270,7 @@ public class UserVmManagerImpl extends ManagerBase implements UserVmManager, Vir
         List<Reserver> reservations = new ArrayList<>();
         try {
         verifyResourceLimitsForAccountAndStorage(newAccount, vm, offering, volumes, template, reservations);
+        checkHostDevicesLimit(newAccount, vm, reservations);
 
         Network newNetwork = null;
         if (!cmd.isSkipNetwork()) {
@@ -8384,6 +8388,19 @@ public class UserVmManagerImpl extends ManagerBase implements UserVmManager, Vir
         logger.trace("Verifying if volume size for VM [{}] does not exceed account [{}] limit.", vm, account);
 
         checkVolumesLimits(account, volumes, reservations);
+    }
+
+    protected void checkHostDevicesLimit(Account account, UserVmVO vm, List<Reserver> reservations) throws ResourceAllocationException {
+        long hostDevicesAmount = hostDeviceDao.listHostDevicesByVmId(vm.getId()).size();
+
+        if (hostDevicesAmount == 0) {
+            return;
+        }
+
+        logger.trace("Verifying if the {} host devices of VM [{}] do not exceed account [{}] limit.", hostDevicesAmount, vm, account);
+
+        CheckedReservation hostDevicesReservation = new CheckedReservation(account, ResourceType.host_device, null, hostDevicesAmount, reservationDao, resourceLimitService);
+        reservations.add(hostDevicesReservation);
     }
 
     protected boolean countOnlyRunningVmsInResourceLimitation() {
