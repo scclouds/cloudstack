@@ -63,7 +63,7 @@ public class ListDeviceOfferingsCmd extends BaseListCmd {
     @Parameter(name = ApiConstants.ZONE_ID, type = CommandType.UUID, entityType = ZoneResponse.class, description = "The device offering's zone ID.")
     private Long zoneId;
 
-    @Parameter(name = ApiConstants.DEVICE_TAGS, type = CommandType.LIST, collectionType = CommandType.STRING, description = "The device offering's device tags. Tags informe here must match exactly the ones configured into the offerings.")
+    @Parameter(name = ApiConstants.DEVICE_TAGS, type = CommandType.LIST, collectionType = CommandType.STRING, description = "The device offering's device tags. Lists the device offerings that have at least one of the informed tags. The tags are case-insensitive.")
     private List<String> deviceTags;
 
     @Parameter(name = ApiConstants.STATE, type = CommandType.STRING, description = "The state of the device offering. Possible states are: Active and Inactive. By default, devices in the Inactive state will be hidden.")

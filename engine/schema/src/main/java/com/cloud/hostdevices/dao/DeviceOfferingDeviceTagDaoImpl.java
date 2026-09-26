@@ -19,6 +19,7 @@ package com.cloud.hostdevices.dao;
 
 import com.cloud.hostdevices.DeviceOfferingDeviceTagVO;
 import com.cloud.utils.db.GenericDaoBase;
+import com.cloud.utils.db.GenericSearchBuilder;
 import com.cloud.utils.db.SearchBuilder;
 import com.cloud.utils.db.SearchCriteria;
 import org.apache.cloudstack.hostdevices.DeviceOffering;
@@ -32,11 +33,17 @@ import java.util.stream.Collectors;
 @Component
 public class DeviceOfferingDeviceTagDaoImpl extends GenericDaoBase<DeviceOfferingDeviceTagVO, Long> implements DeviceOfferingDeviceTagDao {
     private final SearchBuilder<DeviceOfferingDeviceTagVO> deviceOfferingDeviceTagSearch;
+    private final GenericSearchBuilder<DeviceOfferingDeviceTagVO, Long> offeringIdsByDeviceTagSearch;
 
     public DeviceOfferingDeviceTagDaoImpl() {
         deviceOfferingDeviceTagSearch = createSearchBuilder();
         deviceOfferingDeviceTagSearch.and("deviceOfferingId", deviceOfferingDeviceTagSearch.entity().getDeviceOfferingId(), SearchCriteria.Op.IN);
         deviceOfferingDeviceTagSearch.done();
+
+        offeringIdsByDeviceTagSearch = createSearchBuilder(Long.class);
+        offeringIdsByDeviceTagSearch.select(null, SearchCriteria.Func.DISTINCT, offeringIdsByDeviceTagSearch.entity().getDeviceOfferingId());
+        offeringIdsByDeviceTagSearch.and("deviceTag", offeringIdsByDeviceTagSearch.entity().getDeviceTag(), SearchCriteria.Op.IN);
+        offeringIdsByDeviceTagSearch.done();
     }
 
     @Override
@@ -63,6 +70,18 @@ public class DeviceOfferingDeviceTagDaoImpl extends GenericDaoBase<DeviceOfferin
         SearchCriteria<DeviceOfferingDeviceTagVO> sc = deviceOfferingDeviceTagSearch.create();
         sc.setParameters("deviceOfferingId", List.of(id).toArray());
         expunge(sc);
+    }
+
+    @Override
+    public List<Long> listDeviceOfferingIdsByTags(List<String> deviceTags) {
+        if (CollectionUtils.isEmpty(deviceTags)) {
+            return new ArrayList<>();
+        }
+
+        SearchCriteria<Long> sc = offeringIdsByDeviceTagSearch.create();
+        sc.setParameters("deviceTag", deviceTags.toArray());
+
+        return customSearch(sc, null);
     }
 
 }

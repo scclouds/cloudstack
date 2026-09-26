@@ -30,4 +30,6 @@ public interface DeviceOfferingDeviceTagDao extends GenericDao<DeviceOfferingDev
 
     void expungeByOfferingId(long id);
 
+    List<Long> listDeviceOfferingIdsByTags(List<String> deviceTags);
+
 }
