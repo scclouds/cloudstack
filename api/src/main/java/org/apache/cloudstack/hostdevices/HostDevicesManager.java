@@ -22,6 +22,7 @@ import com.cloud.user.Account;
 import com.cloud.utils.Pair;
 import com.cloud.utils.component.Manager;
 import com.cloud.utils.component.PluggableService;
+import com.cloud.vm.VirtualMachine;
 import org.apache.cloudstack.api.command.admin.hostdevices.ScanHostDevicesCmd;
 import org.apache.cloudstack.api.command.admin.hostdevices.UpdateHostDeviceCmd;
 import org.apache.cloudstack.api.command.user.hostdevices.ListHostDevicesCmd;
@@ -64,6 +65,8 @@ public interface HostDevicesManager extends Configurable, Manager, PluggableServ
     boolean reserveDevicesForVm(Long vmId, Long selectedHostId);
 
     boolean hasHostDevicesReservedForVm(Long vmId);
+
+    void validateVmHostDevicesForStart(VirtualMachine vm);
 
     boolean doesHostMatchDeviceOfferingTags(Host host, List<? extends DeviceOffering> deviceOfferings, Long virtualMachineId);
 
