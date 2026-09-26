@@ -68,7 +68,7 @@ public class ListHostDevicesCmd extends BaseListCmd {
     @Parameter(name = ApiConstants.DEVICE_TAG, type = CommandType.STRING, description = "The device tag to be searched for in host devices.")
     private String deviceTag;
 
-    @Parameter(name = ApiConstants.STATE, type = CommandType.STRING, description = "The state of the host device. Possible states are: Attached, Disabled, Failure, Free, HostInMaintenance and Missing . By default, devices in the Disabled state will be hidden.")
+    @Parameter(name = ApiConstants.STATE, type = CommandType.STRING, description = "The state of the host device. Possible states are: Attached, Disabled, Free, HostInMaintenance, Missing and NeedsCleanup.")
     private String state;
 
     @Parameter(name = ApiConstants.TYPE, type = CommandType.STRING, description = "The type of the host device. Possible types are: Display, Network, Storage, USB and Generic.")
