@@ -33,6 +33,7 @@ import com.cloud.hostdevices.VMInstanceDeviceOfferingsVO;
 import com.cloud.hostdevices.dao.DeviceOfferingDao;
 import com.cloud.hostdevices.dao.DeviceOfferingDeviceTagDao;
 import com.cloud.hostdevices.dao.VMInstanceDeviceOfferingsDao;
+import com.cloud.hypervisor.Hypervisor;
 import com.cloud.user.Account;
 import com.cloud.user.AccountManager;
 import com.cloud.user.ResourceLimitService;
@@ -167,7 +168,17 @@ public class DeviceOfferingManagerImpl extends ManagerBase implements DeviceOffe
             throw new InvalidParameterValueException(String.format("VM is not in a valid state to assign device offering. Current state is [%s], and valid states are: %s", vm.getState(), Arrays.asList(VirtualMachine.State.Stopped, VirtualMachine.State.Running)));
         }
 
-        getDeviceOfferingAndCheckAccess(deviceOfferingId, caller, vm);
+        if (!Hypervisor.HypervisorType.KVM.equals(vm.getHypervisorType())) {
+            logger.error("Could not assign device offering to VM [{}], because its hypervisor is [{}].", virtualMachineId, vm.getHypervisorType());
+            throw new InvalidParameterValueException(String.format("Device offerings can only be assigned to KVM VMs. The hypervisor of the VM is [%s].", vm.getHypervisorType()));
+        }
+
+        DeviceOfferingVO deviceOffering = getDeviceOfferingAndCheckAccess(deviceOfferingId, caller, vm);
+
+        if (!DeviceOffering.State.Active.equals(deviceOffering.getState())) {
+            logger.error("Could not assign device offering [{}] to VM [{}], because the offering is in the [{}] state.", deviceOfferingId, virtualMachineId, deviceOffering.getState());
+            throw new InvalidParameterValueException(String.format("The device offering is inactive state. Only active offerings can be assigned to VMs.", deviceOffering.getState(), DeviceOffering.State.Active));
+        }
 
         List<VMInstanceDeviceOfferingsVO> existingAssignmentsForVM = vmInstanceDeviceOfferingsDao.listByVmId(virtualMachineId);
         if (CollectionUtils.isNotEmpty(existingAssignmentsForVM) && existingAssignmentsForVM.stream().anyMatch(assignment -> assignment.getDeviceOfferingId().equals(deviceOfferingId))) {
