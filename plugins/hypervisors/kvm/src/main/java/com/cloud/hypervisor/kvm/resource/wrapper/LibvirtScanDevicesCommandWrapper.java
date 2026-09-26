@@ -29,6 +29,7 @@ import org.apache.cloudstack.utils.libvirt.LibvirtDeviceMapper;
 import org.apache.cloudstack.utils.libvirt.model.LibvirtDevice;
 import org.libvirt.Connect;
 import org.libvirt.Device;
+import org.libvirt.LibvirtException;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -51,13 +52,10 @@ public class LibvirtScanDevicesCommandWrapper extends CommandWrapper<ScanDevices
 
             for (String capability : SUPPORTED_DEVICE_CAPABILITIES) {
                 for (String deviceName : conn.listDevices(capability)) {
-                    Device device = conn.deviceLookupByName(deviceName);
-
                     try {
-                        XmlObject deviceDefinition = XmlObjectParser.parseFromString(device.getXMLDescription());
-                        mappedDevices.add(libvirtDeviceMapper.mapDevice(deviceDefinition));
-                    } finally {
-                        device.free();
+                        mappedDevices.add(mapDevice(conn, deviceName, libvirtDeviceMapper));
+                    } catch (Exception e) {
+                        logger.warn("Skipping host device [{}] because it could not be read or parsed: {}", deviceName, e.getMessage(), e);
                     }
                 }
             }
@@ -67,6 +65,17 @@ public class LibvirtScanDevicesCommandWrapper extends CommandWrapper<ScanDevices
             String errorMessage = "Failed to scan host devices due to " + e.getMessage();
             logger.error(errorMessage, e);
             return new ScanDevicesAnswer(command, false, errorMessage);
+        }
+    }
+
+    private LibvirtDevice mapDevice(Connect conn, String deviceName, LibvirtDeviceMapper libvirtDeviceMapper) throws LibvirtException {
+        Device device = conn.deviceLookupByName(deviceName);
+
+        try {
+            XmlObject deviceDefinition = XmlObjectParser.parseFromString(device.getXMLDescription());
+            return libvirtDeviceMapper.mapDevice(deviceDefinition);
+        } finally {
+            device.free();
         }
     }
 }
