@@ -776,6 +776,9 @@ public class VirtualMachineManagerImpl extends ManagerBase implements VirtualMac
 
         userVmDeployAsIsDetailsDao.removeDetails(vm.getId());
 
+        hostDeviceManager.releaseHostDevicesForVm(vm.getId());
+        deviceOfferingManager.unassignVmFromOfferings(vm.getId());
+
         // Remove comments (if any)
         annotationDao.removeByEntityType(AnnotationService.EntityType.VM.name(), vm.getUuid());
 
@@ -2770,8 +2773,6 @@ public class VirtualMachineManagerImpl extends ManagerBase implements VirtualMac
         deleteVMSnapshots(vm, expunge);
 
         gpuService.deallocateAllGpuDevicesForVm(vm.getId());
-        hostDeviceManager.releaseHostDevicesForVm(vm.getId());
-        deviceOfferingManager.unassignVmFromOfferings(vm.getId());
 
         Transaction.execute(new TransactionCallbackWithExceptionNoReturn<CloudRuntimeException>() {
             @Override
@@ -2797,6 +2798,8 @@ public class VirtualMachineManagerImpl extends ManagerBase implements VirtualMac
                 }
             }
         });
+
+        hostDeviceManager.releaseHostDevicesForVm(vm.getId());
     }
 
     /**
