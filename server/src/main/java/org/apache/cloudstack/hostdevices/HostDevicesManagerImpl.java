@@ -568,13 +568,10 @@ public class HostDevicesManagerImpl extends ManagerBase implements HostDevicesMa
                 throw new InvalidParameterValueException("Host device with id " + updateHostDeviceCmd.getDeviceId() + " was not found.");
             }
 
-            if (!device.canBeUpdated()) {
-                logger.error("Could not update host device state. Current device state is {} and invalid states are {}.", device.getState(), HostDevice.INVALID_UPDATE_STATES);
-                throw new InvalidParameterValueException(String.format("Could not update device because it is in state [%s] and updating devices in states %s is not allowed.", device.getState(), HostDevice.INVALID_UPDATE_STATES));
-            }
+            validateHostDeviceForUpdate(device, tag, newDeviceType);
 
             if (enabled != null) {
-                device.setState(enabled ? HostDevice.State.Free : HostDevice.State.Disabled);
+                updateHostDeviceState(device, enabled);
             }
 
             if (displayName != null && !displayName.isBlank()) {
@@ -597,6 +594,43 @@ public class HostDevicesManagerImpl extends ManagerBase implements HostDevicesMa
 
             return device;
         });
+    }
+
+    private void validateHostDeviceForUpdate(HostDeviceVO device, String tag, HostDevice.Type type) {
+        if (HostDevice.INVALID_UPDATE_STATES.contains(device.getState())) {
+            logger.error("Could not update host device state. Current device state is {} and invalid states are {}.", device.getState(), HostDevice.INVALID_UPDATE_STATES);
+            throw new InvalidParameterValueException(String.format("Could not update device because it is in state [%s] and updating devices in states %s is not allowed.", device.getState(), HostDevice.INVALID_UPDATE_STATES));
+        }
+
+        if (device.getInstanceId() != null && (tag != null || type != null)) {
+            logger.error("Could not update the tag or type of host device [{}] because it is attached to VM {}.", device.getPciName(), device.getInstanceId());
+            throw new InvalidParameterValueException("Could not update the device tag or type because the device is attached to a VM.");
+        }
+    }
+
+    private void updateHostDeviceState(HostDeviceVO device, boolean enabled) {
+        Long vmId = device.getInstanceId();
+
+        if (vmId == null) {
+            device.setState(enabled ? HostDevice.State.Free : HostDevice.State.Disabled);
+            return;
+        }
+
+        if (enabled) {
+            logger.info("Host device [{}] is attached to VM {}, so it will be put to Attached again.", device.getPciName(), vmId);
+            device.setState(HostDevice.State.Attached);
+            return;
+        }
+
+        logger.info("Host device [{}] is attached to VM {}, so it will be released before being disabled.", device.getPciName(), vmId);
+        Long accountId = device.getAccountId();
+
+        device.setInstanceId(null);
+        device.setAccountId(null);
+        device.setDomainId(null);
+        device.setState(HostDevice.State.Disabled);
+
+        resourceLimitMgr.decrementResourceCount(accountId, Resource.ResourceType.host_device, 1L);
     }
 
     private <E extends Enum<E>> E parseEnumIgnoreCase(Class<E> enumClass, String value) {

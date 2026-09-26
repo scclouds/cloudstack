@@ -313,10 +313,6 @@ public class HostDeviceVO implements HostDevice {
         this.oneTimeUse = oneTimeUse;
     }
 
-    public boolean canBeUpdated() {
-        return !INVALID_UPDATE_STATES.contains(this.state);
-    }
-
     @Override
     public String toString() {
         return String.format("Host device %s", ReflectionToStringBuilderUtils.reflectOnlySelectedFields(this, "id", "uuid", "pciName", "deviceTag", "state", "type", "hostId", "instanceId"));
