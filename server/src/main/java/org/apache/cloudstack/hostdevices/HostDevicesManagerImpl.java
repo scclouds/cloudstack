@@ -412,7 +412,7 @@ public class HostDevicesManagerImpl extends ManagerBase implements HostDevicesMa
             accountManager.checkAccess(caller, null, true, account);
         }
 
-        Pair<Long, List<Long>> accountIdDomainsList = accountManager.finalizeListingFiltersBasedOnRecursiveAndListAll(false, cmd.listAll(), false, account.getId(), new ArrayList<>(List.of(account.getId())));
+        Pair<Long, List<Long>> accountIdDomainsList = accountManager.finalizeListingFiltersBasedOnRecursiveAndListAll(false, cmd.listAll(), false, account.getId(), new ArrayList<>());
         accountId = accountIdDomainsList.first();
         List<Long> domainIds = accountIdDomainsList.second();
 
