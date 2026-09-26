@@ -513,9 +513,6 @@ public class DeviceOfferingManagerImpl extends ManagerBase implements DeviceOffe
         return state;
     }
 
-    /**
-     * Device tags are stored trimmed and in lower case, so the tags used to filter the offerings listing are normalized the same way.
-     */
     private List<String> normalizeDeviceTagsFilter(List<String> deviceTags) {
         if (deviceTags == null) {
             return null;
