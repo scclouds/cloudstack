@@ -225,7 +225,7 @@ public class DeviceOfferingManagerImpl extends ManagerBase implements DeviceOffe
         String name = listDeviceOfferingsCmd.getName();
         Long domainId = listDeviceOfferingsCmd.getDomainId();
         Long zoneId = listDeviceOfferingsCmd.getZoneId();
-        List<String> deviceTags = listDeviceOfferingsCmd.getDeviceTags();
+        List<String> deviceTags = normalizeDeviceTagsFilter(listDeviceOfferingsCmd.getDeviceTags());
         String stringState = listDeviceOfferingsCmd.getState();
         Boolean listAll = listDeviceOfferingsCmd.getListAll();
 
@@ -500,6 +500,27 @@ public class DeviceOfferingManagerImpl extends ManagerBase implements DeviceOffe
         }
 
         return state;
+    }
+
+    /**
+     * Device tags are stored trimmed and in lower case, so the tags used to filter the offerings listing are normalized the same way.
+     */
+    private List<String> normalizeDeviceTagsFilter(List<String> deviceTags) {
+        if (deviceTags == null) {
+            return null;
+        }
+
+        List<String> normalizedTags = new ArrayList<>();
+
+        for (String tag : deviceTags) {
+            String normalizedTag = StringUtils.trim(tag);
+
+            if (StringUtils.isNotBlank(normalizedTag)) {
+                normalizedTags.add(normalizedTag.toLowerCase(Locale.ROOT));
+            }
+        }
+
+        return normalizedTags;
     }
 
     private Map<String, Integer> parseDeviceOfferingTagsParameter(List<String> commandTags) {
