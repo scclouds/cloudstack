@@ -993,6 +993,26 @@ public class HostDevicesManagerImpl extends ManagerBase implements HostDevicesMa
     }
 
     @Override
+    public void validateVmHostDevicesForStart(VirtualMachine vm) {
+        List<HostDeviceVO> unavailableDevices = hostDeviceDao.listHostDevicesByVmId(vm.getId())
+                .stream()
+                .filter(device -> !HostDevice.State.Attached.equals(device.getState()))
+                .collect(Collectors.toList());
+
+        if (unavailableDevices.isEmpty()) {
+            return;
+        }
+
+        List<String> unavailableDevicesDescription = unavailableDevices.stream()
+                .map(device -> String.format("%s (ID: %s, state: %s)", device.getDisplayName(), device.getUuid(), device.getState()))
+                .collect(Collectors.toList());
+
+        logger.error("VM {} cannot be started because the following host devices attached to it are not available: {}.", vm, unavailableDevicesDescription);
+        throw new CloudRuntimeException(String.format("VM %s cannot be started because the following host devices attached to it are not available: %s. Please, contact your administrator.",
+                vm.getUuid(), unavailableDevicesDescription));
+    }
+
+    @Override
     public boolean doesHostMatchVmDeviceOfferings(Host host, Long virtualMachineId) {
         return doesHostMatchDeviceOfferingTags(host, deviceOfferingDao.listVirtualMachineDeviceOfferings(virtualMachineId), virtualMachineId);
     }

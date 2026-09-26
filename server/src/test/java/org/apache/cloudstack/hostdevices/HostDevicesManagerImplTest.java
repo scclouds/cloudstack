@@ -29,6 +29,8 @@ import com.cloud.hostdevices.dao.HostDeviceDao;
 import com.cloud.hypervisor.Hypervisor;
 import com.cloud.user.Account;
 import com.cloud.user.User;
+import com.cloud.utils.exception.CloudRuntimeException;
+import com.cloud.vm.VirtualMachine;
 import org.apache.cloudstack.context.CallContext;
 import org.apache.cloudstack.api.command.admin.hostdevices.ScanHostDevicesCmd;
 import org.junit.After;
@@ -77,6 +79,20 @@ public class HostDevicesManagerImplTest {
     @After
     public void tearDown() throws Exception {
         CallContext.unregisterAll();
+    }
+
+    private long nextDeviceId = 1L;
+
+    private HostDeviceVO createDevice(String pciName, String vendorId, String deviceId, HostDevice.State state, Long instanceId) {
+        HostDeviceVO device = new HostDeviceVO();
+        ReflectionTestUtils.setField(device, "id", nextDeviceId++);
+        device.setPciName(pciName);
+        device.setPciVendorId(vendorId);
+        device.setPciDeviceId(deviceId);
+        device.setState(state);
+        device.setInstanceId(instanceId);
+        device.setHostId(1L);
+        return device;
     }
 
     @Test
@@ -130,18 +146,23 @@ public class HostDevicesManagerImplTest {
         Assert.assertNull(hostDevicesManager.getHostsListForDeviceScan(null, null, null));
     }
 
-    private long nextDeviceId = 1L;
+    @Test
+    public void testValidateVmHostDevicesForStartAllDevicesAttachedDoesNotThrow() {
+        VirtualMachine vm = Mockito.mock(VirtualMachine.class);
+        Mockito.when(vm.getId()).thenReturn(10L);
+        Mockito.when(hostDeviceDao.listHostDevicesByVmId(10L)).thenReturn(List.of(createDevice("pci_0000_01_00_0", "0x10de", "0x2230", HostDevice.State.Attached, 10L)));
 
-    private HostDeviceVO createDevice(String pciName, String vendorId, String deviceId, HostDevice.State state, Long instanceId) {
-        HostDeviceVO device = new HostDeviceVO();
-        ReflectionTestUtils.setField(device, "id", nextDeviceId++);
-        device.setPciName(pciName);
-        device.setPciVendorId(vendorId);
-        device.setPciDeviceId(deviceId);
-        device.setState(state);
-        device.setInstanceId(instanceId);
-        device.setHostId(1L);
-        return device;
+        hostDevicesManager.validateVmHostDevicesForStart(vm);
+    }
+
+    @Test
+    public void testValidateVmHostDevicesForStartMissingDeviceThrowsCloudRuntimeException() {
+        VirtualMachine vm = Mockito.mock(VirtualMachine.class);
+        Mockito.when(vm.getId()).thenReturn(10L);
+        Mockito.when(hostDeviceDao.listHostDevicesByVmId(10L)).thenReturn(List.of(createDevice("pci_0000_01_00_0", "0x10de", "0x2230", HostDevice.State.Attached, 10L),
+                createDevice("pci_0000_02_00_0", "0x10de", "0x2230", HostDevice.State.Missing, 10L)));
+
+        Assert.assertThrows(CloudRuntimeException.class, () -> hostDevicesManager.validateVmHostDevicesForStart(vm));
     }
 
     @Test

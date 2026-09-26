@@ -1377,6 +1377,9 @@ public class VirtualMachineManagerImpl extends ManagerBase implements VirtualMac
         final Account owner = _entityMgr.findById(Account.class, vm.getAccountId());
         final ServiceOfferingVO offering = _offeringDao.findById(vm.getId(), vm.getServiceOfferingId());
         final VirtualMachineTemplate template = _entityMgr.findByIdIncludingRemoved(VirtualMachineTemplate.class, vm.getTemplateId());
+
+        hostDeviceManager.validateVmHostDevicesForStart(vm);
+
         final Ternary<VMInstanceVO, ReservationContext, ItWorkVO> start = changeToStartState(vmGuru, vm, caller, account, owner, offering, template);
         if (start == null) {
             return;
