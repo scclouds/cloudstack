@@ -42,7 +42,7 @@ import java.util.List;
         responseObject = DeviceOfferingResponse.class,
         requestHasSensitiveInfo = false,
         responseHasSensitiveInfo = false,
-        since = "4.24.0",
+        since = "24.0.0",
         authorized = {RoleType.Admin, RoleType.DomainAdmin, RoleType.ResourceAdmin, RoleType.User})
 public class ListDeviceOfferingsCmd extends BaseListCmd {
     @Inject

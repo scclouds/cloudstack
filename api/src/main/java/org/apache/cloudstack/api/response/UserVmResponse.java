@@ -465,11 +465,11 @@ public class UserVmResponse extends BaseResponseWithTagInformation implements Co
     private String leaseExpiryAction;
 
     @SerializedName(ApiConstants.DEVICE_OFFERINGS)
-    @Param(description = "List of device offerings associated with the Instance", responseObject = DeviceOfferingResponse.class, since = "4.23.0")
+    @Param(description = "List of device offerings associated with the Instance", responseObject = DeviceOfferingResponse.class, since = "24.0.0")
     private List<DeviceOfferingResponse> deviceOfferings;
 
     @SerializedName(ApiConstants.HOST_DEVICES)
-    @Param(description = "List of host devices associated with the Instance", responseObject = HostDeviceResponse.class, since = "4.23.0")
+    @Param(description = "List of host devices associated with the Instance", responseObject = HostDeviceResponse.class, since = "24.0.0")
     private List<HostDeviceResponse> hostDevices;
 
     public UserVmResponse() {
