@@ -87,6 +87,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
+import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -736,7 +737,16 @@ public class HostDevicesManagerImpl extends ManagerBase implements HostDevicesMa
         Map<String, Integer> selectedAmountPerTag = new HashMap<>();
         List<HostDeviceVO> selectedDevices = new ArrayList<>();
 
+        LinkedList<HostDeviceVO> orderedDevices = new LinkedList<>();
         for (HostDeviceVO device : vmDevices) {
+            if (HostDevice.State.Attached.equals(device.getState())) {
+                orderedDevices.addLast(device);
+            } else {
+                orderedDevices.addFirst(device);
+            }
+        }
+
+        for (HostDeviceVO device : orderedDevices) {
             String tag = device.getDeviceTag();
 
             if (selectedAmountPerTag.getOrDefault(tag, 0) < tagToAmount.getOrDefault(tag, 0)) {
@@ -756,18 +766,18 @@ public class HostDevicesManagerImpl extends ManagerBase implements HostDevicesMa
 
         logger.info("The following devices will be released from VM {}: {}", vm.getId(), devices.stream().map(HostDeviceVO::getPciName).collect(Collectors.toList()));
 
-        List<HostDeviceVO> devicesOutsideAttachedState = devices.stream().filter(d -> !HostDevice.State.Attached.equals(d.getState())).collect(Collectors.toList());
-        if (!devicesOutsideAttachedState.isEmpty()) {
-            logger.error("The following devices are not in Attached state: {}. Cancelling device releasing process.", devicesOutsideAttachedState.stream().map(HostDeviceVO::getPciName).collect(Collectors.toList()));
-            throw new CloudRuntimeException("There are inconsistent devices attached to this VM. Please, normalize them before release.");
-        }
-
         for (HostDeviceVO dev : devices) {
             dev.setAccountId(null);
             dev.setDomainId(null);
             dev.setInstanceId(null);
-            HostDevice.State nextState = dev.getOneTimeUse() ? HostDevice.State.NeedsCleanup : HostDevice.State.Free;
-            dev.setState(nextState);
+
+            if (HostDevice.State.Attached.equals(dev.getState())) {
+                HostDevice.State nextState = dev.getOneTimeUse() ? HostDevice.State.NeedsCleanup : HostDevice.State.Free;
+                dev.setState(nextState);
+            } else {
+                logger.warn("Host device [{}] is in the [{}] state, so it will be released from VM {} without changing its state.", dev.getPciName(), dev.getState(), vm.getId());
+            }
+
             hostDeviceDao.update(dev.getId(), dev);
         }
 
