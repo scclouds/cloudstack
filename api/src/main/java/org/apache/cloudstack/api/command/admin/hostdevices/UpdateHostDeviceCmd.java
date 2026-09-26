@@ -42,7 +42,7 @@ import javax.inject.Inject;
         requestHasSensitiveInfo = false,
         responseHasSensitiveInfo = false,
         authorized = {RoleType.Admin},
-        since = "4.24.0")
+        since = "24.0.0")
 public class UpdateHostDeviceCmd extends BaseCmd  {
     @Inject
     private HostDevicesManager hostDevicesManager;
