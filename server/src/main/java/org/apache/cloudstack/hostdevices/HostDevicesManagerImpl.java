@@ -689,6 +689,20 @@ public class HostDevicesManagerImpl extends ManagerBase implements HostDevicesMa
             logger.error("Could not update the tag or type of host device [{}] because it is attached to VM {}.", device.getPciName(), device.getInstanceId());
             throw new InvalidParameterValueException("Could not update the device tag or type because the device is attached to a VM.");
         }
+
+        if (Boolean.TRUE.equals(enabled) && HostDevice.State.Missing.equals(device.getState())) {
+            logger.error("Could not enable host device [{}] because it is missing from its host.", device.getPciName());
+            throw new InvalidParameterValueException("Could not enable the device because it is missing from its host. Please, check the physical device and scan the host again.");
+        }
+
+        if (Boolean.FALSE.equals(enabled) && device.getInstanceId() != null) {
+            VirtualMachine vm = virtualMachineDao.findById(device.getInstanceId());
+
+            if (vm != null && !VirtualMachine.State.Stopped.equals(vm.getState())) {
+                logger.error("Could not disable host device [{}] because VM {} is in the [{}] state.", device.getPciName(), vm.getId(), vm.getState());
+                throw new InvalidParameterValueException(String.format("Could not disable the device because it is attached to VM [%s], which is in the [%s] state. Please, stop the VM first.", vm.getUuid(), vm.getState()));
+            }
+        }
     }
 
     private boolean isAttachedWithMissingCompanion(HostDeviceVO device, List<HostDeviceVO> companions) {
@@ -708,20 +722,28 @@ public class HostDevicesManagerImpl extends ManagerBase implements HostDevicesMa
     private void updateHostDeviceState(HostDeviceVO device, boolean enabled) {
         Long vmId = device.getInstanceId();
 
-        if (vmId == null) {
-            device.setState(enabled ? HostDevice.State.Free : HostDevice.State.Disabled);
+        if (!enabled && vmId != null) {
+            logger.info("Host device [{}] is attached to VM {}, so it will be released before being disabled.", device.getPciName(), vmId);
+            releaseDeviceFromVm(device);
+        }
+
+        if (HostDevice.State.Missing.equals(device.getState())) {
+            logger.info("Host device [{}] is missing from its host, so it will be kept in the Missing state.", device.getPciName());
             return;
         }
 
-        if (enabled) {
+        if (!enabled) {
+            device.setState(HostDevice.State.Disabled);
+            return;
+        }
+
+        if (vmId != null) {
             logger.info("Host device [{}] is attached to VM {}, so it will be put to Attached again.", device.getPciName(), vmId);
             device.setState(HostDevice.State.Attached);
             return;
         }
 
-        logger.info("Host device [{}] is attached to VM {}, so it will be released before being disabled.", device.getPciName(), vmId);
-        releaseDeviceFromVm(device);
-        device.setState(HostDevice.State.Disabled);
+        device.setState(HostDevice.State.Free);
     }
 
     private void releaseDeviceFromVm(HostDeviceVO device) {
