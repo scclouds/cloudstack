@@ -113,5 +113,7 @@ public interface HostDevice extends Identity, InternalIdentity {
 
     Long getHostId();
 
+    Long getParentDeviceId();
+
     Boolean getOneTimeUse();
 }

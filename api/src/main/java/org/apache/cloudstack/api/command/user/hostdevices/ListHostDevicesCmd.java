@@ -54,6 +54,10 @@ public class ListHostDevicesCmd extends BaseListCmd {
     private Long id;
 
     @ACL
+    @Parameter(name = ApiConstants.PARENT_ID, type = CommandType.UUID, entityType = HostDeviceResponse.class, description = "The ID of the main function (function 0) of a multi-function device. Lists its companion functions, which are hidden from the listing by default.", since = "24.0.0")
+    private Long parentId;
+
+    @ACL
     @Parameter(name = ApiConstants.ACCOUNT_ID, type = CommandType.UUID, entityType = AccountResponse.class, description = "The device's allocator account ID.", authorized = {RoleType.Admin, RoleType.DomainAdmin})
     private Long accountId;
 
@@ -103,6 +107,10 @@ public class ListHostDevicesCmd extends BaseListCmd {
 
     public String getType() {
         return type;
+    }
+
+    public Long getParentId() {
+        return parentId;
     }
 
     public boolean listAll() {

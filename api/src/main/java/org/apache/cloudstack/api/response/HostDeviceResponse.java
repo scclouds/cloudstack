@@ -124,6 +124,10 @@ public class HostDeviceResponse extends BaseResponse {
     @Param(description = "indicates if the host device is for one-time use only", since = "24.0.0")
     private Boolean oneTimeUse;
 
+    @SerializedName(ApiConstants.PARENT_ID)
+    @Param(description = "the ID of the main function (function 0) of the multi-function device, if this device is one of its companion functions", since = "24.0.0")
+    private String parentId;
+
     public String getId() {
         return id;
     }
@@ -310,5 +314,13 @@ public class HostDeviceResponse extends BaseResponse {
 
     public void setOneTimeUse(Boolean oneTimeUse) {
         this.oneTimeUse = oneTimeUse;
+    }
+
+    public String getParentId() {
+        return parentId;
+    }
+
+    public void setParentId(String parentId) {
+        this.parentId = parentId;
     }
 }

@@ -8391,7 +8391,7 @@ public class UserVmManagerImpl extends ManagerBase implements UserVmManager, Vir
     }
 
     protected void checkHostDevicesLimit(Account account, UserVmVO vm, List<Reserver> reservations) throws ResourceAllocationException {
-        long hostDevicesAmount = hostDeviceDao.listHostDevicesByVmId(vm.getId()).size();
+        long hostDevicesAmount = hostDeviceDao.countMainHostDevices(null, vm.getId());
 
         if (hostDevicesAmount == 0) {
             return;

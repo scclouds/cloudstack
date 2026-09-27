@@ -20,6 +20,7 @@ package com.cloud.hostdevices;
 import org.apache.cloudstack.hostdevices.HostDevice;
 import org.apache.cloudstack.utils.reflectiontostringbuilderutils.ReflectionToStringBuilderUtils;
 import org.apache.commons.lang3.StringUtils;
+import org.apache.commons.lang3.math.NumberUtils;
 import org.apache.cloudstack.utils.libvirt.model.LibvirtDevice;
 import org.apache.cloudstack.utils.libvirt.model.PciDevice;
 
@@ -108,6 +109,9 @@ public class HostDeviceVO implements HostDevice {
 
     @Column(name = "host_id")
     private Long hostId;
+
+    @Column(name = "parent_device_id")
+    private Long parentDeviceId;
 
     public HostDeviceVO() {
         this.uuid = UUID.randomUUID().toString();
@@ -305,12 +309,33 @@ public class HostDeviceVO implements HostDevice {
     }
 
     @Override
+    public Long getParentDeviceId() {
+        return parentDeviceId;
+    }
+
+    public void setParentDeviceId(Long parentDeviceId) {
+        this.parentDeviceId = parentDeviceId;
+    }
+
+    @Override
     public Boolean getOneTimeUse() {
         return oneTimeUse;
     }
 
     public void setOneTimeUse(Boolean oneTimeUse) {
         this.oneTimeUse = oneTimeUse;
+    }
+
+    public boolean isMainFunction() {
+        return NumberUtils.toInt(pciFunction, -1) == 0;
+    }
+
+    public boolean isCompanionFunction() {
+        return parentDeviceId != null;
+    }
+
+    public String getSlotAddress() {
+        return String.join(":", pciDomain, pciBus, pciSlot);
     }
 
     @Override
