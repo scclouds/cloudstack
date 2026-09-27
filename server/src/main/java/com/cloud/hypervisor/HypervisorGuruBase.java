@@ -43,9 +43,7 @@ import com.cloud.domain.DomainVO;
 import com.cloud.domain.dao.DomainDao;
 import com.cloud.gpu.VgpuProfileVO;
 import com.cloud.gpu.dao.VgpuProfileDao;
-import com.cloud.hostdevices.DeviceOfferingVO;
 import com.cloud.hostdevices.HostDeviceVO;
-import com.cloud.hostdevices.dao.DeviceOfferingDao;
 import com.cloud.hostdevices.dao.HostDeviceDao;
 import com.cloud.network.vpc.VpcVO;
 import com.cloud.network.vpc.dao.VpcDao;
@@ -161,8 +159,6 @@ public abstract class HypervisorGuruBase extends AdapterBase implements Hypervis
     private ConfigurationManager configurationManager;
     @Inject
     ResourceTagDao tagsDao;
-    @Inject
-    private DeviceOfferingDao deviceOfferingDao;
     @Inject
     private HostDeviceDao hostDeviceDao;
 
@@ -380,9 +376,9 @@ public abstract class HypervisorGuruBase extends AdapterBase implements Hypervis
                 to.setGpuDevice(getGpuDevice(offering, offeringDetail, vm, vmProfile.getHostId()));
         }
 
-        List<DeviceOfferingVO> vmDeviceOfferings = deviceOfferingDao.listVirtualMachineDeviceOfferings(vmProfile.getId());
-        if (!vmDeviceOfferings.isEmpty()) {
-            to.setHostDevices(getRequestedHostDevices(vmProfile, vmDeviceOfferings));
+        List<HostDeviceVO> hostDevices = hostDeviceDao.listHostDevicesByVmId(vmProfile.getId());
+        if (!hostDevices.isEmpty()) {
+            to.setHostDevices(hostDevices.stream().map(HostDeviceTO::new).collect(Collectors.toList()));
         }
 
         // Workaround to make sure the TO has the UUID we need for Niciri integration
@@ -398,17 +394,6 @@ public abstract class HypervisorGuruBase extends AdapterBase implements Hypervis
         to.setState(vm.getState());
 
         return to;
-    }
-
-    private List<HostDeviceTO> getRequestedHostDevices(VirtualMachineProfile vmProfile, List<DeviceOfferingVO> vmDeviceOfferings) {
-        List<HostDeviceVO> hostDevices = hostDeviceDao.listHostDevicesByVmId(vmProfile.getId());
-
-        if (CollectionUtils.isEmpty(hostDevices)) {
-            logger.error("The VM has the device offerings {} assigned, but no host device was found attached to the VM. Blocking the deployment because there is probably an error.", vmDeviceOfferings.stream().map(DeviceOfferingVO::getUuid).collect(Collectors.toList()));
-            throw new CloudRuntimeException(String.format("No host device is attached to VM [%s] even though it has device offerings assigned.", vmProfile.getUuid()));
-        }
-
-        return hostDevices.stream().map(HostDeviceTO::new).collect(Collectors.toList());
     }
 
     private GPUDeviceTO getGpuDevice(ServiceOffering offering, ServiceOfferingDetailsVO offeringDetail, VirtualMachine vm, long hostId) {
