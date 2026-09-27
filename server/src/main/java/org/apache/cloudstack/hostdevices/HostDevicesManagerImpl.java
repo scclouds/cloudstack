@@ -60,7 +60,6 @@ import com.cloud.utils.db.TransactionCallback;
 import com.cloud.utils.db.TransactionCallbackNoReturn;
 import com.cloud.utils.db.TransactionStatus;
 import com.cloud.utils.exception.CloudRuntimeException;
-import com.cloud.vm.VMInstanceVO;
 import com.cloud.vm.VirtualMachine;
 import com.cloud.vm.dao.VMInstanceDao;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -85,11 +84,13 @@ import java.io.IOException;
 
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.Executors;
@@ -312,6 +313,8 @@ public class HostDevicesManagerImpl extends ManagerBase implements HostDevicesMa
                 hostDeviceDao.persist(device);
             }
 
+            linkCompanionFunctionsToMainFunction(incomingDevices);
+
             return new DeviceScanReconciliation(new ArrayList<>(), new ArrayList<>(), incomingDevices);
         }
 
@@ -327,7 +330,59 @@ public class HostDevicesManagerImpl extends ManagerBase implements HostDevicesMa
         List<HostDeviceVO> recoveredDevices = handleRecoveredDevices(currentDevices, incomingIdentities);
         List<HostDeviceVO> registeredDevices = handleUnregisteredDevices(incomingDevices, currentIdentities);
 
+        List<HostDeviceVO> devicesPresentAtHost = getDevicesPresentAtHost(currentDevices, registeredDevices, incomingIdentities);
+
+        linkCompanionFunctionsToMainFunction(devicesPresentAtHost);
+
         return new DeviceScanReconciliation(missingDevices, recoveredDevices, registeredDevices);
+    }
+
+    private List<HostDeviceVO> getDevicesPresentAtHost(List<HostDeviceVO> currentDevices, List<HostDeviceVO> newlyRegisteredDevices, Set<List<String>> incomingIdentities) {
+        List<HostDeviceVO> devicesPresentAtHost = new ArrayList<>(newlyRegisteredDevices);
+
+        for (HostDeviceVO device : currentDevices) {
+            if (incomingIdentities.contains(getDeviceIdentity(device))) {
+                devicesPresentAtHost.add(device);
+            }
+        }
+
+        return devicesPresentAtHost;
+    }
+
+    private void linkCompanionFunctionsToMainFunction(List<HostDeviceVO> devices) {
+        Map<String, HostDeviceVO> mainDevicePerSlot = new HashMap<>();
+
+        for (HostDeviceVO device : devices) {
+            if (device.isMainFunction()) {
+                mainDevicePerSlot.put(device.getSlotAddress(), device);
+            }
+        }
+
+        for (HostDeviceVO device : devices) {
+            if (device.isMainFunction()) {
+                continue;
+            }
+
+            HostDeviceVO mainDevice = mainDevicePerSlot.get(device.getSlotAddress());
+
+            if (mainDevice == null) {
+                logger.debug("The main function of host device [{}] was not returned in this scan, so its current link will be kept.", device.getPciName());
+                continue;
+            }
+
+            Long parentDeviceId = mainDevice.getId();
+
+            if (Objects.equals(parentDeviceId, device.getParentDeviceId())) {
+                continue;
+            }
+
+            logger.debug("Linking host device [{}] to main function [{}].", device.getPciName(), mainDevice.getPciName());
+            HostDeviceVO deviceForUpdate = hostDeviceDao.createForUpdate(device.getId());
+            deviceForUpdate.setParentDeviceId(parentDeviceId);
+            hostDeviceDao.update(device.getId(), deviceForUpdate);
+
+            device.setParentDeviceId(parentDeviceId);
+        }
     }
 
     protected List<String> getDeviceIdentity(HostDevice device) {
@@ -479,7 +534,7 @@ public class HostDevicesManagerImpl extends ManagerBase implements HostDevicesMa
         List<Long> domainIds = accountIdDomainsList.second();
 
         Filter filter = new Filter(HostDeviceVO.class, "id", true, cmd.getStartIndex(), cmd.getPageSizeVal());
-        Pair<List<HostDeviceVO>, Integer> result = hostDeviceDao.listHostDevices(hostDeviceId, accountId, domainIds, hostId, virtualMachineId, deviceTag, state, type, filter);
+        Pair<List<HostDeviceVO>, Integer> result = hostDeviceDao.listHostDevices(hostDeviceId, cmd.getParentId(), accountId, domainIds, hostId, virtualMachineId, deviceTag, state, type, filter);
 
         return new Pair<>(result.first(), result.second());
     }
@@ -536,6 +591,14 @@ public class HostDevicesManagerImpl extends ManagerBase implements HostDevicesMa
             }
         }
 
+        if (device.getParentDeviceId() != null) {
+            HostDeviceVO parentDevice = hostDeviceDao.findById(device.getParentDeviceId());
+
+            if (parentDevice != null) {
+                res.setParentId(parentDevice.getUuid());
+            }
+        }
+
         res.setObjectName("hostdevices");
 
         return res;
@@ -548,9 +611,10 @@ public class HostDevicesManagerImpl extends ManagerBase implements HostDevicesMa
         String displayName = updateHostDeviceCmd.getDisplayName();
         String tag = updateHostDeviceCmd.getTag();
         String type = updateHostDeviceCmd.getType();
+        Boolean oneTimeUse = updateHostDeviceCmd.getOneTimeUse();
 
-        if (ObjectUtils.allNull(enabled, displayName, tag, type)) {
-            throw new InvalidParameterValueException("At least one of the following parameters must be provided: enabled, displayName, tags, type");
+        if (ObjectUtils.allNull(enabled, displayName, tag, type, oneTimeUse)) {
+            throw new InvalidParameterValueException("At least one of the following parameters must be provided: enabled, displayName, tags, type, onetimeuse");
         }
 
         if (tag != null && tag.isBlank()) {
@@ -568,7 +632,9 @@ public class HostDevicesManagerImpl extends ManagerBase implements HostDevicesMa
                 throw new InvalidParameterValueException("Host device with id " + updateHostDeviceCmd.getDeviceId() + " was not found.");
             }
 
-            validateHostDeviceForUpdate(device, tag, newDeviceType);
+            List<HostDeviceVO> companions = hostDeviceDao.listAndLockCompanionDevices(List.of(device.getId()));
+
+            validateHostDeviceForUpdate(device, companions, enabled, tag, newDeviceType, oneTimeUse);
 
             if (enabled != null) {
                 updateHostDeviceState(device, enabled);
@@ -586,26 +652,57 @@ public class HostDevicesManagerImpl extends ManagerBase implements HostDevicesMa
                 device.setType(newDeviceType);
             }
 
-            if (updateHostDeviceCmd.getOneTimeUse() != null) {
-                device.setOneTimeUse(updateHostDeviceCmd.getOneTimeUse());
+            if (oneTimeUse != null) {
+                device.setOneTimeUse(oneTimeUse);
             }
 
             hostDeviceDao.update(device.getId(), device);
+
+            for (HostDeviceVO companion : companions) {
+                if (enabled != null) {
+                    updateHostDeviceState(companion, enabled);
+                }
+
+                if (oneTimeUse != null) {
+                    companion.setOneTimeUse(oneTimeUse);
+                }
+
+                hostDeviceDao.update(companion.getId(), companion);
+            }
 
             return device;
         });
     }
 
-    private void validateHostDeviceForUpdate(HostDeviceVO device, String tag, HostDevice.Type type) {
-        if (HostDevice.INVALID_UPDATE_STATES.contains(device.getState())) {
+    private void validateHostDeviceForUpdate(HostDeviceVO device, List<HostDeviceVO> companions, Boolean enabled, String tag, HostDevice.Type type, Boolean oneTimeUse) {
+        if (device.isCompanionFunction() && ObjectUtils.anyNotNull(enabled, tag, type, oneTimeUse)) {
+            logger.error("Could not update host device [{}] because it is a companion function of the device with ID {}.", device.getPciName(), device.getParentDeviceId());
+            throw new InvalidParameterValueException("Only the display name of a companion function can be updated. Please, update its main function instead.");
+        }
+
+        if (HostDevice.INVALID_UPDATE_STATES.contains(device.getState()) && !isAttachedWithMissingCompanion(device, companions)) {
             logger.error("Could not update host device state. Current device state is {} and invalid states are {}.", device.getState(), HostDevice.INVALID_UPDATE_STATES);
             throw new InvalidParameterValueException(String.format("Could not update device because it is in state [%s] and updating devices in states %s is not allowed.", device.getState(), HostDevice.INVALID_UPDATE_STATES));
         }
 
-        if (device.getInstanceId() != null && (tag != null || type != null)) {
+        if (device.getInstanceId() != null && ObjectUtils.anyNotNull(tag, type)) {
             logger.error("Could not update the tag or type of host device [{}] because it is attached to VM {}.", device.getPciName(), device.getInstanceId());
             throw new InvalidParameterValueException("Could not update the device tag or type because the device is attached to a VM.");
         }
+    }
+
+    private boolean isAttachedWithMissingCompanion(HostDeviceVO device, List<HostDeviceVO> companions) {
+        return HostDevice.State.Attached.equals(device.getState()) && hasMissingDevice(companions);
+    }
+
+    private boolean hasMissingDevice(List<HostDeviceVO> devices) {
+        for (HostDeviceVO device : devices) {
+            if (HostDevice.State.Missing.equals(device.getState())) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     private void updateHostDeviceState(HostDeviceVO device, boolean enabled) {
@@ -623,14 +720,20 @@ public class HostDevicesManagerImpl extends ManagerBase implements HostDevicesMa
         }
 
         logger.info("Host device [{}] is attached to VM {}, so it will be released before being disabled.", device.getPciName(), vmId);
+        releaseDeviceFromVm(device);
+        device.setState(HostDevice.State.Disabled);
+    }
+
+    private void releaseDeviceFromVm(HostDeviceVO device) {
         Long accountId = device.getAccountId();
 
         device.setInstanceId(null);
         device.setAccountId(null);
         device.setDomainId(null);
-        device.setState(HostDevice.State.Disabled);
 
-        resourceLimitMgr.decrementResourceCount(accountId, Resource.ResourceType.host_device, 1L);
+        if (!device.isCompanionFunction()) {
+            resourceLimitMgr.decrementResourceCount(accountId, Resource.ResourceType.host_device, 1L);
+        }
     }
 
     private <E extends Enum<E>> E parseEnumIgnoreCase(Class<E> enumClass, String value) {
@@ -665,7 +768,7 @@ public class HostDevicesManagerImpl extends ManagerBase implements HostDevicesMa
         List<HostDeviceVO> releasedDevices = Transaction.execute(
                 (TransactionCallback<List<HostDeviceVO>>) status -> {
                     List<HostDeviceVO> vmDevices = hostDeviceDao.listAndLockHostDevicesByVmId(vmId);
-                    Map<String, Integer> surplusDevicesPerTag = DeviceOfferingHelper.getExceedingTagAmounts(countDevicesPerTag(vmDevices), requiredDevicesPerTag);
+                    Map<String, Integer> surplusDevicesPerTag = DeviceOfferingHelper.getExceedingTagAmounts(countDevicesPerTag(getMainDevices(vmDevices)), requiredDevicesPerTag);
 
                     return releaseDevices(vm, selectDevicesToRelease(vmDevices, surplusDevicesPerTag));
                 });
@@ -675,7 +778,7 @@ public class HostDevicesManagerImpl extends ManagerBase implements HostDevicesMa
     }
 
     private void sendAlertAboutCleanupDevices(List<HostDeviceVO> devices) {
-        List<HostDeviceVO> filteredDevices = filterDevicesForAlert(devices, HostDevice.State.NeedsCleanup);
+        List<HostDeviceVO> filteredDevices = filterDevicesForAlert(getMainDevices(devices), HostDevice.State.NeedsCleanup);
 
         String subject = "Cleanup operation needed";
         String body = "This host device was released from a VM and requires manual normalization to be available to users again.";
@@ -770,14 +873,21 @@ public class HostDevicesManagerImpl extends ManagerBase implements HostDevicesMa
     private List<HostDeviceVO> selectDevicesToRelease(List<HostDeviceVO> vmDevices, Map<String, Integer> tagToAmount) {
         Map<String, Integer> selectedAmountPerTag = new HashMap<>();
         List<HostDeviceVO> selectedDevices = new ArrayList<>();
+        Map<Long, List<HostDeviceVO>> companionsPerMainDevice = new HashMap<>();
 
         LinkedList<HostDeviceVO> orderedDevices = new LinkedList<>();
         for (HostDeviceVO device : vmDevices) {
+            if (device.isCompanionFunction()) {
+                companionsPerMainDevice.computeIfAbsent(device.getParentDeviceId(), id -> new ArrayList<>()).add(device);
+                continue;
+            }
+
             if (HostDevice.State.Attached.equals(device.getState())) {
                 orderedDevices.addLast(device);
-            } else {
-                orderedDevices.addFirst(device);
+                continue;
             }
+
+            orderedDevices.addFirst(device);
         }
 
         for (HostDeviceVO device : orderedDevices) {
@@ -786,6 +896,7 @@ public class HostDevicesManagerImpl extends ManagerBase implements HostDevicesMa
             if (selectedAmountPerTag.getOrDefault(tag, 0) < tagToAmount.getOrDefault(tag, 0)) {
                 selectedAmountPerTag.merge(tag, 1, Integer::sum);
                 selectedDevices.add(device);
+                selectedDevices.addAll(companionsPerMainDevice.getOrDefault(device.getId(), Collections.emptyList()));
             }
         }
 
@@ -798,7 +909,20 @@ public class HostDevicesManagerImpl extends ManagerBase implements HostDevicesMa
             return new ArrayList<>();
         }
 
-        logger.info("The following devices will be released from VM {}: {}", vm.getId(), devices.stream().map(HostDeviceVO::getPciName).collect(Collectors.toList()));
+        List<String> pciNames = new ArrayList<>();
+        Map<Long, Boolean> oneTimeUsePerMainDevice = new HashMap<>();
+        long releasedMainDevicesAmount = 0;
+
+        for (HostDeviceVO dev : devices) {
+            pciNames.add(dev.getPciName());
+
+            if (!dev.isCompanionFunction()) {
+                oneTimeUsePerMainDevice.put(dev.getId(), dev.getOneTimeUse());
+                releasedMainDevicesAmount++;
+            }
+        }
+
+        logger.info("The following devices will be released from VM {}: {}", vm.getId(), pciNames);
 
         for (HostDeviceVO dev : devices) {
             dev.setAccountId(null);
@@ -806,7 +930,8 @@ public class HostDevicesManagerImpl extends ManagerBase implements HostDevicesMa
             dev.setInstanceId(null);
 
             if (HostDevice.State.Attached.equals(dev.getState())) {
-                HostDevice.State nextState = dev.getOneTimeUse() ? HostDevice.State.NeedsCleanup : HostDevice.State.Free;
+                boolean oneTimeUse = oneTimeUsePerMainDevice.getOrDefault(dev.getParentDeviceId(), dev.getOneTimeUse());
+                HostDevice.State nextState = oneTimeUse ? HostDevice.State.NeedsCleanup : HostDevice.State.Free;
                 dev.setState(nextState);
             } else {
                 logger.warn("Host device [{}] is in the [{}] state, so it will be released from VM {} without changing its state.", dev.getPciName(), dev.getState(), vm.getId());
@@ -815,8 +940,7 @@ public class HostDevicesManagerImpl extends ManagerBase implements HostDevicesMa
             hostDeviceDao.update(dev.getId(), dev);
         }
 
-        long amount = devices.size();
-        resourceLimitMgr.decrementResourceCount(vm.getAccountId(), Resource.ResourceType.host_device, amount);
+        resourceLimitMgr.decrementResourceCount(vm.getAccountId(), Resource.ResourceType.host_device, releasedMainDevicesAmount);
 
         return devices;
     }
@@ -910,29 +1034,28 @@ public class HostDevicesManagerImpl extends ManagerBase implements HostDevicesMa
                     return;
                 }
 
+                long transferredMainDevicesAmount = 0;
+
                 for (HostDeviceVO device : hostDevices) {
                     device.setAccountId(newAccount.getId());
                     device.setDomainId(newAccount.getDomainId());
                     hostDeviceDao.update(device.getId(), device);
                     logger.debug("Updated ownership of host device {} to account {}.", device.getPciName(), newAccount.getId());
+
+                    if (!device.isCompanionFunction()) {
+                        transferredMainDevicesAmount++;
+                    }
                 }
 
-                long amount = hostDevices.size();
-                resourceLimitMgr.decrementResourceCount(oldAccount.getId(), Resource.ResourceType.host_device, amount);
-                resourceLimitMgr.incrementResourceCount(newAccount.getId(), Resource.ResourceType.host_device, amount);
+                resourceLimitMgr.decrementResourceCount(oldAccount.getId(), Resource.ResourceType.host_device, transferredMainDevicesAmount);
+                resourceLimitMgr.incrementResourceCount(newAccount.getId(), Resource.ResourceType.host_device, transferredMainDevicesAmount);
             }
         });
     }
 
     @Override
     public boolean reserveDevicesForVm(Long vmId, Long selectedHostId) {
-        VMInstanceVO vm = virtualMachineDao.findById(vmId);
-
-        if (vm == null) {
-            logger.debug("Virtual machine with ID {} was not found", vmId);
-            throw new CloudRuntimeException("Virtual machine with id " + vmId + " was not found.");
-        }
-
+        VirtualMachine vm = getVirtualMachineOrThrow(vmId);
         HostVO host = hostDao.findById(selectedHostId);
 
         if (host == null) {
@@ -947,27 +1070,21 @@ public class HostDevicesManagerImpl extends ManagerBase implements HostDevicesMa
             return true;
         }
 
-        List<HostDeviceVO> assignedDevices = hostDeviceDao.listHostDevicesByVmId(vmId);
-
-        if (assignedDevices.stream().anyMatch(device -> !selectedHostId.equals(device.getHostId()))) {
-            logger.error("VM {} holds devices {} that are not in host {}. It cannot be started in this host.", vmId, assignedDevices.stream().map(HostDeviceVO::getPciName).collect(Collectors.toList()), selectedHostId);
-            throw new CloudRuntimeException(String.format("VM %s is bound to devices that are not in host %s, therefore it cannot be started in it.", vm.getUuid(), host.getUuid()));
-        }
-
+        Map<String, Integer> assignedDevicesPerTag = countAssignedDevicesPerTag(vm, host);
         Map<String, Integer> offeringsTags = DeviceOfferingHelper.getDeviceOfferingToAmountMap(deviceOfferingDeviceTagDao.getDeviceOfferingsTags(vmAssignedOfferings));
-        Map<String, Integer> missingDevicesPerTag = DeviceOfferingHelper.getExceedingTagAmounts(offeringsTags, countDevicesPerTag(assignedDevices));
+        Map<String, Integer> devicesToReservePerTag = DeviceOfferingHelper.getExceedingTagAmounts(offeringsTags, assignedDevicesPerTag);
 
-        if (missingDevicesPerTag.isEmpty()) {
+        if (devicesToReservePerTag.isEmpty()) {
             logger.debug("VM {} already holds the devices required by its device offerings. Therefore, the reservation process will be skipped.", vmId);
             return true;
         }
 
-        int missingDevicesAmount = DeviceOfferingHelper.countOfferingTagsAmount(missingDevicesPerTag);
+        int devicesToReserveAmount = DeviceOfferingHelper.countOfferingTagsAmount(devicesToReservePerTag);
 
-        logger.info("The following device offerings are assigned to VM {}: {}. Trying to reserve the {} missing matching devices in host {}.",
+        logger.info("The following device offerings are assigned to VM {}: {}. Trying to reserve {} matching devices in host {}.",
                 vmId,
                 vmAssignedOfferings.stream().map(DeviceOfferingVO::getUuid).collect(Collectors.toList()),
-                missingDevicesAmount,
+                devicesToReserveAmount,
                 selectedHostId);
 
         Account owner = accountManager.getActiveAccountById(vm.getAccountId());
@@ -976,43 +1093,124 @@ public class HostDevicesManagerImpl extends ManagerBase implements HostDevicesMa
             throw new CloudRuntimeException("Account with id " + vm.getAccountId() + " was not found.");
         }
 
-        try (CheckedReservation hostDeviceReservation = new CheckedReservation(owner, Resource.ResourceType.host_device, null, (long) missingDevicesAmount, reservationDao, resourceLimitMgr)) {
-            return Transaction.execute((TransactionCallback<Boolean>) status -> {
-                List<HostDeviceVO> availableDevices = hostDeviceDao.listHostDevicesAvailableForAllocation(selectedHostId, new ArrayList<>(missingDevicesPerTag.keySet()));
-
-                if (CollectionUtils.isEmpty(availableDevices)) {
-                    logger.debug("No available host devices found for host with ID {}", selectedHostId);
-                    return false;
-                }
-
-                List<HostDeviceVO> devicesToReserve = selectDevicesToReserve(availableDevices, missingDevicesPerTag, vmId);
-
-                if (devicesToReserve == null) {
-                    return false;
-                }
-
-                for (HostDeviceVO device : devicesToReserve) {
-                    device.setAccountId(vm.getAccountId());
-                    device.setDomainId(vm.getDomainId());
-                    device.setInstanceId(vmId);
-                    device.setState(HostDevice.State.Attached);
-                    hostDeviceDao.update(device.getId(), device);
-                    logger.debug("Reserved host device [{} - {}] for VM {}.", device.getDisplayName(), device.getPciName(), vm.getUuid());
-                }
-
-                long amount = devicesToReserve.size();
-                resourceLimitMgr.incrementResourceCount(vm.getAccountId(), Resource.ResourceType.host_device, amount);
-
-                return true;
-            });
+        try (CheckedReservation hostDeviceReservation = new CheckedReservation(owner, Resource.ResourceType.host_device, null, (long) devicesToReserveAmount, reservationDao, resourceLimitMgr)) {
+            return Transaction.execute((TransactionCallback<Boolean>) status -> reserveDevicesPerTag(vm, selectedHostId, devicesToReservePerTag));
         } catch (ResourceAllocationException e) {
-            logger.debug("Account [{}] cannot allocate {} more host devices: {}", owner.getUuid(), missingDevicesAmount, e.getMessage());
+            logger.debug("Account [{}] cannot allocate {} more host devices: {}", owner.getUuid(), devicesToReserveAmount, e.getMessage());
             throw new CloudRuntimeException(e.getMessage(), e);
         }
     }
 
-    protected List<HostDeviceVO> selectDevicesToReserve(List<HostDeviceVO> availableDevices, Map<String, Integer> requiredDevicesPerTag, Long vmId) {
-        Map<String, List<HostDeviceVO>> availableDevicesPerTag = availableDevices.stream().collect(Collectors.groupingBy(HostDeviceVO::getDeviceTag));
+    private Map<String, Integer> countAssignedDevicesPerTag(VirtualMachine vm, HostVO host) {
+        List<HostDeviceVO> assignedDevices = hostDeviceDao.listHostDevicesByVmId(vm.getId());
+        Map<String, Integer> assignedDevicesPerTag = new HashMap<>();
+
+        for (HostDeviceVO device : assignedDevices) {
+            if (!Objects.equals(host.getId(), device.getHostId())) {
+                logger.error("VM {} holds devices {} that are not in host {}. It cannot be started in this host.", vm.getId(), assignedDevices.stream().map(HostDeviceVO::getPciName).collect(Collectors.toList()), host.getId());
+                throw new CloudRuntimeException(String.format("VM %s is bound to devices that are not in host %s, therefore it cannot be started in it.", vm.getUuid(), host.getUuid()));
+            }
+
+            if (!device.isCompanionFunction()) {
+                assignedDevicesPerTag.merge(device.getDeviceTag(), 1, Integer::sum);
+            }
+        }
+
+        return assignedDevicesPerTag;
+    }
+
+    private boolean reserveDevicesPerTag(VirtualMachine vm, Long hostId, Map<String, Integer> devicesToReservePerTag) {
+        List<HostDeviceVO> availableDevices = hostDeviceDao.listHostDevicesAvailableForAllocation(hostId, new ArrayList<>(devicesToReservePerTag.keySet()));
+
+        if (CollectionUtils.isEmpty(availableDevices)) {
+            logger.debug("No available host devices found for host with ID {}", hostId);
+            return false;
+        }
+
+        Map<Long, List<HostDeviceVO>> companionsPerMainDevice = getCompanionsPerMainDevice(availableDevices);
+        Map<String, List<HostDeviceVO>> usableDevicesPerTag = getUsableDevicesPerTag(availableDevices, companionsPerMainDevice, vm.getId());
+        List<HostDeviceVO> devicesToReserve = selectDevicesToReserve(usableDevicesPerTag, devicesToReservePerTag, vm.getId());
+
+        if (devicesToReserve == null) {
+            return false;
+        }
+
+        for (HostDeviceVO device : devicesToReserve) {
+            reserveDeviceForVm(device, vm);
+
+            for (HostDeviceVO companion : companionsPerMainDevice.getOrDefault(device.getId(), Collections.emptyList())) {
+                reserveDeviceForVm(companion, vm);
+            }
+        }
+
+        resourceLimitMgr.incrementResourceCount(vm.getAccountId(), Resource.ResourceType.host_device, (long) devicesToReserve.size());
+
+        return true;
+    }
+
+    private Map<String, List<HostDeviceVO>> getUsableDevicesPerTag(List<HostDeviceVO> availableDevices, Map<Long, List<HostDeviceVO>> companionsPerMainDevice, Long vmId) {
+        Map<String, List<HostDeviceVO>> usableDevicesPerTag = new HashMap<>();
+
+        for (HostDeviceVO device : availableDevices) {
+            if (!areAllCompanionsFree(companionsPerMainDevice.getOrDefault(device.getId(), Collections.emptyList()))) {
+                logger.debug("Host device [{}] will not be considered for VM {} because not all of its companion functions are free.", device.getPciName(), vmId);
+                continue;
+            }
+
+            usableDevicesPerTag.computeIfAbsent(device.getDeviceTag(), tag -> new ArrayList<>()).add(device);
+        }
+
+        return usableDevicesPerTag;
+    }
+
+    private void reserveDeviceForVm(HostDeviceVO device, VirtualMachine vm) {
+        device.setAccountId(vm.getAccountId());
+        device.setDomainId(vm.getDomainId());
+        device.setInstanceId(vm.getId());
+        device.setState(HostDevice.State.Attached);
+        hostDeviceDao.update(device.getId(), device);
+        logger.debug("Reserved host device [{} - {}] for VM {}.", device.getDisplayName(), device.getPciName(), vm.getUuid());
+    }
+
+    private Map<Long, List<HostDeviceVO>> getCompanionsPerMainDevice(List<HostDeviceVO> mainDevices) {
+        List<Long> mainDeviceIds = new ArrayList<>();
+
+        for (HostDeviceVO device : mainDevices) {
+            mainDeviceIds.add(device.getId());
+        }
+
+        Map<Long, List<HostDeviceVO>> companionsPerMainDevice = new HashMap<>();
+
+        for (HostDeviceVO companion : hostDeviceDao.listAndLockCompanionDevices(mainDeviceIds)) {
+            companionsPerMainDevice.computeIfAbsent(companion.getParentDeviceId(), id -> new ArrayList<>()).add(companion);
+        }
+
+        return companionsPerMainDevice;
+    }
+
+    private boolean areAllCompanionsFree(List<HostDeviceVO> companions) {
+        for (HostDeviceVO companion : companions) {
+            if (!HostDevice.State.Free.equals(companion.getState())) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    private List<HostDeviceVO> getMainDevices(List<HostDeviceVO> devices) {
+        List<HostDeviceVO> mainDevices = new ArrayList<>();
+
+        for (HostDeviceVO device : devices) {
+            if (!device.isCompanionFunction()) {
+                mainDevices.add(device);
+            }
+        }
+
+        return mainDevices;
+    }
+
+    protected List<HostDeviceVO> selectDevicesToReserve(Map<String, List<HostDeviceVO>> availableDevicesPerTag, Map<String, Integer> requiredDevicesPerTag, Long vmId) {
         List<HostDeviceVO> selectedDevices = new ArrayList<>();
 
         for (Map.Entry<String, Integer> requirement : requiredDevicesPerTag.entrySet()) {

@@ -30,7 +30,7 @@ public interface HostDeviceDao extends GenericDao<HostDeviceVO, Long> {
 
     List<HostDeviceVO> listHostDevicesAvailableForAllocation(Long hostId, List<String> deviceTags);
 
-    Pair<List<HostDeviceVO>, Integer> listHostDevices(Long hostDeviceId, Long accountId, List<Long> domainIds, Long hostId, Long virtualMachineId, String deviceTag, HostDevice.State state, HostDevice.Type type, Filter filter);
+    Pair<List<HostDeviceVO>, Integer> listHostDevices(Long hostDeviceId, Long parentDeviceId, Long accountId, List<Long> domainIds, Long hostId, Long virtualMachineId, String deviceTag, HostDevice.State state, HostDevice.Type type, Filter filter);
 
     List<HostDeviceVO> listHostDevicesByVmId(Long vmId);
 
@@ -38,11 +38,11 @@ public interface HostDeviceDao extends GenericDao<HostDeviceVO, Long> {
 
     List<HostDeviceVO> listAndLockHostDevicesByHostIdAndState(Long hostId, HostDevice.State state);
 
-    List<HostDeviceVO> listAndLockHostDevicesByState(HostDevice.State state);
-
-    List<HostDeviceVO> listHostDevicesByAccountId(long accountId);
+    long countMainHostDevices(Long accountId, Long virtualMachineId);
 
     List<HostDeviceVO> listHostDevicesForOfferingAndVmCheck(Long hostId, List<String> deviceOfferingsTags, Long virtualMachineId);
 
     List<HostDeviceVO> listAndLockHostDevicesByVmId(Long vmId);
+
+    List<HostDeviceVO> listAndLockCompanionDevices(List<Long> mainDeviceIds);
 }

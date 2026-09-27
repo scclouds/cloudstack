@@ -21,6 +21,7 @@ import com.cloud.hostdevices.HostDeviceVO;
 import com.cloud.utils.Pair;
 import com.cloud.utils.db.Filter;
 import com.cloud.utils.db.GenericDaoBase;
+import com.cloud.utils.db.GenericSearchBuilder;
 import com.cloud.utils.db.SearchBuilder;
 import com.cloud.utils.db.SearchCriteria;
 import org.apache.cloudstack.hostdevices.HostDevice;
@@ -42,24 +43,33 @@ public class HostDeviceDaoImpl extends GenericDaoBase<HostDeviceVO, Long> implem
     public static final String TYPE = "type";
     public static final String DEVICE_TAG = "deviceTag";
     public static final String DEVICE_TAG_IN = "deviceTagIn";
+    public static final String PARENT_DEVICE_ID = "parentDeviceId";
+    public static final String PARENT_DEVICE_ID_IN = "parentDeviceIdIn";
 
     private final SearchBuilder<HostDeviceVO> hostIdSearch;
     private final SearchBuilder<HostDeviceVO> hostDevicesSearch;
     private final SearchBuilder<HostDeviceVO> hostDevicesAvailableForAllocationSearch;
     private final SearchBuilder<HostDeviceVO> vmHostDeviceSearch;
+    private final SearchBuilder<HostDeviceVO> companionDevicesSearch;
+    private final SearchBuilder<HostDeviceVO> mainHostDevicesSearch;
+    private final GenericSearchBuilder<HostDeviceVO, Long> mainHostDevicesCountSearch;
     private final SearchBuilder<HostDeviceVO> offeringAndVMSearch;
 
     public HostDeviceDaoImpl() {
-        hostDevicesSearch = createSearchBuilder();
-        hostDevicesSearch.and(ID, hostDevicesSearch.entity().getId(), SearchCriteria.Op.EQ);
-        hostDevicesSearch.and(ACCOUNT_ID, hostDevicesSearch.entity().getAccountId(), SearchCriteria.Op.EQ);
-        hostDevicesSearch.and(DOMAIN_ID, hostDevicesSearch.entity().getDomainId(), SearchCriteria.Op.IN);
-        hostDevicesSearch.and(HOST_ID, hostDevicesSearch.entity().getHostId(), SearchCriteria.Op.EQ);
-        hostDevicesSearch.and(VIRTUAL_MACHINE_ID, hostDevicesSearch.entity().getInstanceId(), SearchCriteria.Op.EQ);
-        hostDevicesSearch.and(STATE, hostDevicesSearch.entity().getState(), SearchCriteria.Op.EQ);
-        hostDevicesSearch.and(TYPE, hostDevicesSearch.entity().getType(), SearchCriteria.Op.EQ);
-        hostDevicesSearch.and(DEVICE_TAG, hostDevicesSearch.entity().getDeviceTag(), SearchCriteria.Op.EQ);
+        hostDevicesSearch = createBaseSearchBuilder();
+        hostDevicesSearch.and(PARENT_DEVICE_ID, hostDevicesSearch.entity().getParentDeviceId(), SearchCriteria.Op.EQ);
         hostDevicesSearch.done();
+
+        mainHostDevicesSearch = createBaseSearchBuilder();
+        mainHostDevicesSearch.and(PARENT_DEVICE_ID, mainHostDevicesSearch.entity().getParentDeviceId(), SearchCriteria.Op.NULL);
+        mainHostDevicesSearch.done();
+
+        mainHostDevicesCountSearch = createSearchBuilder(Long.class);
+        mainHostDevicesCountSearch.select(null, SearchCriteria.Func.COUNT, mainHostDevicesCountSearch.entity().getId());
+        mainHostDevicesCountSearch.and(ACCOUNT_ID, mainHostDevicesCountSearch.entity().getAccountId(), SearchCriteria.Op.EQ);
+        mainHostDevicesCountSearch.and(VIRTUAL_MACHINE_ID, mainHostDevicesCountSearch.entity().getInstanceId(), SearchCriteria.Op.EQ);
+        mainHostDevicesCountSearch.and(PARENT_DEVICE_ID, mainHostDevicesCountSearch.entity().getParentDeviceId(), SearchCriteria.Op.NULL);
+        mainHostDevicesCountSearch.done();
 
         hostIdSearch = createSearchBuilder();
         hostIdSearch.and(HOST_ID, hostIdSearch.entity().getHostId(), SearchCriteria.Op.EQ);
@@ -69,11 +79,13 @@ public class HostDeviceDaoImpl extends GenericDaoBase<HostDeviceVO, Long> implem
         hostDevicesAvailableForAllocationSearch.and(HOST_ID, hostDevicesAvailableForAllocationSearch.entity().getHostId(), SearchCriteria.Op.EQ);
         hostDevicesAvailableForAllocationSearch.and(STATE, hostDevicesAvailableForAllocationSearch.entity().getState(), SearchCriteria.Op.EQ);
         hostDevicesAvailableForAllocationSearch.and(DEVICE_TAG_IN, hostDevicesAvailableForAllocationSearch.entity().getDeviceTag(), SearchCriteria.Op.IN);
+        hostDevicesAvailableForAllocationSearch.and(PARENT_DEVICE_ID, hostDevicesAvailableForAllocationSearch.entity().getParentDeviceId(), SearchCriteria.Op.NULL);
         hostDevicesAvailableForAllocationSearch.done();
 
         offeringAndVMSearch = createSearchBuilder();
         offeringAndVMSearch.and(HOST_ID, offeringAndVMSearch.entity().getHostId(), SearchCriteria.Op.EQ);
         offeringAndVMSearch.and(DEVICE_TAG_IN, offeringAndVMSearch.entity().getDeviceTag(), SearchCriteria.Op.IN);
+        offeringAndVMSearch.and(PARENT_DEVICE_ID, offeringAndVMSearch.entity().getParentDeviceId(), SearchCriteria.Op.NULL);
         offeringAndVMSearch.and().op(STATE, offeringAndVMSearch.entity().getState(), SearchCriteria.Op.EQ);
         offeringAndVMSearch.or(VIRTUAL_MACHINE_ID, offeringAndVMSearch.entity().getInstanceId(), SearchCriteria.Op.EQ);
         offeringAndVMSearch.and(OR_STATE, offeringAndVMSearch.entity().getState(), SearchCriteria.Op.EQ);
@@ -82,6 +94,10 @@ public class HostDeviceDaoImpl extends GenericDaoBase<HostDeviceVO, Long> implem
         vmHostDeviceSearch = createSearchBuilder();
         vmHostDeviceSearch.and(VIRTUAL_MACHINE_ID, vmHostDeviceSearch.entity().getInstanceId(), SearchCriteria.Op.EQ);
         vmHostDeviceSearch.done();
+
+        companionDevicesSearch = createSearchBuilder();
+        companionDevicesSearch.and(PARENT_DEVICE_ID_IN, companionDevicesSearch.entity().getParentDeviceId(), SearchCriteria.Op.IN);
+        companionDevicesSearch.done();
     }
 
     @Override
@@ -106,11 +122,26 @@ public class HostDeviceDaoImpl extends GenericDaoBase<HostDeviceVO, Long> implem
         return lockRows(sc, null, true);
     }
 
+    private SearchBuilder<HostDeviceVO> createBaseSearchBuilder() {
+        SearchBuilder<HostDeviceVO> sb = createSearchBuilder();
+        sb.and(ID, sb.entity().getId(), SearchCriteria.Op.EQ);
+        sb.and(ACCOUNT_ID, sb.entity().getAccountId(), SearchCriteria.Op.EQ);
+        sb.and(DOMAIN_ID, sb.entity().getDomainId(), SearchCriteria.Op.IN);
+        sb.and(HOST_ID, sb.entity().getHostId(), SearchCriteria.Op.EQ);
+        sb.and(VIRTUAL_MACHINE_ID, sb.entity().getInstanceId(), SearchCriteria.Op.EQ);
+        sb.and(STATE, sb.entity().getState(), SearchCriteria.Op.EQ);
+        sb.and(TYPE, sb.entity().getType(), SearchCriteria.Op.EQ);
+        sb.and(DEVICE_TAG, sb.entity().getDeviceTag(), SearchCriteria.Op.EQ);
+        return sb;
+    }
+
     @Override
-    public Pair<List<HostDeviceVO>, Integer> listHostDevices(Long hostDeviceId, Long accountId, List<Long> domainIds, Long hostId, Long virtualMachineId, String deviceTag, HostDevice.State state, HostDevice.Type type, Filter filter) {
-        SearchCriteria<HostDeviceVO> sc = hostDevicesSearch.create();
+    public Pair<List<HostDeviceVO>, Integer> listHostDevices(Long hostDeviceId, Long parentDeviceId, Long accountId, List<Long> domainIds, Long hostId, Long virtualMachineId, String deviceTag, HostDevice.State state, HostDevice.Type type, Filter filter) {
+        boolean listOnlyMainDevices = hostDeviceId == null && parentDeviceId == null;
+        SearchCriteria<HostDeviceVO> sc = listOnlyMainDevices ? mainHostDevicesSearch.create() : hostDevicesSearch.create();
 
         sc.setParametersIfNotNull(ID, hostDeviceId);
+        sc.setParametersIfNotNull(PARENT_DEVICE_ID, parentDeviceId);
         sc.setParametersIfNotNull(HOST_ID, hostId);
         sc.setParametersIfNotNull(VIRTUAL_MACHINE_ID, virtualMachineId);
         sc.setParametersIfNotNull(DEVICE_TAG, deviceTag);
@@ -160,21 +191,15 @@ public class HostDeviceDaoImpl extends GenericDaoBase<HostDeviceVO, Long> implem
     }
 
     @Override
-    public List<HostDeviceVO> listAndLockHostDevicesByState(HostDevice.State state) {
-        SearchCriteria<HostDeviceVO> sc = hostDevicesSearch.create();
-
-        sc.setParameters(STATE, state);
-
-        return lockRows(sc, null, true);
-    }
-
-    @Override
-    public List<HostDeviceVO> listHostDevicesByAccountId(long accountId) {
-        SearchCriteria<HostDeviceVO> sc = hostDevicesSearch.create();
+    public long countMainHostDevices(Long accountId, Long virtualMachineId) {
+        SearchCriteria<Long> sc = mainHostDevicesCountSearch.create();
 
         sc.setParametersIfNotNull(ACCOUNT_ID, accountId);
+        sc.setParametersIfNotNull(VIRTUAL_MACHINE_ID, virtualMachineId);
 
-        return listBy(sc);
+        List<Long> result = customSearch(sc, null);
+
+        return CollectionUtils.isEmpty(result) || result.get(0) == null ? 0L : result.get(0);
     }
 
     @Override
@@ -192,5 +217,17 @@ public class HostDeviceDaoImpl extends GenericDaoBase<HostDeviceVO, Long> implem
         sc.setParameters(DEVICE_TAG_IN, deviceOfferingsTags.toArray());
 
         return listBy(sc);
+    }
+
+    @Override
+    public List<HostDeviceVO> listAndLockCompanionDevices(List<Long> mainDeviceIds) {
+        if (CollectionUtils.isEmpty(mainDeviceIds)) {
+            return new ArrayList<>();
+        }
+
+        SearchCriteria<HostDeviceVO> sc = companionDevicesSearch.create();
+        sc.setParameters(PARENT_DEVICE_ID_IN, mainDeviceIds.toArray());
+
+        return lockRows(sc, null, true);
     }
 }

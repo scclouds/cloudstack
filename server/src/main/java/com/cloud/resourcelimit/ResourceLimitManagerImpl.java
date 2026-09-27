@@ -1340,7 +1340,7 @@ public class ResourceLimitManagerImpl extends ManagerBase implements ResourceLim
         } else if (type == ResourceType.object_storage) {
             newCount = bucketDao.calculateObjectStorageAllocationForAccount(accountId);
         } else if (type == ResourceType.host_device) {
-            newCount = (long) calculateHostDevicesForAccount(accountId);
+            newCount = calculateHostDevicesForAccount(accountId);
         } else {
             throw new InvalidParameterValueException("Unsupported resource type " + type);
         }
@@ -1367,8 +1367,8 @@ public class ResourceLimitManagerImpl extends ManagerBase implements ResourceLim
         return (newCount == null) ? 0 : newCount;
     }
 
-    private int calculateHostDevicesForAccount(long accountId) {
-        return CollectionUtils.size(hostDeviceDao.listHostDevicesByAccountId(accountId));
+    private long calculateHostDevicesForAccount(long accountId) {
+        return hostDeviceDao.countMainHostDevices(accountId, null);
     }
 
     protected List<UserVmJoinVO> getVmsWithAccountAndTag(long accountId, String tag) {
