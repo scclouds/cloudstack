@@ -38,7 +38,6 @@ import com.cloud.exception.ResourceAllocationException;
 import com.cloud.host.Host;
 import com.cloud.host.HostVO;
 import com.cloud.host.dao.HostDao;
-import com.cloud.host.dao.HostDetailsDao;
 import com.cloud.hostdevices.DeviceOfferingVO;
 import com.cloud.hostdevices.HostDeviceVO;
 import com.cloud.hostdevices.dao.DeviceOfferingDao;
@@ -116,8 +115,6 @@ public class HostDevicesManagerImpl extends ManagerBase implements HostDevicesMa
     @Inject
     DomainDao domainDao;
     @Inject
-    HostDetailsDao hostDetailsDao;
-    @Inject
     private DeviceOfferingDao deviceOfferingDao;
     @Inject
     private DeviceOfferingDeviceTagDao deviceOfferingDeviceTagDao;
@@ -143,6 +140,7 @@ public class HostDevicesManagerImpl extends ManagerBase implements HostDevicesMa
         super.start();
 
         scanScheduledExecutor = Executors.newSingleThreadScheduledExecutor(new NamedThreadFactory("AutomaticDeviceScanScheduler"));
+        // TODO ERIK: nao sei que valor colocar ali
         scanScheduledExecutor.scheduleAtFixedRate(this::triggerAutomaticScanForClusters,
                 INITIAL_DELAY_IN_SECONDS,
                 AUTOMATIC_SCAN_TASK_INTERVAL_IN_SECONDS,
@@ -690,6 +688,11 @@ public class HostDevicesManagerImpl extends ManagerBase implements HostDevicesMa
             throw new InvalidParameterValueException("Could not update the device tag or type because the device is attached to a VM.");
         }
 
+        if (enabled != null && HostDevice.State.HostInMaintenance.equals(device.getState())) {
+            logger.error("Could not enable host device [{}] because its host is in maintenance mode.", device.getPciName());
+            throw new InvalidParameterValueException("Could not change device state because its host is in Maintenance mode. Please, remove the host from maintenance first.");
+        }
+
         if (Boolean.TRUE.equals(enabled) && HostDevice.State.Missing.equals(device.getState())) {
             logger.error("Could not enable host device [{}] because it is missing from its host.", device.getPciName());
             throw new InvalidParameterValueException("Could not enable the device because it is missing from its host. Please, check the physical device and scan the host again.");
@@ -980,20 +983,17 @@ public class HostDevicesManagerImpl extends ManagerBase implements HostDevicesMa
             @Override
             public void doInTransactionWithoutResult(TransactionStatus status) {
                 List<HostDeviceVO> devices = hostDeviceDao.listAndLockHostDevicesByHostIdAndState(hostId, HostDevice.State.Free);
+
                 if (CollectionUtils.isEmpty(devices)) {
                     logger.debug("No host devices found for host with ID {} to be put in maintenance mode.", hostId);
                     return;
                 }
 
-                logger.info("The following devices will be put in maintenance mode for host {}: {}", hostId, devices.stream().map(HostDeviceVO::getPciName).collect(Collectors.toList()));
-                Map<String, String> deviceNameToStateMap = devices.stream().collect(Collectors.toMap(HostDeviceVO::getPciName, d -> d.getState().toString()));
-
+                logger.info("The following Free devices will be put in maintenance mode for host {}: {}", hostId, devices.stream().map(HostDeviceVO::getPciName).collect(Collectors.toList()));
                 for (HostDeviceVO dev : devices) {
                     dev.setState(HostDevice.State.HostInMaintenance);
                     hostDeviceDao.update(dev.getId(), dev);
                 }
-
-                hostDetailsDao.persist(hostId, deviceNameToStateMap);
             }
         });
     }
@@ -1017,19 +1017,10 @@ public class HostDevicesManagerImpl extends ManagerBase implements HostDevicesMa
                     return;
                 }
 
-                Map<String, String> hostDetails = hostDetailsDao.findDetails(hostId);
-
+                logger.info("The following devices in maintenance will be returned to Free state for host {}: {}", hostId, devices.stream().map(HostDeviceVO::getPciName).collect(Collectors.toList()));
                 for (HostDeviceVO dev : devices) {
-                    String pciName = dev.getPciName();
-                    String previousState = hostDetails.get(pciName);
-                    if (previousState == null) {
-                        logger.warn("Could not find host device [{}] last state before maintenance mode. Ignoring device during state normalization.", pciName);
-                        continue;
-                    }
-
-                    dev.setState(HostDevice.State.valueOf(previousState));
+                    dev.setState(HostDevice.State.Free);
                     hostDeviceDao.update(dev.getId(), dev);
-                    hostDetailsDao.removeDetailByHostAndName(hostId, pciName);
                 }
             }
         });
