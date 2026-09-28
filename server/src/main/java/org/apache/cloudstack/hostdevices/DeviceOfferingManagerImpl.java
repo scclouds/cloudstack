@@ -69,6 +69,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 public class DeviceOfferingManagerImpl extends ManagerBase implements DeviceOfferingManager {
@@ -93,6 +94,7 @@ public class DeviceOfferingManagerImpl extends ManagerBase implements DeviceOffe
 
     private static final int MAX_DEVICE_TAG_LENGTH = 255;
     private static final int MAX_DEVICE_TAG_AMOUNT = 10;
+    private final Pattern DEVICE_TAG_PATTERN = Pattern.compile("[A-Za-z0-9]+:[0-9]+", Pattern.CASE_INSENSITIVE);
 
     @Override
     @ActionEvent(eventType = EventTypes.EVENT_DEVICE_OFFERING_CREATE, eventDescription = "creating device offering")
@@ -177,11 +179,11 @@ public class DeviceOfferingManagerImpl extends ManagerBase implements DeviceOffe
 
         if (!DeviceOffering.State.Active.equals(deviceOffering.getState())) {
             logger.error("Could not assign device offering [{}] to VM [{}], because the offering is in the [{}] state.", deviceOfferingId, virtualMachineId, deviceOffering.getState());
-            throw new InvalidParameterValueException(String.format("The device offering is inactive state. Only active offerings can be assigned to VMs.", deviceOffering.getState(), DeviceOffering.State.Active));
+            throw new InvalidParameterValueException("The device offering is the Inactive state. Only Active device offerings can be assigned to VMs.");
         }
 
-        List<VMInstanceDeviceOfferingsVO> existingAssignmentsForVM = vmInstanceDeviceOfferingsDao.listByVmId(virtualMachineId);
-        if (CollectionUtils.isNotEmpty(existingAssignmentsForVM) && existingAssignmentsForVM.stream().anyMatch(assignment -> assignment.getDeviceOfferingId().equals(deviceOfferingId))) {
+        VMInstanceDeviceOfferingsVO existingAssignmentForVM = vmInstanceDeviceOfferingsDao.findByVmIdAndDeviceId(virtualMachineId, deviceOfferingId);
+        if (existingAssignmentForVM != null) {
             logger.error("VM with ID [{}] already has this device offering assigned, cancelling assignment.", virtualMachineId);
             throw new InvalidParameterValueException(String.format("VM with ID [%s] already has this device offering assigned.", vm.getUuid()));
         }
@@ -482,6 +484,7 @@ public class DeviceOfferingManagerImpl extends ManagerBase implements DeviceOffe
 
     private DeviceOfferingVO getDeviceOfferingAndCheckAccess(Long deviceOfferingId, Account caller, VirtualMachine vm) {
         DeviceOfferingVO deviceOffering = deviceOfferingDao.findById(deviceOfferingId);
+
         if (deviceOffering == null) {
             logger.error("Device offering with ID [{}] could not be found.", deviceOfferingId);
             throw new InvalidParameterValueException(String.format("Could not find device offering with ID [%s].", deviceOfferingId));
@@ -493,9 +496,7 @@ public class DeviceOfferingManagerImpl extends ManagerBase implements DeviceOffe
 
         Account vmOwner = accountManager.getActiveAccountById(vm.getAccountId());
 
-        if (!deviceOffering.getIsPublic()) {
-            accountManager.checkAccess(vmOwner, deviceOffering, dataCenterDao.findById(vm.getDataCenterId()));
-        }
+        accountManager.checkAccess(vmOwner, deviceOffering, dataCenterDao.findById(vm.getDataCenterId()));
 
         return deviceOffering;
     }
@@ -539,42 +540,29 @@ public class DeviceOfferingManagerImpl extends ManagerBase implements DeviceOffe
 
         Map<String, Integer> tagToAmount = new HashMap<>();
         for (String tag : commandTags) {
+
+            if (!DEVICE_TAG_PATTERN.matcher(tag).matches()) {
+                logger.error("Invalid device tag [{}]. The expected format is tag or tag:amount.", tag);
+                throw new InvalidParameterValueException(String.format("Invalid device tag: %s. The expected format is tag:amount.", tag));
+            }
+
             String[] tagAndAmount = tag.split(":", -1);
 
-            if (tagAndAmount.length > 2) {
-                logger.error("Invalid device tag [{}]. The expected format is tag or tag:amount.", tag);
-                throw new InvalidParameterValueException(String.format("Invalid device tag: %s. The expected format is tag or tag:amount.", tag));
-            }
-
             String tagName = tagAndAmount[0].trim();
-
-            if (tagName.isBlank()) {
-                logger.error("Invalid device tag [{}]. The tag name cannot be empty.", tag);
-                throw new InvalidParameterValueException(String.format("Invalid device tag: %s. The tag name cannot be empty.", tag));
-            }
 
             if (tagName.length() > MAX_DEVICE_TAG_LENGTH) {
                 logger.error("Invalid device tag [{}]. The tag name is longer than {} characters.", tagName, MAX_DEVICE_TAG_LENGTH);
                 throw new InvalidParameterValueException(String.format("Invalid device tag: %s. The tag name cannot be longer than %d characters.", tagName, MAX_DEVICE_TAG_LENGTH));
             }
 
-            int amount = 1;
+            // TODO ERIK: ver se colocar as tags pra lowercase faz sentido
             tagName = tagName.toLowerCase(Locale.ROOT);
 
-            if (tagAndAmount.length == 2) {
-                String stringAmount = tagAndAmount[1].trim();
+            int amount = Integer.parseInt(tagAndAmount[1].trim());
 
-                try {
-                    amount = Integer.parseInt(stringAmount);
-                } catch (NumberFormatException e) {
-                    logger.error("Invalid amount [{}] specified for device tag [{}].", stringAmount, tagName);
-                    throw new InvalidParameterValueException(String.format("Invalid amount specified for tag: %s. Please, specify a valid integer amount.", tagName));
-                }
-
-                if (amount < 1) {
-                    logger.error("Invalid amount [{}] specified for device tag [{}]. Amount must be greater than 0.", amount, tagName);
-                    throw new InvalidParameterValueException(String.format("Invalid amount specified for tag: %s. Amount must be greater than 0.", tagName));
-                }
+            if (amount < 1) {
+                logger.error("Invalid amount [{}] specified for device tag [{}]. Amount must be greater than 0.", amount, tagName);
+                throw new InvalidParameterValueException(String.format("Invalid amount specified for tag: %s. Amount must be greater than 0.", tagName));
             }
 
             int totalAmount = tagToAmount.merge(tagName, amount, Integer::sum);

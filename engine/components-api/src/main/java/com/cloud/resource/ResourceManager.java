@@ -274,5 +274,4 @@ public interface ResourceManager extends ResourceService, Configurable {
     List<HostVO> getEligibleUpAndEnabledHostsInClusterForStorageConnection(PrimaryDataStoreInfo primaryStore);
 
     List<HostVO> getEligibleUpAndEnabledHostsInZoneForStorageConnection(DataStore dataStore, long zoneId, HypervisorType hypervisorType);
-
 }

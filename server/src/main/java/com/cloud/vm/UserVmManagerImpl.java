@@ -8160,7 +8160,7 @@ public class UserVmManagerImpl extends ManagerBase implements UserVmManager, Vir
             throw ex;
         }
 
-        // TODO: validar como fazer com migração de VM parada, se nao for usar offering
+        // TODO ERIK: validar como fazer com migração de VM parada
         validateIfVmHasDeviceOfferings(vm);
 
         if (serviceOfferingDetailsDao.findDetail(vm.getServiceOfferingId(), GPU.Keys.pciDevice.toString()) != null) {
