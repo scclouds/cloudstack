@@ -188,6 +188,7 @@ public class HostDevicesManagerImpl extends ManagerBase implements HostDevicesMa
         }
     }
 
+    // TODO ERIK: revisitar esse parse aqui e ver se faz sentido
     protected List<HostVO> getHostsListForDeviceScan(Long zoneId, Long clusterId, Long hostId) {
         List<HostVO> hostsForScan = new ArrayList<>();
 
@@ -1393,6 +1394,7 @@ public class HostDevicesManagerImpl extends ManagerBase implements HostDevicesMa
 
             if (!failureReasonByHostUuid.isEmpty()) {
                 logger.warn("The automatic device scan of cluster {} failed for {} out of {} hosts.", cluster.getId(), failureReasonByHostUuid.size(), hosts.size());
+                logger.warn("List of failures, mapped by host UUID: {}", failureReasonByHostUuid);
             }
         }
     }
