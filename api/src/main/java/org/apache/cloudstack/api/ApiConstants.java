@@ -1468,6 +1468,8 @@ public class ApiConstants {
             "Isolated backups are always created as full backups in independent chains. Therefore, they will never depend on any existing backup chain " +
             "and no backup chain will depend on them. Currently only supported for the KBOSS provider.";
 
+    public static final String PARAMETER_DESCRIPTION_DEVICE_TAGS = "A comma separated list of device tags for the device offering. If the offering should have multiple equal tags, a colon and the number of tags must be inserted after the tag name. For example, devicetags=tag1:2,tag2:1 would create a device offering with two equal tags named tag1 and one tag named tag2.";
+
     public static final String CSS = "css";
 
     public static final String JSON_CONFIGURATION = "jsonconfiguration";

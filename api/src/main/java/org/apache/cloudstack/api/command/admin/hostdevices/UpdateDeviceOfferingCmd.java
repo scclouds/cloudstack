@@ -26,6 +26,7 @@ import org.apache.cloudstack.api.BaseCmd;
 import org.apache.cloudstack.api.Parameter;
 import org.apache.cloudstack.api.ServerApiException;
 import org.apache.cloudstack.api.response.DeviceOfferingResponse;
+import org.apache.cloudstack.context.CallContext;
 import org.apache.cloudstack.hostdevices.DeviceOffering;
 import org.apache.cloudstack.hostdevices.DeviceOfferingManager;
 
@@ -52,7 +53,7 @@ public class UpdateDeviceOfferingCmd extends BaseCmd {
     @Parameter(name = ApiConstants.DESCRIPTION, type = CommandType.STRING, description = "the description for the device offering")
     private String description;
 
-    @Parameter(name = ApiConstants.DEVICE_TAGS, type = CommandType.LIST, collectionType = CommandType.STRING, description = "a comma separated list of device tags for the device offering. If the offering should have multiple equal tags, a colon and the number of tags must be inserted after the tag name. For example, devicetags=tag1:2,tag2 would create a device offering with two equal tags named tag1 and one tag named tag2.")
+    @Parameter(name = ApiConstants.DEVICE_TAGS, type = CommandType.LIST, collectionType = CommandType.STRING, description = ApiConstants.PARAMETER_DESCRIPTION_DEVICE_TAGS)
     private List<String> tags;
 
     @Parameter(name = ApiConstants.STATE, type = CommandType.STRING, description = "the state of the device offering. Can be either Active or Inactive")
@@ -89,6 +90,6 @@ public class UpdateDeviceOfferingCmd extends BaseCmd {
 
     @Override
     public long getEntityOwnerId() {
-        return Account.ACCOUNT_ID_SYSTEM;
+        return CallContext.current().getCallingAccount().getId();
     }
 }
