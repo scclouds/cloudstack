@@ -94,7 +94,7 @@ public class DeviceOfferingManagerImpl extends ManagerBase implements DeviceOffe
 
     private static final int MAX_DEVICE_TAG_LENGTH = 255;
     private static final int MAX_DEVICE_TAG_AMOUNT = 10;
-    private final Pattern DEVICE_TAG_PATTERN = Pattern.compile("[A-Za-z0-9]+:[0-9]+", Pattern.CASE_INSENSITIVE);
+    private static final Pattern DEVICE_TAG_PATTERN = Pattern.compile("[A-Za-z0-9]+:[0-9]+", Pattern.CASE_INSENSITIVE);
 
     @Override
     @ActionEvent(eventType = EventTypes.EVENT_DEVICE_OFFERING_CREATE, eventDescription = "creating device offering")
