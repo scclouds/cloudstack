@@ -18,3 +18,11 @@
 --;
 -- Schema upgrade from 4.23.0.0 to 24.0.0
 --;
+
+-- Multiqueue for VRs
+-- Add 'public_multiqueue_number' and 'private_multiqueue_number' columns to the 'cloud.network_offerings' table
+CALL `cloud`.`IDEMPOTENT_ADD_COLUMN`('cloud.network_offerings', 'public_multiqueue_number', 'INT DEFAULT NULL');
+CALL `cloud`.`IDEMPOTENT_ADD_COLUMN`('cloud.network_offerings', 'private_multiqueue_number', 'INT DEFAULT NULL');
+-- Add 'public_multiqueue_number' and 'private_gateway_multiqueue_number' columns to the 'cloud.vpc_offerings' table
+CALL `cloud`.`IDEMPOTENT_ADD_COLUMN`('cloud.vpc_offerings', 'public_multiqueue_number', 'INT DEFAULT NULL');
+CALL `cloud`.`IDEMPOTENT_ADD_COLUMN`('cloud.vpc_offerings', 'private_gateway_multiqueue_number', 'INT DEFAULT NULL');
