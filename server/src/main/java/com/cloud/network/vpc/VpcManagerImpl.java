@@ -395,7 +395,7 @@ public class VpcManagerImpl extends ManagerBase implements VpcManager, VpcProvis
                     }
                     createVpcOffering(VpcOffering.defaultVPCOfferingName, VpcOffering.defaultVPCOfferingName, svcProviderMap,
                             true, State.Enabled, null, false,
-                            false, false, null, null, false, false);
+                            false, false, null, null, false, false, null, null);
                 }
 
                 // configure default vpc offering with Netscaler as LB Provider
@@ -415,7 +415,7 @@ public class VpcManagerImpl extends ManagerBase implements VpcManager, VpcProvis
                         }
                     }
                     createVpcOffering(VpcOffering.defaultVPCNSOfferingName, VpcOffering.defaultVPCNSOfferingName,
-                            svcProviderMap, false, State.Enabled, null, false, false, false, null, null, false, false);
+                            svcProviderMap, false, State.Enabled, null, false, false, false, null, null, false, false, null, null);
 
                 }
 
@@ -436,7 +436,7 @@ public class VpcManagerImpl extends ManagerBase implements VpcManager, VpcProvis
                         }
                     }
                     createVpcOffering(VpcOffering.redundantVPCOfferingName, VpcOffering.redundantVPCOfferingName, svcProviderMap, true, State.Enabled,
-                            null, false, false, true, null, null, false, false);
+                            null, false, false, true, null, null, false, false, null, null);
                 }
 
                 // configure default vpc offering with NSX as network service provider in NAT mode
@@ -453,7 +453,7 @@ public class VpcManagerImpl extends ManagerBase implements VpcManager, VpcProvis
                         }
                     }
                     createVpcOffering(VpcOffering.DEFAULT_VPC_NAT_NSX_OFFERING_NAME, VpcOffering.DEFAULT_VPC_NAT_NSX_OFFERING_NAME, svcProviderMap, false,
-                            State.Enabled, null, false, false, false, NetworkOffering.NetworkMode.NATTED, null, false, false);
+                            State.Enabled, null, false, false, false, NetworkOffering.NetworkMode.NATTED, null, false, false, null, null);
 
                 }
 
@@ -471,7 +471,7 @@ public class VpcManagerImpl extends ManagerBase implements VpcManager, VpcProvis
                         }
                     }
                     createVpcOffering(VpcOffering.DEFAULT_VPC_ROUTE_NSX_OFFERING_NAME, VpcOffering.DEFAULT_VPC_ROUTE_NSX_OFFERING_NAME, svcProviderMap, false,
-                            State.Enabled, null, false, false, false, NetworkOffering.NetworkMode.ROUTED, null, false, false);
+                            State.Enabled, null, false, false, false, NetworkOffering.NetworkMode.ROUTED, null, false, false, null, null);
 
                 }
 
@@ -489,7 +489,7 @@ public class VpcManagerImpl extends ManagerBase implements VpcManager, VpcProvis
                         }
                     }
                     createVpcOffering(VpcOffering.DEFAULT_VPC_ROUTE_NETRIS_OFFERING_NAME, VpcOffering.DEFAULT_VPC_ROUTE_NETRIS_OFFERING_NAME, svcProviderMap, false,
-                            State.Enabled, null, false, false, false, NetworkOffering.NetworkMode.ROUTED, null, false, false);
+                            State.Enabled, null, false, false, false, NetworkOffering.NetworkMode.ROUTED, null, false, false, null, null);
 
                 }
 
@@ -507,7 +507,7 @@ public class VpcManagerImpl extends ManagerBase implements VpcManager, VpcProvis
                         }
                     }
                     createVpcOffering(VpcOffering.DEFAULT_VPC_NAT_NETRIS_OFFERING_NAME, VpcOffering.DEFAULT_VPC_NAT_NETRIS_OFFERING_NAME, svcProviderMap, false,
-                            State.Enabled, null, false, false, false, NetworkOffering.NetworkMode.NATTED, null, false, false);
+                            State.Enabled, null, false, false, false, NetworkOffering.NetworkMode.NATTED, null, false, false, null, null);
 
                 }
             }
@@ -630,9 +630,23 @@ public class VpcManagerImpl extends ManagerBase implements VpcManager, VpcProvis
             throw new InvalidParameterValueException(msg);
         }
 
+        validateVpcOfferingMultiqueueParameters(cmd.getPublicMultiqueueNumber(), cmd.getPrivateGatewayMultiqueueNumber());
+
         return createVpcOffering(vpcOfferingName, displayText, supportedServices,
                 serviceProviderList, serviceCapabilityList, internetProtocol, serviceOfferingId, provider, networkMode,
-                domainIds, zoneIds, (enable ? State.Enabled : State.Disabled), routingMode, specifyAsNumber, conserveMode);
+                domainIds, zoneIds, (enable ? State.Enabled : State.Disabled), routingMode, specifyAsNumber, conserveMode,
+                cmd.getPublicMultiqueueNumber(), cmd.getPrivateGatewayMultiqueueNumber());
+    }
+
+    private void validateVpcOfferingMultiqueueParameters(Integer publicMultiqueueNumber, Integer privateGatewayMultiqueueNumber) {
+        String errorMessage = "The only non-positive value accepted by the parameter [%s] is [-1].";
+        if (publicMultiqueueNumber != null && publicMultiqueueNumber <= 0 && publicMultiqueueNumber != -1) {
+            throw new InvalidParameterValueException(String.format(errorMessage, ApiConstants.PUBLIC_MULTIQUEUE_NUMBER));
+        }
+
+        if (privateGatewayMultiqueueNumber != null && privateGatewayMultiqueueNumber <= 0 && privateGatewayMultiqueueNumber != -1) {
+            throw new InvalidParameterValueException(String.format(errorMessage, ApiConstants.PRIVATE_GATEWAY_MULTIQUEUE_NUMBER));
+        }
     }
 
     @Override
@@ -640,7 +654,7 @@ public class VpcManagerImpl extends ManagerBase implements VpcManager, VpcProvis
     public VpcOffering createVpcOffering(final String name, final String displayText, final List<String> supportedServices, final Map<String, List<String>> serviceProviders,
                                          final Map serviceCapabilityList, final NetUtils.InternetProtocol internetProtocol, final Long serviceOfferingId,
                                          final String externalProvider, final NetworkOffering.NetworkMode networkMode, List<Long> domainIds, List<Long> zoneIds, State state,
-                                         NetworkOffering.RoutingMode routingMode, boolean specifyAsNumber, boolean conserveMode) {
+                                         NetworkOffering.RoutingMode routingMode, boolean specifyAsNumber, boolean conserveMode, Integer publicMultiqueueNumber, Integer privateGatewayMultiqueueNumber) {
 
         boolean isExternalProvider = externalProvider != null &&
                 Arrays.asList("NSX", "Netris").stream().anyMatch(s -> s.equalsIgnoreCase(externalProvider));
@@ -741,7 +755,7 @@ public class VpcManagerImpl extends ManagerBase implements VpcManager, VpcProvis
         final boolean offersRegionLevelVPC = isVpcOfferingForRegionLevelVpc(serviceCapabilityList);
         final boolean redundantRouter = isVpcOfferingRedundantRouter(serviceCapabilityList, redundantRouterService);
         final VpcOfferingVO offering = createVpcOffering(name, displayText, svcProviderMap, false, state, serviceOfferingId, supportsDistributedRouter, offersRegionLevelVPC,
-                redundantRouter, networkMode, routingMode, specifyAsNumber, conserveMode);
+                redundantRouter, networkMode, routingMode, specifyAsNumber, conserveMode, publicMultiqueueNumber, privateGatewayMultiqueueNumber);
 
         if (offering != null) {
             List<VpcOfferingDetailsVO> detailsVO = new ArrayList<>();
@@ -769,13 +783,15 @@ public class VpcManagerImpl extends ManagerBase implements VpcManager, VpcProvis
     @DB
     protected VpcOfferingVO createVpcOffering(final String name, final String displayText, final Map<Service, Set<Provider>> svcProviderMap,
                                               final boolean isDefault, final State state, final Long serviceOfferingId, final boolean supportsDistributedRouter, final boolean offersRegionLevelVPC,
-                                              final boolean redundantRouter, NetworkOffering.NetworkMode networkMode, NetworkOffering.RoutingMode routingMode, boolean specifyAsNumber, boolean conserveMode) {
+                                              final boolean redundantRouter, NetworkOffering.NetworkMode networkMode, NetworkOffering.RoutingMode routingMode, boolean specifyAsNumber,
+                                              boolean conserveMode, Integer publicMultiqueueNumber, Integer privateGatewayMultiqueueNumber) {
 
         return Transaction.execute(new TransactionCallback<VpcOfferingVO>() {
             @Override
             public VpcOfferingVO doInTransaction(final TransactionStatus status) {
                 // create vpc offering object
-                VpcOfferingVO offering = new VpcOfferingVO(name, displayText, isDefault, serviceOfferingId, supportsDistributedRouter, offersRegionLevelVPC, redundantRouter);
+                VpcOfferingVO offering = new VpcOfferingVO(name, displayText, isDefault, serviceOfferingId, supportsDistributedRouter, offersRegionLevelVPC,
+                        redundantRouter, publicMultiqueueNumber, privateGatewayMultiqueueNumber);
 
                 if (state != null) {
                     offering.setState(state);
