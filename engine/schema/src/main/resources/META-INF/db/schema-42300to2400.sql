@@ -64,7 +64,7 @@ CREATE TABLE IF NOT EXISTS `cloud`.`device_offerings` (
   `state` varchar(255) NOT NULL COMMENT 'Device offering state',
   `created` datetime NOT NULL COMMENT 'Device offering creation timestamp',
   `removed` datetime DEFAULT NULL COMMENT 'Device offering removal timestamp',
-  `public` tinyint(1) NOT NULL DEFAULT '1' COMMENT 'Whether the offering is available for all users or not. Will always be false if the domain_id attribute is set',
+  `public` tinyint(1) NOT NULL DEFAULT '1' COMMENT 'Whether the offering is available for all users or not. Will always be false if the domain_id or zone_id attribute is set',
   `domain_id` bigint unsigned DEFAULT NULL COMMENT 'The domain that this offering will be available to. Foreign key that points to the domain table',
   `zone_id` bigint unsigned DEFAULT NULL COMMENT 'The zone that this offering will be available to. Foreign key that points to the data_center table',
   PRIMARY KEY (`id`),
