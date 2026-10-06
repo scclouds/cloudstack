@@ -37,6 +37,8 @@ import javax.persistence.TemporalType;
 import java.util.Date;
 import java.util.Locale;
 import java.util.UUID;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 @Entity
 @Table(name = "host_pci_devices")
@@ -136,11 +138,10 @@ public class HostDeviceVO implements HostDevice {
     }
 
     private static String buildDisplayName(PciDevice device) {
-        if (StringUtils.isAllBlank(device.getProductName(), device.getVendorName())) {
-            return device.getName();
-        }
-
-        return String.format("%s - %s", device.getProductName(), device.getVendorName());
+        String displayName = Stream.of(device.getProductName(), device.getVendorName())
+                .filter(StringUtils::isNotBlank)
+                .collect(Collectors.joining(" - "));
+        return StringUtils.defaultIfBlank(displayName, device.getName());
     }
 
     public static HostDeviceVO mapLibvirtDevice(LibvirtDevice libvirtDevice, Long hostId) {
