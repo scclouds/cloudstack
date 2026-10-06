@@ -19,7 +19,7 @@
   <div class="container">
     <a-alert class="alert-message" type="warning">
       <template #message>
-        <span>{{ $t('messagew.action.remove.device.offering') }}</span>
+        <span>{{ $t('message.action.remove.device.offering') }}</span>
       </template>
     </a-alert>
     <a-table

@@ -3975,6 +3975,8 @@
 "message.releasing.dedicated.zone": "Releasing dedicated Zone...",
 "message.remote.access.vpn.iprange.description": "The range of IP addresses to allocate to VPN clients. The first IP in the range will be taken by the VPN server. (Optional)",
 "message.remove.annotation": "Are you sure you want to delete the comment?",
+"message.remove.device.offering.failed": "Failed to remove device offering from the Instance",
+"message.remove.device.offering.success": "Device offering removed from the Instance",
 "message.remove.egress.rule.failed": "Removing egress rule failed",
 "message.remove.egress.rule.processing": "Deleting egress rule...",
 "message.remove.failed": "Removing failed",

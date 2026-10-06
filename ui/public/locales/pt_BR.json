@@ -3477,6 +3477,8 @@
 "message.releasing.dedicated.pod": "Liberando pod dedicado...",
 "message.releasing.dedicated.zone": "Liberando zona dedicada...",
 "message.remove.annotation": "Tem certeza de que deseja excluir o coment\u00e1rio?",
+"message.remove.device.offering.failed": "Falha ao remover a oferta de dispositivo da inst\u00e2ncia",
+"message.remove.device.offering.success": "Oferta de dispositivo removida da inst\u00e2ncia",
 "message.remove.egress.rule.failed": "Falha ao remover regra de sa\u00edda",
 "message.remove.egress.rule.processing": "Removendo regra de sa\u00edda...",
 "message.remove.failed": "Falha ao remover",
