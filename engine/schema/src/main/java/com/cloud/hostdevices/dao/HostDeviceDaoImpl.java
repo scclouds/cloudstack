@@ -26,6 +26,7 @@ import com.cloud.utils.db.SearchBuilder;
 import com.cloud.utils.db.SearchCriteria;
 import org.apache.cloudstack.hostdevices.HostDevice;
 import org.apache.commons.collections.CollectionUtils;
+import org.apache.commons.lang3.StringUtils;
 import org.springframework.stereotype.Component;
 
 import java.util.ArrayList;
@@ -43,6 +44,7 @@ public class HostDeviceDaoImpl extends GenericDaoBase<HostDeviceVO, Long> implem
     public static final String TYPE = "type";
     public static final String DEVICE_TAG = "deviceTag";
     public static final String DEVICE_TAG_IN = "deviceTagIn";
+    public static final String KEYWORD = "keyword";
     public static final String PARENT_DEVICE_ID = "parentDeviceId";
     public static final String PARENT_DEVICE_ID_IN = "parentDeviceIdIn";
 
@@ -132,11 +134,12 @@ public class HostDeviceDaoImpl extends GenericDaoBase<HostDeviceVO, Long> implem
         sb.and(STATE, sb.entity().getState(), SearchCriteria.Op.EQ);
         sb.and(TYPE, sb.entity().getType(), SearchCriteria.Op.EQ);
         sb.and(DEVICE_TAG, sb.entity().getDeviceTag(), SearchCriteria.Op.EQ);
+        sb.and(KEYWORD, sb.entity().getDisplayName(), SearchCriteria.Op.LIKE);
         return sb;
     }
 
     @Override
-    public Pair<List<HostDeviceVO>, Integer> listHostDevices(Long hostDeviceId, Long parentDeviceId, Long accountId, List<Long> domainIds, Long hostId, Long virtualMachineId, String deviceTag, HostDevice.State state, HostDevice.Type type, Filter filter) {
+    public Pair<List<HostDeviceVO>, Integer> listHostDevices(Long hostDeviceId, Long parentDeviceId, Long accountId, List<Long> domainIds, Long hostId, Long virtualMachineId, String deviceTag, String keyword, HostDevice.State state, HostDevice.Type type, Filter filter) {
         boolean listOnlyMainDevices = hostDeviceId == null && parentDeviceId == null;
         SearchCriteria<HostDeviceVO> sc = listOnlyMainDevices ? mainHostDevicesSearch.create() : hostDevicesSearch.create();
 
@@ -145,6 +148,9 @@ public class HostDeviceDaoImpl extends GenericDaoBase<HostDeviceVO, Long> implem
         sc.setParametersIfNotNull(HOST_ID, hostId);
         sc.setParametersIfNotNull(VIRTUAL_MACHINE_ID, virtualMachineId);
         sc.setParametersIfNotNull(DEVICE_TAG, deviceTag);
+        if (StringUtils.isNotBlank(keyword)) {
+            sc.setParameters(KEYWORD, "%" + keyword + "%");
+        }
         sc.setParametersIfNotNull(STATE, state);
         sc.setParametersIfNotNull(TYPE, type);
         sc.setParametersIfNotNull(ACCOUNT_ID, accountId);
