@@ -22,10 +22,10 @@ import java.util.List;
 public class DeviceOffering extends GenericPresetVariable {
     @PresetVariableDefinition(description = "List of tags of the device offering (i.e.: [\"tag1\", \"tag2\"]).")
     private List<String> tags;
-    @PresetVariableDefinition(description = "The ID of the domain to which the device offering belongs.")
-    private Long domainId;
-    @PresetVariableDefinition(description = "The ID of the zone to which the device offering belongs.")
-    private Long zoneId;
+    @PresetVariableDefinition(description = "The ID of the domain to which the device offering is dedicated, if any.")
+    private String domainId;
+    @PresetVariableDefinition(description = "The ID of the zone to which the device offering is dedicated, if any.")
+    private String zoneId;
 
     public List<String> getTags() {
         return tags;
@@ -35,19 +35,19 @@ public class DeviceOffering extends GenericPresetVariable {
         this.tags = tags;
     }
 
-    public Long getDomainId() {
+    public String getDomainId() {
         return domainId;
     }
 
-    public void setDomainId(Long domainId) {
+    public void setDomainId(String domainId) {
         this.domainId = domainId;
     }
 
-    public Long getZoneId() {
+    public String getZoneId() {
         return zoneId;
     }
 
-    public void setZoneId(Long zoneId) {
+    public void setZoneId(String zoneId) {
         this.zoneId = zoneId;
     }
 }
