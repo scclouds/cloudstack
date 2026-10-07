@@ -60,6 +60,7 @@ import org.apache.commons.collections.CollectionUtils;
 import org.apache.commons.collections4.MapUtils;
 import org.apache.commons.lang3.BooleanUtils;
 import org.apache.commons.lang3.EnumUtils;
+import org.apache.commons.lang3.ObjectUtils;
 import org.apache.commons.lang3.StringUtils;
 
 import javax.inject.Inject;
@@ -333,9 +334,18 @@ public class DeviceOfferingManagerImpl extends ManagerBase implements DeviceOffe
         List<String> deviceTags = updateDeviceOfferingCmd.getTags();
         String stringState = updateDeviceOfferingCmd.getState();
 
+        if (ObjectUtils.allNull(displayName, description, deviceTags, stringState)) {
+            throw new InvalidParameterValueException("At least one of the following parameters must be provided: name, description, devicetags, state");
+        }
+
         if (displayName != null && displayName.isBlank()) {
             logger.error("Cancelling device offering update because the informed name is blank.");
             throw new InvalidParameterValueException("The device offering name cannot be blank.");
+        }
+
+        if (description != null && description.isBlank()) {
+            logger.error("Cancelling device offering update because the informed description is blank.");
+            throw new InvalidParameterValueException("The device offering description cannot be blank.");
         }
 
         DeviceOffering.State state = stringState == null ? null : parseDeviceOfferingState(stringState);
