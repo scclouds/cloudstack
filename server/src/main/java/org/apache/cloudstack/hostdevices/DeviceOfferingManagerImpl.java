@@ -69,7 +69,6 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
-import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 public class DeviceOfferingManagerImpl extends ManagerBase implements DeviceOfferingManager {
@@ -92,9 +91,7 @@ public class DeviceOfferingManagerImpl extends ManagerBase implements DeviceOffe
     @Inject
     private HostDevicesManager hostDevicesManager;
 
-    private static final int MAX_DEVICE_TAG_LENGTH = 255;
     private static final int MAX_DEVICE_TAG_AMOUNT = 10;
-    private static final Pattern DEVICE_TAG_PATTERN = Pattern.compile("[A-Za-z0-9]+:[0-9]+", Pattern.CASE_INSENSITIVE);
 
     @Override
     @ActionEvent(eventType = EventTypes.EVENT_DEVICE_OFFERING_CREATE, eventDescription = "creating device offering")
@@ -541,24 +538,12 @@ public class DeviceOfferingManagerImpl extends ManagerBase implements DeviceOffe
         Map<String, Integer> tagToAmount = new HashMap<>();
         for (String tag : commandTags) {
 
-            if (!DEVICE_TAG_PATTERN.matcher(tag).matches()) {
-                logger.error("Invalid device tag [{}]. The expected format is tag or tag:amount.", tag);
-                throw new InvalidParameterValueException(String.format("Invalid device tag: %s. The expected format is tag:amount.", tag));
-            }
-
-            String[] tagAndAmount = tag.split(":", -1);
-
-            String tagName = tagAndAmount[0].trim();
-
-            if (tagName.length() > MAX_DEVICE_TAG_LENGTH) {
-                logger.error("Invalid device tag [{}]. The tag name is longer than {} characters.", tagName, MAX_DEVICE_TAG_LENGTH);
-                throw new InvalidParameterValueException(String.format("Invalid device tag: %s. The tag name cannot be longer than %d characters.", tagName, MAX_DEVICE_TAG_LENGTH));
-            }
+            Pair<String, Integer> tagAndAmount = DeviceOfferingHelper.parseDeviceTag(tag);
 
             // TODO ERIK: ver se colocar as tags pra lowercase faz sentido
-            tagName = tagName.toLowerCase(Locale.ROOT);
+            String tagName = tagAndAmount.first().toLowerCase(Locale.ROOT);
 
-            int amount = Integer.parseInt(tagAndAmount[1].trim());
+            int amount = tagAndAmount.second();
 
             if (amount < 1) {
                 logger.error("Invalid amount [{}] specified for device tag [{}]. Amount must be greater than 0.", amount, tagName);
