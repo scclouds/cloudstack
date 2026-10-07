@@ -28,7 +28,7 @@ export default {
       label: 'label.action.edit.hostdevice',
       dataView: true,
       popup: true,
-      show: (record) => { return ['Disabled', 'Free'].includes(record.state) },
+      show: (record) => { return ['Disabled', 'Free', 'NeedsCleanup', 'Missing'].includes(record.state) },
       args: ['id', 'displayname', 'devicetag', 'type', 'enabled', 'onetimeuse'],
       mapping: {
         id: {
