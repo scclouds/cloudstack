@@ -29,7 +29,7 @@ export default {
       dataView: true,
       popup: true,
       show: (record) => { return ['Disabled', 'Free'].includes(record.state) },
-      args: ['id', 'displayname', 'devicetag', 'type', 'enabled'],
+      args: ['id', 'displayname', 'devicetag', 'type', 'enabled', 'onetimeuse'],
       mapping: {
         id: {
           value: (record) => { return record.id }
