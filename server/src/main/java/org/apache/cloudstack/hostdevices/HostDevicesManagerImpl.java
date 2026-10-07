@@ -616,9 +616,8 @@ public class HostDevicesManagerImpl extends ManagerBase implements HostDevicesMa
             throw new InvalidParameterValueException("At least one of the following parameters must be provided: enabled, displayName, tags, type, onetimeuse");
         }
 
-        if (tag != null && tag.isBlank()) {
-            logger.error("Cancelling host device update because the informed device tag is blank.");
-            throw new InvalidParameterValueException("The device tag cannot be blank.");
+        if (tag != null) {
+            DeviceOfferingHelper.validateDeviceTagName(tag.trim());
         }
 
         HostDevice.Type newDeviceType = type == null ? null : parseEnumIgnoreCase(HostDevice.Type.class, type);
