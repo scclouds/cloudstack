@@ -413,8 +413,8 @@ public class PresetVariableHelper {
 
             presetVariableDeviceOffering.setId(deviceOffering.getUuid());
             presetVariableDeviceOffering.setName(deviceOffering.getName());
-            presetVariableDeviceOffering.setDomainId(deviceOffering.getDomainId());
-            presetVariableDeviceOffering.setZoneId(deviceOffering.getZoneId());
+            presetVariableDeviceOffering.setDomainId(getDomainUuid(deviceOffering.getDomainId()));
+            presetVariableDeviceOffering.setZoneId(getZoneUuid(deviceOffering.getZoneId()));
             // TODO ERIK: ver como fazer com offering removida
             presetVariableDeviceOffering.setTags(getDeviceOfferingTags(deviceOffering.getId()));
 
@@ -422,6 +422,24 @@ public class PresetVariableHelper {
         }
 
         return presetVariableDeviceOfferings;
+    }
+
+    private String getDomainUuid(Long domainId) {
+        if (domainId == null) {
+            return null;
+        }
+
+        DomainVO domainVo = domainDao.findByIdIncludingRemoved(domainId);
+        return domainVo == null ? null : domainVo.getUuid();
+    }
+
+    private String getZoneUuid(Long zoneId) {
+        if (zoneId == null) {
+            return null;
+        }
+
+        DataCenterVO dataCenterVo = dataCenterDao.findByIdIncludingRemoved(zoneId);
+        return dataCenterVo == null ? null : dataCenterVo.getUuid();
     }
 
     private List<String> getDeviceOfferingTags(long deviceOfferingId) {

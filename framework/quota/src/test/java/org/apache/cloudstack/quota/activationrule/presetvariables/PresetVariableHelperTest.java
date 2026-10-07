@@ -257,8 +257,8 @@ public class PresetVariableHelperTest {
         deviceOffering.setId("device_offering_id");
         deviceOffering.setName("device_offering_name");
         deviceOffering.setTags(Arrays.asList("tag1", "tag2"));
-        deviceOffering.setDomainId(1L);
-        deviceOffering.setZoneId(1L);
+        deviceOffering.setDomainId("domain_id");
+        deviceOffering.setZoneId("zone_id");
 
         return List.of(deviceOffering);
     }
