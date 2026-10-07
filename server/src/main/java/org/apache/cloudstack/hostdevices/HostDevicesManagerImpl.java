@@ -76,6 +76,7 @@ import org.apache.cloudstack.utils.libvirt.model.LibvirtDevice;
 import org.apache.commons.collections.CollectionUtils;
 import org.apache.commons.lang3.EnumUtils;
 import org.apache.commons.lang3.ObjectUtils;
+import org.apache.commons.lang3.StringUtils;
 import org.apache.logging.log4j.ThreadContext;
 
 import javax.inject.Inject;
@@ -88,6 +89,7 @@ import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
@@ -489,7 +491,7 @@ public class HostDevicesManagerImpl extends ManagerBase implements HostDevicesMa
         Long accountId = cmd.getAccountId();
         Long hostId = cmd.getHostId();
         Long virtualMachineId = cmd.getVirtualMachineId();
-        String deviceTag = cmd.getDeviceTag();
+        String deviceTag = StringUtils.lowerCase(StringUtils.trim(cmd.getDeviceTag()), Locale.ROOT);
         String stringDeviceType = cmd.getType();
         String stringDeviceState = cmd.getState();
 
@@ -575,6 +577,7 @@ public class HostDevicesManagerImpl extends ManagerBase implements HostDevicesMa
             res.setPciName(device.getPciName());
             res.setPciDomain(device.getPciDomain());
             res.setPciClass(device.getPciClass());
+            res.setPciBus(device.getPciBus());
             res.setPciSlot(device.getPciSlot());
             res.setPciFunction(device.getPciFunction());
             res.setVendorId(device.getPciVendorId());
