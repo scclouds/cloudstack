@@ -535,7 +535,7 @@ public class HostDevicesManagerImpl extends ManagerBase implements HostDevicesMa
         List<Long> domainIds = accountIdDomainsList.second();
 
         Filter filter = new Filter(HostDeviceVO.class, "id", true, cmd.getStartIndex(), cmd.getPageSizeVal());
-        Pair<List<HostDeviceVO>, Integer> result = hostDeviceDao.listHostDevices(hostDeviceId, cmd.getParentId(), accountId, domainIds, hostId, virtualMachineId, deviceTag, state, type, filter);
+        Pair<List<HostDeviceVO>, Integer> result = hostDeviceDao.listHostDevices(hostDeviceId, cmd.getParentId(), accountId, domainIds, hostId, virtualMachineId, deviceTag, cmd.getKeyword(), state, type, filter);
 
         return new Pair<>(result.first(), result.second());
     }
