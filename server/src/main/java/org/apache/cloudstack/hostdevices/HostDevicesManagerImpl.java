@@ -624,8 +624,9 @@ public class HostDevicesManagerImpl extends ManagerBase implements HostDevicesMa
         }
 
         HostDevice.Type newDeviceType = type == null ? null : parseEnumIgnoreCase(HostDevice.Type.class, type);
+        List<HostDeviceVO> updatedDevices = new ArrayList<>();
 
-        return Transaction.execute((TransactionCallback<HostDeviceVO>) status -> {
+        HostDeviceVO updatedDevice = Transaction.execute((TransactionCallback<HostDeviceVO>) status -> {
             HostDeviceVO device = hostDeviceDao.lockRow(updateHostDeviceCmd.getDeviceId(), true);
 
             if (device == null) {
@@ -635,10 +636,12 @@ public class HostDevicesManagerImpl extends ManagerBase implements HostDevicesMa
 
             List<HostDeviceVO> companions = hostDeviceDao.listAndLockCompanionDevices(List.of(device.getId()));
 
-            validateHostDeviceForUpdate(device, companions, enabled, tag, newDeviceType, oneTimeUse);
+            validateHostDeviceForUpdate(device, enabled, tag, newDeviceType, oneTimeUse);
+
+            boolean mainDeviceOneTimeUse = oneTimeUse != null ? oneTimeUse : Boolean.TRUE.equals(device.getOneTimeUse());
 
             if (enabled != null) {
-                updateHostDeviceState(device, enabled);
+                updateHostDeviceState(device, enabled, mainDeviceOneTimeUse);
             }
 
             if (displayName != null && !displayName.isBlank()) {
@@ -658,10 +661,11 @@ public class HostDevicesManagerImpl extends ManagerBase implements HostDevicesMa
             }
 
             hostDeviceDao.update(device.getId(), device);
+            updatedDevices.add(device);
 
             for (HostDeviceVO companion : companions) {
                 if (enabled != null) {
-                    updateHostDeviceState(companion, enabled);
+                    updateHostDeviceState(companion, enabled, mainDeviceOneTimeUse);
                 }
 
                 if (oneTimeUse != null) {
@@ -669,19 +673,27 @@ public class HostDevicesManagerImpl extends ManagerBase implements HostDevicesMa
                 }
 
                 hostDeviceDao.update(companion.getId(), companion);
+                updatedDevices.add(companion);
             }
 
             return device;
         });
+
+        if (Boolean.FALSE.equals(enabled)) {
+            logger.debug("Sending alerts to operators about host devices that were released from a VM when being disabled and require cleanup.");
+            sendAlertAboutCleanupDevices(updatedDevices);
+        }
+
+        return updatedDevice;
     }
 
-    private void validateHostDeviceForUpdate(HostDeviceVO device, List<HostDeviceVO> companions, Boolean enabled, String tag, HostDevice.Type type, Boolean oneTimeUse) {
+    private void validateHostDeviceForUpdate(HostDeviceVO device, Boolean enabled, String tag, HostDevice.Type type, Boolean oneTimeUse) {
         if (device.isCompanionFunction() && ObjectUtils.anyNotNull(enabled, tag, type, oneTimeUse)) {
             logger.error("Could not update host device [{}] because it is a companion function of the device with ID {}.", device.getPciName(), device.getParentDeviceId());
             throw new InvalidParameterValueException("Only the display name of a companion function can be updated. Please, update its main function instead.");
         }
 
-        if (HostDevice.INVALID_UPDATE_STATES.contains(device.getState()) && !isAttachedWithMissingCompanion(device, companions)) {
+        if (HostDevice.INVALID_UPDATE_STATES.contains(device.getState())) {
             logger.error("Could not update host device state. Current device state is {} and invalid states are {}.", device.getState(), HostDevice.INVALID_UPDATE_STATES);
             throw new InvalidParameterValueException(String.format("Could not update device because it is in state [%s] and updating devices in states %s is not allowed.", device.getState(), HostDevice.INVALID_UPDATE_STATES));
         }
@@ -711,26 +723,14 @@ public class HostDevicesManagerImpl extends ManagerBase implements HostDevicesMa
         }
     }
 
-    private boolean isAttachedWithMissingCompanion(HostDeviceVO device, List<HostDeviceVO> companions) {
-        return HostDevice.State.Attached.equals(device.getState()) && hasMissingDevice(companions);
-    }
-
-    private boolean hasMissingDevice(List<HostDeviceVO> devices) {
-        for (HostDeviceVO device : devices) {
-            if (HostDevice.State.Missing.equals(device.getState())) {
-                return true;
-            }
-        }
-
-        return false;
-    }
-
-    private void updateHostDeviceState(HostDeviceVO device, boolean enabled) {
+    private void updateHostDeviceState(HostDeviceVO device, boolean enabled, boolean mainDeviceOneTimeUse) {
         Long vmId = device.getInstanceId();
+        boolean releasedFromVm = false;
 
         if (!enabled && vmId != null) {
             logger.info("Host device [{}] is attached to VM {}, so it will be released before being disabled.", device.getPciName(), vmId);
             releaseDeviceFromVm(device);
+            releasedFromVm = true;
         }
 
         if (HostDevice.State.Missing.equals(device.getState())) {
@@ -739,6 +739,12 @@ public class HostDevicesManagerImpl extends ManagerBase implements HostDevicesMa
         }
 
         if (!enabled) {
+            if (releasedFromVm && mainDeviceOneTimeUse) {
+                logger.info("Host device [{}] is one-time-use and was released from VM {}, so it will be put in the NeedsCleanup state instead of Disabled.", device.getPciName(), vmId);
+                device.setState(HostDevice.State.NeedsCleanup);
+                return;
+            }
+
             device.setState(HostDevice.State.Disabled);
             return;
         }

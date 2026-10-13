@@ -30,7 +30,7 @@ public interface HostDevice extends Identity, InternalIdentity {
         Attached, NeedsCleanup, Disabled, Free, HostInMaintenance, Missing
     }
 
-    List<State> INVALID_UPDATE_STATES = List.of(State.Attached, State.HostInMaintenance);
+    List<State> INVALID_UPDATE_STATES = List.of(State.HostInMaintenance);
 
     enum Type {
         Display, Network, Storage, USB, Generic;
