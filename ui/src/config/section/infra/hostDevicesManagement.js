@@ -35,6 +35,21 @@ export default {
           value: (record) => { return record.id }
         }
       }
+    },
+    {
+      api: 'deleteHostDevice',
+      icon: 'delete-outlined',
+      label: 'label.action.delete.host.device',
+      message: 'message.action.delete.host.device',
+      dataView: true,
+      popup: true,
+      show: (record) => { return record.state !== 'HostInMaintenance' && record.state !== 'Removed' },
+      args: ['id'],
+      mapping: {
+        id: {
+          value: (record) => { return record.id }
+        }
+      }
     }
   ]
 }

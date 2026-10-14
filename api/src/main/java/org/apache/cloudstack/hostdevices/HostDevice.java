@@ -27,10 +27,10 @@ import java.util.List;
 
 public interface HostDevice extends Identity, InternalIdentity {
     enum State {
-        Attached, NeedsCleanup, Disabled, Free, HostInMaintenance, Missing
+        Attached, NeedsCleanup, Disabled, Free, HostInMaintenance, Missing, Removed
     }
 
-    List<State> INVALID_UPDATE_STATES = List.of(State.HostInMaintenance);
+    List<State> INVALID_UPDATE_STATES = List.of(State.HostInMaintenance, State.Removed);
 
     enum Type {
         Display, Network, Storage, USB, Generic;

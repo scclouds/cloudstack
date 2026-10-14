@@ -71,4 +71,6 @@ public interface HostDevicesManager extends Configurable, Manager, PluggableServ
     boolean doesHostMatchDeviceOfferingTags(Host host, List<? extends DeviceOffering> deviceOfferings, Long virtualMachineId);
 
     boolean doesHostMatchVmDeviceOfferings(Host host, Long virtualMachineId);
+
+    boolean deleteHostDevice(Long id);
 }
