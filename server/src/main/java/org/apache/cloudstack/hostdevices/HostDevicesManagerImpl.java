@@ -66,6 +66,7 @@ import com.fasterxml.jackson.databind.module.SimpleModule;
 import org.apache.cloudstack.alert.AlertService.AlertType;
 import org.apache.cloudstack.api.command.admin.hostdevices.ScanHostDevicesCmd;
 import org.apache.cloudstack.api.command.admin.hostdevices.UpdateHostDeviceCmd;
+import org.apache.cloudstack.api.command.user.hostdevices.DeleteHostDeviceCmd;
 import org.apache.cloudstack.api.command.user.hostdevices.ListHostDevicesCmd;
 import org.apache.cloudstack.api.response.HostDeviceResponse;
 import org.apache.cloudstack.context.CallContext;
@@ -1282,6 +1283,41 @@ public class HostDevicesManagerImpl extends ManagerBase implements HostDevicesMa
     }
 
     @Override
+    public boolean deleteHostDevice(Long id) {
+        if (id == null) {
+            throw new InvalidParameterValueException("Could not delete host device because no ID was provided.");
+        }
+
+        return Transaction.execute((TransactionCallback<Boolean>) status -> {
+            HostDeviceVO device = hostDeviceDao.lockRow(id, true);
+
+            if (device == null) {
+                throw new InvalidParameterValueException("Could not delete host device because no device was found with the provided ID.");
+            }
+
+            if (HostDevice.State.Attached.equals(device.getState())) {
+                logger.error("Could not delete host device [{}] because it is attached to VM {}.", device.getPciName(), device.getInstanceId());
+                throw new InvalidParameterValueException("Could not delete host device because it is attached to a VM. Please, unattach it first.");
+            }
+
+            logger.info("Marking host device [{}] from host [{}] as removed in the database.", device.getPciName(), device.getHostId());
+            device.setState(HostDevice.State.Removed);
+            hostDeviceDao.remove(id);
+
+            List<HostDeviceVO> companions = hostDeviceDao.listAndLockCompanionDevices(List.of(device.getId()));
+            logger.debug("Found {} companion functions for host device [{}]. Deleting them.", companions.size(), device.getPciName());
+
+            for (HostDeviceVO companion : companions) {
+                logger.info("Marking [{}] companion host device [{}] as removed in the database.", device.getPciName(), companion.getPciName());
+                companion.setState(HostDevice.State.Removed);
+                hostDeviceDao.remove(companion.getId());
+            }
+
+            return true;
+        });
+    }
+
+    @Override
     public boolean doesHostMatchDeviceOfferingTags(Host host, List<? extends DeviceOffering> deviceOfferings, Long virtualMachineId) {
         if (CollectionUtils.isEmpty(deviceOfferings)) {
             logger.debug("No device offerings were informed, therefore host {} satisfies the device offering requirements.", host.getId());
@@ -1425,6 +1461,6 @@ public class HostDevicesManagerImpl extends ManagerBase implements HostDevicesMa
 
     @Override
     public List<Class<?>> getCommands() {
-        return List.of(ScanHostDevicesCmd.class, ListHostDevicesCmd.class, UpdateHostDeviceCmd.class);
+        return List.of(ScanHostDevicesCmd.class, ListHostDevicesCmd.class, UpdateHostDeviceCmd.class, DeleteHostDeviceCmd.class);
     }
 }
