@@ -43,6 +43,9 @@ public class DeviceOfferingDaoImpl extends GenericDaoBase<DeviceOfferingVO, Long
     private DeviceOfferingDeviceTagDao deviceOfferingDeviceTagDao;
 
     private SearchBuilder<DeviceOfferingVO> deviceOfferingSearch;
+    private SearchBuilder<DeviceOfferingVO> deviceOfferingVisibleDomainsSearch;
+    private SearchBuilder<DeviceOfferingVO> deviceOfferingZoneSearch;
+    private SearchBuilder<DeviceOfferingVO> deviceOfferingVisibleDomainsAndZoneSearch;
     private SearchBuilder<DeviceOfferingVO> deviceOfferingWithVMSearch;
     private SearchBuilder<DeviceOfferingVO> deviceOfferingNameSearch;
 
@@ -50,6 +53,19 @@ public class DeviceOfferingDaoImpl extends GenericDaoBase<DeviceOfferingVO, Long
     private void init() {
         deviceOfferingSearch = getBaseSearchBuilder();
         deviceOfferingSearch.done();
+
+        deviceOfferingVisibleDomainsSearch = getBaseSearchBuilder();
+        addVisibleDomainsCondition(deviceOfferingVisibleDomainsSearch);
+        deviceOfferingVisibleDomainsSearch.done();
+
+        deviceOfferingZoneSearch = getBaseSearchBuilder();
+        addZoneCondition(deviceOfferingZoneSearch);
+        deviceOfferingZoneSearch.done();
+
+        deviceOfferingVisibleDomainsAndZoneSearch = getBaseSearchBuilder();
+        addVisibleDomainsCondition(deviceOfferingVisibleDomainsAndZoneSearch);
+        addZoneCondition(deviceOfferingVisibleDomainsAndZoneSearch);
+        deviceOfferingVisibleDomainsAndZoneSearch.done();
 
         deviceOfferingNameSearch = createSearchBuilder();
         deviceOfferingNameSearch.and("name", deviceOfferingNameSearch.entity().getName(), SearchCriteria.Op.EQ);
@@ -74,21 +90,22 @@ public class DeviceOfferingDaoImpl extends GenericDaoBase<DeviceOfferingVO, Long
     }
 
     @Override
-    public Pair<List<DeviceOfferingVO>, Integer> listDeviceOfferings(Long id, String name, List<Long> domainIds, Long zoneId, List<String> deviceTags, DeviceOffering.State state, Boolean showOnlyPublic, Filter filter) {
-        SearchCriteria<DeviceOfferingVO> sc = deviceOfferingSearch.create();
+    public Pair<List<DeviceOfferingVO>, Integer> listDeviceOfferings(Long id, String name, Long domainId, List<Long> visibleDomainIds, Long zoneId, List<String> deviceTags, DeviceOffering.State state, Filter filter) {
+        SearchCriteria<DeviceOfferingVO> sc = getListSearchBuilder(visibleDomainIds != null, zoneId != null).create();
         sc.setParametersIfNotNull("id", id);
 
         if (name != null) {
             sc.setParameters("name", "%" + name + "%");
         }
 
-        sc.setParametersIfNotNull("zoneId", zoneId);
+        sc.setParametersIfNotNull("exactDomainId", domainId);
         sc.setParametersIfNotNull("state", state);
-        sc.setParametersIfNotNull("isPublic", showOnlyPublic);
 
-        if (domainIds != null && !domainIds.isEmpty()) {
-            sc.setParametersIfNotNull("domainIds", domainIds.toArray());
+        if (CollectionUtils.isNotEmpty(visibleDomainIds)) {
+            sc.setParameters("visibleDomainIds", visibleDomainIds.toArray());
         }
+
+        sc.setParametersIfNotNull("zoneId", zoneId);
 
         if (CollectionUtils.isNotEmpty(deviceTags)) {
             List<Long> taggedOfferingIds = deviceOfferingDeviceTagDao.listDeviceOfferingIdsByTags(deviceTags);
@@ -110,16 +127,42 @@ public class DeviceOfferingDaoImpl extends GenericDaoBase<DeviceOfferingVO, Long
         return findOneBy(sc);
     }
 
+    private SearchBuilder<DeviceOfferingVO> getListSearchBuilder(boolean hasVisibleDomains, boolean hasZone) {
+        if (hasVisibleDomains && hasZone) {
+            return deviceOfferingVisibleDomainsAndZoneSearch;
+        }
+
+        if (hasVisibleDomains) {
+            return deviceOfferingVisibleDomainsSearch;
+        }
+
+        if (hasZone) {
+            return deviceOfferingZoneSearch;
+        }
+
+        return deviceOfferingSearch;
+    }
+
+    private void addVisibleDomainsCondition(SearchBuilder<DeviceOfferingVO> searchBuilder) {
+        searchBuilder.and().op("domainIsNull", searchBuilder.entity().getDomainId(), SearchCriteria.Op.NULL);
+        searchBuilder.or("visibleDomainIds", searchBuilder.entity().getDomainId(), SearchCriteria.Op.IN);
+        searchBuilder.cp();
+    }
+
+    private void addZoneCondition(SearchBuilder<DeviceOfferingVO> searchBuilder) {
+        searchBuilder.and().op("zoneIsNull", searchBuilder.entity().getZoneId(), SearchCriteria.Op.NULL);
+        searchBuilder.or("zoneId", searchBuilder.entity().getZoneId(), SearchCriteria.Op.EQ);
+        searchBuilder.cp();
+    }
+
     private SearchBuilder<DeviceOfferingVO> getBaseSearchBuilder() {
         SearchBuilder<DeviceOfferingVO> sc = createSearchBuilder();
 
         sc.and("id", sc.entity().getId(), SearchCriteria.Op.EQ);
         sc.and("ids", sc.entity().getId(), SearchCriteria.Op.IN);
         sc.and("name", sc.entity().getName(), SearchCriteria.Op.LIKE);
-        sc.and("domainIds", sc.entity().getDomainId(), SearchCriteria.Op.IN);
-        sc.and("zoneId", sc.entity().getZoneId(), SearchCriteria.Op.EQ);
+        sc.and("exactDomainId", sc.entity().getDomainId(), SearchCriteria.Op.EQ);
         sc.and("state", sc.entity().getState(), SearchCriteria.Op.EQ);
-        sc.and("isPublic", sc.entity().getIsPublic(), SearchCriteria.Op.EQ);
 
         return sc;
     }

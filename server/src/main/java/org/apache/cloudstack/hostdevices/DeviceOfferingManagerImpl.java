@@ -67,9 +67,11 @@ import javax.inject.Inject;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 public class DeviceOfferingManagerImpl extends ManagerBase implements DeviceOfferingManager {
@@ -242,8 +244,12 @@ public class DeviceOfferingManagerImpl extends ManagerBase implements DeviceOffe
 
         DeviceOffering.State state = stringState == null ? DeviceOffering.State.Active : parseDeviceOfferingState(stringState);
 
+        boolean isRootAdmin = caller.getType().equals(Account.Type.ADMIN);
+        boolean showAll = BooleanUtils.isTrue(listAll);
+        List<Long> visibleDomainIds = isRootAdmin ? null : getVisibleDomainIds(caller, showAll);
+
         if (domainId != null) {
-            getDomainAndCheckAccess(domainId, caller);
+            validateDomainFilter(domainId, visibleDomainIds);
         }
 
         DataCenter dataCenter = null;
@@ -256,21 +262,36 @@ public class DeviceOfferingManagerImpl extends ManagerBase implements DeviceOffe
             }
         }
 
-        Boolean showOnlyPublic = true;
-        List<Long> domainIds = new ArrayList<>();
-        if (caller.getType().equals(Account.Type.DOMAIN_ADMIN) && BooleanUtils.isTrue(listAll)) {
-            showOnlyPublic = null;
-            domainIds = domainDao.getDomainAndChildrenIds(caller.getDomainId());
-        }
-
-        if (caller.getType().equals(Account.Type.ADMIN) && BooleanUtils.isTrue(listAll)) {
-            showOnlyPublic = null;
+        if (isRootAdmin && !showAll && domainId == null) {
+            visibleDomainIds = new ArrayList<>();
         }
 
         Filter filter = new Filter(DeviceOfferingVO.class, "id", true, listDeviceOfferingsCmd.getStartIndex(), listDeviceOfferingsCmd.getPageSizeVal());
-        Pair<List<DeviceOfferingVO>, Integer> result = deviceOfferingDao.listDeviceOfferings(listDeviceOfferingsCmd.getId(), name, domainIds, zoneId, deviceTags, state, showOnlyPublic, filter);
+        Pair<List<DeviceOfferingVO>, Integer> result = deviceOfferingDao.listDeviceOfferings(listDeviceOfferingsCmd.getId(), name, domainId, visibleDomainIds, zoneId, deviceTags, state, filter);
 
         return new Pair<>(result.first(), result.second());
+    }
+
+    private List<Long> getVisibleDomainIds(Account caller, boolean showAll) {
+        Set<Long> visibleDomainIds = new HashSet<>(domainDao.getDomainParentIds(caller.getDomainId()));
+
+        if (showAll && caller.getType().equals(Account.Type.DOMAIN_ADMIN)) {
+            visibleDomainIds.addAll(domainDao.getDomainAndChildrenIds(caller.getDomainId()));
+        }
+
+        return new ArrayList<>(visibleDomainIds);
+    }
+
+    private void validateDomainFilter(Long domainId, List<Long> visibleDomainIds) {
+        if (domainDao.findById(domainId) == null) {
+            logger.error("Domain with ID [{}] could not be found.", domainId);
+            throw new InvalidParameterValueException(String.format("Could not find domain with ID [%s].", domainId));
+        }
+
+        if (visibleDomainIds != null && !visibleDomainIds.contains(domainId)) {
+            logger.error("Domain with ID [{}] is not visible to the caller, so its device offerings cannot be listed.", domainId);
+            throw new PermissionDeniedException(String.format("The account does not fall in the same domain hierarchy as the domain [%s].", domainId));
+        }
     }
 
     @Override
@@ -461,19 +482,6 @@ public class DeviceOfferingManagerImpl extends ManagerBase implements DeviceOffe
 
         int totalAmountOfDevices = offeringTags.values().stream().mapToInt(Integer::intValue).sum();
         resourceLimitMgr.checkResourceLimit(owner, Resource.ResourceType.host_device, totalAmountOfDevices);
-    }
-
-    private Domain getDomainAndCheckAccess(Long domainId, Account caller) {
-        Domain domain = domainDao.findById(domainId);
-
-        if (domain == null) {
-            logger.error("Domain with ID [{}] could not be found.", domainId);
-            throw new InvalidParameterValueException(String.format("Could not find domain with ID [%s].", domainId));
-        }
-
-        accountManager.checkAccess(caller, domain);
-
-        return domain;
     }
 
     private VirtualMachine getVMAndCheckAccess(Long virtualMachineId, Account caller) {

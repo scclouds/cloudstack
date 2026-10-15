@@ -56,11 +56,11 @@ public class ListDeviceOfferingsCmd extends BaseListCmd {
     private String name;
 
     @ACL
-    @Parameter(name = ApiConstants.DOMAIN_ID, type = CommandType.UUID, entityType = DomainResponse.class, description = "The device offering's domain ID.")
+    @Parameter(name = ApiConstants.DOMAIN_ID, type = CommandType.UUID, entityType = DomainResponse.class, description = "The device offering's domain ID. Lists only the device offerings dedicated to the informed domain. Non-ROOT accounts can inform only the domains they can see: their own domain and its parent domains (domain admins asking for all device offerings can also inform their subdomains).")
     private Long domainId;
 
     @ACL
-    @Parameter(name = ApiConstants.ZONE_ID, type = CommandType.UUID, entityType = ZoneResponse.class, description = "The device offering's zone ID.")
+    @Parameter(name = ApiConstants.ZONE_ID, type = CommandType.UUID, entityType = ZoneResponse.class, description = "The device offering's zone ID. Lists the device offerings dedicated to the informed zone and the ones that are not dedicated to any zone.")
     private Long zoneId;
 
     @Parameter(name = ApiConstants.DEVICE_TAGS, type = CommandType.LIST, collectionType = CommandType.STRING, description = "The device offering's device tags. Lists the device offerings that have at least one of the informed tags. The tags are case-insensitive.")
@@ -69,7 +69,7 @@ public class ListDeviceOfferingsCmd extends BaseListCmd {
     @Parameter(name = ApiConstants.STATE, type = CommandType.STRING, description = "The state of the device offering. Possible states are: Active and Inactive. By default, devices in the Inactive state will be hidden.")
     private String state;
 
-    @Parameter(name = ApiConstants.LIST_ALL, type = CommandType.BOOLEAN, description = "False (default) lists the device offerings accessible for calling Account. True lists all device offerings (including dedicated ones).")
+    @Parameter(name = ApiConstants.LIST_ALL, type = CommandType.BOOLEAN, description = "False (default) lists, for ROOT admins, only the device offerings that are not dedicated to a domain (the public ones and the ones dedicated to a zone), and, for the other accounts, those plus the ones dedicated to the domain of the calling account and its parent domains. True lists all device offerings for ROOT admins, and also the ones dedicated to the subdomains for domain admins. It has no effect for the other accounts.")
     private Boolean listAll;
 
     public Long getId() {
