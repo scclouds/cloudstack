@@ -2740,7 +2740,7 @@
 "message.action.delete.gui.theme": "Por favor, confirme que voc\u00ea deseja excluir este tema da GUI",
 "message.action.delete.guest.os": "Por favor, confirme que voc\u00ea deseja excluir este SO convidado. Entradas definidas pelo sistema n\u00e3o podem ser exclu\u00eddas.",
 "message.action.delete.guest.os.hypervisor.mapping": "Por favor, confirme que voc\u00ea deseja excluir este mapeamento de hypervisor do SO convidado. Entradas definidas pelo sistema n\u00e3o podem ser exclu\u00eddas.",
-"message.action.delete.host.device": "Por favor, confirme que voc\u00ea deseja excluir este dispositivo do host. Dispositivos exclu\u00eddos que ainda est\u00e3o presentes no host ser\u00e3o redescobertos.",
+"message.action.delete.host.device": "Por favor, confirme que voc\u00ea deseja remover este dispositivo do host. Dispositivos removidos que ainda est\u00e3o presentes no host ser\u00e3o redescobertos.",
 "message.action.delete.ingress.rule": "Por favor, confirme que voc\u00ea deseja excluir esta regra de ingresso.",
 "message.action.delete.instance.group": "Por favor, confirme que voc\u00ea quer remover o grupo de inst\u00e2ncia",
 "message.action.delete.interface.static.route": "Por favor, confirme que voc\u00ea deseja remover esta Rota Est\u00e1tica de interface?",

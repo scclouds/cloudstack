@@ -423,6 +423,7 @@ public class EventTypes {
     // Host devices
     public static final String EVENT_HOST_DEVICE_SCAN = "HOST.DEVICE.SCAN";
     public static final String EVENT_HOST_DEVICE_UPDATE = "HOST.DEVICE.UPDATE";
+    public static final String EVENT_HOST_DEVICE_DELETE = "HOST.DEVICE.DELETE";
 
     // Device offerings
     public static final String EVENT_DEVICE_OFFERING_CREATE = "DEVICE.OFFERING.CREATE";

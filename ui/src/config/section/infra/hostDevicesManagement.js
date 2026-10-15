@@ -43,7 +43,7 @@ export default {
       message: 'message.action.delete.host.device',
       dataView: true,
       popup: true,
-      show: (record) => { return record.state !== 'HostInMaintenance' && record.state !== 'Removed' },
+      show: (record) => { return !record.virtualmachineid && !record.parentid },
       args: ['id'],
       mapping: {
         id: {

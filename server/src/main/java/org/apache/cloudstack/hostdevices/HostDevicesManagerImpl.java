@@ -64,9 +64,9 @@ import com.cloud.vm.dao.VMInstanceDao;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.module.SimpleModule;
 import org.apache.cloudstack.alert.AlertService.AlertType;
+import org.apache.cloudstack.api.command.admin.hostdevices.DeleteHostDeviceCmd;
 import org.apache.cloudstack.api.command.admin.hostdevices.ScanHostDevicesCmd;
 import org.apache.cloudstack.api.command.admin.hostdevices.UpdateHostDeviceCmd;
-import org.apache.cloudstack.api.command.user.hostdevices.DeleteHostDeviceCmd;
 import org.apache.cloudstack.api.command.user.hostdevices.ListHostDevicesCmd;
 import org.apache.cloudstack.api.response.HostDeviceResponse;
 import org.apache.cloudstack.context.CallContext;
@@ -1289,6 +1289,7 @@ public class HostDevicesManagerImpl extends ManagerBase implements HostDevicesMa
     }
 
     @Override
+    @ActionEvent(eventType = EventTypes.EVENT_HOST_DEVICE_DELETE, eventDescription = "deleting host device")
     public boolean deleteHostDevice(Long id) {
         if (id == null) {
             throw new InvalidParameterValueException("Could not delete host device because no ID was provided.");
@@ -1301,21 +1302,24 @@ public class HostDevicesManagerImpl extends ManagerBase implements HostDevicesMa
                 throw new InvalidParameterValueException("Could not delete host device because no device was found with the provided ID.");
             }
 
-            if (HostDevice.State.Attached.equals(device.getState())) {
-                logger.error("Could not delete host device [{}] because it is attached to VM {}.", device.getPciName(), device.getInstanceId());
-                throw new InvalidParameterValueException("Could not delete host device because it is attached to a VM. Please, unattach it first.");
+            if (device.isCompanionFunction()) {
+                logger.error("Could not delete host device [{}] because it is a companion function of the device with ID {}.", device.getPciName(), device.getParentDeviceId());
+                throw new InvalidParameterValueException("Could not delete a companion function. Please, delete its main function instead.");
             }
 
-            logger.info("Marking host device [{}] from host [{}] as removed in the database.", device.getPciName(), device.getHostId());
-            device.setState(HostDevice.State.Removed);
+            if (device.getInstanceId() != null) {
+                logger.error("Could not delete host device [{}] because it is allocated to VM {}.", device.getPciName(), device.getInstanceId());
+                throw new InvalidParameterValueException("Could not delete host device because it is allocated to a VM. Please, release it from the VM first.");
+            }
+
+            logger.info("Removing host device [{}] from host [{}].", device.getPciName(), device.getHostId());
             hostDeviceDao.remove(id);
 
             List<HostDeviceVO> companions = hostDeviceDao.listAndLockCompanionDevices(List.of(device.getId()));
-            logger.debug("Found {} companion functions for host device [{}]. Deleting them.", companions.size(), device.getPciName());
+            logger.debug("Found {} companion functions for host device [{}]. Removing them.", companions.size(), device.getPciName());
 
             for (HostDeviceVO companion : companions) {
-                logger.info("Marking [{}] companion host device [{}] as removed in the database.", device.getPciName(), companion.getPciName());
-                companion.setState(HostDevice.State.Removed);
+                logger.info("Removing companion function [{}] of host device [{}].", companion.getPciName(), device.getPciName());
                 hostDeviceDao.remove(companion.getId());
             }
 
