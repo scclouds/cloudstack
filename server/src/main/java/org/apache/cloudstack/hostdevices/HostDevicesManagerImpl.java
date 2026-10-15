@@ -225,6 +225,12 @@ public class HostDevicesManagerImpl extends ManagerBase implements HostDevicesMa
             }
 
             hostsForScan = hostDao.listAllRoutingHostsUpInClusters(List.of(clusterId), Hypervisor.HypervisorType.KVM);
+
+            if (hostsForScan.isEmpty()) {
+                logger.debug("No suitable KVM hosts found in cluster with ID {}", clusterId);
+                throw new InvalidParameterValueException("No suitable KVM hosts found in cluster with id " + clusterId);
+            }
+
             return hostsForScan;
         }
 
