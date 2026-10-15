@@ -69,7 +69,7 @@ public class ListDeviceOfferingsCmd extends BaseListCmd {
     @Parameter(name = ApiConstants.STATE, type = CommandType.STRING, description = "The state of the device offering. Possible states are: Active and Inactive. By default, devices in the Inactive state will be hidden.")
     private String state;
 
-    @Parameter(name = ApiConstants.LIST_ALL, type = CommandType.BOOLEAN, description = "False (default) lists, for ROOT admins, only the device offerings that are not dedicated to a domain (the public ones and the ones dedicated to a zone), and, for the other accounts, those plus the ones dedicated to the domain of the calling account and its parent domains. True lists all device offerings for ROOT admins, and also the ones dedicated to the subdomains for domain admins. It has no effect for the other accounts.")
+    @Parameter(name = ApiConstants.LIST_ALL, type = CommandType.BOOLEAN, description = "True lists, for domain admins, the device offerings dedicated to their subdomains in addition to the ones they can already see. It has no effect for the other accounts. ROOT admins always list all device offerings, and the other accounts list the ones that are not dedicated to a domain, plus the ones dedicated to their own domain and its parent domains.")
     private Boolean listAll;
 
     public Long getId() {

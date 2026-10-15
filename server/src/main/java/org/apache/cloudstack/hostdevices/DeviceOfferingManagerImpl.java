@@ -262,10 +262,6 @@ public class DeviceOfferingManagerImpl extends ManagerBase implements DeviceOffe
             }
         }
 
-        if (isRootAdmin && !showAll && domainId == null) {
-            visibleDomainIds = new ArrayList<>();
-        }
-
         Filter filter = new Filter(DeviceOfferingVO.class, "id", true, listDeviceOfferingsCmd.getStartIndex(), listDeviceOfferingsCmd.getPageSizeVal());
         Pair<List<DeviceOfferingVO>, Integer> result = deviceOfferingDao.listDeviceOfferings(listDeviceOfferingsCmd.getId(), name, domainId, visibleDomainIds, zoneId, deviceTags, state, filter);
 
