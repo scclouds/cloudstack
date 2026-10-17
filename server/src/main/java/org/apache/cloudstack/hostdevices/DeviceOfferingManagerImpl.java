@@ -116,8 +116,8 @@ public class DeviceOfferingManagerImpl extends ManagerBase implements DeviceOffe
         }
 
         if (domainId != null && zoneId != null) {
-            logger.error("Cancelling device offering creation because both domainId and zoneId parameters were provided, and they are mutually exclusive.");
-            throw new InvalidParameterValueException("Only one of domainId or zoneId can be specified, not both.");
+            logger.error("Cancelling device offering creation because both domainid and zoneid parameters were provided, and they are mutually exclusive.");
+            throw new InvalidParameterValueException("Only one of domainid or zoneid can be specified, not both.");
         }
 
         Map<String, Integer> tagToAmount = parseDeviceOfferingTagsParameter(cmd.getTags());
