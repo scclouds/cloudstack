@@ -38,6 +38,8 @@ import javax.inject.Inject;
 @APICommand(name = "assignVirtualMachineToDeviceOffering",
         description = "Assigns a device offering to a virtual machine.",
         responseObject = SuccessResponse.class,
+        requestHasSensitiveInfo = false,
+        responseHasSensitiveInfo = false,
         since = "4.23.0.0",
         authorized = {RoleType.Admin, RoleType.DomainAdmin, RoleType.ResourceAdmin, RoleType.User}
 )
