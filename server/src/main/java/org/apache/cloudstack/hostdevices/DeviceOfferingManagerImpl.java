@@ -286,7 +286,7 @@ public class DeviceOfferingManagerImpl extends ManagerBase implements DeviceOffe
 
         if (visibleDomainIds != null && !visibleDomainIds.contains(domainId)) {
             logger.error("Domain with ID [{}] is not visible to the caller, so its device offerings cannot be listed.", domainId);
-            throw new PermissionDeniedException(String.format("The account does not fall in the same domain hierarchy as the domain [%s].", domainId));
+            throw new PermissionDeniedException("The account does not have access to the device offerings of the informed domain.");
         }
     }
 
