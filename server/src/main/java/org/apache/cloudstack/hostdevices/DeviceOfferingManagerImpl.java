@@ -179,7 +179,7 @@ public class DeviceOfferingManagerImpl extends ManagerBase implements DeviceOffe
 
         if (!DeviceOffering.State.Active.equals(deviceOffering.getState())) {
             logger.error("Could not assign device offering [{}] to VM [{}], because the offering is in the [{}] state.", deviceOfferingId, virtualMachineId, deviceOffering.getState());
-            throw new InvalidParameterValueException("The device offering is the Inactive state. Only Active device offerings can be assigned to VMs.");
+            throw new InvalidParameterValueException("The device offering is in the Inactive state. Only Active device offerings can be assigned to VMs.");
         }
 
         VMInstanceDeviceOfferingsVO existingAssignmentForVM = vmInstanceDeviceOfferingsDao.findByVmIdAndDeviceId(virtualMachineId, deviceOfferingId);
