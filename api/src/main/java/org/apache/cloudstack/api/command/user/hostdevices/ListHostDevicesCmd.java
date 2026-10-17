@@ -27,6 +27,7 @@ import org.apache.cloudstack.api.BaseListCmd;
 import org.apache.cloudstack.api.Parameter;
 import org.apache.cloudstack.api.ServerApiException;
 import org.apache.cloudstack.api.response.AccountResponse;
+import org.apache.cloudstack.api.response.DomainResponse;
 import org.apache.cloudstack.api.response.HostDeviceResponse;
 import org.apache.cloudstack.api.response.HostResponse;
 import org.apache.cloudstack.api.response.ListResponse;
@@ -59,6 +60,10 @@ public class ListHostDevicesCmd extends BaseListCmd {
     @Parameter(name = ApiConstants.ACCOUNT_ID, type = CommandType.UUID, entityType = AccountResponse.class, description = "The device's allocator account ID.", authorized = {RoleType.Admin, RoleType.DomainAdmin, RoleType.ResourceAdmin})
     private Long accountId;
 
+    @ACL
+    @Parameter(name = ApiConstants.DOMAIN_ID, type = CommandType.UUID, entityType = DomainResponse.class, description = "The device's allocator domain ID. Lists only the host devices allocated to accounts of the informed domain. Domain admins can inform only their own domain (domain admins asking for all host devices can also inform their subdomains).", authorized = {RoleType.Admin, RoleType.DomainAdmin, RoleType.ResourceAdmin})
+    private Long domainId;
+
     @Parameter(name = ApiConstants.HOST_ID, type = CommandType.UUID, entityType = HostResponse.class, description = "The device's host ID.", authorized = {RoleType.Admin})
     private Long hostId;
 
@@ -84,6 +89,10 @@ public class ListHostDevicesCmd extends BaseListCmd {
 
     public Long getAccountId() {
         return accountId;
+    }
+
+    public Long getDomainId() {
+        return domainId;
     }
 
     public Long getHostId() {

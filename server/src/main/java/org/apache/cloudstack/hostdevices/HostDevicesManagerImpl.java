@@ -541,6 +541,26 @@ public class HostDevicesManagerImpl extends ManagerBase implements HostDevicesMa
         accountId = accountIdDomainsList.first();
         List<Long> domainIds = accountIdDomainsList.second();
 
+        Long domainId = cmd.getDomainId();
+        if (domainId != null) {
+            if (domainDao.findById(domainId) == null) {
+                logger.debug("Domain with ID {} was not found", domainId);
+                throw new InvalidParameterValueException("Could not find the informed domain.");
+            }
+
+            if (!caller.getType().equals(Account.Type.ADMIN) && !domainId.equals(caller.getDomainId())
+                    && !(cmd.listAll() && caller.getType().equals(Account.Type.DOMAIN_ADMIN) && domainDao.isChildDomain(caller.getDomainId(), domainId))) {
+                logger.error("Domain with ID [{}] is not visible to the caller, so its host devices cannot be listed.", domainId);
+                throw new PermissionDeniedException("The account does not have access to the host devices of the informed domain.");
+            }
+
+            if (cmd.getAccountId() == null) {
+                accountId = null;
+            }
+
+            domainIds = List.of(domainId);
+        }
+
         Filter filter = new Filter(HostDeviceVO.class, "id", true, cmd.getStartIndex(), cmd.getPageSizeVal());
         Pair<List<HostDeviceVO>, Integer> result = hostDeviceDao.listHostDevices(hostDeviceId, cmd.getParentId(), accountId, domainIds, hostId, virtualMachineId, deviceTag, cmd.getKeyword(), state, type, filter);
 
