@@ -62,7 +62,7 @@ public class ListHostDevicesCmd extends BaseListCmd {
     private Long accountId;
 
     @ACL
-    @Parameter(name = ApiConstants.HOST_ID, type = CommandType.UUID, entityType = HostResponse.class, description = "The device's host ID.", authorized = {RoleType.Admin, RoleType.DomainAdmin})
+    @Parameter(name = ApiConstants.HOST_ID, type = CommandType.UUID, entityType = HostResponse.class, description = "The device's host ID.", authorized = {RoleType.Admin})
     private Long hostId;
 
     @ACL
