@@ -68,6 +68,7 @@ public class XmlObjectParser {
             if (currentValue != null) {
                 currObj.setText(currentValue);
             }
+            currentValue = null;
 
             if (stack.isEmpty()) {
                 root = currObj;
@@ -77,6 +78,9 @@ public class XmlObjectParser {
         @Override
         public void characters(char[] ch, int start, int length) throws SAXException {
             StringBuilder str = new StringBuilder();
+            if (currentValue != null) {
+                str.append(currentValue);
+            }
             str.append(ch, start, length);
             currentValue = str.toString();
         }
