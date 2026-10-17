@@ -373,7 +373,7 @@ public class DeviceOfferingManagerImpl extends ManagerBase implements DeviceOffe
 
             if (deviceOffering == null) {
                 logger.error("Device offering with ID [{}] could not be found.", id);
-                throw new InvalidParameterValueException(String.format("Could not find device offering with ID [%s].", id));
+                throw new InvalidParameterValueException("Could not find the informed device offering.");
             }
 
             if (deviceTags != null) {
@@ -431,14 +431,14 @@ public class DeviceOfferingManagerImpl extends ManagerBase implements DeviceOffe
 
                 if (deviceOffering == null) {
                     logger.error("Device offering with ID [{}] could not be found.", id);
-                    throw new InvalidParameterValueException(String.format("Could not find device offering with ID [%s].", id));
+                    throw new InvalidParameterValueException("Could not find the informed device offering.");
                 }
 
                 List<VMInstanceDeviceOfferingsVO> assignedVMs = vmInstanceDeviceOfferingsDao.listByOfferingId(id);
 
                 if (CollectionUtils.isNotEmpty(assignedVMs)) {
                     logger.error("Cannot delete device offering with ID [{}] because the following VMs are still assigned to it: {}.", id, assignedVMs.stream().map(VMInstanceDeviceOfferingsVO::getVirtualMachineId).collect(Collectors.toList()));
-                    throw new InvalidParameterValueException(String.format("Cannot delete device offering with ID [%s] because it is still assigned to VMs.", id));
+                    throw new InvalidParameterValueException(String.format("Cannot delete device offering with ID [%s] because it is still assigned to VMs.", deviceOffering.getUuid()));
                 }
 
                 deviceOffering.setState(DeviceOffering.State.Inactive);
