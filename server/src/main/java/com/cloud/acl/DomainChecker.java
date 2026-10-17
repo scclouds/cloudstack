@@ -534,12 +534,11 @@ public class DomainChecker extends AdapterBase implements SecurityChecker {
                     || _accountService.isDomainAdmin(account.getId())
                     || account.getType() == Account.Type.PROJECT) {
                 final Long deviceOfferingDomainId = deviceOffering.getDomainId();
-                if (deviceOfferingDomainId == null) {
+                if (deviceOfferingDomainId == null || _domainDao.isChildDomain(deviceOfferingDomainId, account.getDomainId())) {
                     hasAccess = true;
                 } else {
-                        if (_domainDao.isChildDomain(deviceOfferingDomainId, account.getDomainId())) {
-                            hasAccess = true;
-                        }
+                    throw new PermissionDeniedException(String.format("Device offering [%s] is not available to the domain of account [%s].",
+                            deviceOffering.getUuid(), account.getAccountName()));
                 }
             }
         }
@@ -547,10 +546,9 @@ public class DomainChecker extends AdapterBase implements SecurityChecker {
         // Check for zones
         if (hasAccess && deviceOffering != null && zone != null) {
             Long deviceOfferingZoneId = deviceOffering.getZoneId();
-            if (deviceOfferingZoneId == null) {
-                hasAccess = true;
-            } else {
-                hasAccess = deviceOfferingZoneId == zone.getId();
+            if (deviceOfferingZoneId != null && deviceOfferingZoneId != zone.getId()) {
+                throw new PermissionDeniedException(String.format("Device offering [%s] is not available in zone [%s].",
+                        deviceOffering.getUuid(), zone.getUuid()));
             }
         }
 

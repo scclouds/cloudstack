@@ -4299,7 +4299,8 @@ public class AccountManagerImpl extends ManagerBase implements AccountManager, M
             }
         }
 
-        throw new PermissionDeniedException("There's no way to confirm " + account + " has access to " + deviceOffering);
+        throw new PermissionDeniedException(String.format("There's no way to confirm that account [%s] has access to device offering [%s].",
+                account.getAccountName(), deviceOffering.getUuid()));
     }
 
     @Override

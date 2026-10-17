@@ -623,7 +623,7 @@ public class HostDevicesManagerImpl extends ManagerBase implements HostDevicesMa
         Boolean oneTimeUse = updateHostDeviceCmd.getOneTimeUse();
 
         if (ObjectUtils.allNull(enabled, displayName, tag, type, oneTimeUse)) {
-            throw new InvalidParameterValueException("At least one of the following parameters must be provided: enabled, displayName, tags, type, onetimeuse");
+            throw new InvalidParameterValueException("At least one of the following parameters must be provided: enabled, displayname, devicetag, type, onetimeuse");
         }
 
         if (tag != null) {
