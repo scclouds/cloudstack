@@ -178,8 +178,8 @@ public class HostDevicesManagerImpl extends ManagerBase implements HostDevicesMa
         List<HostVO> hostsListForDeviceScan = getHostsListForDeviceScan(zoneId, clusterId, hostId);
 
         if (hostsListForDeviceScan == null) {
-            logger.error("At least one of the parameters (zoneId, clusterId, hostId) must be provided.");
-            throw new InvalidParameterValueException("Failed to retrieve hosts for device scan.");
+            logger.error("At least one of the parameters (zoneid, clusterid, hostid) must be provided.");
+            throw new InvalidParameterValueException("At least one of the following parameters must be provided: hostid, clusterid, zoneid.");
         }
 
         logger.debug("Selected {} hosts for device scan: {}", hostsListForDeviceScan.size(), hostsListForDeviceScan.stream().map(HostVO::getId).collect(Collectors.toList()));
