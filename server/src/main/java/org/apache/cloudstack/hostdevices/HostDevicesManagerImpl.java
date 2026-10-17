@@ -199,7 +199,7 @@ public class HostDevicesManagerImpl extends ManagerBase implements HostDevicesMa
             HostVO host = hostDao.findUpAndRoutingHypervisorHostById(hostId, Hypervisor.HypervisorType.KVM);
             if (host == null) {
                 logger.debug("Host with ID {} was either not found, is not in UP state, is not of Routing type or is not a KVM host.", hostId);
-                throw new InvalidParameterValueException("Host with id " + hostId + " not found or is not suitable for device scan.");
+                throw new InvalidParameterValueException("The informed host was not found or is not suitable for device scan.");
             }
 
             clusterId = host.getClusterId();
@@ -216,19 +216,19 @@ public class HostDevicesManagerImpl extends ManagerBase implements HostDevicesMa
 
             if (cluster == null) {
                 logger.debug("Cluster with ID {} was not found", clusterId);
-                throw new InvalidParameterValueException("Cluster with id " + clusterId + " is not suitable for device scan.");
+                throw new InvalidParameterValueException("Could not find the informed cluster.");
             }
 
             if (cluster.getHypervisorType() != Hypervisor.HypervisorType.KVM) {
                 logger.debug("Cluster {} is not valid for device scan because it is not a KVM cluster", cluster.getId());
-                throw new InvalidParameterValueException("Cluster with id " + clusterId + " is not suitable for device scan.");
+                throw new InvalidParameterValueException("Cluster with ID " + cluster.getUuid() + " is not suitable for device scan.");
             }
 
             hostsForScan = hostDao.listAllRoutingHostsUpInClusters(List.of(clusterId), Hypervisor.HypervisorType.KVM);
 
             if (hostsForScan.isEmpty()) {
                 logger.debug("No suitable KVM hosts found in cluster with ID {}", clusterId);
-                throw new InvalidParameterValueException("No suitable KVM hosts found in cluster with id " + clusterId);
+                throw new InvalidParameterValueException("No suitable KVM hosts found in the informed cluster.");
             }
 
             return hostsForScan;
@@ -239,7 +239,7 @@ public class HostDevicesManagerImpl extends ManagerBase implements HostDevicesMa
 
             if (clusters.isEmpty()) {
                 logger.debug("No suitable KVM clusters found in zone with ID {}", zoneId);
-                throw new InvalidParameterValueException("No suitable KVM clusters found in zone with id " + zoneId);
+                throw new InvalidParameterValueException("No suitable KVM clusters found in the informed zone.");
             }
 
             logger.debug("Found the following clusters for device scan {}", clusters);
@@ -247,7 +247,7 @@ public class HostDevicesManagerImpl extends ManagerBase implements HostDevicesMa
 
             if (hostsForScan.isEmpty()) {
                 logger.debug("No suitable KVM hosts found in zone with ID {}", zoneId);
-                throw new InvalidParameterValueException("No suitable KVM hosts found in zone with id " + zoneId);
+                throw new InvalidParameterValueException("No suitable KVM hosts found in the informed zone.");
             }
 
             return hostsForScan;
@@ -510,7 +510,7 @@ public class HostDevicesManagerImpl extends ManagerBase implements HostDevicesMa
 
             if (host == null) {
                 logger.debug("Host with ID {} was not found", hostId);
-                throw new InvalidParameterValueException("Host with id " + hostId + " was not found.");
+                throw new InvalidParameterValueException("Could not find the informed host.");
             }
         }
 
@@ -519,7 +519,7 @@ public class HostDevicesManagerImpl extends ManagerBase implements HostDevicesMa
 
             if (vm == null) {
                 logger.debug("Virtual machine with ID {} was not found", virtualMachineId);
-                throw new InvalidParameterValueException("Virtual machine with id " + virtualMachineId + " was not found.");
+                throw new InvalidParameterValueException("Could not find the informed virtual machine.");
             }
 
             accountManager.checkAccess(caller, null, true, vm);
@@ -531,7 +531,7 @@ public class HostDevicesManagerImpl extends ManagerBase implements HostDevicesMa
 
             if (account == null) {
                 logger.debug("Account with ID {} was not found", accountId);
-                throw new InvalidParameterValueException("Account with id " + accountId + " was not found.");
+                throw new InvalidParameterValueException("Could not find the informed account.");
             }
 
             accountManager.checkAccess(caller, null, true, account);

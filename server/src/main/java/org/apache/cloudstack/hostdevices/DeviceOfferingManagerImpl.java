@@ -204,7 +204,7 @@ public class DeviceOfferingManagerImpl extends ManagerBase implements DeviceOffe
 
         if (!VirtualMachine.State.Stopped.equals(vm.getState())) {
             logger.error("VM with ID [{}] is not stopped, cannot remove device offering. Current state is [{}].", virtualMachineId, vm.getState());
-            throw new InvalidParameterValueException(String.format("VM with ID [%s] is not stopped. Current state is [%s]. Please stop it to remove device offering.", virtualMachineId, vm.getState()));
+            throw new InvalidParameterValueException(String.format("VM with ID [%s] is not stopped. Current state is [%s]. Please stop it to remove device offering.", vm.getUuid(), vm.getState()));
         }
 
         DeviceOfferingVO offering = getDeviceOfferingAndCheckAccess(deviceOfferingId, caller, vm);
@@ -258,7 +258,7 @@ public class DeviceOfferingManagerImpl extends ManagerBase implements DeviceOffe
 
             if (dataCenter == null) {
                 logger.error("Zone with ID [{}] could not be found.", zoneId);
-                throw new InvalidParameterValueException(String.format("Could not find zone with ID [%s].", zoneId));
+                throw new InvalidParameterValueException("Could not find the informed zone.");
             }
         }
 
@@ -281,7 +281,7 @@ public class DeviceOfferingManagerImpl extends ManagerBase implements DeviceOffe
     private void validateDomainFilter(Long domainId, List<Long> visibleDomainIds) {
         if (domainDao.findById(domainId) == null) {
             logger.error("Domain with ID [{}] could not be found.", domainId);
-            throw new InvalidParameterValueException(String.format("Could not find domain with ID [%s].", domainId));
+            throw new InvalidParameterValueException("Could not find the informed domain.");
         }
 
         if (visibleDomainIds != null && !visibleDomainIds.contains(domainId)) {
@@ -485,7 +485,7 @@ public class DeviceOfferingManagerImpl extends ManagerBase implements DeviceOffe
 
         if (vm == null) {
             logger.error("VM with ID [{}] could not be found.", virtualMachineId);
-            throw new InvalidParameterValueException(String.format("Could not find VM with ID [%s].", virtualMachineId));
+            throw new InvalidParameterValueException("Could not find the informed VM.");
         }
 
         accountManager.checkAccess(caller, null, true, vm);
@@ -498,7 +498,7 @@ public class DeviceOfferingManagerImpl extends ManagerBase implements DeviceOffe
 
         if (deviceOffering == null) {
             logger.error("Device offering with ID [{}] could not be found.", deviceOfferingId);
-            throw new InvalidParameterValueException(String.format("Could not find device offering with ID [%s].", deviceOfferingId));
+            throw new InvalidParameterValueException("Could not find the informed device offering.");
         }
 
         if (deviceOffering.getIsPublic() || accountManager.isRootAdmin(caller.getAccountId())) {
