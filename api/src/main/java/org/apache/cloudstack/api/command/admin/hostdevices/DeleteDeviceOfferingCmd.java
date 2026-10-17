@@ -20,7 +20,6 @@ package org.apache.cloudstack.api.command.admin.hostdevices;
 import com.cloud.exception.ConcurrentOperationException;
 import com.cloud.user.Account;
 import org.apache.cloudstack.acl.RoleType;
-import org.apache.cloudstack.api.ACL;
 import org.apache.cloudstack.api.APICommand;
 import org.apache.cloudstack.api.ApiConstants;
 import org.apache.cloudstack.api.ApiErrorCode;
@@ -44,7 +43,6 @@ public class DeleteDeviceOfferingCmd extends BaseCmd {
     @Inject
     private DeviceOfferingManager deviceOfferingManager;
 
-    @ACL
     @Parameter(name = ApiConstants.ID, type = CommandType.UUID, required = true, entityType = DeviceOfferingResponse.class, description = "the ID of the device offering to be removed")
     private Long id;
 

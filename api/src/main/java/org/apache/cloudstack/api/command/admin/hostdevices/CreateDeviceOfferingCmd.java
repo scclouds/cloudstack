@@ -60,7 +60,6 @@ public class CreateDeviceOfferingCmd extends BaseCmd {
     @Parameter(name = ApiConstants.DOMAIN_ID, type = CommandType.UUID, entityType = DomainResponse.class, required = false, description = "the domain for the device offering to be dedicated to. Mutually exclusive with the zoneId parameter.")
     private Long domainId;
 
-    @ACL
     @Parameter(name = ApiConstants.ZONE_ID, type = CommandType.UUID, entityType = ZoneResponse.class, required = false, description = "the zone for device offering to be dedicated to. Mutually exclusive with the domainId parameter.")
     private Long zoneId;
 

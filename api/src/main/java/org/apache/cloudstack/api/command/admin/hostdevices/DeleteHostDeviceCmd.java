@@ -23,7 +23,6 @@ import com.cloud.exception.ResourceAllocationException;
 import com.cloud.exception.ResourceUnavailableException;
 import com.cloud.user.Account;
 import org.apache.cloudstack.acl.RoleType;
-import org.apache.cloudstack.api.ACL;
 import org.apache.cloudstack.api.APICommand;
 import org.apache.cloudstack.api.ApiConstants;
 import org.apache.cloudstack.api.ApiErrorCode;
@@ -47,7 +46,6 @@ public class DeleteHostDeviceCmd extends BaseCmd {
     @Inject
     private HostDevicesManager hostDevicesManager;
 
-    @ACL
     @Parameter(name = ApiConstants.ID, type = CommandType.UUID, entityType = HostDeviceResponse.class, required = true, description = "The ID of the host device to delete")
     private Long id;
 

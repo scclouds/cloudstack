@@ -48,7 +48,6 @@ public class ListDeviceOfferingsCmd extends BaseListCmd {
     @Inject
     private DeviceOfferingManager deviceOfferingManager;
 
-    @ACL
     @Parameter(name = ApiConstants.ID, type = CommandType.UUID, entityType = DeviceOfferingResponse.class, description = "The ID of the device offerings")
     private Long id;
 
@@ -59,7 +58,6 @@ public class ListDeviceOfferingsCmd extends BaseListCmd {
     @Parameter(name = ApiConstants.DOMAIN_ID, type = CommandType.UUID, entityType = DomainResponse.class, description = "The device offering's domain ID. Lists only the device offerings dedicated to the informed domain. Non-ROOT accounts can inform only the domains they can see: their own domain and its parent domains (domain admins asking for all device offerings can also inform their subdomains).")
     private Long domainId;
 
-    @ACL
     @Parameter(name = ApiConstants.ZONE_ID, type = CommandType.UUID, entityType = ZoneResponse.class, description = "The device offering's zone ID. Lists the device offerings dedicated to the informed zone and the ones that are not dedicated to any zone.")
     private Long zoneId;
 

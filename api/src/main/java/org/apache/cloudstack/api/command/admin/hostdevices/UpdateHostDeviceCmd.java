@@ -23,7 +23,6 @@ import com.cloud.exception.NetworkRuleConflictException;
 import com.cloud.exception.ResourceAllocationException;
 import com.cloud.exception.ResourceUnavailableException;
 import org.apache.cloudstack.acl.RoleType;
-import org.apache.cloudstack.api.ACL;
 import org.apache.cloudstack.api.APICommand;
 import org.apache.cloudstack.api.ApiConstants;
 import org.apache.cloudstack.api.BaseCmd;
@@ -51,7 +50,6 @@ public class UpdateHostDeviceCmd extends BaseCmd  {
     //////////////// API parameters /////////////////////
     /////////////////////////////////////////////////////
 
-    @ACL
     @Parameter(name = ApiConstants.ID, type = CommandType.UUID, entityType = HostDeviceResponse.class,
             required = true, description = "The ID of the host device to be updated")
     private Long deviceId;

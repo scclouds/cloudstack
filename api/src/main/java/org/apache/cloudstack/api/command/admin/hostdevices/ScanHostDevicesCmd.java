@@ -21,7 +21,6 @@ import com.cloud.event.EventTypes;
 import com.cloud.exception.ConcurrentOperationException;
 import com.cloud.user.Account;
 import org.apache.cloudstack.acl.RoleType;
-import org.apache.cloudstack.api.ACL;
 import org.apache.cloudstack.api.APICommand;
 import org.apache.cloudstack.api.ApiConstants;
 import org.apache.cloudstack.api.ApiCommandResourceType;
@@ -52,17 +51,14 @@ public class ScanHostDevicesCmd extends BaseAsyncCmd {
     //////////////// API parameters /////////////////////
     /////////////////////////////////////////////////////
 
-    @ACL
     @Parameter(name = ApiConstants.HOST_ID, type = CommandType.UUID, entityType = HostResponse.class,
             required = false, description = "The ID of the host to scan for PCI devices")
     private Long hostId;
 
-    @ACL
     @Parameter(name = ApiConstants.CLUSTER_ID, type = CommandType.UUID, entityType = ClusterResponse.class,
             required = false, description = "The ID of the cluster to scan for PCI devices")
     private Long clusterId;
 
-    @ACL
     @Parameter(name = ApiConstants.ZONE_ID, type = CommandType.UUID, entityType = ZoneResponse.class,
             required = false, description = "The ID of the zone to scan for PCI devices")
     private Long zoneId;

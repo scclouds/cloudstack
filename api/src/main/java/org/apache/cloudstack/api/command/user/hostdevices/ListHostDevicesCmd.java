@@ -49,11 +49,9 @@ public class ListHostDevicesCmd extends BaseListCmd {
     @Inject
     private HostDevicesManager hostDevicesManager;
 
-    @ACL
     @Parameter(name = ApiConstants.ID, type = CommandType.UUID, entityType = HostDeviceResponse.class, description = "The ID of the host device")
     private Long id;
 
-    @ACL
     @Parameter(name = ApiConstants.PARENT_ID, type = CommandType.UUID, entityType = HostDeviceResponse.class, description = "The ID of the main function (function 0) of a multi-function device. Lists its companion functions, which are hidden from the listing by default.", since = "4.23.0.0")
     private Long parentId;
 
@@ -61,7 +59,6 @@ public class ListHostDevicesCmd extends BaseListCmd {
     @Parameter(name = ApiConstants.ACCOUNT_ID, type = CommandType.UUID, entityType = AccountResponse.class, description = "The device's allocator account ID.", authorized = {RoleType.Admin, RoleType.DomainAdmin})
     private Long accountId;
 
-    @ACL
     @Parameter(name = ApiConstants.HOST_ID, type = CommandType.UUID, entityType = HostResponse.class, description = "The device's host ID.", authorized = {RoleType.Admin})
     private Long hostId;
 
