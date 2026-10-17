@@ -19,6 +19,8 @@ package org.apache.cloudstack.api.command.user.hostdevices;
 
 import com.cloud.exception.ConcurrentOperationException;
 import com.cloud.exception.ResourceAllocationException;
+import com.cloud.user.Account;
+import com.cloud.uservm.UserVm;
 import org.apache.cloudstack.acl.RoleType;
 import org.apache.cloudstack.api.APICommand;
 import org.apache.cloudstack.api.ApiConstants;
@@ -29,7 +31,6 @@ import org.apache.cloudstack.api.ServerApiException;
 import org.apache.cloudstack.api.response.DeviceOfferingResponse;
 import org.apache.cloudstack.api.response.SuccessResponse;
 import org.apache.cloudstack.api.response.UserVmResponse;
-import org.apache.cloudstack.context.CallContext;
 
 import org.apache.cloudstack.hostdevices.DeviceOfferingManager;
 
@@ -93,6 +94,12 @@ public class AssignVirtualMachineToDeviceOfferingCmd extends BaseCmd {
 
     @Override
     public long getEntityOwnerId() {
-        return CallContext.current().getCallingAccount().getId();
+        UserVm vm = _responseGenerator.findUserVmById(virtualMachineId);
+
+        if (vm != null) {
+            return vm.getAccountId();
+        }
+
+        return Account.ACCOUNT_ID_SYSTEM;
     }
 }
