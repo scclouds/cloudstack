@@ -29,103 +29,103 @@ import java.util.Date;
 @EntityReference(value = HostDevice.class)
 public class HostDeviceResponse extends BaseResponse {
     @SerializedName(ApiConstants.ID)
-    @Param(description = "the ID of the host device", since = "24.0.0")
+    @Param(description = "the ID of the host device", since = "4.23.0.0")
     private String id;
 
     @SerializedName(ApiConstants.DISPLAY_NAME)
-    @Param(description = "the display name of the host device", since = "24.0.0")
+    @Param(description = "the display name of the host device", since = "4.23.0.0")
     private String displayName;
 
     @SerializedName(ApiConstants.PCI_NAME)
-    @Param(description = "the unique PCI identifier of the host device", since = "24.0.0")
+    @Param(description = "the unique PCI identifier of the host device", since = "4.23.0.0")
     private String pciName;
 
     @SerializedName(ApiConstants.PCI_DOMAIN)
-    @Param(description = "the PCI domain of the host device", since = "24.0.0")
+    @Param(description = "the PCI domain of the host device", since = "4.23.0.0")
     private String pciDomain;
 
     @SerializedName(ApiConstants.PCI_CLASS)
-    @Param(description = "the PCI class of the host device", since = "24.0.0")
+    @Param(description = "the PCI class of the host device", since = "4.23.0.0")
     private String pciClass;
 
     @SerializedName(ApiConstants.PCI_BUS)
-    @Param(description = "the PCI bus of the host device", since = "24.0.0")
+    @Param(description = "the PCI bus of the host device", since = "4.23.0.0")
     private String pciBus;
 
     @SerializedName(ApiConstants.PCI_SLOT)
-    @Param(description = "the PCI slot of the host device", since = "24.0.0")
+    @Param(description = "the PCI slot of the host device", since = "4.23.0.0")
     private String pciSlot;
 
     @SerializedName(ApiConstants.PCI_FUNCTION)
-    @Param(description = "the PCI function of the host device", since = "24.0.0")
+    @Param(description = "the PCI function of the host device", since = "4.23.0.0")
     private String pciFunction;
 
     @SerializedName(ApiConstants.VENDOR_ID)
-    @Param(description = "the vendor identifier of the host device", since = "24.0.0")
+    @Param(description = "the vendor identifier of the host device", since = "4.23.0.0")
     private String vendorId;
 
     @SerializedName(ApiConstants.DEVICE_ID)
-    @Param(description = "the device identifier of the host device, set by its vendor", since = "24.0.0")
+    @Param(description = "the device identifier of the host device, set by its vendor", since = "4.23.0.0")
     private String deviceId;
 
     @SerializedName(ApiConstants.DEVICE_TAG)
-    @Param(description = "the device tag used to match the host device against device offerings", since = "24.0.0")
+    @Param(description = "the device tag used to match the host device against device offerings", since = "4.23.0.0")
     private String deviceTag;
 
     @SerializedName(ApiConstants.CREATED)
-    @Param(description = "the date the host device was registered", since = "24.0.0")
+    @Param(description = "the date the host device was registered", since = "4.23.0.0")
     private Date created;
 
     @SerializedName(ApiConstants.REMOVED)
-    @Param(description = "the date the host device was removed", since = "24.0.0")
+    @Param(description = "the date the host device was removed", since = "4.23.0.0")
     private Date removed;
 
     @SerializedName(ApiConstants.STATE)
-    @Param(description = "the state of the host device", since = "24.0.0")
+    @Param(description = "the state of the host device", since = "4.23.0.0")
     private String state;
 
     @SerializedName(ApiConstants.TYPE)
-    @Param(description = "the type of the host device", since = "24.0.0")
+    @Param(description = "the type of the host device", since = "4.23.0.0")
     private String type;
 
     @SerializedName(ApiConstants.VIRTUAL_MACHINE_ID)
-    @Param(description = "the ID of the Instance the host device is attached to", since = "24.0.0")
+    @Param(description = "the ID of the Instance the host device is attached to", since = "4.23.0.0")
     private String virtualMachineId;
 
     @SerializedName(ApiConstants.VIRTUAL_MACHINE_NAME)
-    @Param(description = "the name of the Instance the host device is attached to", since = "24.0.0")
+    @Param(description = "the name of the Instance the host device is attached to", since = "4.23.0.0")
     private String virtualMachineName;
 
     @SerializedName(ApiConstants.ACCOUNT_ID)
-    @Param(description = "the ID of the account the host device is allocated to", since = "24.0.0")
+    @Param(description = "the ID of the account the host device is allocated to", since = "4.23.0.0")
     private String accountId;
 
     @SerializedName(ApiConstants.ACCOUNT)
-    @Param(description = "the name of the account the host device is allocated to", since = "24.0.0")
+    @Param(description = "the name of the account the host device is allocated to", since = "4.23.0.0")
     private String account;
 
     @SerializedName(ApiConstants.DOMAIN_ID)
-    @Param(description = "the ID of the domain the host device is allocated to", since = "24.0.0")
+    @Param(description = "the ID of the domain the host device is allocated to", since = "4.23.0.0")
     private String domainId;
 
     @SerializedName(ApiConstants.DOMAIN)
-    @Param(description = "the name of the domain the host device is allocated to", since = "24.0.0")
+    @Param(description = "the name of the domain the host device is allocated to", since = "4.23.0.0")
     private String domain;
 
     @SerializedName(ApiConstants.HOST_ID)
-    @Param(description = "the ID of the host the device belongs to", since = "24.0.0")
+    @Param(description = "the ID of the host the device belongs to", since = "4.23.0.0")
     private String hostId;
 
     @SerializedName(ApiConstants.HOST_NAME)
-    @Param(description = "the name of the host the device belongs to", since = "24.0.0")
+    @Param(description = "the name of the host the device belongs to", since = "4.23.0.0")
     private String hostName;
 
     @SerializedName(ApiConstants.ONE_TIME_USE)
-    @Param(description = "indicates if the host device is for one-time use only", since = "24.0.0")
+    @Param(description = "indicates if the host device is for one-time use only", since = "4.23.0.0")
     private Boolean oneTimeUse;
 
     @SerializedName(ApiConstants.PARENT_ID)
-    @Param(description = "the ID of the main function (function 0) of the multi-function device, if this device is one of its companion functions", since = "24.0.0")
+    @Param(description = "the ID of the main function (function 0) of the multi-function device, if this device is one of its companion functions", since = "4.23.0.0")
     private String parentId;
 
     public String getId() {

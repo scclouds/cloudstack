@@ -38,6 +38,7 @@ import javax.inject.Inject;
         responseObject = SuccessResponse.class,
         requestHasSensitiveInfo = false,
         responseHasSensitiveInfo = false,
+        since = "4.23.0.0",
         authorized = {RoleType.Admin})
 public class DeleteDeviceOfferingCmd extends BaseCmd {
     @Inject

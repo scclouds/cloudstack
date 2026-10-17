@@ -38,7 +38,7 @@ import java.util.List;
         requestHasSensitiveInfo = false,
         responseHasSensitiveInfo = false,
         authorized = {RoleType.Admin},
-        since = "24.0.0")
+        since = "4.23.0.0")
 public class UpdateDeviceOfferingCmd extends BaseCmd {
     @Inject
     private DeviceOfferingManager deviceOfferingManager;

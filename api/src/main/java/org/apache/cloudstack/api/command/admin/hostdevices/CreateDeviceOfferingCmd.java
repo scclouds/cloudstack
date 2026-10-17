@@ -40,6 +40,7 @@ import java.util.List;
         responseObject = DeviceOfferingResponse.class,
         requestHasSensitiveInfo = false,
         responseHasSensitiveInfo = false,
+        since = "4.23.0.0",
         authorized = {RoleType.Admin})
 public class CreateDeviceOfferingCmd extends BaseCmd {
     @Inject

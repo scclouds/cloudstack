@@ -43,7 +43,7 @@ import java.util.List;
         responseObject = HostDeviceResponse.class,
         requestHasSensitiveInfo = false,
         responseHasSensitiveInfo = false,
-        since = "24.0.0",
+        since = "4.23.0.0",
         authorized = {RoleType.Admin, RoleType.DomainAdmin, RoleType.ResourceAdmin, RoleType.User})
 public class ListHostDevicesCmd extends BaseListCmd {
     @Inject
@@ -54,7 +54,7 @@ public class ListHostDevicesCmd extends BaseListCmd {
     private Long id;
 
     @ACL
-    @Parameter(name = ApiConstants.PARENT_ID, type = CommandType.UUID, entityType = HostDeviceResponse.class, description = "The ID of the main function (function 0) of a multi-function device. Lists its companion functions, which are hidden from the listing by default.", since = "24.0.0")
+    @Parameter(name = ApiConstants.PARENT_ID, type = CommandType.UUID, entityType = HostDeviceResponse.class, description = "The ID of the main function (function 0) of a multi-function device. Lists its companion functions, which are hidden from the listing by default.", since = "4.23.0.0")
     private Long parentId;
 
     @ACL

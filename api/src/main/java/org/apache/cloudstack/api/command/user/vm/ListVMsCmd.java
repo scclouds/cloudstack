@@ -185,11 +185,11 @@ public class ListVMsCmd extends BaseListRetrieveOnlyResourceCountCmd implements 
             since = "4.21.0")
     private Long extensionId;
 
-    @Parameter(name = ApiConstants.HOST_DEVICE_ID, type = CommandType.UUID, entityType = HostDeviceResponse.class, description = "The ID of the host device that should be attached to the VM")
+    @Parameter(name = ApiConstants.HOST_DEVICE_ID, type = CommandType.UUID, entityType = HostDeviceResponse.class, description = "The ID of the host device that should be attached to the VM", since = "4.23.0.0")
     private Long hostDeviceId;
-    @Parameter(name = ApiConstants.HAS_DEVICE_ATTACHED, type = CommandType.BOOLEAN, description = "Flag to indicate if the VM should have host devices attached. If set to true, only VMs that have host devices attached will be returned.")
+    @Parameter(name = ApiConstants.HAS_DEVICE_ATTACHED, type = CommandType.BOOLEAN, description = "Flag to indicate if the VM should have host devices attached. If set to true, only VMs that have host devices attached will be returned.", since = "4.23.0.0")
     private Boolean hasDeviceAttached;
-    @Parameter(name = ApiConstants.DEVICE_OFFERING_ID, type = CommandType.UUID, entityType = DeviceOfferingResponse.class, description = "The ID of the device offering that should be attached to the VM")
+    @Parameter(name = ApiConstants.DEVICE_OFFERING_ID, type = CommandType.UUID, entityType = DeviceOfferingResponse.class, description = "The ID of the device offering that should be attached to the VM", since = "4.23.0.0")
     private Long deviceOfferingId;
 
     /////////////////////////////////////////////////////
