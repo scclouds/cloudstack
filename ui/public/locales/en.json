@@ -931,6 +931,7 @@
 "label.devicetag": "Device tag",
 "label.device.tags": "Device tags",
 "label.device.offering": "Device Offering",
+"label.deviceofferingid": "Device Offering",
 "label.device.offerings": "Device Offerings",
 "label.dhcp": "DHCP",
 "label.direct.attached.public.ip": "Direct attached public IP",

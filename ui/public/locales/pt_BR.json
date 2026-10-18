@@ -840,6 +840,7 @@
 "label.devicetag": "Tag do dispositivo",
 "label.device.tags": "Tags do dispositivo",
 "label.device.offering": "Oferta de dispositivo",
+"label.deviceofferingid": "Oferta de dispositivo",
 "label.device.offerings": "Ofertas de dispositivo",
 "label.dhcp": "DHCP",
 "label.direct.attached.public.ip": "IP p\u00fablico conectado diretamente",
