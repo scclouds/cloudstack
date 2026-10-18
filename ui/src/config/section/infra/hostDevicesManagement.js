@@ -21,6 +21,7 @@ export default {
   icon: 'link-outlined',
   permission: ['listHostDevices'],
   columns: ['displayname', 'devicetag', 'state', 'type', 'virtualmachinename', 'account', 'domain', 'hostname'],
+  details: ['displayname', 'devicetag', 'state', 'type', 'onetimeuse', 'pciname', 'pcidomain', 'pciclass', 'pcibus', 'pcislot', 'pcifunction', 'vendorid', 'deviceid', 'virtualmachinename', 'account', 'domain', 'hostname', 'created'],
   actions: [
     {
       api: 'updateHostDevice',
