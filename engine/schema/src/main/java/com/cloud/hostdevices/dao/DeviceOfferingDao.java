@@ -28,7 +28,7 @@ import java.util.List;
 public interface DeviceOfferingDao extends GenericDao<DeviceOfferingVO, Long> {
     List<DeviceOfferingVO> listVirtualMachineDeviceOfferings(Long virtualMachineId);
 
-    Pair<List<DeviceOfferingVO>, Integer> listDeviceOfferings(Long id, String name, Long domainId, List<Long> visibleDomainIds, Long zoneId, List<String> deviceTags, DeviceOffering.State state, Filter filter);
+    Pair<List<DeviceOfferingVO>, Integer> listDeviceOfferings(Long id, String name, String keyword, Long domainId, List<Long> visibleDomainIds, Long zoneId, List<String> deviceTags, DeviceOffering.State state, Filter filter);
 
     DeviceOfferingVO findByName(String name);
 }

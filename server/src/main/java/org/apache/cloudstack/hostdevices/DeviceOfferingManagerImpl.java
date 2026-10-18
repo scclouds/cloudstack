@@ -263,7 +263,7 @@ public class DeviceOfferingManagerImpl extends ManagerBase implements DeviceOffe
         }
 
         Filter filter = new Filter(DeviceOfferingVO.class, "id", true, listDeviceOfferingsCmd.getStartIndex(), listDeviceOfferingsCmd.getPageSizeVal());
-        Pair<List<DeviceOfferingVO>, Integer> result = deviceOfferingDao.listDeviceOfferings(listDeviceOfferingsCmd.getId(), name, domainId, visibleDomainIds, zoneId, deviceTags, state, filter);
+        Pair<List<DeviceOfferingVO>, Integer> result = deviceOfferingDao.listDeviceOfferings(listDeviceOfferingsCmd.getId(), name, listDeviceOfferingsCmd.getKeyword(), domainId, visibleDomainIds, zoneId, deviceTags, state, filter);
 
         return new Pair<>(result.first(), result.second());
     }

@@ -25,6 +25,7 @@ import com.cloud.utils.db.SearchBuilder;
 import com.cloud.utils.db.SearchCriteria;
 import org.apache.cloudstack.hostdevices.DeviceOffering;
 import org.apache.commons.collections.CollectionUtils;
+import org.apache.commons.lang3.StringUtils;
 import org.springframework.stereotype.Component;
 
 import com.cloud.utils.Pair;
@@ -90,12 +91,16 @@ public class DeviceOfferingDaoImpl extends GenericDaoBase<DeviceOfferingVO, Long
     }
 
     @Override
-    public Pair<List<DeviceOfferingVO>, Integer> listDeviceOfferings(Long id, String name, Long domainId, List<Long> visibleDomainIds, Long zoneId, List<String> deviceTags, DeviceOffering.State state, Filter filter) {
+    public Pair<List<DeviceOfferingVO>, Integer> listDeviceOfferings(Long id, String name, String keyword, Long domainId, List<Long> visibleDomainIds, Long zoneId, List<String> deviceTags, DeviceOffering.State state, Filter filter) {
         SearchCriteria<DeviceOfferingVO> sc = getListSearchBuilder(visibleDomainIds != null, zoneId != null).create();
         sc.setParametersIfNotNull("id", id);
 
         if (name != null) {
             sc.setParameters("name", "%" + name + "%");
+        }
+
+        if (StringUtils.isNotBlank(keyword)) {
+            sc.setParameters("keyword", "%" + keyword + "%");
         }
 
         sc.setParametersIfNotNull("exactDomainId", domainId);
@@ -161,6 +166,7 @@ public class DeviceOfferingDaoImpl extends GenericDaoBase<DeviceOfferingVO, Long
         sc.and("id", sc.entity().getId(), SearchCriteria.Op.EQ);
         sc.and("ids", sc.entity().getId(), SearchCriteria.Op.IN);
         sc.and("name", sc.entity().getName(), SearchCriteria.Op.LIKE);
+        sc.and("keyword", sc.entity().getName(), SearchCriteria.Op.LIKE);
         sc.and("exactDomainId", sc.entity().getDomainId(), SearchCriteria.Op.EQ);
         sc.and("state", sc.entity().getState(), SearchCriteria.Op.EQ);
 
