@@ -2820,7 +2820,7 @@
 "message.action.release.ip": "Confirme que voc\u00ea deseja liberar este IP.",
 "message.action.release.reserved.ip": "Por favor, confirme que voc\u00ea deseja liberar este IP reservado.",
 "message.action.remove.host": "Por favor, confirme que voc\u00ea deseja remover este host.",
-"message.action.remove.device.offering": "Quando uma oferta de dispositivo \u00e9 removida, todos os dispositivos que foram alocados por essa oferta tamb\u00e9m serão removidos da inst\u00e2ncia. Quando dispositivos são removidos, os mesmos dispositivos podem não ser alocados novamente caso a oferta sera atribu\u00edda novamente \u00e0 inst\u00e2ncia. Por favor, leve isso em consideração ao remover ofertas de dispositivo.",
+"message.action.remove.device.offering": "Quando uma oferta de dispositivo \u00e9 removida, todos os dispositivos alocados por essa oferta ser\u00e3o liberados da inst\u00e2ncia. Os dispositivos liberados podem n\u00e3o ser alocados novamente caso a oferta seja atribu\u00edda novamente \u00e0 inst\u00e2ncia. Por favor, leve isso em considera\u00e7\u00e3o ao remover ofertas de dispositivo.",
 "message.action.remove.logical.router": "Por favor, confirme que voc\u00ea deseja remover o Roteador L\u00f3gico?",
 "message.action.remove.routing.policy": "Por favor, confirme que voc\u00ea deseja remover a Pol\u00edtica de Roteamento desta Rede",
 "message.action.reserve.ip": "Por favor, confirme que voc\u00ea deseja reservar este IP.",

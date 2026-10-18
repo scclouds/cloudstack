@@ -3220,7 +3220,7 @@
 "message.action.release.asnumber": "Please confirm that you want to release this AS Number.",
 "message.action.release.ip": "Please confirm that you want to release this IP.",
 "message.action.remove.host": "Please confirm that you want to remove this host.",
-"message.action.remove.device.offering": "When a device offering is removed, all devices using this offering will be removed as well. When devices are removed, the same devices may not be attached to this Instance if the offering is assigned for the VM again. Please, consider this when removing device offerings.",
+"message.action.remove.device.offering": "When a device offering is removed, all devices allocated by this offering will be released from the Instance. Released devices may not be attached to this Instance again if the offering is reassigned to it. Please, consider this when removing device offerings.",
 "message.action.remove.logical.router": "Please confirm that you want to remove Logical Router?",
 "message.action.remove.routing.policy": "Please confirm that you want to remove Routing Policy from this Network",
 "message.action.release.reserved.ip": "Please confirm that you want to release this reserved IP.",
