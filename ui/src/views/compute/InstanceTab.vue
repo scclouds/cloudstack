@@ -107,7 +107,7 @@
       <a-tab-pane :tab="$t('label.device.offerings')" key="deviceofferings" v-if="dataResource.deviceofferings && dataResource.deviceofferings.length > 0">
         <ListResourceTable
           :items="dataResource.deviceofferings"
-          :columns="['name', 'description', 'devicetags']"
+          :columns="['name', 'description', { field: 'devicetags', customTitle: 'device.tags' }]"
           :routerlinks="(record) => { return { name: '/deviceoffering/' + record.id } }"
           :showSearch="false"/>
       </a-tab-pane>

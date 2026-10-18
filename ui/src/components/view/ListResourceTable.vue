@@ -211,10 +211,12 @@ export default {
     fetchColumns () {
       var columns = []
       for (const col of this.columns) {
+        const field = typeof col === 'object' ? col.field : col
+        const title = typeof col === 'object' && col.customTitle ? col.customTitle : field
         columns.push({
-          key: col,
-          dataIndex: col,
-          title: this.$t('label.' + col)
+          key: field,
+          dataIndex: field,
+          title: this.$t('label.' + title)
         })
       }
       return columns
