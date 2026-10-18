@@ -1492,7 +1492,13 @@ public class ResourceManagerImpl extends ManagerBase implements ResourceManager,
                 _capacityDao.updateCapacityState(null, null, null, storagePool.getId(), capacityState.toString(), capacityTypesLocalStorage);
             }
         }
-        return _hostDao.updateResourceState(currentState, event, nextState, host);
+        final boolean transited = _hostDao.updateResourceState(currentState, event, nextState, host);
+
+        if (transited && ResourceState.isMaintenanceState(currentState) && !ResourceState.isMaintenanceState(nextState)) {
+            hostDevicesManager.removeHostDevicesFromMaintenanceMode(host.getId());
+        }
+
+        return transited;
     }
 
     private void handleVmForLastHostOrWithVGpu(final HostVO host, final VMInstanceVO vm) {
@@ -3946,8 +3952,6 @@ public class ResourceManagerImpl extends ManagerBase implements ResourceManager,
             logger.debug(String.format("Cannot transit %s to Enabled state", host), e);
             return false;
         }
-
-        hostDevicesManager.removeHostDevicesFromMaintenanceMode(hostId);
 
         return true;
 
