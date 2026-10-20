@@ -77,4 +77,7 @@
 	<bean id="vpcOfferingDaoImpl" class="com.cloud.network.vpc.dao.VpcOfferingDaoImpl" />
 	<bean id="vpcOfferingDetailsDaoImpl" class="com.cloud.network.vpc.dao.VpcOfferingDetailsDaoImpl"/>
     <bean id="backupOfferingDetailsDaoImpl" class="org.apache.cloudstack.backup.dao.BackupOfferingDetailsDaoImpl" />
+  <bean id="deviceOfferingDaoImpl" class="com.cloud.hostdevices.dao.DeviceOfferingDaoImpl" />
+  <bean id="deviceOfferingDeviceTagDaoImpl" class="com.cloud.hostdevices.dao.DeviceOfferingDeviceTagDaoImpl" />
+  <bean id="vmInstanceDeviceOfferingsDaoImpl" class="com.cloud.hostdevices.dao.VMInstanceDeviceOfferingsDaoImpl" />
 </beans>
