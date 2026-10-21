@@ -80,4 +80,5 @@
   <bean id="deviceOfferingDaoImpl" class="com.cloud.hostdevices.dao.DeviceOfferingDaoImpl" />
   <bean id="deviceOfferingDeviceTagDaoImpl" class="com.cloud.hostdevices.dao.DeviceOfferingDeviceTagDaoImpl" />
   <bean id="vmInstanceDeviceOfferingsDaoImpl" class="com.cloud.hostdevices.dao.VMInstanceDeviceOfferingsDaoImpl" />
+  <bean id="hostDeviceDaoImpl" class="com.cloud.hostdevices.dao.HostDeviceDaoImpl" />
 </beans>

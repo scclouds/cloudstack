@@ -61,6 +61,7 @@ import com.cloud.event.dao.UsageEventDetailsDao;
 import com.cloud.usage.dao.BucketStatisticsDao;
 import com.cloud.usage.dao.UsageBackupDao;
 import com.cloud.usage.dao.UsageDao;
+import com.cloud.usage.dao.UsageHostDeviceDao;
 import com.cloud.usage.dao.UsageIPAddressDao;
 import com.cloud.usage.dao.UsageJobDao;
 import com.cloud.usage.dao.UsageLoadBalancerPolicyDao;
@@ -164,6 +165,9 @@ public class UsageManagerImpl extends ManagerBase implements UsageManager, Runna
 
     @Inject
     private UsageVpcDao usageVpcDao;
+
+    @Inject
+    private UsageHostDeviceDao usageHostDeviceDao;
 
     @Inject
     private List<UsageParser> usageParsers;
@@ -969,6 +973,8 @@ public class UsageManagerImpl extends ManagerBase implements UsageManager, Runna
                 createPortForwardingHelperEvent(event);
             } else if (isNetworkOfferingEvent(eventType)) {
                 createNetworkOfferingEvent(event);
+            } else if (isHostDeviceEvent(eventType)) {
+                createHostDeviceEvent(event);
             } else if (isVPNUserEvent(eventType)) {
                 handleVpnUserEvent(event);
             } else if (isSecurityGroupEvent(eventType)) {
@@ -1046,6 +1052,10 @@ public class UsageManagerImpl extends ManagerBase implements UsageManager, Runna
             return false;
         return (eventType.equals(EventTypes.EVENT_NETWORK_OFFERING_CREATE) || eventType.equals(EventTypes.EVENT_NETWORK_OFFERING_DELETE) ||
                 eventType.equals(EventTypes.EVENT_NETWORK_OFFERING_ASSIGN) || eventType.equals(EventTypes.EVENT_NETWORK_OFFERING_REMOVE));
+    }
+
+    private boolean isHostDeviceEvent(String eventType) {
+        return EventTypes.EVENT_HOST_DEVICE_RESERVE.equals(eventType) || EventTypes.EVENT_HOST_DEVICE_RELEASE.equals(eventType);
     }
 
     private boolean isVPNUserEvent(String eventType) {
@@ -1778,6 +1788,20 @@ public class UsageManagerImpl extends ManagerBase implements UsageManager, Runna
                 noVO.setDeleted(event.getCreateDate()); // there really shouldn't be more than one
                 _usageNetworkOfferingDao.update(noVO);
             }
+        }
+    }
+
+    private void createHostDeviceEvent(UsageEventVO event) {
+        long hostDeviceId = event.getResourceId();
+
+        if (EventTypes.EVENT_HOST_DEVICE_RESERVE.equals(event.getType())) {
+            logger.debug("Creating usage entry for host device [{}] reserved by VM [{}] of account [{}].", hostDeviceId, event.getVmId(), event.getAccountId());
+            Account account = _accountDao.findByIdIncludingRemoved(event.getAccountId());
+            usageHostDeviceDao.persist(new UsageHostDeviceVO(event.getZoneId(), event.getAccountId(), account.getDomainId(), event.getVmId(), hostDeviceId,
+                    event.getResourceName(), event.getCreateDate(), null));
+        } else if (EventTypes.EVENT_HOST_DEVICE_RELEASE.equals(event.getType())) {
+            logger.debug("Closing usage entry of host device [{}] released by VM [{}] of account [{}].", hostDeviceId, event.getVmId(), event.getAccountId());
+            usageHostDeviceDao.remove(hostDeviceId, event.getCreateDate());
         }
     }
 

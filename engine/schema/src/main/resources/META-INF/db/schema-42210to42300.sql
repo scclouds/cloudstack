@@ -730,3 +730,19 @@ CREATE TABLE IF NOT EXISTS `cloud`.`vm_instance_device_offerings` (
     CONSTRAINT `fk_vm_instance_device_offerings_vm_instance_id` FOREIGN KEY (`vm_instance_id`) REFERENCES `vm_instance` (`id`),
     CONSTRAINT `fk_vm_instance_device_offerings_device_offering_id` FOREIGN KEY (`device_offering_id`) REFERENCES `device_offerings` (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
+
+-- Usage of host devices held by VMs
+CREATE TABLE IF NOT EXISTS `cloud_usage`.`usage_host_device` (
+    `id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+    `zone_id` bigint(20) unsigned NOT NULL,
+    `account_id` bigint(20) unsigned NOT NULL,
+    `domain_id` bigint(20) unsigned NOT NULL,
+    `vm_instance_id` bigint(20) unsigned NOT NULL,
+    `host_device_id` bigint(20) unsigned NOT NULL,
+    `device_tag` varchar(255) DEFAULT NULL,
+    `created` datetime NOT NULL,
+    `removed` datetime DEFAULT NULL,
+    PRIMARY KEY (`id`),
+    INDEX `i_usage_host_device__account_id` (`account_id`),
+    INDEX `i_usage_host_device__host_device_id` (`host_device_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8;

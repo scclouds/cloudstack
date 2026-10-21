@@ -202,6 +202,7 @@
   <bean id="usageNetworkDaoImpl" class="com.cloud.usage.dao.UsageNetworkDaoImpl" />
   <bean id="usageNetworksDaoImpl" class="com.cloud.usage.dao.UsageNetworksDaoImpl" />
   <bean id="usageNetworkOfferingDaoImpl" class="com.cloud.usage.dao.UsageNetworkOfferingDaoImpl" />
+  <bean id="usageHostDeviceDaoImpl" class="com.cloud.usage.dao.UsageHostDeviceDaoImpl" />
   <bean id="usagePortForwardingRuleDaoImpl" class="com.cloud.usage.dao.UsagePortForwardingRuleDaoImpl" />
   <bean id="usageSecurityGroupDaoImpl" class="com.cloud.usage.dao.UsageSecurityGroupDaoImpl" />
   <bean id="usageStorageDaoImpl" class="com.cloud.usage.dao.UsageStorageDaoImpl" />
@@ -329,6 +330,5 @@
   <bean id="dnsZoneJoinDao" class="org.apache.cloudstack.dns.dao.DnsZoneJoinDaoImpl" />
   <bean id="dnsNicJoinDao" class="org.apache.cloudstack.dns.dao.NicDnsJoinDaoImpl" />
   <bean id="dnsServerDetailsDao" class="org.apache.cloudstack.dns.dao.DnsServerDetailsDaoImpl" />
-  <bean id="hostDeviceDaoImpl" class="com.cloud.hostdevices.dao.HostDeviceDaoImpl" />
 
 </beans>
