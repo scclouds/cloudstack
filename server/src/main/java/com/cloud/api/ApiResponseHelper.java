@@ -311,6 +311,7 @@ import com.cloud.exception.PermissionDeniedException;
 import com.cloud.host.ControlState;
 import com.cloud.host.Host;
 import com.cloud.host.HostVO;
+import com.cloud.hostdevices.HostDeviceVO;
 import com.cloud.hypervisor.Hypervisor;
 import com.cloud.hypervisor.HypervisorCapabilities;
 import com.cloud.network.GuestVlan;
@@ -4513,6 +4514,22 @@ public class ApiResponseHelper implements ResponseGenerator, ResourceIdSupport {
                 builder.append("Network offering ");
                 if (netOff != null) {
                     builder.append(netOff.getName()).append(" (").append(netOff.getUuid()).append(") usage ");
+                }
+                if (vmInstance != null) {
+                    builder.append("for VM ").append(vmInstance.getHostName()).append(" (").append(vmInstance.getUuid()).append(") ");
+                }
+                usageRecResponse.setDescription(builder.toString());
+            }
+        } else if (usageRecord.getUsageType() == UsageTypes.HOST_DEVICE) {
+            HostDeviceVO hostDevice = _entityMgr.findByIdIncludingRemoved(HostDeviceVO.class, usageRecord.getUsageId().toString());
+            if (hostDevice != null) {
+                usageRecResponse.setUsageId(hostDevice.getUuid());
+            }
+            if (!oldFormat) {
+                final StringBuilder builder = new StringBuilder();
+                builder.append("Host device ");
+                if (hostDevice != null) {
+                    builder.append(hostDevice.getDisplayName()).append(" (").append(hostDevice.getUuid()).append(") usage ");
                 }
                 if (vmInstance != null) {
                     builder.append("for VM ").append(vmInstance.getHostName()).append(" (").append(vmInstance.getUuid()).append(") ");

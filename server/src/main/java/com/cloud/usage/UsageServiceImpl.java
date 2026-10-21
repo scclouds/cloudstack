@@ -48,6 +48,8 @@ import com.cloud.exception.InvalidParameterValueException;
 import com.cloud.exception.PermissionDeniedException;
 import com.cloud.host.HostVO;
 import com.cloud.host.dao.HostDao;
+import com.cloud.hostdevices.HostDeviceVO;
+import com.cloud.hostdevices.dao.HostDeviceDao;
 import com.cloud.network.VpnUserVO;
 import com.cloud.network.dao.IPAddressDao;
 import com.cloud.network.dao.IPAddressVO;
@@ -124,6 +126,8 @@ public class UsageServiceImpl extends ManagerBase implements UsageService, Manag
     private IPAddressDao _ipDao;
     @Inject
     private HostDao _hostDao;
+    @Inject
+    private HostDeviceDao _hostDeviceDao;
     @Inject
     private NetworkOfferingDao _networkOfferingDao;
 
@@ -333,6 +337,12 @@ public class UsageServiceImpl extends ManagerBase implements UsageService, Manag
                     IPAddressVO ip = _ipDao.findByUuidIncludingRemoved(usageId);
                     if (ip != null) {
                         usageDbId = ip.getId();
+                    }
+                    break;
+                case UsageTypes.HOST_DEVICE:
+                    HostDeviceVO hostDevice = _hostDeviceDao.findByUuidIncludingRemoved(usageId);
+                    if (hostDevice != null) {
+                        usageDbId = hostDevice.getId();
                     }
                     break;
                 case UsageTypes.NETWORK_OFFERING:
