@@ -30,6 +30,7 @@ import com.cloud.domain.Domain;
 import com.cloud.domain.dao.DomainDao;
 import com.cloud.event.ActionEvent;
 import com.cloud.event.EventTypes;
+import com.cloud.event.UsageEventUtils;
 import com.cloud.exception.AgentUnavailableException;
 import com.cloud.exception.InvalidParameterValueException;
 import com.cloud.exception.OperationTimedoutException;
@@ -788,6 +789,9 @@ public class HostDevicesManagerImpl extends ManagerBase implements HostDevicesMa
     private void releaseDeviceFromVm(HostDeviceVO device) {
         Long accountId = device.getAccountId();
 
+        VirtualMachine vm = virtualMachineDao.findByIdIncludingRemoved(device.getInstanceId());
+        publishHostDeviceUsageEvent(EventTypes.EVENT_HOST_DEVICE_RELEASE, device, vm, accountId);
+
         device.setInstanceId(null);
         device.setAccountId(null);
         device.setDomainId(null);
@@ -986,6 +990,8 @@ public class HostDevicesManagerImpl extends ManagerBase implements HostDevicesMa
         logger.info("The following devices will be released from VM {}: {}", vm.getId(), pciNames);
 
         for (HostDeviceVO dev : devices) {
+            publishHostDeviceUsageEvent(EventTypes.EVENT_HOST_DEVICE_RELEASE, dev, vm, vm.getAccountId());
+
             dev.setAccountId(null);
             dev.setDomainId(null);
             dev.setInstanceId(null);
@@ -1086,9 +1092,12 @@ public class HostDevicesManagerImpl extends ManagerBase implements HostDevicesMa
                 long transferredMainDevicesAmount = 0;
 
                 for (HostDeviceVO device : hostDevices) {
+                    publishHostDeviceUsageEvent(EventTypes.EVENT_HOST_DEVICE_RELEASE, device, vm, oldAccount.getId());
+
                     device.setAccountId(newAccount.getId());
                     device.setDomainId(newAccount.getDomainId());
                     hostDeviceDao.update(device.getId(), device);
+                    publishHostDeviceUsageEvent(EventTypes.EVENT_HOST_DEVICE_RESERVE, device, vm, newAccount.getId());
                     logger.debug("Updated ownership of host device {} to account {}.", device.getPciName(), newAccount.getId());
 
                     if (!device.isCompanionFunction()) {
@@ -1218,7 +1227,20 @@ public class HostDevicesManagerImpl extends ManagerBase implements HostDevicesMa
         device.setInstanceId(vm.getId());
         device.setState(HostDevice.State.Attached);
         hostDeviceDao.update(device.getId(), device);
+        publishHostDeviceUsageEvent(EventTypes.EVENT_HOST_DEVICE_RESERVE, device, vm, vm.getAccountId());
         logger.debug("Reserved host device [{} - {}] for VM {}.", device.getDisplayName(), device.getPciName(), vm.getUuid());
+    }
+
+    /**
+     * Publishes the usage event of a host device that was reserved by or released from a VM. Companion functions are not charged, as they come along with their main device.
+     */
+    private void publishHostDeviceUsageEvent(String eventType, HostDeviceVO device, VirtualMachine vm, long accountId) {
+        if (device.isCompanionFunction()) {
+            return;
+        }
+
+        UsageEventUtils.publishUsageEvent(eventType, accountId, vm.getDataCenterId(), device.getId(), device.getDeviceTag(), null, null, null, HostDevice.class.getName(),
+                device.getUuid(), vm.getId(), true);
     }
 
     private Map<Long, List<HostDeviceVO>> getCompanionsPerMainDevice(List<HostDeviceVO> mainDevices) {
