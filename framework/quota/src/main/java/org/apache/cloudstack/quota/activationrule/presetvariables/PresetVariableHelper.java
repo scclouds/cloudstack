@@ -31,8 +31,10 @@ import com.cloud.dc.ClusterDetailsVO;
 import com.cloud.host.HostTagVO;
 import com.cloud.hostdevices.DeviceOfferingDeviceTagVO;
 import com.cloud.hostdevices.DeviceOfferingVO;
+import com.cloud.hostdevices.HostDeviceVO;
 import com.cloud.hostdevices.dao.DeviceOfferingDao;
 import com.cloud.hostdevices.dao.DeviceOfferingDeviceTagDao;
+import com.cloud.hostdevices.dao.HostDeviceDao;
 import com.cloud.hypervisor.Hypervisor;
 import com.cloud.network.dao.NetworkVO;
 import com.cloud.network.vpc.VpcOfferingVO;
@@ -204,6 +206,8 @@ public class PresetVariableHelper {
 
     @Inject
     DeviceOfferingDao deviceOfferingDao;
+    @Inject
+    HostDeviceDao hostDeviceDao;
 
     @Inject
     DeviceOfferingDeviceTagDao deviceOfferingDeviceTagDao;
@@ -344,6 +348,7 @@ public class PresetVariableHelper {
         loadPresetVariableValueForTemplateAndIso(usageRecord, value);
         loadPresetVariableValueForSnapshot(usageRecord, value);
         loadPresetVariableValueForNetworkOffering(usageRecord, value);
+        loadPresetVariableValueForHostDevice(usageRecord, value);
         loadPresetVariableValueForVmSnapshot(usageRecord, value);
         loadPresetVariableValueForBackup(usageRecord, value);
         loadPresetVariableValueForNetwork(usageRecord, value);
@@ -780,6 +785,26 @@ public class PresetVariableHelper {
         value.setId(networkOfferingVo.getUuid());
         value.setName(networkOfferingVo.getName());
         value.setTag(networkOfferingVo.getTags());
+    }
+
+    protected void loadPresetVariableValueForHostDevice(UsageVO usageRecord, Value value) {
+        int usageType = usageRecord.getUsageType();
+
+        if (usageType != UsageTypes.HOST_DEVICE) {
+            logNotLoadingMessageInTrace("host device", usageType);
+            return;
+        }
+
+        Long hostDeviceId = usageRecord.getUsageId();
+
+        HostDeviceVO hostDeviceVo = hostDeviceDao.findByIdIncludingRemoved(hostDeviceId);
+        validateIfObjectIsNull(hostDeviceVo, hostDeviceId, "host device");
+
+        value.setId(hostDeviceVo.getUuid());
+        value.setName(hostDeviceVo.getDisplayName());
+        // The usage record keeps, in its type column, the tag the device had when it was reserved.
+        value.setTag(usageRecord.getType());
+        value.setHostDeviceType(hostDeviceVo.getType().toString());
     }
 
     protected void loadPresetVariableValueForVmSnapshot(UsageVO usageRecord, Value value) {

@@ -44,6 +44,8 @@ import com.cloud.domain.dao.DomainDao;
 import com.cloud.event.ActionEvent;
 import com.cloud.event.EventTypes;
 import com.cloud.exception.InvalidParameterValueException;
+import com.cloud.hostdevices.HostDeviceVO;
+import com.cloud.hostdevices.dao.HostDeviceDao;
 import com.cloud.network.VpnUserVO;
 import com.cloud.network.dao.IPAddressDao;
 import com.cloud.network.dao.IPAddressVO;
@@ -197,6 +199,8 @@ public class QuotaResponseBuilderImpl implements QuotaResponseBuilder {
     private VpcDao vpcDao;
     @Inject
     private NetworkOfferingDao networkOfferingDao;
+    @Inject
+    private HostDeviceDao hostDeviceDao;
     @Inject
     private SnapshotDao snapshotDao;
     @Inject
@@ -547,6 +551,12 @@ public class QuotaResponseBuilderImpl implements QuotaResponseBuilder {
                 VMTemplateVO vmTemplate = vmTemplateDao.findByIdIncludingRemoved(resourceId);
                 if (vmTemplate != null) {
                     return new QuotaUsageResourceVO(vmTemplate.getUuid(), vmTemplate.getName(), vmTemplate.getRemoved());
+                }
+                break;
+            case QuotaTypes.HOST_DEVICE:
+                HostDeviceVO hostDevice = hostDeviceDao.findByIdIncludingRemoved(resourceId);
+                if (hostDevice != null) {
+                    return new QuotaUsageResourceVO(hostDevice.getUuid(), hostDevice.getDisplayName(), hostDevice.getRemoved());
                 }
                 break;
             case QuotaTypes.NETWORK_OFFERING:

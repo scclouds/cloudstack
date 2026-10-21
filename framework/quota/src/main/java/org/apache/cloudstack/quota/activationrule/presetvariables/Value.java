@@ -25,11 +25,11 @@ import org.apache.cloudstack.quota.constant.QuotaTypes;
 public class Value extends GenericPresetVariable {
 
     @PresetVariableDefinition(description = "ID of the resource.", supportedTypes = {QuotaTypes.ALLOCATED_VM, QuotaTypes.RUNNING_VM, QuotaTypes.VOLUME, QuotaTypes.TEMPLATE,
-            QuotaTypes.ISO, QuotaTypes.SNAPSHOT, QuotaTypes.NETWORK_OFFERING, QuotaTypes.VM_SNAPSHOT})
+            QuotaTypes.ISO, QuotaTypes.SNAPSHOT, QuotaTypes.NETWORK_OFFERING, QuotaTypes.HOST_DEVICE, QuotaTypes.VM_SNAPSHOT})
     private String id;
 
     @PresetVariableDefinition(description = "Name of the resource.", supportedTypes = {QuotaTypes.ALLOCATED_VM, QuotaTypes.RUNNING_VM, QuotaTypes.VOLUME, QuotaTypes.TEMPLATE,
-            QuotaTypes.ISO, QuotaTypes.SNAPSHOT, QuotaTypes.NETWORK_OFFERING, QuotaTypes.VM_SNAPSHOT})
+            QuotaTypes.ISO, QuotaTypes.SNAPSHOT, QuotaTypes.NETWORK_OFFERING, QuotaTypes.HOST_DEVICE, QuotaTypes.VM_SNAPSHOT})
     private String name;
 
     @PresetVariableDefinition(description = "Host where the VM is running.", supportedTypes = {QuotaTypes.RUNNING_VM})
@@ -46,7 +46,7 @@ public class Value extends GenericPresetVariable {
             QuotaTypes.VM_SNAPSHOT}, description = "List of tags of the resource in the format key:value (i.e.: {\"a\":\"b\", \"c\":\"d\"}).")
     private Map<String, String> tags;
 
-    @PresetVariableDefinition(description = "Tag of the network offering.", supportedTypes = {QuotaTypes.NETWORK_OFFERING})
+    @PresetVariableDefinition(description = "Tag of the network offering or of the host device.", supportedTypes = {QuotaTypes.NETWORK_OFFERING, QuotaTypes.HOST_DEVICE})
     private String tag;
 
     @PresetVariableDefinition(description = "Size of the resource (in MiB).", supportedTypes = {QuotaTypes.TEMPLATE, QuotaTypes.ISO, QuotaTypes.VOLUME, QuotaTypes.SNAPSHOT,
@@ -107,6 +107,9 @@ public class Value extends GenericPresetVariable {
 
     @PresetVariableDefinition(description = "List of device offerings of the resource.", supportedTypes = {QuotaTypes.RUNNING_VM})
     private List<DeviceOffering> deviceOfferings;
+
+    @PresetVariableDefinition(description = "Type of the host device (i.e.: Display, Network, Storage, USB or Generic).", supportedTypes = {QuotaTypes.HOST_DEVICE})
+    private String hostDeviceType;
 
     public Host getHost() {
         return host;
@@ -298,5 +301,13 @@ public class Value extends GenericPresetVariable {
 
     public void setDeviceOfferings(List<DeviceOffering> deviceOfferings) {
         this.deviceOfferings = deviceOfferings;
+    }
+
+    public String getHostDeviceType() {
+        return hostDeviceType;
+    }
+
+    public void setHostDeviceType(String hostDeviceType) {
+        this.hostDeviceType = hostDeviceType;
     }
 }
