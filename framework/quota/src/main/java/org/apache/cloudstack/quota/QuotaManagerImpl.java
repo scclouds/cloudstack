@@ -614,6 +614,7 @@ public class QuotaManagerImpl extends ManagerBase implements QuotaManager {
             case COMPUTE_MONTH:
             case IP_MONTH:
             case POLICY_MONTH:
+            case DEVICE_MONTH:
                 return rawUsage.multiply(costPerHour);
 
             case GB:

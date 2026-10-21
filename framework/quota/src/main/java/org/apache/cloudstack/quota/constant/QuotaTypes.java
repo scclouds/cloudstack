@@ -33,6 +33,7 @@ import com.cloud.storage.Volume;
 import com.cloud.template.VirtualMachineTemplate;
 import com.cloud.vm.VirtualMachine;
 import org.apache.cloudstack.backup.BackupOffering;
+import org.apache.cloudstack.hostdevices.HostDevice;
 import org.apache.cloudstack.storage.object.Bucket;
 import org.apache.cloudstack.usage.UsageTypes;
 import org.apache.cloudstack.usage.UsageUnitTypes;
@@ -74,6 +75,7 @@ public class QuotaTypes extends UsageTypes {
         quotaTypeList.put(BUCKET, new QuotaTypes(BUCKET, "BUCKET", UsageUnitTypes.GB_MONTH.toString(), "Object Store bucket usage", Bucket.class));
         quotaTypeList.put(NETWORK, new QuotaTypes(NETWORK, "NETWORK", UsageUnitTypes.COMPUTE_MONTH.toString(), "Network usage", Network.class));
         quotaTypeList.put(VPC, new QuotaTypes(VPC, "VPC", UsageUnitTypes.COMPUTE_MONTH.toString(), "VPC usage", Vpc.class));
+        quotaTypeList.put(HOST_DEVICE, new QuotaTypes(HOST_DEVICE, "HOST_DEVICE", UsageUnitTypes.DEVICE_MONTH.toString(), "Host Device Usage", HostDevice.class));
         quotaTypeMap = Collections.unmodifiableMap(quotaTypeList);
     }
 

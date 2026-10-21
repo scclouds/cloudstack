@@ -424,6 +424,8 @@ public class EventTypes {
     public static final String EVENT_HOST_DEVICE_SCAN = "HOST.DEVICE.SCAN";
     public static final String EVENT_HOST_DEVICE_UPDATE = "HOST.DEVICE.UPDATE";
     public static final String EVENT_HOST_DEVICE_DELETE = "HOST.DEVICE.DELETE";
+    public static final String EVENT_HOST_DEVICE_RESERVE = "HOST.DEVICE.RESERVE";
+    public static final String EVENT_HOST_DEVICE_RELEASE = "HOST.DEVICE.RELEASE";
 
     // Device offerings
     public static final String EVENT_DEVICE_OFFERING_CREATE = "DEVICE.OFFERING.CREATE";

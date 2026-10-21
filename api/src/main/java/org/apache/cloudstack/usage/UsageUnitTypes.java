@@ -23,6 +23,7 @@ public enum UsageUnitTypes {
     GB ("GB"),
     GB_MONTH ("GB*Month"),
     POLICY_MONTH ("Policy*Month"),
+    DEVICE_MONTH ("Device*Month"),
     IOPS ("IOPS"),
     BYTES ("Bytes");
 
