@@ -4428,6 +4428,7 @@
 "ALLOCATED_VM": "Allocated VM",
 "BACKUP": "Backup",
 "BACKUP_OBJECT": "Backup Object",
+"HOST_DEVICE": "Host Device",
 "IP_ADDRESS": "IP Address",
 "LOAD_BALANCER_POLICY": "Load Balancer Policy",
 "NETWORK": "Network",
@@ -4452,5 +4453,6 @@
 "GB*Month": "GB * Month",
 "IP*Month": "IP * Month",
 "Policy*Month": "Policy * Month",
+"Device*Month": "Device * Month",
 "message.kms.key.optional": "Optional: Select a KMS key for encryption. If not selected, legacy passphrase encryption will be used."
 }

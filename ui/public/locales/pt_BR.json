@@ -3872,6 +3872,7 @@
 "ALLOCATED_VM": "VM alocada",
 "BACKUP": "Backup",
 "BACKUP_OBJECT": "Objeto backup",
+"HOST_DEVICE": "Dispositivo do host",
 "IP_ADDRESS": "Endere\u00e7o IP",
 "LOAD_BALANCER_POLICY": "Pol\u00edtica de balanceamento de carga",
 "NETWORK": "Rede",
@@ -3895,5 +3896,6 @@
 "Compute*Month": "Recurso * M\u00eas",
 "GB*Month": "GB * M\u00eas",
 "IP*Month": "IP * M\u00eas",
-"Policy*Month": "Pol\u00edticas de Rede * M\u00eas"
+"Policy*Month": "Pol\u00edticas de Rede * M\u00eas",
+"Device*Month": "Dispositivo * M\u00eas"
 }

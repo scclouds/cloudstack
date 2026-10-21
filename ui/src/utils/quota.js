@@ -141,6 +141,11 @@ export const QUOTA_TYPES = [
     id: 31,
     type: 'VPC',
     chartColor: '#018391'
+  },
+  {
+    id: 32,
+    type: 'HOST_DEVICE',
+    chartColor: '#722ed1'
   }
 ]
 
