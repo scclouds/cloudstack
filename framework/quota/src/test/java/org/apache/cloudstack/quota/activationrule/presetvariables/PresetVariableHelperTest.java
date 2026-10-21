@@ -30,7 +30,9 @@ import java.util.Set;
 import com.cloud.dc.ClusterDetailsDao;
 import com.cloud.dc.ClusterDetailsVO;
 import com.cloud.host.HostTagVO;
+import com.cloud.hostdevices.HostDeviceVO;
 import com.cloud.hostdevices.dao.DeviceOfferingDao;
+import com.cloud.hostdevices.dao.HostDeviceDao;
 import com.cloud.hypervisor.Hypervisor;
 import com.cloud.network.Network;
 import com.cloud.network.dao.NetworkVO;
@@ -44,6 +46,7 @@ import org.apache.cloudstack.acl.RoleVO;
 import org.apache.cloudstack.acl.dao.RoleDao;
 import org.apache.cloudstack.backup.BackupOfferingVO;
 import org.apache.cloudstack.backup.dao.BackupOfferingDao;
+import org.apache.cloudstack.hostdevices.HostDevice;
 import org.apache.cloudstack.quota.constant.QuotaTypes;
 import org.apache.cloudstack.quota.dao.NetworkDao;
 import org.apache.cloudstack.quota.dao.VmTemplateDao;
@@ -208,6 +211,9 @@ public class PresetVariableHelperTest {
 
     @Mock
     DeviceOfferingDao deviceOfferingDaoMock;
+
+    @Mock
+    HostDeviceDao hostDeviceDaoMock;
 
     List<Integer> runningAndAllocatedVmUsageTypes = Arrays.asList(UsageTypes.RUNNING_VM, UsageTypes.ALLOCATED_VM);
     List<Integer> templateAndIsoUsageTypes = Arrays.asList(UsageTypes.TEMPLATE, UsageTypes.ISO);
@@ -567,6 +573,7 @@ public class PresetVariableHelperTest {
         Mockito.doNothing().when(presetVariableHelperSpy).loadPresetVariableValueForTemplateAndIso(Mockito.any(UsageVO.class), Mockito.any(Value.class));
         Mockito.doNothing().when(presetVariableHelperSpy).loadPresetVariableValueForSnapshot(Mockito.any(UsageVO.class), Mockito.any(Value.class));
         Mockito.doNothing().when(presetVariableHelperSpy).loadPresetVariableValueForNetworkOffering(Mockito.any(UsageVO.class), Mockito.any(Value.class));
+        Mockito.doNothing().when(presetVariableHelperSpy).loadPresetVariableValueForHostDevice(Mockito.any(UsageVO.class), Mockito.any(Value.class));
         Mockito.doNothing().when(presetVariableHelperSpy).loadPresetVariableValueForVmSnapshot(Mockito.any(UsageVO.class), Mockito.any(Value.class));
         Mockito.doNothing().when(presetVariableHelperSpy).loadPresetVariableValueForBackup(Mockito.any(UsageVO.class), Mockito.any(Value.class));
         Mockito.doNothing().when(presetVariableHelperSpy).loadPresetVariableValueForNetwork(Mockito.any(UsageVO.class), Mockito.any(Value.class));
@@ -1147,6 +1154,41 @@ public class PresetVariableHelperTest {
 
         assertPresetVariableIdAndName(expected, result);
         Assert.assertEquals(expected.getTag(), result.getTag());
+    }
+
+    @Test
+    public void loadPresetVariableValueForHostDeviceTestRecordIsNotAHostDeviceDoNothing() {
+        getQuotaTypesForTests(UsageTypes.HOST_DEVICE).forEach(type -> {
+            Mockito.doReturn(type.getKey()).when(usageVoMock).getUsageType();
+            presetVariableHelperSpy.loadPresetVariableValueForHostDevice(usageVoMock, null);
+        });
+
+        Mockito.verifyNoInteractions(hostDeviceDaoMock);
+    }
+
+    @Test
+    public void loadPresetVariableValueForHostDeviceTestRecordIsAHostDeviceSetFields() {
+        Value expected = getValueForTests();
+
+        HostDeviceVO hostDeviceVoMock = Mockito.mock(HostDeviceVO.class);
+        Mockito.doReturn(hostDeviceVoMock).when(hostDeviceDaoMock).findByIdIncludingRemoved(Mockito.anyLong());
+
+        mockMethodValidateIfObjectIsNull();
+
+        Mockito.doReturn(expected.getId()).when(hostDeviceVoMock).getUuid();
+        Mockito.doReturn(expected.getName()).when(hostDeviceVoMock).getDisplayName();
+        Mockito.doReturn(HostDevice.Type.Display).when(hostDeviceVoMock).getType();
+
+        Mockito.doReturn(UsageTypes.HOST_DEVICE).when(usageVoMock).getUsageType();
+        Mockito.doReturn(1L).when(usageVoMock).getUsageId();
+        Mockito.doReturn(expected.getTag()).when(usageVoMock).getType();
+
+        Value result = new Value();
+        presetVariableHelperSpy.loadPresetVariableValueForHostDevice(usageVoMock, result);
+
+        assertPresetVariableIdAndName(expected, result);
+        Assert.assertEquals(expected.getTag(), result.getTag());
+        Assert.assertEquals(HostDevice.Type.Display.toString(), result.getHostDeviceType());
     }
 
     @Test
