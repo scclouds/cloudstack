@@ -80,7 +80,8 @@ public class UsageHostDeviceDaoImpl extends GenericDaoBase<UsageHostDeviceVO, Lo
             sc.setParameters("createdBeforeEnd", endDate);
             sc.setParameters("removedAfterStart", startDate);
 
-            return listBy(sc);
+            // listBy would skip the rows that already have a removed date, and these are the ones that closed inside the period.
+            return listIncludingRemovedBy(sc);
         } catch (final Exception e) {
             txn.rollback();
             logger.warn("Error getting the host device usage records of account [{}] due to [{}].", accountId, e.getMessage(), e);
