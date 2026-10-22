@@ -17,6 +17,7 @@
 package com.cloud.network.guru;
 
 import com.cloud.dc.dao.DataCenterDao.PrivateAllocationData;
+import com.cloud.network.Ipv6Service;
 import com.cloud.vm.VirtualMachine;
 import java.util.Random;
 
@@ -55,6 +56,8 @@ public class PodBasedNetworkGuru extends AdapterBase implements NetworkGuru {
     StorageNetworkManager _sNwMgr;
     @Inject
     NetworkModel _networkModel;
+    @Inject
+    Ipv6Service ipv6Service;
 
     Random _rand = new Random(System.currentTimeMillis());
 
@@ -147,6 +150,7 @@ public class PodBasedNetworkGuru extends AdapterBase implements NetworkGuru {
         }
         nic.setIsolationUri(null);
 
+        ipv6Service.updateNicIpv6(nic, dest.getDataCenter(), config, vm.getType());
         logger.debug("Allocated a nic " + nic + " for " + vm);
     }
 

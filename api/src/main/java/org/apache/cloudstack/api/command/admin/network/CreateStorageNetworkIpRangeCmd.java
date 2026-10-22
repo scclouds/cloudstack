@@ -17,6 +17,7 @@
 package org.apache.cloudstack.api.command.admin.network;
 
 
+import com.cloud.utils.net.NetUtils;
 import org.apache.cloudstack.api.APICommand;
 import org.apache.cloudstack.api.ApiConstants;
 import org.apache.cloudstack.api.ApiErrorCode;
@@ -53,21 +54,27 @@ public class CreateStorageNetworkIpRangeCmd extends BaseAsyncCmd {
                description = "ID of pod where the IP range belongs to")
     private Long podId;
 
-    @Parameter(name = ApiConstants.START_IP, type = CommandType.STRING, required = true, description = "The starting IP address")
+    @Parameter(name = ApiConstants.START_IP, type = CommandType.STRING, description = "The starting IP address")
     private String startIp;
 
     @Parameter(name = ApiConstants.END_IP, type = CommandType.STRING, description = "The ending IP address")
     private String endIp;
+
+    @Parameter(name = ApiConstants.IP6_GATEWAY, type = CommandType.STRING, description = "The gateway of the IPv6 storage network")
+    private String ip6Gateway;
+
+    @Parameter(name = ApiConstants.IP6_CIDR, type = CommandType.STRING, description = "The CIDR of IPv6 storage network")
+    private String ip6Cidr;
 
     @Parameter(name = ApiConstants.VLAN,
                type = CommandType.INTEGER,
                description = "Optional. The VLAN the IP range sits on, default to Null when it is not specified which means your network is not on any VLAN. This is mainly for VMware as other hypervisors can directly retrieve bridge from physical network traffic type table")
     private Integer vlan;
 
-    @Parameter(name = ApiConstants.NETMASK, type = CommandType.STRING, required = true, description = "The netmask for storage network")
+    @Parameter(name = ApiConstants.NETMASK, type = CommandType.STRING, description = "The netmask for storage network")
     private String netmask;
 
-    @Parameter(name = ApiConstants.GATEWAY, type = CommandType.STRING, required = true, description = "The gateway for storage network")
+    @Parameter(name = ApiConstants.GATEWAY, type = CommandType.STRING, description = "The gateway for storage network")
     private String gateway;
 
     /////////////////////////////////////////////////////
@@ -96,6 +103,17 @@ public class CreateStorageNetworkIpRangeCmd extends BaseAsyncCmd {
 
     public String getGateWay() {
         return gateway;
+    }
+
+    public String getIp6Gateway() {
+        return ip6Gateway;
+    }
+
+    public String getIp6Cidr() {
+        if (ip6Cidr == null) {
+            return null;
+        }
+        return NetUtils.standardizeIp6Cidr(ip6Cidr);
     }
 
     @Override

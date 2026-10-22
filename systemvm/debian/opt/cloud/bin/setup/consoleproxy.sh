@@ -40,6 +40,7 @@ setup_console_proxy() {
   disable_rpfilter
   enable_fwding 0
   enable_irqbalance 0
+  restore_ipv6
   if [[ -n "$NTP_SERVER_LIST" ]]; then
     setup_ntp
     systemctl restart ntp

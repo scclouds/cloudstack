@@ -36,8 +36,16 @@ import javax.inject.Inject;
 import javax.naming.ConfigurationException;
 
 import com.cloud.dc.DataCenterVO;
+import com.cloud.dc.HostPodVO;
+import com.cloud.dc.Pod;
+import com.cloud.dc.StorageNetworkIpRange;
+import com.cloud.dc.StorageNetworkIpRangeVO;
 import com.cloud.dc.dao.DataCenterDao;
+import com.cloud.dc.dao.HostPodDao;
+import com.cloud.dc.dao.StorageNetworkIpRangeDao;
 import com.cloud.network.dao.PhysicalNetworkDao;
+import com.cloud.network.guru.PodBasedNetworkGuru;
+import com.cloud.network.guru.StorageNetworkGuru;
 import org.apache.cloudstack.api.ApiCommandResourceType;
 import org.apache.cloudstack.api.command.admin.network.CreateGuestNetworkIpv6PrefixCmd;
 import org.apache.cloudstack.api.command.admin.network.DeleteGuestNetworkIpv6PrefixCmd;
@@ -112,6 +120,8 @@ import com.googlecode.ipv6.IPv6NetworkMask;
 public class Ipv6ServiceImpl extends ComponentLifecycleBase implements Ipv6Service {
 
     private static final String s_publicNetworkReserver = PublicNetworkGuru.class.getSimpleName();
+    private static final String storageNetworkReserver = StorageNetworkGuru.class.getSimpleName();
+    private static final String managementNetworkReserver = PodBasedNetworkGuru.class.getSimpleName();
 
     ScheduledExecutorService _ipv6GuestPrefixSubnetNetworkMapStateScanner;
 
@@ -147,6 +157,10 @@ public class Ipv6ServiceImpl extends ComponentLifecycleBase implements Ipv6Servi
     FirewallManager firewallManager;
     @Inject
     NetworkOrchestrationService networkOrchestrationService;
+    @Inject
+    StorageNetworkIpRangeDao storageNetworkIpRangeDao;
+    @Inject
+    HostPodDao hostPodDao;
 
     private boolean isPublicIpv6PlaceholderNic(NicVO nic) {
         return  ObjectUtils.allNotNull(nic.getIPv6Address(), nic.getIPv6Cidr(), nic.getIPv6Gateway()) &&
@@ -208,15 +222,10 @@ public class Ipv6ServiceImpl extends ComponentLifecycleBase implements Ipv6Servi
         publishPublicIpv6AssignActionEvent(network, nic.getIPv6Address());
     }
 
-    private Pair<String, ? extends Vlan> assignPublicIpv6ToNetworkInternal(Network network, String vlanId, String nicMacAddress) throws InsufficientAddressCapacityException {
-        final List<VlanVO> ranges = vlanDao.listIpv6RangeByZoneIdAndVlanId(network.getDataCenterId(), vlanId);
+    private Pair<String, ? extends Vlan> assignPublicIpv6ToNetworkInternal(Network network, String vlanId, String nicMacAddress, Long datacenterId, VirtualMachine.Type virtualMachineType) throws InsufficientAddressCapacityException {
+        final List<VlanVO> ranges = vlanDao.listIpv6RangeByZoneIdAndVlanId(datacenterId, vlanId);
         if (CollectionUtils.isEmpty(ranges)) {
-            DataCenterVO zone = zoneDao.findById(network.getDataCenterId());
-            logger.error("Unable to find IPv6 address for zone: {}, physical network: {}, VLAN: {}",
-                    zone, physicalNetworkDao.findById(network.getPhysicalNetworkId()), vlanId);
-            InsufficientAddressCapacityException ex = new InsufficientAddressCapacityException("Insufficient address capacity", DataCenter.class, network.getDataCenterId());
-            ex.addProxyObject(zone.getUuid());
-            throw ex;
+            logAndThrowInsufficientAddressCapacityException(network, vlanId, datacenterId, network.getTrafficType().toString());
         }
         Pair<String, ? extends Vlan> placeholderResult = getPublicIpv6FromNetworkPlaceholder(network, ranges);
         if (placeholderResult != null) {
@@ -234,12 +243,73 @@ public class Ipv6ServiceImpl extends ComponentLifecycleBase implements Ipv6Servi
                 }
             }
             IPv6Address ipv6Addr = NetUtils.EUI64Address(ipv6Network, nicMacAddress);
-            networkOrchestrationService.savePlaceholderNic(network, null, ipv6Addr.toString(), selectedVlan.getIp6Cidr(), selectedVlan.getIp6Gateway(), s_publicNetworkReserver, VirtualMachine.Type.DomainRouter);
+            networkOrchestrationService.savePlaceholderNic(network, null, ipv6Addr.toString(), selectedVlan.getIp6Cidr(), selectedVlan.getIp6Gateway(), s_publicNetworkReserver, virtualMachineType);
             return new Pair<>(ipv6Addr.toString(), selectedVlan);
         });
         final String ipv6Address = result.first();
         publishPublicIpv6AssignActionEvent(network, ipv6Address);
         return result;
+    }
+
+    private Pair<String, ? extends StorageNetworkIpRange> assignStorageIpv6ToNetworkInternal(Network network, String vlanId, String nicMacAddress, Long datacenterId, VirtualMachine.Type virtualMachineType) throws InsufficientAddressCapacityException {
+        final List<StorageNetworkIpRangeVO> ranges = storageNetworkIpRangeDao.listIpv6RangeByZoneIdAndVlanId(datacenterId, vlanId);
+        if (CollectionUtils.isEmpty(ranges)) {
+            logAndThrowInsufficientAddressCapacityException(network, vlanId, datacenterId, network.getTrafficType().toString());
+        }
+
+        Pair<String, ? extends StorageNetworkIpRange> result = Transaction.execute((TransactionCallbackWithException<Pair<String, ? extends StorageNetworkIpRange>, InsufficientAddressCapacityException>) status -> {
+            Collections.shuffle(ranges);
+            StorageNetworkIpRangeVO selectedStorageNetwork = ranges.get(0);
+            IPv6Network ipv6Network = IPv6Network.fromString(selectedStorageNetwork.getIp6Cidr());
+            if (ipv6Network.getNetmask().asPrefixLength() < IPV6_SLAAC_CIDR_NETMASK) {
+                Iterator<IPv6Network> splits = ipv6Network.split(IPv6NetworkMask.fromPrefixLength(IPV6_SLAAC_CIDR_NETMASK));
+                if (splits.hasNext()) {
+                    ipv6Network = splits.next();
+                }
+            }
+            IPv6Address ipv6Address = NetUtils.EUI64Address(ipv6Network, nicMacAddress);
+            networkOrchestrationService.savePlaceholderNic(network, null, ipv6Address.toString(), selectedStorageNetwork.getIp6Cidr(), selectedStorageNetwork.getIp6Gateway(), storageNetworkReserver, virtualMachineType);
+            return new Pair<>(ipv6Address.toString(), selectedStorageNetwork);
+        });
+//        TODO: ver se faz sentido ter evento pra isso
+//        final String ipv6Address = result.first();
+//        publishPublicIpv6AssignActionEvent(network, ipv6Address);
+        return result;
+    }
+
+    private Pair<String, ? extends Pod> assignManagementIpv6ToNetworkInternal(Network network, String vlanId, String nicMacAddress, Long datacenterId, VirtualMachine.Type virtualMachineType) throws InsufficientAddressCapacityException {
+        final List<HostPodVO> ranges = hostPodDao.listIpv6RangeByZoneId(datacenterId);
+        if (CollectionUtils.isEmpty(ranges)) {
+            logAndThrowInsufficientAddressCapacityException(network, vlanId, datacenterId, network.getTrafficType().toString());
+        }
+
+        Pair<String, ? extends Pod> result = Transaction.execute((TransactionCallbackWithException<Pair<String, ? extends Pod>, InsufficientAddressCapacityException>) status -> {
+            Collections.shuffle(ranges);
+            HostPodVO selectedManagementNetwork = ranges.get(0);
+            IPv6Network ipv6Network = IPv6Network.fromString(selectedManagementNetwork.getIp6Cidr());
+            if (ipv6Network.getNetmask().asPrefixLength() < IPV6_SLAAC_CIDR_NETMASK) {
+                Iterator<IPv6Network> splits = ipv6Network.split(IPv6NetworkMask.fromPrefixLength(IPV6_SLAAC_CIDR_NETMASK));
+                if (splits.hasNext()) {
+                    ipv6Network = splits.next();
+                }
+            }
+            IPv6Address ipv6Address = NetUtils.EUI64Address(ipv6Network, nicMacAddress);
+            networkOrchestrationService.savePlaceholderNic(network, null, ipv6Address.toString(), selectedManagementNetwork.getIp6Cidr(), selectedManagementNetwork.getIp6Gateway(), managementNetworkReserver, virtualMachineType);
+            return new Pair<>(ipv6Address.toString(), selectedManagementNetwork);
+        });
+//        TODO: ver se faz sentido ter evento pra isso
+//        final String ipv6Address = result.first();
+//        publishPublicIpv6AssignActionEvent(network, ipv6Address);
+        return result;
+    }
+
+    private void logAndThrowInsufficientAddressCapacityException(Network network, String vlanId, Long datacenterId, String trafficType) throws InsufficientAddressCapacityException {
+        DataCenterVO zone = zoneDao.findById(datacenterId);
+        logger.error("Unable to find IPv6 address for zone: {}, physical network: {}, VLAN: {}, traffic type: {}",
+                zone, physicalNetworkDao.findById(network.getPhysicalNetworkId()), vlanId, trafficType);
+        InsufficientAddressCapacityException ex = new InsufficientAddressCapacityException("Insufficient address capacity", DataCenter.class, datacenterId);
+        ex.addProxyObject(zone.getUuid());
+        throw ex;
     }
 
     private Ipv6GuestPrefixSubnetNetworkMapVO preallocatePrefixSubnetRandomly(DataCenterGuestIpv6PrefixVO prefix) {
@@ -308,7 +378,9 @@ public class Ipv6ServiceImpl extends ComponentLifecycleBase implements Ipv6Servi
     public ConfigKey<?>[] getConfigKeys() {
         return new ConfigKey<?>[] {
                 Ipv6OfferingCreationEnabled,
-                Ipv6PrefixSubnetCleanupInterval
+                Ipv6PrefixSubnetCleanupInterval,
+                ConsoleProxyVmEnableIpv6,
+                SecondaryStorageVmEnableIpv6
         };
     }
 
@@ -420,7 +492,7 @@ public class Ipv6ServiceImpl extends ComponentLifecycleBase implements Ipv6Servi
             return nic;
         }
         try {
-            Pair<String, ? extends Vlan> publicIpv6AddressVlanPair = assignPublicIpv6ToNetworkInternal(network, nic.getBroadcastUri().toString(), nic.getMacAddress());
+            Pair<String, ? extends Vlan> publicIpv6AddressVlanPair = assignPublicIpv6ToNetworkInternal(network, nic.getBroadcastUri().toString(), nic.getMacAddress(), network.getDataCenterId(), VirtualMachine.Type.DomainRouter);
             Vlan vlan = publicIpv6AddressVlanPair.second();
             final String ipv6Address = publicIpv6AddressVlanPair.first();
             final String ipv6Gateway = vlan.getIp6Gateway();
@@ -437,26 +509,48 @@ public class Ipv6ServiceImpl extends ComponentLifecycleBase implements Ipv6Servi
     }
 
     @Override
-    public void updateNicIpv6(NicProfile nic, DataCenter dc, Network network) throws InsufficientAddressCapacityException {
-        boolean isIpv6Supported = networkOfferingDao.isIpv6Supported(network.getNetworkOfferingId());
+    public void updateNicIpv6(NicProfile nic, DataCenter dc, Network network, VirtualMachine.Type virtualMachineType) throws InsufficientAddressCapacityException {
+        boolean isConsoleProxyVmIpv6Enabled = virtualMachineType == VirtualMachine.Type.ConsoleProxy && Ipv6Service.ConsoleProxyVmEnableIpv6.valueIn(dc.getId());
+        boolean isSecondaryStorageVmIpv6Enabled = virtualMachineType == VirtualMachine.Type.SecondaryStorageVm && Ipv6Service.SecondaryStorageVmEnableIpv6.valueIn(dc.getId());
+        boolean isIpv6Supported = networkOfferingDao.isIpv6Supported(network.getNetworkOfferingId()) || isConsoleProxyVmIpv6Enabled || isSecondaryStorageVmIpv6Enabled;
+
         if (nic.getIPv6Address() == null && isIpv6Supported) {
-            Pair<String, ? extends Vlan> publicIpv6AddressVlanPair = assignPublicIpv6ToNetworkInternal(network, nic.getBroadCastUri().toString(), nic.getMacAddress());
-            final Vlan vlan = publicIpv6AddressVlanPair.second();
-            final String routerIpv6 = publicIpv6AddressVlanPair.first();
-            final String routerIpv6Gateway = vlan.getIp6Gateway();
-            final String routerIpv6Cidr = vlan.getIp6Cidr();
-            nic.setIPv6Address(routerIpv6);
-            nic.setIPv6Gateway(routerIpv6Gateway);
-            nic.setIPv6Cidr(routerIpv6Cidr);
-            if (nic.getIPv4Address() != null) {
-                nic.setFormat(Networks.AddressFormat.DualStack);
-            } else {
-                nic.setFormat(Networks.AddressFormat.Ip6);
+            switch (network.getTrafficType()) {
+                case Public:
+                case Guest:
+                    Pair<String, ? extends Vlan> publicIpv6AddressVlanPair = assignPublicIpv6ToNetworkInternal(network, nic.getBroadCastUri().toString(), nic.getMacAddress(), dc.getId(), virtualMachineType);
+                    String publicIpv6Address = publicIpv6AddressVlanPair.first();
+                    Vlan vlan = publicIpv6AddressVlanPair.second();
+                    updateNicIpv6(nic, dc, network, publicIpv6Address, vlan.getIp6Gateway(), vlan.getIp6Cidr());
+                    break;
+                case Storage:
+                    Pair<String, ? extends StorageNetworkIpRange> storageIpv6AddressStorageNetworkIpRangePair = assignStorageIpv6ToNetworkInternal(network, null, nic.getMacAddress(), dc.getId(), virtualMachineType);
+                    String storageIpv6Address = storageIpv6AddressStorageNetworkIpRangePair.first();
+                    StorageNetworkIpRange storageNetworkIpRange = storageIpv6AddressStorageNetworkIpRangePair.second();
+                    updateNicIpv6(nic, dc, network, storageIpv6Address, storageNetworkIpRange.getIp6Gateway(), storageNetworkIpRange.getIp6Cidr());
+                    break;
+                case Management:
+                    Pair<String, ? extends Pod> managemenIpv6AddressStorageNetworkIpRangePair = assignManagementIpv6ToNetworkInternal(network, null, nic.getMacAddress(), dc.getId(), virtualMachineType);
+                    String managementIpv6Address = managemenIpv6AddressStorageNetworkIpRangePair.first();
+                    Pod pod = managemenIpv6AddressStorageNetworkIpRangePair.second();
+                    updateNicIpv6(nic, dc, network, managementIpv6Address, pod.getIp6Gateway(), pod.getIp6Cidr());
+                    break;
             }
-            Pair<String, String> dns = networkModel.getNetworkIp6Dns(network, dc);
-            nic.setIPv6Dns1(dns.first());
-            nic.setIPv6Dns2(dns.second());
         }
+    }
+
+    private void updateNicIpv6(NicProfile nic, DataCenter dc, Network network, String ipv6Address, String ipv6Gateway, String ipv6Cidr) {
+        nic.setIPv6Address(ipv6Address);
+        nic.setIPv6Gateway(ipv6Gateway);
+        nic.setIPv6Cidr(ipv6Cidr);
+        if (nic.getIPv4Address() != null) {
+            nic.setFormat(Networks.AddressFormat.DualStack);
+        } else {
+            nic.setFormat(Networks.AddressFormat.Ip6);
+        }
+        Pair<String, String> dns = networkModel.getNetworkIp6Dns(network, dc);
+        nic.setIPv6Dns1(dns.first());
+        nic.setIPv6Dns2(dns.second());
     }
 
     @Override
@@ -510,12 +604,7 @@ public class Ipv6ServiceImpl extends ComponentLifecycleBase implements Ipv6Servi
             VlanVO vlan = vlanDao.findById(address.getVlanId());
             final List<VlanVO> ranges = vlanDao.listIpv6RangeByZoneIdAndVlanId(network.getDataCenterId(), vlan.getVlanTag());
             if (CollectionUtils.isEmpty(ranges)) {
-                DataCenterVO zone = zoneDao.findById(network.getDataCenterId());
-                logger.error("Unable to find IPv6 address for zone: {}, physical network: {}, VLAN: {}",
-                        zone, physicalNetworkDao.findById(network.getPhysicalNetworkId()), vlan.getVlanTag());
-                InsufficientAddressCapacityException ex = new InsufficientAddressCapacityException("Insufficient address capacity", DataCenter.class, network.getDataCenterId());
-                ex.addProxyObject(zone.getUuid());
-                throw ex;
+                logAndThrowInsufficientAddressCapacityException(network, vlan.getVlanTag(), network.getDataCenterId(), network.getTrafficType().toString());
             }
         }
     }

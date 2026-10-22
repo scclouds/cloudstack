@@ -93,6 +93,18 @@ public class PodResponse extends BaseResponseWithAnnotations {
     @Param(description = "comma-separated list of storage access groups on the zone", since = "4.21.0")
     private String zoneStorageAccessGroups;
 
+    @SerializedName(ApiConstants.CIDR)
+    @Param(description = "The CIDR of the Pod")
+    private String cidr;
+
+    @SerializedName(ApiConstants.IP6_GATEWAY)
+    @Param(description = "The IPv6 gateway of the Pod")
+    private String ip6Gateway;
+
+    @SerializedName(ApiConstants.IP6_CIDR)
+    @Param(description = "The IPv6 CIDR of the Pod")
+    private String ip6Cidr;
+
     public String getId() {
         return id;
     }
@@ -207,5 +219,29 @@ public class PodResponse extends BaseResponseWithAnnotations {
 
     public void setZoneStorageAccessGroups(String zoneStorageAccessGroups) {
         this.zoneStorageAccessGroups = zoneStorageAccessGroups;
+    }
+
+    public String getCidr() {
+        return cidr;
+    }
+
+    public void setCidr(String cidr) {
+        this.cidr = cidr;
+    }
+
+    public String getIp6Gateway() {
+        return ip6Gateway;
+    }
+
+    public void setIp6Gateway(String ip6Gateway) {
+        this.ip6Gateway = ip6Gateway;
+    }
+
+    public String getIp6Cidr() {
+        return ip6Cidr;
+    }
+
+    public void setIp6Cidr(String ip6Cidr) {
+        this.ip6Cidr = ip6Cidr;
     }
 }

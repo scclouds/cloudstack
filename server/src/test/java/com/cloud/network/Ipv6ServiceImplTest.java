@@ -494,7 +494,7 @@ public class Ipv6ServiceImplTest {
         Mockito.when(networkOfferingDao.isIpv6Supported(Mockito.anyLong())).thenReturn(false);
         NicProfile nicProfile = new NicProfile();
         try {
-            ipv6Service.updateNicIpv6(nicProfile, Mockito.mock(DataCenter.class), Mockito.mock(Network.class));
+            ipv6Service.updateNicIpv6(nicProfile, Mockito.mock(DataCenter.class), Mockito.mock(Network.class), Mockito.mock(VirtualMachine.Type.class));
         } catch (InsufficientAddressCapacityException e) {
             Assert.fail("InsufficientAddressCapacityException");
         }
@@ -512,7 +512,7 @@ public class Ipv6ServiceImplTest {
         nicProfile.setMacAddress(macAddress);
         prepareMocksForPublicIpv6(false);
         try {
-            ipv6Service.updateNicIpv6(nicProfile, Mockito.mock(DataCenter.class), Mockito.mock(Network.class));
+            ipv6Service.updateNicIpv6(nicProfile, Mockito.mock(DataCenter.class), Mockito.mock(Network.class), Mockito.mock(VirtualMachine.Type.class));
         } catch (InsufficientAddressCapacityException e) {
             Assert.fail("InsufficientAddressCapacityException");
         }
@@ -530,7 +530,7 @@ public class Ipv6ServiceImplTest {
         nicProfile.setMacAddress(macAddress);
         prepareMocksForPublicIpv6(true);
         try {
-            ipv6Service.updateNicIpv6(nicProfile, Mockito.mock(DataCenter.class), Mockito.mock(Network.class));
+            ipv6Service.updateNicIpv6(nicProfile, Mockito.mock(DataCenter.class), Mockito.mock(Network.class), Mockito.mock(VirtualMachine.Type.class));
         } catch (InsufficientAddressCapacityException e) {
             Assert.fail("InsufficientAddressCapacityException");
         }

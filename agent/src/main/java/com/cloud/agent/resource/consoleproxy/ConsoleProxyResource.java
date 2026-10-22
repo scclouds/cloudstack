@@ -271,7 +271,13 @@ public class ConsoleProxyResource extends ServerResourceBase implements ServerRe
             }
         }
 
-        publicIp = (String)params.get("public.ip");
+        logger.info("PARAMS: [{}]", params);
+        publicIp = (String)params.get("eth2ip6");
+        logger.debug("Trying to retrieve SSVM public IPv6 Address [{}].", publicIp);
+        if (publicIp == null) {
+            publicIp = (String)params.get("public.ip");
+            logger.debug("Public IPv6 address not found for SSVM; using its public IPV4 address [{}] instead.", publicIp);
+        }
 
         value = (String)params.get("disable_rp_filter");
         if (value != null && value.equalsIgnoreCase("true")) {

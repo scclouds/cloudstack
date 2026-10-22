@@ -163,7 +163,7 @@ public class PublicNetworkGuru extends AdapterBase implements NetworkGuru {
         nic.setIPv4Dns1(dns.first());
         nic.setIPv4Dns2(dns.second());
 
-        ipv6Service.updateNicIpv6(nic, dc, network);
+        ipv6Service.updateNicIpv6(nic, dc, network, vm.getType());
     }
 
     @Override

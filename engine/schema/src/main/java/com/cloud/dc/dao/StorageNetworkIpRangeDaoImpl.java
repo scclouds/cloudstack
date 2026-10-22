@@ -19,6 +19,8 @@ package com.cloud.dc.dao;
 import java.util.List;
 
 
+import com.cloud.utils.db.SearchBuilder;
+import org.apache.commons.lang3.StringUtils;
 import org.springframework.stereotype.Component;
 
 import com.cloud.dc.StorageNetworkIpRangeVO;
@@ -34,11 +36,19 @@ import com.cloud.utils.db.SearchCriteria.Op;
 @DB
 public class StorageNetworkIpRangeDaoImpl extends GenericDaoBase<StorageNetworkIpRangeVO, Long> implements StorageNetworkIpRangeDao {
     protected final GenericSearchBuilder<StorageNetworkIpRangeVO, Long> countRanges;
+    protected SearchBuilder<StorageNetworkIpRangeVO> ZoneVlanIp6Search;
 
     protected StorageNetworkIpRangeDaoImpl() {
         countRanges = createSearchBuilder(Long.class);
         countRanges.select(null, Func.COUNT, null);
         countRanges.done();
+
+        ZoneVlanIp6Search = createSearchBuilder();
+        ZoneVlanIp6Search.and("zoneId", ZoneVlanIp6Search.entity().getDataCenterId(), SearchCriteria.Op.EQ);
+        ZoneVlanIp6Search.and("vlanId", ZoneVlanIp6Search.entity().getVlan(), SearchCriteria.Op.EQ);
+        ZoneVlanIp6Search.and("ip6Gateway", ZoneVlanIp6Search.entity().getIp6Gateway(), SearchCriteria.Op.NNULL);
+        ZoneVlanIp6Search.and("ip6Cidr", ZoneVlanIp6Search.entity().getIp6Cidr(), SearchCriteria.Op.NNULL);
+        ZoneVlanIp6Search.done();
     }
 
     @Override
@@ -68,4 +78,13 @@ public class StorageNetworkIpRangeDaoImpl extends GenericDaoBase<StorageNetworkI
         return customSearch(sc, null).get(0);
     }
 
+    @Override
+    public List<StorageNetworkIpRangeVO> listIpv6RangeByZoneIdAndVlanId(long zoneId, String vlanId) {
+        SearchCriteria<StorageNetworkIpRangeVO> sc = ZoneVlanIp6Search.create();
+        sc.setParameters("zoneId", zoneId);
+        if(StringUtils.isNotEmpty(vlanId)) {
+            sc.setParameters("vlanId", vlanId);
+        }
+        return listBy(sc);
+    }
 }

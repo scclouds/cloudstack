@@ -1434,6 +1434,11 @@ public class ApiResponseHelper implements ResponseGenerator, ResourceIdSupport {
             podResponse.setZoneId(zone.getUuid());
             podResponse.setZoneName(zone.getName());
         }
+        String cidrAddress = pod.getCidrAddress();
+        int cidrSize = pod.getCidrSize();
+        if (StringUtils.isNotEmpty(cidrAddress)) {
+            podResponse.setCidr(String.format("%s/%d", cidrAddress, cidrSize));
+        }
         podResponse.setNetmask(NetUtils.getCidrNetmask(pod.getCidrSize()));
         podResponse.setIpRanges(ipRanges);
         podResponse.setStartIp(startIps);
@@ -1444,6 +1449,8 @@ public class ApiResponseHelper implements ResponseGenerator, ResourceIdSupport {
         podResponse.setAllocationState(pod.getAllocationState().toString());
         podResponse.setStorageAccessGroups(pod.getStorageAccessGroups());
         podResponse.setZoneStorageAccessGroups(zone.getStorageAccessGroups());
+        podResponse.setIp6Gateway(pod.getIp6Gateway());
+        podResponse.setIp6Cidr(pod.getIp6Cidr());
         if (showCapacities != null && showCapacities) {
             List<SummedCapacity> capacities = ApiDBUtils.getCapacityByClusterPodZone(null, pod.getId(), null);
             Set<CapacityResponse> capacityResponses = new HashSet<CapacityResponse>();
@@ -3517,8 +3524,18 @@ public class ApiResponseHelper implements ResponseGenerator, ResourceIdSupport {
         response.setPodUuid(result.getPodUuid());
         response.setZoneUuid(result.getZoneUuid());
         response.setNetworkUuid(result.getNetworkUuid());
+
+        String gateway = result.getGateway();
+        String netmask = result.getNetmask();
         response.setNetmask(result.getNetmask());
         response.setGateway(result.getGateway());
+        if (StringUtils.isNotEmpty(gateway) && StringUtils.isNotEmpty(netmask)) {
+            response.setCidr(NetUtils.getCidrFromGatewayAndNetmask(gateway, netmask));
+        }
+
+        response.setIp6Gateway(result.getIp6Gateway());
+        response.setIp6Cidr(result.getIp6Cidr());
+
         response.setObjectName("storagenetworkiprange");
         return response;
     }

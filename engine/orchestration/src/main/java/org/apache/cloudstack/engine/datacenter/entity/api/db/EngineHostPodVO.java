@@ -92,6 +92,12 @@ public class EngineHostPodVO implements EnginePod, Identity {
     @Column(name = "storage_access_groups")
     String storageAccessGroups;
 
+    @Column(name = "ip6_gateway")
+    private String ip6Gateway;
+
+    @Column(name = "ip6_cidr")
+    private String ip6Cidr;
+
     /**
      * Note that state is intentionally missing the setter.  Any updates to
      * the state machine needs to go through the DAO object because someone
@@ -255,6 +261,25 @@ public class EngineHostPodVO implements EnginePod, Identity {
     public State getState() {
         return state;
     }
+
+    @Override
+    public String getIp6Gateway() {
+        return ip6Gateway;
+    }
+
+    public void setIp6Gateway(String ip6Gateway) {
+        this.ip6Gateway = ip6Gateway;
+    }
+
+    @Override
+    public String getIp6Cidr() {
+        return ip6Cidr;
+    }
+
+    public void setIp6Cidr(String ip6Cidr) {
+        this.ip6Cidr = ip6Cidr;
+    }
+
 
     @Override
     public String toString() {

@@ -29,6 +29,7 @@ import com.cloud.hypervisor.Hypervisor.HypervisorType;
 import com.cloud.storage.Upload;
 import com.cloud.utils.StringUtils;
 
+import com.cloud.utils.net.NetUtils;
 import org.apache.cloudstack.engine.subsystem.api.storage.DataObject;
 import org.apache.cloudstack.engine.subsystem.api.storage.DataStore;
 import org.apache.cloudstack.engine.subsystem.api.storage.EndPoint;
@@ -128,7 +129,12 @@ public class CloudStackImageStoreDriverImpl extends NfsImageStoreDriverImpl {
 
     private String generateCopyUrl(String ipAddress, String fileName, String filePath) {
 
-        String hostname = ipAddress;
+        String hostname;
+        if (NetUtils.isValidIp6(ipAddress)) {
+            hostname = String.format("[%s]", ipAddress);
+        } else {
+            hostname = ipAddress;
+        }
         String scheme = "http";
         boolean _sslCopy = false;
         String sslCfg = _configDao.getValue(Config.SecStorageEncryptCopy.toString());

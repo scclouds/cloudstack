@@ -59,14 +59,15 @@ public class LocalNfsSecondaryStorageResource extends NfsSecondaryStorageResourc
     }
 
     @Override
-    protected void mount(String localRootPath, String remoteDevice, URI uri, String nfsVersion) {
+    protected void mount(String localRootPath, String remoteDevice, URI uri, String nfsVersion, boolean isHostIpv6) {
         ensureLocalRootPathExists(localRootPath, uri);
 
         if (mountExists(localRootPath, uri)) {
             return;
         }
 
-        attemptMount(localRootPath, remoteDevice, uri, nfsVersion);
+        // TODO: obter essa flag dentro do método que tem a URI e remover o parametro
+        attemptMount(localRootPath, remoteDevice, uri, nfsVersion, false);
 
         // Change permissions for the mountpoint - seems to bypass authentication
         Script script = new Script(true, "chmod", _timeout, logger);

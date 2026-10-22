@@ -112,7 +112,7 @@ under the License.
       <!-- Setup the Root category -->
       <!-- ======================= -->
 
-      <Root level="INFO">
+      <Root level="DEBUG">
          <AppenderRef ref="SYSLOG"/>
          <AppenderRef ref="CONSOLE"/>
          <AppenderRef ref="CONSOLE_ERR"/>

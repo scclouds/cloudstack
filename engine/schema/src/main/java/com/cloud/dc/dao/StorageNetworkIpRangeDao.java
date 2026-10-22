@@ -29,4 +29,6 @@ public interface StorageNetworkIpRangeDao extends GenericDao<StorageNetworkIpRan
     List<StorageNetworkIpRangeVO> listByDataCenterId(long dcId);
 
     long countRanges();
+
+    List<StorageNetworkIpRangeVO> listIpv6RangeByZoneIdAndVlanId(long zoneId, String vlanId);
 }

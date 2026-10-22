@@ -532,6 +532,6 @@ public class NetworkHelperImplTest {
         Mockito.when(routerDeploymentDefinitionMock.getDest()).thenReturn(deployDestinationMock);
 
         Map<Network, List<? extends NicProfile>> nic = networkHelperSpy.configurePublicNic(routerDeploymentDefinitionMock, false);
-        Mockito.verify(ipv6ServiceMock).updateNicIpv6(Mockito.eq(nic.get(networkMock).get(0)), Mockito.any(), Mockito.eq(networkMock));
+        Mockito.verify(ipv6ServiceMock).updateNicIpv6(Mockito.eq(nic.get(networkMock).get(0)), Mockito.any(), Mockito.eq(networkMock), Mockito.any());
     }
 }

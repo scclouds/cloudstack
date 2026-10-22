@@ -23,6 +23,7 @@ import java.util.List;
 
 import javax.inject.Inject;
 
+import com.googlecode.ipv6.IPv6Network;
 import org.springframework.stereotype.Component;
 
 import org.apache.cloudstack.api.command.admin.network.CreateStorageNetworkIpRangeCmd;
@@ -71,6 +72,10 @@ public class StorageNetworkManagerImpl extends ManagerBase implements StorageNet
     SecondaryStorageVmDao _ssvmDao;
 
     private void checkOverlapPrivateIpRange(long podId, String startIp, String endIp) {
+        if (startIp == null) {
+            return;
+        }
+
         HostPodVO pod = _podDao.findById(podId);
         if (pod == null) {
             throw new CloudRuntimeException("Cannot find pod " + podId);
@@ -94,6 +99,10 @@ public class StorageNetworkManagerImpl extends ManagerBase implements StorageNet
     }
 
     private void checkOverlapStorageIpRange(long podId, String startIp, String endIp) {
+        if (startIp == null) {
+            return;
+        }
+
         List<StorageNetworkIpRangeVO> curRanges = _sNwIpRangeDao.listByPodId(podId);
         for (StorageNetworkIpRangeVO range : curRanges) {
             if (NetUtils.ipRangesOverlap(startIp, endIp, range.getStartIp(), range.getEndIp())) {
@@ -104,6 +113,10 @@ public class StorageNetworkManagerImpl extends ManagerBase implements StorageNet
     }
 
     private void createStorageIpEntires(TransactionLegacy txn, long rangeId, String startIp, String endIp, long zoneId) throws SQLException {
+        if (startIp == null) {
+            return;
+        }
+
         long startIPLong = NetUtils.ip2Long(startIp);
         long endIPLong = NetUtils.ip2Long(endIp);
         String insertSql =
@@ -200,13 +213,29 @@ public class StorageNetworkManagerImpl extends ManagerBase implements StorageNet
         String endIp = cmd.getEndIp();
         final Integer vlan = cmd.getVlan();
         final String netmask = cmd.getNetmask();
+        String ip6Gateway = cmd.getIp6Gateway();
+        String ip6Cidr = cmd.getIp6Cidr();
 
         if (endIp == null) {
             endIp = startIp;
         }
 
-        if (!NetUtils.isValidIp4Netmask(netmask)) {
+        boolean ipv4 = startIp != null;
+        boolean ipv6 = ip6Cidr != null;
+
+        if (!ipv4 && !ipv6) {
+            throw new InvalidParameterValueException("StartIP or IPv6 CIDR is missing in the parameters.");
+        }
+
+        if (ipv4 && !NetUtils.isValidIp4Netmask(netmask)) {
             throw new CloudRuntimeException("Invalid netmask:" + netmask);
+        }
+
+        if (ipv6) {
+            IPv6Network iPv6Network = IPv6Network.fromString(ip6Cidr);
+            if (iPv6Network.getNetmask().asPrefixLength() > Ipv6Service.IPV6_SLAAC_CIDR_NETMASK) {
+                throw new InvalidParameterValueException(String.format("For IPv6 range, prefix must be /%d or less", Ipv6Service.IPV6_SLAAC_CIDR_NETMASK));
+            }
         }
 
         HostPodVO pod = _podDao.findById(podId);
@@ -233,7 +262,7 @@ public class StorageNetworkManagerImpl extends ManagerBase implements StorageNet
         return Transaction.execute(new TransactionCallbackWithException<StorageNetworkIpRangeVO, SQLException>() {
             @Override
             public StorageNetworkIpRangeVO doInTransaction(TransactionStatus status) throws SQLException {
-                StorageNetworkIpRangeVO range = new StorageNetworkIpRangeVO(zoneId, podId, nw.getId(), startIp, endIpFinal, vlan, netmask, cmd.getGateWay());
+                StorageNetworkIpRangeVO range = new StorageNetworkIpRangeVO(zoneId, podId, nw.getId(), startIp, endIpFinal, vlan, netmask, cmd.getGateWay(), ip6Gateway, ip6Cidr);
                 _sNwIpRangeDao.persist(range);
                 try {
                     createStorageIpEntires(TransactionLegacy.currentTxn(), range.getId(), startIp, endIpFinal, zoneId);
@@ -244,6 +273,8 @@ public class StorageNetworkManagerImpl extends ManagerBase implements StorageNet
                     err.append("endIp=" + endIpFinal);
                     err.append("netmask=" + netmask);
                     err.append("zoneId=" + zoneId);
+                    err.append("ip6gateway=" + ip6Gateway);
+                    err.append("ip6cidr=" + ip6Cidr);
                     logger.debug(err.toString(), e);
                     throw e;
                 }

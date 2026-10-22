@@ -41,6 +41,7 @@ public class HostPodDaoImpl extends GenericDaoBase<HostPodVO, Long> implements H
     protected SearchBuilder<HostPodVO> DataCenterAndNameSearch;
     protected SearchBuilder<HostPodVO> DataCenterIdSearch;
     protected GenericSearchBuilder<HostPodVO, Long> PodIdSearch;
+    protected SearchBuilder<HostPodVO> ZoneIp6Search;
 
     public HostPodDaoImpl() {
         DataCenterAndNameSearch = createSearchBuilder();
@@ -57,6 +58,12 @@ public class HostPodDaoImpl extends GenericDaoBase<HostPodVO, Long> implements H
         PodIdSearch.and("dataCenterId", PodIdSearch.entity().getDataCenterId(), Op.EQ);
         PodIdSearch.and("allocationState", PodIdSearch.entity().getAllocationState(), Op.EQ);
         PodIdSearch.done();
+
+        ZoneIp6Search = createSearchBuilder();
+        ZoneIp6Search.and("zoneId", ZoneIp6Search.entity().getDataCenterId(), SearchCriteria.Op.EQ);
+        ZoneIp6Search.and("ip6Gateway", ZoneIp6Search.entity().getIp6Gateway(), SearchCriteria.Op.NNULL);
+        ZoneIp6Search.and("ip6Cidr", ZoneIp6Search.entity().getIp6Cidr(), SearchCriteria.Op.NNULL);
+        ZoneIp6Search.done();
     }
 
     @Override
@@ -175,4 +182,10 @@ public class HostPodDaoImpl extends GenericDaoBase<HostPodVO, Long> implements H
         return customSearch(sc, null);
     }
 
+    @Override
+    public List<HostPodVO> listIpv6RangeByZoneId(long zoneId) {
+        SearchCriteria<HostPodVO> sc = ZoneIp6Search.create();
+        sc.setParameters("zoneId", zoneId);
+        return listBy(sc);
+    }
 }

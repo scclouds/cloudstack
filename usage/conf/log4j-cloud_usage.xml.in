@@ -61,7 +61,7 @@ under the License.
       <!-- Setup the Root category -->
       <!-- ======================= -->
 
-      <Root level="INFO">
+      <Root level="DEBUG">
          <AppenderRef ref="CONSOLE"/>
          <AppenderRef ref="CONSOLE_ERR"/>
          <AppenderRef ref="USAGE"/>
