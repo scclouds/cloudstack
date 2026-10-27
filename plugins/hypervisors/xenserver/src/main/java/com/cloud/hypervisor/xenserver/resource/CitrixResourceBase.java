@@ -3024,10 +3024,14 @@ public abstract class CitrixResourceBase extends ServerResourceBase implements S
         return stats;
     }
 
-    public SR getNfsSR(final Connection conn, final String poolid, final String uuid, final String server, String serverpath, final String pooldesc) {
+    public SR getNfsSR(final Connection conn, final String poolid, final String uuid, String server, String serverpath, final String pooldesc) {
         final Map<String, String> deviceConfig = new HashMap<>();
         try {
             serverpath = serverpath.replace("//", "/");
+            if (server.startsWith("[") && server.endsWith("]")) {
+                server = server.substring(1, server.length() - 1);
+                deviceConfig.put("nfsversion", "4");
+            }
             final Set<SR> srs = SR.getAll(conn);
             if (srs != null && !srs.isEmpty()) {
                 for (final SR sr : srs) {

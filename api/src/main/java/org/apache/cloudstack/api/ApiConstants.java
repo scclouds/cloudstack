@@ -500,6 +500,7 @@ public class ApiConstants {
     public static final String PRESERVE_IP = "preserveip";
     public static final String PRIVATE_INTERFACE = "privateinterface";
     public static final String PRIVATE_IP = "privateip";
+    public static final String PRIVATE_IPV6 = "privateipv6";
     public static final String PRIVATE_PORT = "privateport";
     public static final String PRIVATE_START_PORT = "privateport";
     public static final String PRIVATE_END_PORT = "privateendport";
@@ -509,6 +510,7 @@ public class ApiConstants {
     public static final String PUBLIC_INTERFACE = "publicinterface";
     public static final String PUBLIC_IP_ID = "publicipid";
     public static final String PUBLIC_IP = "publicip";
+    public static final String PUBLIC_IPV6 = "publicipv6";
     public static final String PUBLIC_PORT = "publicport";
     public static final String PUBLIC_START_PORT = "publicport";
     public static final String PUBLIC_END_PORT = "publicendport";

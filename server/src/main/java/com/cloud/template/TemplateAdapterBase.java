@@ -485,7 +485,7 @@ public abstract class TemplateAdapterBase extends AdapterBase implements Templat
                     StringUtils.join(Arrays.stream(HypervisorType.values()).filter(h -> h != HypervisorType.None).map(HypervisorType::name).toArray(), ", ")));
         }
 
-        TemplateType templateType = templateMgr.validateTemplateType(cmd, _accountMgr.isAdmin(caller.getAccountId()),
+        TemplateType templateType = templateMgr.    validateTemplateType(cmd, _accountMgr.isAdmin(caller.getAccountId()),
                 false, params.getHypervisorType());
 
         return prepare(params.isIso(), params.getUserId(), params.getName(), params.getDisplayText(), params.getArch(), params.getBits(),

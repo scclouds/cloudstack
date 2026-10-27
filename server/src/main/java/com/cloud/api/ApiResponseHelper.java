@@ -1887,6 +1887,7 @@ public class ApiResponseHelper implements ResponseGenerator, ResourceIdSupport {
                 if (network != null) {
                     if (network.getTrafficType() == TrafficType.Management) {
                         vmResponse.setPrivateIp(singleNicProfile.getIPv4Address());
+                        vmResponse.setPrivateIpv6(singleNicProfile.getIPv6Address());
                         vmResponse.setPrivateMacAddress(singleNicProfile.getMacAddress());
                         vmResponse.setPrivateNetmask(singleNicProfile.getIPv4Netmask());
                     } else if (network.getTrafficType() == TrafficType.Control) {
@@ -1895,6 +1896,7 @@ public class ApiResponseHelper implements ResponseGenerator, ResourceIdSupport {
                         vmResponse.setLinkLocalNetmask(singleNicProfile.getIPv4Netmask());
                     } else if (network.getTrafficType() == TrafficType.Public) {
                         vmResponse.setPublicIp(singleNicProfile.getIPv4Address());
+                        vmResponse.setPublicIpv6(singleNicProfile.getIPv6Address());
                         vmResponse.setPublicMacAddress(singleNicProfile.getMacAddress());
                         vmResponse.setPublicNetmask(singleNicProfile.getIPv4Netmask());
                         vmResponse.setGateway(singleNicProfile.getIPv4Gateway());

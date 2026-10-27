@@ -19,6 +19,7 @@ package com.cloud.hypervisor.xenserver.resource;
 import com.cloud.utils.NumbersUtil;
 import com.cloud.utils.PropertiesUtil;
 import com.cloud.utils.exception.CloudRuntimeException;
+import com.cloud.utils.net.NetUtils;
 import com.xensource.xenapi.APIVersion;
 import com.xensource.xenapi.Connection;
 import com.xensource.xenapi.ConnectionNew;
@@ -151,6 +152,10 @@ public class XenServerConnectionPool {
     }
 
     public Connection getConnect(String ip, String username, Queue<String> password) {
+        if (NetUtils.isValidIp6(ip)) {
+            ip = String.format("[%s]", ip);
+        }
+
         Connection conn = new ConnectionNew(getURL(ip), 10, _connWait);
         try {
             loginWithPassword(conn, username, password, APIVersion.latest().toString());

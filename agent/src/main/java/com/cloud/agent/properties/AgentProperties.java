@@ -966,6 +966,16 @@ public class AgentProperties{
      */
     public static final Property<Integer> BACKUP_COMPRESSION_MAX_CONCURRENT_OPERATIONS_PER_HOST = new Property<>("backup.compression.max.concurrent.operations.per.host", null, Integer.class);
 
+    /**
+     * TODO: DESCRIÇÃO
+     */
+    public static final Property<Boolean> IPV6_DISABLED = new Property<>("ipv6disabled", false, Boolean.class);
+
+    /**
+     * TODO: DESCRIÇÃO
+     */
+    public static final Property<Boolean> IPV6_PREFER = new Property<>("ipv6prefer", false, Boolean.class);
+
     public static class Property <T>{
         private String name;
         private T defaultValue;

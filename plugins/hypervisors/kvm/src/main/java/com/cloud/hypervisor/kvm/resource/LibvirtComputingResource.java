@@ -504,6 +504,7 @@ public class LibvirtComputingResource extends ServerResourceBase implements Serv
     protected String privateIp;
     protected String pool;
     protected String localGateway;
+    private boolean ipv6Prefer;
     private boolean canBridgeFirewall;
     protected boolean noMemBalloon = false;
     protected String guestCpuArch;
@@ -1560,6 +1561,8 @@ public class LibvirtComputingResource extends ServerResourceBase implements Serv
         }
 
         setupMemoryBalloonStatsPeriod(conn);
+
+        ipv6Prefer = AgentPropertiesFileHandler.getPropertyValue(AgentProperties.IPV6_PREFER);
 
         return true;
     }

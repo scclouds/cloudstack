@@ -94,6 +94,10 @@ public class SystemVmResponse extends BaseResponseWithAnnotations {
     @Param(description = "The private IP address for the System VM")
     private String privateIp;
 
+    @SerializedName(ApiConstants.PRIVATE_IPV6)
+    @Param(description = "The private IPv6 address for the System VM")
+    private String privateIpv6;
+
     @SerializedName(ApiConstants.PRIVATE_MAC_ADDRESS)
     @Param(description = "The private MAC address for the System VM")
     private String privateMacAddress;
@@ -117,6 +121,10 @@ public class SystemVmResponse extends BaseResponseWithAnnotations {
     @SerializedName("publicip")
     @Param(description = "The public IP address for the System VM")
     private String publicIp;
+
+    @SerializedName(ApiConstants.PUBLIC_IPV6)
+    @Param(description = "The public IPv6 address for the System VM")
+    private String publicIpv6;
 
     @SerializedName("publicmacaddress")
     @Param(description = "The public MAC address for the System VM")
@@ -501,5 +509,21 @@ public class SystemVmResponse extends BaseResponseWithAnnotations {
 
     public void setArch(String arch) {
         this.arch = arch;
+    }
+
+    public String getPublicIpv6() {
+        return publicIpv6;
+    }
+
+    public void setPublicIpv6(String publicIpv6) {
+        this.publicIpv6 = publicIpv6;
+    }
+
+    public String getPrivateIpv6() {
+        return privateIpv6;
+    }
+
+    public void setPrivateIpv6(String privateIpv6) {
+        this.privateIpv6 = privateIpv6;
     }
 }

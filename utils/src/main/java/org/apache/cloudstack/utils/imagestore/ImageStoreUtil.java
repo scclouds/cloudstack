@@ -19,6 +19,7 @@
 package org.apache.cloudstack.utils.imagestore;
 
 import com.cloud.utils.UriUtils;
+import com.cloud.utils.net.NetUtils;
 import com.cloud.utils.script.Script;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.logging.log4j.Logger;
@@ -29,6 +30,10 @@ public class ImageStoreUtil {
 
     public static String generatePostUploadUrl(String ssvmUrlDomain, String ipAddress, String uuid, String protocol) {
         String hostname = ipAddress;
+
+        if (NetUtils.isValidIp6(hostname)) {
+            hostname = String.format("[%s]", hostname);
+        }
 
         //if ssvm url domain is present, use it to construct hostname in the format 1-2-3-4.domain
         // if the domain name is not present, ssl validation fails and has to be ignored

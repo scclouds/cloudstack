@@ -3188,7 +3188,7 @@ public class NfsSecondaryStorageResource extends ServerResourceBase implements S
                 command.add("-o", "resvport");
             }
             if (_inSystemVM) {
-                command.add("-o", "soft,timeo=133,retrans=2147483647" + ((isHostIpv6) ? ",tcp6" : ",tcp") + ",acdirmax=0,acdirmin=0" + ((nfsVersion != null) ? ",vers=" + nfsVersion : ""));
+                command.add("-o", "soft,timeo=133,retrans=2147483647" + ((isHostIpv6) ? ",proto=tcp6" : ",tcp") + ",acdirmax=0,acdirmin=0" + ((nfsVersion != null) ? ",vers=" + nfsVersion : ""));
             }
         } else if (scheme.equals("cifs")) {
             String extraOpts = parseCifsMountOptions(uri);

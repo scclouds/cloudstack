@@ -38,6 +38,12 @@
         <template v-if="column.key === 'name'">
           <div>{{ returnPodName(record.podid) }}</div>
         </template>
+        <template v-if="column.key === 'gateway'">
+          {{ record.gateway || record.ip6gateway }}
+        </template>
+        <template v-if="column.key === 'cidr'">
+          {{ record.cidr || record.ip6cidr }}
+        </template>
         <template v-if="column.key === 'actions'">
           <tooltip-button
             :tooltip="$t('label.remove.ip.range')"
@@ -83,6 +89,18 @@
         class="form"
 
       >
+        <a-form-item name="iptype" ref="iptype" :label="$t('label.ip.range.type')" class="form__item">
+          <a-radio-group
+            v-model:value="form.iptype"
+            buttonStyle="solid">
+            <a-radio-button value="">
+              {{ $t('label.ip.v4') }}
+            </a-radio-button>
+            <a-radio-button value="ip6">
+              {{ $t('label.ip.v6') }}
+            </a-radio-button>
+          </a-radio-group>
+        </a-form-item>
         <a-form-item name="pod" ref="pod" :label="$t('label.podid')" class="form__item">
           <a-select
             v-focus="true"
@@ -95,21 +113,31 @@
             <a-select-option v-for="pod in pods" :key="pod.id" :value="pod.id" :label="pod.name">{{ pod.name }}</a-select-option>
           </a-select>
         </a-form-item>
-        <a-form-item name="gateway" ref="gateway" :label="$t('label.gateway')" class="form__item">
-          <a-input v-model:value="form.gateway" />
-        </a-form-item>
-        <a-form-item name="netmask" ref="netmask" :label="$t('label.netmask')" class="form__item">
-          <a-input v-model:value="form.netmask" />
-        </a-form-item>
         <a-form-item name="vlan" ref="vlan" :label="$t('label.vlan')" class="form__item">
           <a-input v-model:value="form.vlan" />
         </a-form-item>
-        <a-form-item name="startip" ref="startip" :label="$t('label.startip')" class="form__item">
-          <a-input v-model:value="form.startip" />
-        </a-form-item>
-        <a-form-item name="endip" ref="endip" :label="$t('label.endip')" class="form__item">
-          <a-input v-model:value="form.endip" />
-        </a-form-item>
+        <div v-if="form.iptype==='ip6'">
+          <a-form-item name="ip6gateway" ref="ip6gateway" :label="$t('label.gateway')" class="form__item">
+            <a-input v-model:value="form.ip6gateway" />
+          </a-form-item>
+          <a-form-item name="ip6cidr" ref="ip6cidr" :label="$t('label.cidr')" class="form__item">
+            <a-input v-model:value="form.ip6cidr" />
+          </a-form-item>
+        </div>
+        <div v-else>
+          <a-form-item name="gateway" ref="gateway" :label="$t('label.gateway')" class="form__item">
+            <a-input v-model:value="form.gateway" />
+          </a-form-item>
+          <a-form-item name="netmask" ref="netmask" :label="$t('label.netmask')" class="form__item">
+            <a-input v-model:value="form.netmask" />
+          </a-form-item>
+          <a-form-item name="startip" ref="startip" :label="$t('label.startip')" class="form__item">
+            <a-input v-model:value="form.startip" />
+          </a-form-item>
+          <a-form-item name="endip" ref="endip" :label="$t('label.endip')" class="form__item">
+            <a-input v-model:value="form.endip" />
+          </a-form-item>
+        </div>
 
         <div :span="24" class="action-button">
           <a-button @click="addIpRangeModal = false">{{ $t('label.cancel') }}</a-button>
@@ -157,12 +185,14 @@ export default {
           title: this.$t('label.podid')
         },
         {
+          key: 'gateway',
           title: this.$t('label.gateway'),
           dataIndex: 'gateway'
         },
         {
-          title: this.$t('label.netmask'),
-          dataIndex: 'netmask'
+          key: 'cidr',
+          title: this.$t('label.cidr'),
+          dataIndex: 'cidr'
         },
         {
           title: this.$t('label.vlan'),
@@ -202,13 +232,17 @@ export default {
   methods: {
     initForm () {
       this.formRef = ref()
-      this.form = reactive({})
+      this.form = reactive({
+        iptype: ''
+      })
       this.rules = reactive({
         pod: [{ required: true, message: this.$t('label.required') }],
         gateway: [{ required: true, message: this.$t('label.required') }],
         netmask: [{ required: true, message: this.$t('label.required') }],
         startip: [{ required: true, message: this.$t('label.required') }],
-        endip: [{ required: true, message: this.$t('label.required') }]
+        endip: [{ required: true, message: this.$t('label.required') }],
+        ip6gateway: [{ required: true, message: this.$t('label.required') }],
+        ip6cidr: [{ required: true, message: this.$t('label.required') }]
       })
     },
     fetchData () {
@@ -295,7 +329,9 @@ export default {
           netmask: values.netmask,
           startip: values.startip,
           endip: values.endip,
-          vlan: values.vlan || null
+          vlan: values.vlan || null,
+          ip6gateway: values.ip6gateway,
+          ip6cidr: values.ip6cidr
         }).then(response => {
           this.$pollJob({
             jobId: response.createstoragenetworkiprangeresponse.jobid,

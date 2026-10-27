@@ -26,7 +26,7 @@ export default {
   docHelp: 'adminguide/systemvm.html',
   permission: ['listSystemVms'],
   searchFilters: ['name', 'zoneid', 'podid', 'hostid', 'systemvmtype', 'storageid', 'arch'],
-  columns: ['name', 'state', 'agentstate', 'systemvmtype', 'publicip', 'privateip', 'linklocalip', 'version', 'hostname', 'arch', 'zonename'],
+  columns: ['name', 'state', 'agentstate', 'systemvmtype', 'publicip', 'publicipv6', 'privateip', 'privateipv6', 'linklocalip', 'version', 'hostname', 'arch', 'zonename'],
   details: ['name', 'id', 'agentstate', 'systemvmtype', 'publicip', 'privateip', 'linklocalip', 'gateway', 'hostname', 'arch', 'version', 'zonename', 'created', 'activeviewersessions', 'isdynamicallyscalable', 'hostcontrolstate', 'storageip'],
   resourceType: 'SystemVm',
   filters: () => {
