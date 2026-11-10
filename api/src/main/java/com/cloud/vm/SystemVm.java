@@ -26,4 +26,8 @@ public interface SystemVm extends VirtualMachine {
     public String getPublicMacAddress();
 
     public Date getLastUpdateTime();
+
+    public String getPublicIp6Address();
+
+    public String getPublicIp6Cidr();
 }

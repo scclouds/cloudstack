@@ -518,7 +518,7 @@ public class TungstenServiceImplTest {
         when(publicNetwork.getCidr()).thenReturn("192.168.100.0/24");
         when(publicNetwork.getTrafficType()).thenReturn(Networks.TrafficType.Public);
         when(createTungstenPolicyAnswer.getApiObjectBase()).thenReturn(networkPolicy);
-        when(ipAddressDao.mark(anyLong(), any(Ip.class))).thenReturn(true);
+        when(ipAddressDao.mark(anyLong(), anyString())).thenReturn(true);
 
         assertTrue(tungstenService.addPublicNetworkSubnet(vlanVO));
     }

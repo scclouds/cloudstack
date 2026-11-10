@@ -110,6 +110,7 @@ public class VMInstanceDaoImpl extends GenericDaoBase<VMInstanceVO, Long> implem
     GenericSearchBuilder<VMInstanceVO, Integer> CountUserVmNotInDomain;
     SearchBuilder<VMInstanceVO> DeleteProtectedVmSearchByAccount;
     SearchBuilder<VMInstanceVO> DeleteProtectedVmSearchByDomainIds;
+    SearchBuilder<VMInstanceVO> PodIdTypesSearch;
 
     @Inject
     ResourceTagDao tagsDao;
@@ -386,6 +387,11 @@ public class VMInstanceDaoImpl extends GenericDaoBase<VMInstanceVO, Long> implem
         DeleteProtectedVmSearchByDomainIds.and(ApiConstants.DELETE_PROTECTION, DeleteProtectedVmSearchByDomainIds.entity().isDeleteProtection(), Op.EQ);
         DeleteProtectedVmSearchByDomainIds.and(ApiConstants.REMOVED, DeleteProtectedVmSearchByDomainIds.entity().getRemoved(), Op.NULL);
         DeleteProtectedVmSearchByDomainIds.done();
+
+        PodIdTypesSearch = createSearchBuilder();
+        PodIdTypesSearch.and("pod", PodIdTypesSearch.entity().getPodIdToDeployIn(), Op.EQ);
+        PodIdTypesSearch.and("types", PodIdTypesSearch.entity().getType(), Op.IN);
+        PodIdTypesSearch.done();
     }
 
     @Override
@@ -1351,5 +1357,13 @@ public class VMInstanceDaoImpl extends GenericDaoBase<VMInstanceVO, Long> implem
         sc.setParameters("host", hostId);
         sc.setParameters("lastHost", hostId);
         return customSearch(sc, null);
+    }
+
+    @Override
+    public List<VMInstanceVO> listByPodIdAndTypes(long podId, VirtualMachine.Type... types) {
+        SearchCriteria<VMInstanceVO> sc = PodIdTypesSearch.create();
+        sc.setParameters("pod", podId);
+        sc.setParameters("types", (Object[])types);
+        return listBy(sc);
     }
 }

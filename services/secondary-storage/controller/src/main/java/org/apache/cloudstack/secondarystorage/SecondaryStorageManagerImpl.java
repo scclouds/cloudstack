@@ -1193,6 +1193,10 @@ public class SecondaryStorageManagerImpl extends ManagerBase implements Secondar
                 buf.append(" eth").append(deviceId).append("ip=").append(nic.getIPv4Address());
                 buf.append(" eth").append(deviceId).append("mask=").append(nic.getIPv4Netmask());
             }
+            if (nic.getIPv6Address() != null) {
+                buf.append(" eth").append(deviceId).append("ip6=").append(nic.getIPv6Address());
+                buf.append(" eth").append(deviceId).append("ip6prelen=").append(NetUtils.getIp6CidrSize(nic.getIPv6Cidr()));
+            }
 
             if (nic.isDefaultNic()) {
                 buf.append(" gateway=").append(nic.getIPv4Gateway());
@@ -1310,6 +1314,10 @@ public class SecondaryStorageManagerImpl extends ManagerBase implements Secondar
                 secVm.setPublicIpAddress(nic.getIPv4Address());
                 secVm.setPublicNetmask(nic.getIPv4Netmask());
                 secVm.setPublicMacAddress(nic.getMacAddress());
+                if (nic.getIPv6Address() != null) {
+                    secVm.setPublicIp6Address(nic.getIPv6Address());
+                    secVm.setPublicIp6Cidr(nic.getIPv6Cidr());
+                }
             } else if (nic.getTrafficType() == TrafficType.Management) {
                 secVm.setPrivateIpAddress(nic.getIPv4Address());
                 secVm.setPrivateMacAddress(nic.getMacAddress());
@@ -1550,7 +1558,7 @@ public class SecondaryStorageManagerImpl extends ManagerBase implements Secondar
     @Override
     public ConfigKey<?>[] getConfigKeys() {
         return new ConfigKey<?>[] {NTPServerConfig, MaxNumberOfSsvmsForMigration, SecondaryStorageCapacityScanInterval,
-                                   SecondaryStorageVmUserData};
+                                   SecondaryStorageVmUserData, SecondaryStorageVmPreferIpv6};
     }
 
 }

@@ -416,6 +416,8 @@ public class Ipv6ServiceImplTest {
 
     @Test(expected = CloudRuntimeException.class)
     public void testNewErrorAssignPublicIpv6ToNetwork() {
+        Network networkMock = Mockito.mock(Network.class);
+        Mockito.when(networkMock.getTrafficType()).thenReturn(Networks.TrafficType.Public);
         Nic nic = Mockito.mock(Nic.class);
         Mockito.when(nic.getIPv6Address()).thenReturn(null);
         Mockito.when(nic.getBroadcastUri()).thenReturn(URI.create(vlan));
@@ -423,7 +425,7 @@ public class Ipv6ServiceImplTest {
         Mockito.when(zoneDao.findById(Mockito.anyLong())).thenReturn(zoneMock);
         Mockito.when(zoneMock.getUuid()).thenReturn("uuid");
         try (TransactionLegacy txn = TransactionLegacy.open("testNewErrorAssignPublicIpv6ToNetwork")) {
-           ipv6Service.assignPublicIpv6ToNetwork(Mockito.mock(Network.class), nic);
+           ipv6Service.assignPublicIpv6ToNetwork(networkMock, nic);
         }
     }
 
@@ -494,7 +496,7 @@ public class Ipv6ServiceImplTest {
         Mockito.when(networkOfferingDao.isIpv6Supported(Mockito.anyLong())).thenReturn(false);
         NicProfile nicProfile = new NicProfile();
         try {
-            ipv6Service.updateNicIpv6(nicProfile, Mockito.mock(DataCenter.class), Mockito.mock(Network.class));
+            ipv6Service.updateNicIpv6(nicProfile, Mockito.mock(DataCenter.class), Mockito.mock(Network.class), Mockito.mock(VirtualMachine.Type.class));
         } catch (InsufficientAddressCapacityException e) {
             Assert.fail("InsufficientAddressCapacityException");
         }
@@ -505,6 +507,8 @@ public class Ipv6ServiceImplTest {
 
     @Test
     public void testIpv6NetworkUpdateNicIpv6() {
+        Network networkMock = Mockito.mock(Network.class);
+        Mockito.when(networkMock.getTrafficType()).thenReturn(Networks.TrafficType.Public);
         Mockito.when(networkOfferingDao.isIpv6Supported(Mockito.anyLong())).thenReturn(true);
         Mockito.when(networkModel.getNetworkIp6Dns(Mockito.any(Network.class), Mockito.any(DataCenter.class))).thenReturn(ipv6DnsPair);
         NicProfile nicProfile = new NicProfile();
@@ -512,7 +516,7 @@ public class Ipv6ServiceImplTest {
         nicProfile.setMacAddress(macAddress);
         prepareMocksForPublicIpv6(false);
         try {
-            ipv6Service.updateNicIpv6(nicProfile, Mockito.mock(DataCenter.class), Mockito.mock(Network.class));
+            ipv6Service.updateNicIpv6(nicProfile, Mockito.mock(DataCenter.class), networkMock, Mockito.mock(VirtualMachine.Type.class));
         } catch (InsufficientAddressCapacityException e) {
             Assert.fail("InsufficientAddressCapacityException");
         }
@@ -523,6 +527,8 @@ public class Ipv6ServiceImplTest {
 
     @Test
     public void testIpv6NetworkFromPlaceholderUpdateNicIpv6() {
+        Network networkMock = Mockito.mock(Network.class);
+        Mockito.when(networkMock.getTrafficType()).thenReturn(Networks.TrafficType.Public);
         Mockito.when(networkOfferingDao.isIpv6Supported(Mockito.anyLong())).thenReturn(true);
         Mockito.when(networkModel.getNetworkIp6Dns(Mockito.any(Network.class), Mockito.any(DataCenter.class))).thenReturn(ipv6DnsPair);
         NicProfile nicProfile = new NicProfile();
@@ -530,7 +536,7 @@ public class Ipv6ServiceImplTest {
         nicProfile.setMacAddress(macAddress);
         prepareMocksForPublicIpv6(true);
         try {
-            ipv6Service.updateNicIpv6(nicProfile, Mockito.mock(DataCenter.class), Mockito.mock(Network.class));
+            ipv6Service.updateNicIpv6(nicProfile, Mockito.mock(DataCenter.class), networkMock, Mockito.mock(VirtualMachine.Type.class));
         } catch (InsufficientAddressCapacityException e) {
             Assert.fail("InsufficientAddressCapacityException");
         }
@@ -620,6 +626,7 @@ public class Ipv6ServiceImplTest {
         Network network = Mockito.mock(Network.class);
         Mockito.when(network.getDataCenterId()).thenReturn(zoneId);
         Mockito.when(network.getVpcId()).thenReturn(null);
+        Mockito.when(network.getTrafficType()).thenReturn(Networks.TrafficType.Public);
         Mockito.when(ipAddressDao.listByAssociatedNetwork(Mockito.anyLong(), Mockito.anyBoolean())).thenReturn(List.of(Mockito.mock(IPAddressVO.class)));
         VlanVO vlanVO = Mockito.mock(VlanVO.class);
         Mockito.when(vlanVO.getVlanTag()).thenReturn(vlan);

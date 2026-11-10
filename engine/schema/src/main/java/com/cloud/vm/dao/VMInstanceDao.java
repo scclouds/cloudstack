@@ -56,6 +56,8 @@ public interface VMInstanceDao extends GenericDao<VMInstanceVO, Long>, StateDao<
      */
     List<VMInstanceVO> listByPodId(long podId);
 
+    List<VMInstanceVO> listByPodIdAndTypes(long podId, VirtualMachine.Type... type);
+
     /**
      * Lists non-expunged VMs by  templateId
      * @param templateId

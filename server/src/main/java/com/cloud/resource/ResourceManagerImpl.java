@@ -225,7 +225,6 @@ import com.cloud.utils.db.TransactionLegacy;
 import com.cloud.utils.db.TransactionStatus;
 import com.cloud.utils.exception.CloudRuntimeException;
 import com.cloud.utils.fsm.NoTransitionException;
-import com.cloud.utils.net.Ip;
 import com.cloud.utils.net.NetUtils;
 import com.cloud.utils.ssh.SSHCmdHelper;
 import com.cloud.utils.ssh.SshException;
@@ -641,6 +640,13 @@ public class ResourceManagerImpl extends ManagerBase implements ResourceManager,
                 throw new InvalidParameterValueException(url + " is not a valid uri");
             }
 
+            boolean preferIpv6;
+            String uriHost = uri.getHost();
+            if (uriHost.startsWith("[") && uriHost.endsWith("]")) {
+                preferIpv6 = NetUtils.isValidIp6(uriHost.substring(1, uriHost.length() - 1));
+            } else {
+                preferIpv6 = NetUtils.isValidIp6(uriHost);
+            }
             final List<HostVO> hosts = new ArrayList<>();
             Map<? extends ServerResource, Map<String, String>> resources;
             resources = discoverer.find(dcId, podId, cluster.getId(), uri, username, password, null);
@@ -649,7 +655,7 @@ public class ResourceManagerImpl extends ManagerBase implements ResourceManager,
                 for (final Map.Entry<? extends ServerResource, Map<String, String>> entry : resources.entrySet()) {
                     final ServerResource resource = entry.getKey();
 
-                    final HostVO host = (HostVO)createHostAndAgent(resource, entry.getValue(), true, null, null, false);
+                    final HostVO host = (HostVO)createHostAndAgent(resource, entry.getValue(), true, null, null, false, preferIpv6);
                     if (host != null) {
                         hosts.add(host);
                     }
@@ -942,10 +948,17 @@ public class ResourceManagerImpl extends ManagerBase implements ResourceManager,
                         details.putAll(cmdDetails);
                     }
 
+                    boolean preferIpv6;
+                    String uriHost = uri.getHost();
+                    if (uriHost.startsWith("[") && uriHost.endsWith("]")) {
+                        preferIpv6 = NetUtils.isValidIp6(uriHost.substring(1, uriHost.length() - 1));
+                    } else {
+                        preferIpv6 = NetUtils.isValidIp6(uriHost);
+                    }
                     if (deferAgentCreation) {
                         host = (HostVO)createHostAndAgentDeferred(resource, details, true, hostTags, storageAccessGroups, false);
                     } else {
-                        host = (HostVO)createHostAndAgent(resource, details, true, hostTags, storageAccessGroups, false);
+                        host = (HostVO)createHostAndAgent(resource, details, true, hostTags, storageAccessGroups, false, preferIpv6);
                     }
                     if (host != null) {
                         hosts.add(host);
@@ -3140,10 +3153,28 @@ public class ResourceManagerImpl extends ManagerBase implements ResourceManager,
     }
 
     @Override
-    public void checkCIDR(final HostPodVO pod, final DataCenterVO dc, final String serverPrivateIP, final String serverPrivateNetmask) throws IllegalArgumentException {
+    public void checkCIDR(final HostPodVO pod, final DataCenterVO dc, final StartupRoutingCommand startupRoutingCommand) throws IllegalArgumentException {
+        String serverPrivateIP = startupRoutingCommand.getPrivateIpAddress();
+        String serverPrivateNetmask = startupRoutingCommand.getPrivateNetmask();
         if (serverPrivateIP == null) {
             return;
         }
+
+        if (NetUtils.isValidIp6(serverPrivateIP)) {
+            String podCidr = pod.getIp6Cidr();
+            if (podCidr == null) {
+                throw new IllegalArgumentException(String.format("The server's private IPv6 address [%s] cannot be used: pod [%s] in zone [%s] has no IPv6 CIDR configured.",
+                        serverPrivateIP, pod.getName(), dc.getName()));
+            }
+
+            if (!NetUtils.isIp6InNetwork(serverPrivateIP, podCidr)) {
+                throw new IllegalArgumentException(String.format("The server's private IPv6 address [%s] is outside the IPv6 CIDR [%s] of pod [%s] in zone [%s].",
+                        serverPrivateIP, podCidr, pod.getName(), dc.getName()));
+            }
+
+            return;
+        }
+
         // Get the CIDR address and CIDR size
         final String cidrAddress = pod.getCidrAddress();
         final long cidrSize = pod.getCidrSize();
@@ -3495,18 +3526,18 @@ public class ResourceManagerImpl extends ManagerBase implements ResourceManager,
         }
     }
 
-    private Host createHostAndAgent(final ServerResource resource, final Map<String, String> details, final boolean old, final List<String> hostTags, List<String> storageAccessGroups, final boolean forRebalance) {
-        return createHostAndAgent(resource, details, old, hostTags, storageAccessGroups, forRebalance, false);
+    private Host createHostAndAgent(final ServerResource resource, final Map<String, String> details, final boolean old, final List<String> hostTags, List<String> storageAccessGroups, final boolean forRebalance, final boolean preferIpv6) {
+        return createHostAndAgent(resource, details, old, hostTags, storageAccessGroups, forRebalance, false, preferIpv6);
     }
 
-    private Host createHostAndAgent(final ServerResource resource, final Map<String, String> details, final boolean old, final List<String> hostTags, List<String> storageAccessGroups, final boolean forRebalance, final boolean isTransferredConnection) {
+    private Host createHostAndAgent(final ServerResource resource, final Map<String, String> details, final boolean old, final List<String> hostTags, List<String> storageAccessGroups, final boolean forRebalance, final boolean isTransferredConnection, final boolean preferIpv6) {
         HostVO host = null;
         StartupCommand[] cmds = null;
         boolean hostExists = false;
         boolean created = false;
 
         try {
-            cmds = resource.initialize(isTransferredConnection);
+            cmds = resource.initialize(isTransferredConnection, preferIpv6);
             if (cmds == null) {
                 logger.info("Unable to fully initialize the agent because no StartupCommands are returned");
                 return null;
@@ -3708,7 +3739,7 @@ public class ResourceManagerImpl extends ManagerBase implements ResourceManager,
 
     @Override
     public Host createHostAndAgent(final Long hostId, final ServerResource resource, final Map<String, String> details, final boolean old, final List<String> hostTags, final boolean forRebalance, boolean isTransferredConnection) {
-        final Host host = createHostAndAgent(resource, details, old, hostTags, null, forRebalance, isTransferredConnection);
+        final Host host = createHostAndAgent(resource, details, old, hostTags, null, forRebalance, isTransferredConnection, false);
         return host;
     }
 
@@ -3727,7 +3758,7 @@ public class ResourceManagerImpl extends ManagerBase implements ResourceManager,
             }
         }
 
-        return createHostAndAgent(resource, hostDetails, true, null, null, false);
+        return createHostAndAgent(resource, hostDetails, true, null, null, false, false);
     }
 
     @Override
@@ -3760,7 +3791,7 @@ public class ResourceManagerImpl extends ManagerBase implements ResourceManager,
             }
         }
 
-        if (serverPublicIP != null && !_publicIPAddressDao.mark(dc.getId(), new Ip(serverPublicIP))) {
+        if (serverPublicIP != null && !_publicIPAddressDao.mark(dc.getId(), serverPublicIP)) {
             // If the server's public IP address is already in the database,
             // return false
             final List<IPAddressVO> existingPublicIPs = _publicIPAddressDao.listByDcIdIpAddress(dc.getId(), serverPublicIP);

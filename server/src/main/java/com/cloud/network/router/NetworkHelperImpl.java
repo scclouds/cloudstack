@@ -31,6 +31,7 @@ import javax.inject.Inject;
 import com.cloud.network.vpc.VpcManager;
 import com.cloud.network.vpc.dao.VpcDao;
 import com.cloud.utils.validation.ChecksumUtil;
+import com.cloud.vm.VirtualMachine;
 import org.apache.cloudstack.api.ApiConstants;
 import org.apache.cloudstack.context.CallContext;
 import org.apache.cloudstack.engine.orchestration.service.NetworkOrchestrationService;
@@ -756,7 +757,7 @@ public class NetworkHelperImpl implements NetworkHelper {
         setPublicNicMacAddressSameAsPeerNic(defaultNic, publicNetworks.get(0), routerDeploymentDefinition);
 
         if (routerDeploymentDefinition.getGuestNetwork() != null) {
-            ipv6Service.updateNicIpv6(defaultNic, routerDeploymentDefinition.getDest().getDataCenter(), routerDeploymentDefinition.getGuestNetwork());
+            ipv6Service.updateNicIpv6(defaultNic, routerDeploymentDefinition.getDest().getDataCenter(), routerDeploymentDefinition.getGuestNetwork(), VirtualMachine.Type.DomainRouter);
         }
         publicConfig.put(publicNetworks.get(0), List.of(defaultNic));
         return publicConfig;

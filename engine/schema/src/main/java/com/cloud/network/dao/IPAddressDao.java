@@ -22,7 +22,6 @@ import com.cloud.dc.Vlan.VlanType;
 import com.cloud.network.IpAddress.State;
 import com.cloud.utils.db.GenericDao;
 import com.cloud.utils.db.SearchCriteria;
-import com.cloud.utils.net.Ip;
 
 public interface IPAddressDao extends GenericDao<IPAddressVO, Long> {
 
@@ -52,7 +51,7 @@ public interface IPAddressDao extends GenericDao<IPAddressVO, Long> {
 
     long countAllocatedIPsForAccount(long accountId);
 
-    boolean mark(long dcId, Ip ip);
+    boolean mark(long dcId, String ip);
 
     int countIPsForNetwork(long dcId, boolean onlyCountAllocated, VlanType vlanType);
 

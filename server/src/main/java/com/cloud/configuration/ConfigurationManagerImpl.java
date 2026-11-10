@@ -54,7 +54,10 @@ import com.cloud.consoleproxy.ConsoleProxyManager;
 import com.cloud.network.router.VirtualNetworkApplianceManager;
 import com.cloud.storage.secondary.SecondaryStorageVmManager;
 import com.cloud.utils.DomainHelper;
+import com.cloud.vm.NicVO;
+import com.cloud.vm.VMInstanceVO;
 import com.cloud.vm.VirtualMachineManager;
+import com.cloud.vm.dao.NicDao;
 import org.apache.cloudstack.acl.RoleType;
 import org.apache.cloudstack.acl.SecurityChecker;
 import org.apache.cloudstack.affinity.AffinityGroup;
@@ -508,6 +511,8 @@ public class ConfigurationManagerImpl extends ManagerBase implements Configurati
     private javax.inject.Provider<NetrisService> netrisServiceProvider;
     @Inject
     VMLeaseManager vmLeaseManager;
+    @Inject
+    NicDao  nicDao;
 
     // FIXME - why don't we have interface for DataCenterLinkLocalIpAddressDao?
     @Inject
@@ -1997,6 +2002,8 @@ public class ConfigurationManagerImpl extends ManagerBase implements Configurati
         final String netmask = cmd.getNetmask();
         final String startIp = cmd.getStartIp();
         String endIp = cmd.getEndIp();
+        String ip6Gateway = cmd.getIp6Gateway();
+        String ip6Cidr = cmd.getIp6Cidr();
         final boolean forSystemVms = cmd.isForSystemVms();
         String vlan = cmd.getVlan();
         if (StringUtils.isNotEmpty(vlan) && !vlan.startsWith(BroadcastDomainType.Vlan.scheme())) {
@@ -2008,70 +2015,93 @@ public class ConfigurationManagerImpl extends ManagerBase implements Configurati
 
         final HostPodVO pod = _podDao.findById(podId);
 
-        if(pod == null) {
+        if (pod == null) {
             throw new InvalidParameterValueException("Unable to find pod by ID: " + podId);
         }
 
         final long zoneId = pod.getDataCenterId();
 
-        if(!NetUtils.isValidIp4(gateway) && !NetUtils.isValidIp6(gateway)) {
+        if (!NetUtils.isValidIp4(gateway) && !NetUtils.isValidIp6(ip6Gateway)) {
             throw new InvalidParameterValueException("The gateway IP address is invalid.");
         }
 
-        if(!NetUtils.isValidIp4Netmask(netmask)) {
-            throw new InvalidParameterValueException("The netmask IP address is invalid.");
+        boolean ipv4 = startIp != null;
+        boolean ipv6 = ip6Cidr != null;
+
+        if (ipv4 && (!NetUtils.isValidIp4(gateway) || netmask == null)) {
+            throw new InvalidParameterValueException("Gateway and netmask are required with startip.");
         }
 
-        if(endIp == null) {
-            endIp = startIp;
+        if (ipv6 && (!NetUtils.isValidIp6(ip6Gateway) || !NetUtils.isIp6InNetwork(ip6Gateway, ip6Cidr))) {
+            throw new InvalidParameterValueException("ip6gateway is invalid or outside ip6cidr");
         }
 
-        final String cidr = NetUtils.ipAndNetMaskToCidr(gateway, netmask);
-
-        if(!NetUtils.isValidIp4Cidr(cidr)) {
-            throw new InvalidParameterValueException("The CIDR is invalid " + cidr);
+        if (!ipv4 && !ipv6) {
+            throw new InvalidParameterValueException("StartIP or IPv6 CIDR is missing in the parameters!");
         }
 
-        final String cidrAddress = pod.getCidrAddress();
-        final long cidrSize = pod.getCidrSize();
+        if (ipv4) {
+            if (!NetUtils.isValidIp4Netmask(netmask)) {
+                throw new InvalidParameterValueException("The netmask IP address is invalid.");
+            }
 
-        // Because each pod has only one Gateway and Netmask.
-        if (!gateway.equals(pod.getGateway())) {
-            throw new InvalidParameterValueException(String.format("Multiple gateways for the POD: %s are not allowed. The Gateway should be same as the existing Gateway %s", pod, pod.getGateway()));
-        }
+            // if end ip is not specified, default it to startIp
+            if (endIp == null) {
+                endIp = startIp;
+            }
 
-        if (!netmask.equals(NetUtils.getCidrNetmask(cidrSize))) {
-            throw new InvalidParameterValueException(String.format("Multiple subnets for the POD: %s are not allowed. The Netmask should be same as the existing Netmask %s", pod, NetUtils.getCidrNetmask(cidrSize)));
-        }
+            final String cidr = NetUtils.ipAndNetMaskToCidr(gateway, netmask);
+            if (!NetUtils.isValidIp4Cidr(cidr)) {
+                throw new InvalidParameterValueException("The CIDR is invalid " + cidr);
+            }
 
-        // Check if the IP range is valid.
-        checkIpRange(startIp, endIp, cidrAddress, cidrSize);
+            final String cidrAddress = pod.getCidrAddress();
+            final long cidrSize = pod.getCidrSize();
 
-        // Check if the IP range overlaps with the public ip.
-        checkOverlapPublicIpRange(zoneId, startIp, endIp);
+            // Because each pod has only one Gateway and Netmask.
+            if (!gateway.equals(pod.getGateway())) {
+                throw new InvalidParameterValueException(String.format("Multiple gateways for the POD: %s are not allowed. The Gateway should be same as the existing Gateway %s", pod, pod.getGateway()));
+            }
 
-        // Check if the gateway is in the CIDR subnet
-        if (!NetUtils.getCidrSubNet(gateway, cidrSize).equalsIgnoreCase(NetUtils.getCidrSubNet(cidrAddress, cidrSize))) {
-            throw new InvalidParameterValueException("The gateway is not in the CIDR subnet.");
-        }
+            if (!netmask.equals(NetUtils.getCidrNetmask(cidrSize))) {
+                throw new InvalidParameterValueException(String.format("Multiple subnets for the POD: %s are not allowed. The Netmask should be same as the existing Netmask %s", pod, NetUtils.getCidrNetmask(cidrSize)));
+            }
 
-        if (NetUtils.ipRangesOverlap(startIp, endIp, gateway, gateway)) {
-            throw new InvalidParameterValueException("The gateway shouldn't overlap start/end IP addresses");
-        }
+            // Check if the IP range is valid.
+            checkIpRange(startIp, endIp, cidrAddress, cidrSize);
 
-        final String[] existingPodIpRanges = pod.getDescription().split(",");
+            // Check if the IP range overlaps with the public ip.
+            checkOverlapPublicIpRange(zoneId, startIp, endIp);
 
-        for(String podIpRange: existingPodIpRanges) {
-            final String[] existingPodIpRange = podIpRange.split("-");
+            // Check if the gateway is in the CIDR subnet
+            if (!NetUtils.getCidrSubNet(gateway, cidrSize).equalsIgnoreCase(NetUtils.getCidrSubNet(cidrAddress, cidrSize))) {
+                throw new InvalidParameterValueException("The gateway is not in the CIDR subnet.");
+            }
 
-            if (existingPodIpRange.length > 1) {
-                if (!NetUtils.isValidIp4(existingPodIpRange[0]) || !NetUtils.isValidIp4(existingPodIpRange[1])) {
-                    continue;
+            if (NetUtils.ipRangesOverlap(startIp, endIp, gateway, gateway)) {
+                throw new InvalidParameterValueException("The gateway shouldn't overlap start/end IP addresses");
+            }
+
+            final String[] existingPodIpRanges = pod.getDescription().split(",");
+            for (String podIpRange: existingPodIpRanges) {
+                final String[] existingPodIpRange = podIpRange.split("-");
+
+                if (existingPodIpRange.length > 1) {
+                    if (!NetUtils.isValidIp4(existingPodIpRange[0]) || !NetUtils.isValidIp4(existingPodIpRange[1])) {
+                        continue;
+                    }
+                    // Check if the range overlaps with any existing range.
+                    if (NetUtils.ipRangesOverlap(startIp, endIp, existingPodIpRange[0], existingPodIpRange[1])) {
+                        throw new InvalidParameterValueException("The new range overlaps with existing range. Please add a mutually exclusive range.");
+                    }
                 }
-                // Check if the range overlaps with any existing range.
-                if (NetUtils.ipRangesOverlap(startIp, endIp, existingPodIpRange[0], existingPodIpRange[1])) {
-                    throw new InvalidParameterValueException("The new range overlaps with existing range. Please add a mutually exclusive range.");
-                }
+            }
+        }
+
+        if (ipv6) {
+            IPv6Network iPv6Network = IPv6Network.fromString(ip6Cidr);
+            if (iPv6Network.getNetmask().asPrefixLength() > Ipv6Service.IPV6_SLAAC_CIDR_NETMASK) {
+                throw new InvalidParameterValueException(String.format("For IPv6 range, prefix must be /%d or less", Ipv6Service.IPV6_SLAAC_CIDR_NETMASK));
             }
         }
 
@@ -2081,19 +2111,30 @@ public class ConfigurationManagerImpl extends ManagerBase implements Configurati
             Transaction.execute(new TransactionCallbackNoReturn() {
                 @Override
                 public void doInTransactionWithoutResult(final TransactionStatus status) {
-                    String ipRange = pod.getDescription();
+                    if (ipv4) {
+                        String ipRange = pod.getDescription();
 
-                    /*
-                     * POD Description is refactored to:
-                     * <START_IP>-<END_IP>-<FOR_SYSTEM_VMS>-<VLAN>,<START_IP>-<END_IP>-<FOR_SYSTEM_VMS>-<VLAN>,...
-                    */
-                    String range = startIp + "-" + endIpFinal + "-" + (forSystemVms ? "1" : "0") + "-" + (vlanId == null ? DefaultVlanForPodIpRange : vlanId);
-                    if(ipRange != null && !ipRange.isEmpty())
-                        ipRange += ("," + range);
-                    else
-                        ipRange = (range);
+                        /*
+                         * POD Description is refactored to:
+                         * <START_IP>-<END_IP>-<FOR_SYSTEM_VMS>-<VLAN>,<START_IP>-<END_IP>-<FOR_SYSTEM_VMS>-<VLAN>,...
+                         */
+                        String range = startIp + "-" + endIpFinal + "-" + (forSystemVms ? "1" : "0") + "-" + (vlanId == null ? DefaultVlanForPodIpRange : vlanId);
+                        if(ipRange != null && !ipRange.isEmpty())
+                            ipRange += ("," + range);
+                        else
+                            ipRange = (range);
 
-                    pod.setDescription(ipRange);
+                        pod.setDescription(ipRange);
+                    }
+
+                    if (ipv6) {
+                        if (pod.getIp6Cidr() != null && !pod.getIp6Cidr().equals(ip6Cidr)) {
+                            throw new InvalidParameterValueException(String.format("Pod already has IPv6 CIDR [%s].", pod.getIp6Cidr()));
+                        }
+                        pod.setIp6Gateway(ip6Gateway);
+                        pod.setIp6Cidr(ip6Cidr);
+                        pod.setIp6Vlan(vlanId);
+                    }
 
                     HostPodVO lock = null;
                     try {
@@ -2112,7 +2153,9 @@ public class ConfigurationManagerImpl extends ManagerBase implements Configurati
                         }
                     }
 
-                    _zoneDao.addPrivateIpAddress(zoneId, pod.getId(), startIp, endIpFinal, forSystemVms, vlanId);
+                    if (ipv4) {
+                        _zoneDao.addPrivateIpAddress(zoneId, pod.getId(), startIp, endIpFinal, forSystemVms, vlanId);
+                    }
                 }
             });
         } catch (final Exception e) {
@@ -2131,6 +2174,21 @@ public class ConfigurationManagerImpl extends ManagerBase implements Configurati
         final long podId = cmd.getPodId();
         final String startIp = cmd.getStartIp();
         final String endIp = cmd.getEndIp();
+        final String ip6Cidr = cmd.getIp6Cidr();
+
+        final HostPodVO pod = _podDao.findById(podId);
+
+        if (pod == null) {
+            throw new InvalidParameterValueException(String.format("Unable to find pod by ID %s.", podId));
+        }
+
+        final boolean ipv4 = startIp != null || endIp != null;
+        final boolean ipv6 = ip6Cidr != null;
+
+        if (ipv4 == ipv6) {
+            throw new InvalidParameterValueException("Inform either startip/endip (IPv4) or ip6cidr (IPv6) to be removed.");
+        }
+
         String vlan = cmd.getVlan();
         try {
             vlan = BroadcastDomainType.getValue(vlan);
@@ -2138,10 +2196,10 @@ public class ConfigurationManagerImpl extends ManagerBase implements Configurati
             throw new CloudRuntimeException("Incorrect vlan " + vlan);
         }
 
-        final HostPodVO pod = _podDao.findById(podId);
-
-        if(pod == null) {
-            throw new InvalidParameterValueException("Unable to find pod by id " + podId);
+        if (ipv6) {
+            deletePodIpv6Range(pod, ip6Cidr);
+            messageBus.publish(_name, MESSAGE_DELETE_POD_IP_RANGE_EVENT, PublishScope.LOCAL, pod);
+            return;
         }
 
         if (startIp == null || !NetUtils.isValidIp4(startIp)) {
@@ -2238,6 +2296,58 @@ public class ConfigurationManagerImpl extends ManagerBase implements Configurati
         }
 
         messageBus.publish(_name, MESSAGE_DELETE_POD_IP_RANGE_EVENT, PublishScope.LOCAL, pod);
+    }
+
+    private void deletePodIpv6Range(final HostPodVO pod, final String ip6Cidr) {
+        final long podId = pod.getId();
+
+        if (!NetUtils.isValidIp6Cidr(ip6Cidr)) {
+            throw new InvalidParameterValueException(String.format("The IPv6 CIDR is invalid [%s].", ip6Cidr));
+        }
+
+        final String standardizedCidr = NetUtils.standardizeIp6Cidr(ip6Cidr);
+        if (pod.getIp6Cidr() == null || !pod.getIp6Cidr().equalsIgnoreCase(standardizedCidr)) {
+            throw new InvalidParameterValueException(String.format("The IPv6 range %s is not present in pod: %s.", ip6Cidr, pod));
+        }
+
+        for (VMInstanceVO vm : _vmInstanceDao.listByPodIdAndTypes(podId, VirtualMachine.Type.ConsoleProxy, VirtualMachine.Type.SecondaryStorageVm)) {
+            for (NicVO nic : nicDao.listByVmId(vm.getId())) {
+                final String nicIp6 = nic.getIPv6Address();
+                if (nicIp6 != null && NetUtils.isIp6InNetwork(nicIp6, standardizedCidr)) {
+                    throw new CloudRuntimeException(String.format("Some IPv6 addresses of the range %s are in use by VM %s, so it cannot be deleted.", ip6Cidr, vm));
+                }
+            }
+        }
+
+        try {
+            Transaction.execute(new TransactionCallbackNoReturn() {
+                @Override
+                public void doInTransactionWithoutResult(final TransactionStatus status) {
+                    HostPodVO lock = null;
+                    try {
+                        lock = _podDao.acquireInLockTable(podId);
+
+                        if (lock == null) {
+                            String msg = String.format("Unable to acquire lock on table to update the IP range of POD: %s, Deletion failed.", pod);
+                            logger.warn(msg);
+                            throw new CloudRuntimeException(msg);
+                        }
+
+                        pod.setIp6Gateway(null);
+                        pod.setIp6Cidr(null);
+                        pod.setIp6Vlan(null);
+                        _podDao.update(podId, pod);
+                    } finally {
+                        if (lock != null) {
+                            _podDao.releaseFromLockTable(podId);
+                        }
+                    }
+                }
+            });
+        } catch (final Exception e) {
+            logger.error("Unable to delete Pod {} IPv6 range due to {}.", pod, e.getMessage(), e);
+            throw new CloudRuntimeException(String.format("Failed to delete Pod %s IPv6 range. Please contact Cloud Support.", pod));
+        }
     }
 
     @Override
@@ -2842,7 +2952,6 @@ public class ConfigurationManagerImpl extends ManagerBase implements Configurati
         if (StringUtils.isNotEmpty(endIp) && NetUtils.ip2Long(startIp) > NetUtils.ip2Long(endIp)) {
             throw new InvalidParameterValueException("The start IP address must have a lower value than the end IP address.");
         }
-
     }
 
     private void checkOverlapPublicIpRange(final Long zoneId, final String startIp, final String endIp) {

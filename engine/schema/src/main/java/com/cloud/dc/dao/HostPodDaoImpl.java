@@ -24,6 +24,7 @@ import java.util.HashMap;
 import java.util.List;
 
 
+import org.apache.commons.lang3.StringUtils;
 import org.springframework.stereotype.Component;
 
 import com.cloud.dc.HostPodVO;
@@ -41,6 +42,7 @@ public class HostPodDaoImpl extends GenericDaoBase<HostPodVO, Long> implements H
     protected SearchBuilder<HostPodVO> DataCenterAndNameSearch;
     protected SearchBuilder<HostPodVO> DataCenterIdSearch;
     protected GenericSearchBuilder<HostPodVO, Long> PodIdSearch;
+    protected SearchBuilder<HostPodVO> ZoneVlanIp6Search;
 
     public HostPodDaoImpl() {
         DataCenterAndNameSearch = createSearchBuilder();
@@ -57,6 +59,13 @@ public class HostPodDaoImpl extends GenericDaoBase<HostPodVO, Long> implements H
         PodIdSearch.and("dataCenterId", PodIdSearch.entity().getDataCenterId(), Op.EQ);
         PodIdSearch.and("allocationState", PodIdSearch.entity().getAllocationState(), Op.EQ);
         PodIdSearch.done();
+
+        ZoneVlanIp6Search = createSearchBuilder();
+        ZoneVlanIp6Search.and("zoneId", ZoneVlanIp6Search.entity().getDataCenterId(), SearchCriteria.Op.EQ);
+        ZoneVlanIp6Search.and("vlanId", ZoneVlanIp6Search.entity().getIp6Vlan(), SearchCriteria.Op.EQ);
+        ZoneVlanIp6Search.and("ip6Gateway", ZoneVlanIp6Search.entity().getIp6Gateway(), SearchCriteria.Op.NNULL);
+        ZoneVlanIp6Search.and("ip6Cidr", ZoneVlanIp6Search.entity().getIp6Cidr(), SearchCriteria.Op.NNULL);
+        ZoneVlanIp6Search.done();
     }
 
     @Override
@@ -175,4 +184,13 @@ public class HostPodDaoImpl extends GenericDaoBase<HostPodVO, Long> implements H
         return customSearch(sc, null);
     }
 
+    @Override
+    public List<HostPodVO> listIpv6RangeByZoneIdAndVlanId(long zoneId, String vlanId) {
+        SearchCriteria<HostPodVO> sc = ZoneVlanIp6Search.create();
+        sc.setParameters("zoneId", zoneId);
+        if (StringUtils.isNotEmpty(vlanId)) {
+            sc.setParameters("vlanId", vlanId);
+        }
+        return listBy(sc);
+    }
 }

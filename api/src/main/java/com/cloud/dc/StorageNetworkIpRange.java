@@ -36,4 +36,8 @@ public interface StorageNetworkIpRange extends InfrastructureEntity, InternalIde
     String getPodUuid();
 
     String getNetworkUuid();
+
+    String getIp6Gateway();
+
+    String getIp6Cidr();
 }

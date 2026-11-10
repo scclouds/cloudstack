@@ -40,10 +40,22 @@ setup_secstorage() {
   setup_apache2 $ETH2_IP
 
   # Deprecated, should move to Cs Python all of it
-  sed -e "s/<VirtualHost .*:8180>/<VirtualHost $ETH2_IP:80>/" \
-    -e "s/<VirtualHost .*:8443>/<VirtualHost $ETH2_IP:443>/" \
-    -e "s/Listen .*:8180/Listen $ETH2_IP:80/g" \
-    -e "s/Listen .*:8443/Listen $ETH2_IP:443/g" /etc/apache2/vhost.template > /etc/apache2/sites-enabled/vhost-${ETH2_IP}.conf
+  VHOST_80="$ETH2_IP:80"
+  VHOST_443="$ETH2_IP:443"
+  LISTEN_80="Listen $ETH2_IP:80"
+  LISTEN_443="Listen $ETH2_IP:443"
+
+  if [ -n "$ETH2_IP6" ]; then
+      VHOST_80="$ETH2_IP:80 [$ETH2_IP6]:80"
+      VHOST_443="$ETH2_IP:443 [$ETH2_IP6]:443"
+      LISTEN_80="Listen $ETH2_IP:80\nListen [$ETH2_IP6]:80"
+      LISTEN_443="Listen $ETH2_IP:443\nListen [$ETH2_IP6]:443"
+  fi
+
+  sed -e "s/<VirtualHost .*:8180>/<VirtualHost $VHOST_80>/" \
+      -e "s/<VirtualHost .*:8443>/<VirtualHost $VHOST_443>/" \
+      -e "s/Listen .*:8180/$LISTEN_80/g" \
+      -e "s/Listen .*:8443/$LISTEN_443/g" /etc/apache2/vhost.template > /etc/apache2/sites-enabled/vhost-${ETH2_IP}.conf
 
   log_it "Setting up apache2 for post upload of volume/template"
   a2enmod proxy
@@ -64,6 +76,7 @@ CORS
   enable_irqbalance 0
   setup_ntp
   systemctl restart ntp
+  restore_ipv6
 
   rm -f /etc/logrotate.d/cloud
 }

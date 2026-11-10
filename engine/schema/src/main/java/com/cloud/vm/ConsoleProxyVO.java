@@ -58,6 +58,12 @@ public class ConsoleProxyVO extends VMInstanceVO implements ConsoleProxy {
     @Column(name = "session_details", updatable = true, nullable = true)
     private byte[] sessionDetails;
 
+    @Column(name = "public_ip6_address")
+    private String publicIp6Address;
+
+    @Column(name = "public_ip6_cidr")
+    private String publicIp6Cidr;
+
     @Transient
     private boolean sslEnabled = false;
 
@@ -147,6 +153,24 @@ public class ConsoleProxyVO extends VMInstanceVO implements ConsoleProxy {
 
     public int getPort() {
         return port;
+    }
+
+    @Override
+    public String getPublicIp6Address() {
+        return publicIp6Address;
+    }
+
+    public void setPublicIp6Address(String publicIp6Address) {
+        this.publicIp6Address = publicIp6Address;
+    }
+
+    @Override
+    public String getPublicIp6Cidr() {
+        return publicIp6Cidr;
+    }
+
+    public void setPublicIp6Cidr(String publicIp6Cidr) {
+        this.publicIp6Cidr = publicIp6Cidr;
     }
 
     @Override

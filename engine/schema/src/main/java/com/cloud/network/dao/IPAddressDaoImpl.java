@@ -45,7 +45,6 @@ import com.cloud.utils.db.SearchCriteria;
 import com.cloud.utils.db.SearchCriteria.Func;
 import com.cloud.utils.db.SearchCriteria.Op;
 import com.cloud.utils.db.TransactionLegacy;
-import com.cloud.utils.net.Ip;
 
 @Component
 @DB
@@ -176,7 +175,7 @@ public class IPAddressDaoImpl extends GenericDaoBase<IPAddressVO, Long> implemen
     }
 
     @Override
-    public boolean mark(long dcId, Ip ip) {
+    public boolean mark(long dcId, String ip) {
         SearchCriteria<IPAddressVO> sc = AllFieldsSearch.create();
         sc.setParameters("dataCenterId", dcId);
         sc.setParameters("ipAddress", ip);

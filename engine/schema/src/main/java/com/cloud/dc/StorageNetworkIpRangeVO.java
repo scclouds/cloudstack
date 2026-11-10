@@ -75,7 +75,13 @@ public class StorageNetworkIpRangeVO implements StorageNetworkIpRange {
     @Column(name = "uuid", table = "data_center", insertable = false, updatable = false)
     String zoneUuid;
 
-    public StorageNetworkIpRangeVO(long dcId, long podId, long networkId, String startIp, String endIp, Integer vlan, String netmask, String gateway) {
+    @Column(name = "ip6_gateway")
+    private String ip6Gateway;
+
+    @Column(name = "ip6_cidr")
+    private String ip6Cidr;
+
+    public StorageNetworkIpRangeVO(long dcId, long podId, long networkId, String startIp, String endIp, Integer vlan, String netmask, String gateway, String ip6Gateway, String ip6Cidr) {
         this();
         this.dataCenterId = dcId;
         this.podId = podId;
@@ -85,6 +91,8 @@ public class StorageNetworkIpRangeVO implements StorageNetworkIpRange {
         this.vlan = vlan;
         this.netmask = netmask;
         this.gateway = gateway;
+        this.ip6Gateway = ip6Gateway;
+        this.ip6Cidr = ip6Cidr;
     }
 
     protected StorageNetworkIpRangeVO() {
@@ -183,5 +191,23 @@ public class StorageNetworkIpRangeVO implements StorageNetworkIpRange {
     @Override
     public String getZoneUuid() {
         return zoneUuid;
+    }
+
+    @Override
+    public String getIp6Gateway() {
+        return ip6Gateway;
+    }
+
+    public void setIp6Gateway(String ip6Gateway) {
+        this.ip6Gateway = ip6Gateway;
+    }
+
+    @Override
+    public String getIp6Cidr() {
+        return ip6Cidr;
+    }
+
+    public void setIp6Cidr(String ip6Cidr) {
+        this.ip6Cidr = ip6Cidr;
     }
 }

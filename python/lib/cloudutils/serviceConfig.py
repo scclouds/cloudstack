@@ -889,6 +889,7 @@ class cloudAgentConfig(serviceCfgBase):
             cfo.addEntry("public.network.device", self.syscfg.env.nics[1])
             cfo.addEntry("guest.network.device", self.syscfg.env.nics[2])
             cfo.addEntry("guid", str(self.syscfg.env.uuid))
+            cfo.addEntry("ipv6prefer", self.syscfg.env.ipv6Prefer)
             if cfo.getEntry("local.storage.uuid") == "":
                 cfo.addEntry("local.storage.uuid", str(bash("uuidgen").getStdout()))
             if cfo.getEntry("resource") == "":

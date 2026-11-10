@@ -19,6 +19,7 @@ package com.cloud.configuration;
 import com.cloud.alert.AlertManager;
 import com.cloud.capacity.dao.CapacityDao;
 import com.cloud.dc.DataCenterVO;
+import com.cloud.dc.HostPodVO;
 import com.cloud.dc.VlanVO;
 import com.cloud.dc.dao.DataCenterDao;
 import com.cloud.dc.dao.DataCenterIpAddressDao;
@@ -28,6 +29,7 @@ import com.cloud.dc.dao.VlanDao;
 import com.cloud.domain.Domain;
 import com.cloud.domain.dao.DomainDao;
 import com.cloud.exception.InvalidParameterValueException;
+import com.cloud.exception.PermissionDeniedException;
 import com.cloud.host.dao.HostDao;
 import com.cloud.network.Network;
 import com.cloud.network.NetworkModel;
@@ -48,6 +50,7 @@ import com.cloud.storage.StorageManager;
 import com.cloud.storage.dao.VMTemplateZoneDao;
 import com.cloud.storage.dao.VolumeDao;
 import com.cloud.user.Account;
+import com.cloud.user.AccountManager;
 import com.cloud.user.AccountManagerImpl;
 import com.cloud.user.User;
 import com.cloud.utils.DomainHelper;
@@ -61,6 +64,7 @@ import com.cloud.vm.dao.VMInstanceDao;
 import org.apache.cloudstack.acl.RoleService;
 import org.apache.cloudstack.annotation.dao.AnnotationDao;
 import org.apache.cloudstack.api.command.admin.config.ResetCfgCmd;
+import org.apache.cloudstack.api.command.admin.network.CreateManagementNetworkIpRangeCmd;
 import org.apache.cloudstack.api.command.admin.network.CreateNetworkOfferingCmd;
 import org.apache.cloudstack.api.command.admin.offering.UpdateDiskOfferingCmd;
 import org.apache.cloudstack.api.command.admin.zone.DeleteZoneCmd;
@@ -190,6 +194,12 @@ public class ConfigurationManagerImplTest {
     StoragePoolDetailsDao storagePoolDetailsDao;
     @Mock
     DomainHelper domainHelper;
+    @Mock
+    CreateManagementNetworkIpRangeCmd createManagementNetworkIpRangeCmdMock;
+    @Mock
+    AccountManager accountManagerMock;
+    @Mock
+    HostPodVO hostPodVoMock;
 
     DeleteZoneCmd deleteZoneCmd;
     CreateNetworkOfferingCmd createNetworkOfferingCmd;
@@ -1409,5 +1419,179 @@ public class ConfigurationManagerImplTest {
         Map<Network.Service, Set<Network.Provider>> mapWithEmptySet = new HashMap<>();
         mapWithEmptySet.put(Network.Service.Firewall, Collections.emptySet());
         Assert.assertNull(ConfigurationManagerImpl.getExternalNetworkProvider(null, mapWithEmptySet));
+    }
+
+    @Test
+    public void createPodIpRangeTestNonRootAdminAccountThrowPermissionDeniedException() {
+        CallContext callContext = mock(CallContext.class);
+        Mockito.when(callContext.getCallingAccount()).thenReturn(accountMock);
+        Mockito.when(accountManagerMock.isRootAdmin(Mockito.anyLong())).thenReturn(false);
+        try (MockedStatic<CallContext> ignored = Mockito.mockStatic(CallContext.class)) {
+            Mockito.when(CallContext.current()).thenReturn(callContext);
+            Assert.assertThrows(PermissionDeniedException.class, () -> configurationManagerImplSpy.createPodIpRange(createManagementNetworkIpRangeCmdMock));
+        }
+    }
+
+    @Test
+    public void createPodIpRangeTestInvalidPodThrowInvalidParameterValueException() {
+        CallContext callContext = mock(CallContext.class);
+        Mockito.when(callContext.getCallingAccount()).thenReturn(accountMock);
+        Mockito.when(accountManagerMock.isRootAdmin(Mockito.anyLong())).thenReturn(true);
+        Mockito.when(createManagementNetworkIpRangeCmdMock.getVlan()).thenReturn("untagged");
+
+        try (MockedStatic<CallContext> ignored = Mockito.mockStatic(CallContext.class)) {
+            Mockito.when(CallContext.current()).thenReturn(callContext);
+            Assert.assertThrows(InvalidParameterValueException.class, () -> configurationManagerImplSpy.createPodIpRange(createManagementNetworkIpRangeCmdMock));
+        }
+    }
+
+    @Test
+    public void createPodIpRangeTestInvalidGatewayThrowInvalidParameterValueException() {
+        CallContext callContext = mock(CallContext.class);
+        Mockito.when(callContext.getCallingAccount()).thenReturn(accountMock);
+        Mockito.when(accountManagerMock.isRootAdmin(Mockito.anyLong())).thenReturn(true);
+        Mockito.when(createManagementNetworkIpRangeCmdMock.getVlan()).thenReturn("untagged");
+        Mockito.when(podDao.findById(Mockito.anyLong())).thenReturn(hostPodVoMock);
+
+        try (MockedStatic<CallContext> ignored = Mockito.mockStatic(CallContext.class)) {
+            Mockito.when(CallContext.current()).thenReturn(callContext);
+            Assert.assertThrows(InvalidParameterValueException.class, () -> configurationManagerImplSpy.createPodIpRange(createManagementNetworkIpRangeCmdMock));
+        }
+    }
+
+    @Test
+    public void createPodIpRangeTestStartIpWithoutNetmaskThrowInvalidParameterValueException() {
+        Mockito.when(createManagementNetworkIpRangeCmdMock.getGateWay()).thenReturn("192.168.0.1");
+        Mockito.when(createManagementNetworkIpRangeCmdMock.getStartIp()).thenReturn("192.168.0.2");
+        Mockito.when(createManagementNetworkIpRangeCmdMock.getVlan()).thenReturn("untagged");
+        CallContext callContext = mock(CallContext.class);
+        Mockito.when(callContext.getCallingAccount()).thenReturn(accountMock);
+        Mockito.when(accountManagerMock.isRootAdmin(Mockito.anyLong())).thenReturn(true);
+        Mockito.when(podDao.findById(Mockito.anyLong())).thenReturn(hostPodVoMock);
+
+        try (MockedStatic<CallContext> ignored = Mockito.mockStatic(CallContext.class)) {
+            Mockito.when(CallContext.current()).thenReturn(callContext);
+            Assert.assertThrows(InvalidParameterValueException.class, () -> configurationManagerImplSpy.createPodIpRange(createManagementNetworkIpRangeCmdMock));
+        }
+    }
+
+    @Test
+    public void createPodIpRangeTestStartIpWithoutGatewayThrowInvalidParameterValueException() {
+        Mockito.when(createManagementNetworkIpRangeCmdMock.getNetmask()).thenReturn("255.255.255.0");
+        Mockito.when(createManagementNetworkIpRangeCmdMock.getStartIp()).thenReturn("192.168.0.2");
+        Mockito.when(createManagementNetworkIpRangeCmdMock.getVlan()).thenReturn("untagged");
+        Mockito.when(createManagementNetworkIpRangeCmdMock.getIp6Gateway()).thenReturn("fd00:1:1:0::1");
+        CallContext callContext = mock(CallContext.class);
+        Mockito.when(callContext.getCallingAccount()).thenReturn(accountMock);
+        Mockito.when(accountManagerMock.isRootAdmin(Mockito.anyLong())).thenReturn(true);
+        Mockito.when(podDao.findById(Mockito.anyLong())).thenReturn(hostPodVoMock);
+
+        try (MockedStatic<CallContext> ignored = Mockito.mockStatic(CallContext.class)) {
+            Mockito.when(CallContext.current()).thenReturn(callContext);
+            Assert.assertThrows(InvalidParameterValueException.class, () -> configurationManagerImplSpy.createPodIpRange(createManagementNetworkIpRangeCmdMock));
+        }
+    }
+
+    @Test
+    public void createPodIpRangeTestIp6CidrInvalidIp6GatewayThrowInvalidParameterValueException() {
+        Mockito.when(createManagementNetworkIpRangeCmdMock.getGateWay()).thenReturn("192.168.0.1");
+        Mockito.when(createManagementNetworkIpRangeCmdMock.getNetmask()).thenReturn("255.255.255.0");
+        Mockito.when(createManagementNetworkIpRangeCmdMock.getStartIp()).thenReturn("192.168.0.2");
+        Mockito.when(createManagementNetworkIpRangeCmdMock.getVlan()).thenReturn("untagged");
+        Mockito.when(createManagementNetworkIpRangeCmdMock.getIp6Cidr()).thenReturn("fd00:1:1:0::/64");
+        CallContext callContext = mock(CallContext.class);
+        Mockito.when(callContext.getCallingAccount()).thenReturn(accountMock);
+        Mockito.when(accountManagerMock.isRootAdmin(Mockito.anyLong())).thenReturn(true);
+        Mockito.when(podDao.findById(Mockito.anyLong())).thenReturn(hostPodVoMock);
+
+        try (MockedStatic<CallContext> ignored = Mockito.mockStatic(CallContext.class)) {
+            Mockito.when(CallContext.current()).thenReturn(callContext);
+            Assert.assertThrows(InvalidParameterValueException.class, () -> configurationManagerImplSpy.createPodIpRange(createManagementNetworkIpRangeCmdMock));
+        }
+    }
+
+    @Test
+    public void createPodIpRangeTestIp6GatewayOutsideIp6CidrThrowInvalidParameterValueException() {
+        Mockito.when(createManagementNetworkIpRangeCmdMock.getGateWay()).thenReturn("192.168.0.1");
+        Mockito.when(createManagementNetworkIpRangeCmdMock.getNetmask()).thenReturn("255.255.255.0");
+        Mockito.when(createManagementNetworkIpRangeCmdMock.getStartIp()).thenReturn("192.168.0.2");
+        Mockito.when(createManagementNetworkIpRangeCmdMock.getVlan()).thenReturn("untagged");
+        Mockito.when(createManagementNetworkIpRangeCmdMock.getIp6Cidr()).thenReturn("fd00:1:1:0::/64");
+        Mockito.when(createManagementNetworkIpRangeCmdMock.getIp6Gateway()).thenReturn("fd00:1:1:3::1");
+        CallContext callContext = mock(CallContext.class);
+        Mockito.when(callContext.getCallingAccount()).thenReturn(accountMock);
+        Mockito.when(accountManagerMock.isRootAdmin(Mockito.anyLong())).thenReturn(true);
+        Mockito.when(podDao.findById(Mockito.anyLong())).thenReturn(hostPodVoMock);
+
+        try (MockedStatic<CallContext> ignored = Mockito.mockStatic(CallContext.class)) {
+            Mockito.when(CallContext.current()).thenReturn(callContext);
+            Assert.assertThrows(InvalidParameterValueException.class, () -> configurationManagerImplSpy.createPodIpRange(createManagementNetworkIpRangeCmdMock));
+        }
+    }
+
+    @Test
+    public void createPodIpRangeTestMissingStartIpAndIpv6CidrThrowInvalidParameterValueException() {
+        Mockito.when(createManagementNetworkIpRangeCmdMock.getGateWay()).thenReturn("192.168.0.1");
+        Mockito.when(createManagementNetworkIpRangeCmdMock.getNetmask()).thenReturn("255.255.255.0");
+        Mockito.when(createManagementNetworkIpRangeCmdMock.getVlan()).thenReturn("untagged");
+        CallContext callContext = mock(CallContext.class);
+        Mockito.when(callContext.getCallingAccount()).thenReturn(accountMock);
+        Mockito.when(accountManagerMock.isRootAdmin(Mockito.anyLong())).thenReturn(true);
+        Mockito.when(podDao.findById(Mockito.anyLong())).thenReturn(hostPodVoMock);
+
+        try (MockedStatic<CallContext> ignored = Mockito.mockStatic(CallContext.class)) {
+            Mockito.when(CallContext.current()).thenReturn(callContext);
+            Assert.assertThrows(InvalidParameterValueException.class, () -> configurationManagerImplSpy.createPodIpRange(createManagementNetworkIpRangeCmdMock));
+        }
+    }
+
+    @Test
+    public void createPodIpRangeTestInvalidNetmaskThrowInvalidParameterValueException() {
+        Mockito.when(createManagementNetworkIpRangeCmdMock.getGateWay()).thenReturn("192.168.0.1");
+        Mockito.when(createManagementNetworkIpRangeCmdMock.getNetmask()).thenReturn("255.255.255.255.255");
+        Mockito.when(createManagementNetworkIpRangeCmdMock.getStartIp()).thenReturn("192.168.0.2");
+        Mockito.when(createManagementNetworkIpRangeCmdMock.getVlan()).thenReturn("untagged");
+        CallContext callContext = mock(CallContext.class);
+        Mockito.when(callContext.getCallingAccount()).thenReturn(accountMock);
+        Mockito.when(accountManagerMock.isRootAdmin(Mockito.anyLong())).thenReturn(true);
+        Mockito.when(podDao.findById(Mockito.anyLong())).thenReturn(hostPodVoMock);
+
+        try (MockedStatic<CallContext> ignored = Mockito.mockStatic(CallContext.class)) {
+            Mockito.when(CallContext.current()).thenReturn(callContext);
+            Assert.assertThrows(InvalidParameterValueException.class, () -> configurationManagerImplSpy.createPodIpRange(createManagementNetworkIpRangeCmdMock));
+        }
+    }
+
+    @Test
+    public void createPodIpRangeTestIp6PrefixLongerThanSlaacThrowInvalidParameterValueException() {
+        Mockito.lenient().when(createManagementNetworkIpRangeCmdMock.getIp6Cidr()).thenReturn("fd00:1:1:0::/80");
+        Mockito.lenient().when(createManagementNetworkIpRangeCmdMock.getIp6Gateway()).thenReturn("fd00:1:1:0::1");
+        Mockito.lenient().when(createManagementNetworkIpRangeCmdMock.getVlan()).thenReturn("untagged");
+        CallContext callContext = mock(CallContext.class);
+        Mockito.when(callContext.getCallingAccount()).thenReturn(accountMock);
+        Mockito.when(accountManagerMock.isRootAdmin(Mockito.anyLong())).thenReturn(true);
+        Mockito.when(podDao.findById(Mockito.anyLong())).thenReturn(hostPodVoMock);
+
+        try (MockedStatic<CallContext> ignored = Mockito.mockStatic(CallContext.class)) {
+            Mockito.when(CallContext.current()).thenReturn(callContext);
+            Assert.assertThrows(InvalidParameterValueException.class, () -> configurationManagerImplSpy.createPodIpRange(createManagementNetworkIpRangeCmdMock));
+        }
+    }
+
+    @Test
+    public void createPodIpRangeTestPodAlreadyHasDifferentIp6CidrThrowCloudRuntimeException() {
+        Mockito.lenient().when(createManagementNetworkIpRangeCmdMock.getIp6Cidr()).thenReturn("fd00:1:1:0::/64");
+        Mockito.lenient().when(createManagementNetworkIpRangeCmdMock.getIp6Gateway()).thenReturn("fd00:1:1:0::1");
+        Mockito.lenient().when(createManagementNetworkIpRangeCmdMock.getVlan()).thenReturn("untagged");
+        CallContext callContext = mock(CallContext.class);
+        Mockito.when(callContext.getCallingAccount()).thenReturn(accountMock);
+        Mockito.when(accountManagerMock.isRootAdmin(Mockito.anyLong())).thenReturn(true);
+        Mockito.when(podDao.findById(Mockito.anyLong())).thenReturn(hostPodVoMock);
+        Mockito.when(hostPodVoMock.getIp6Cidr()).thenReturn("fd00:1:1:33::/64");
+
+        try (MockedStatic<CallContext> ignored = Mockito.mockStatic(CallContext.class)) {
+            Mockito.when(CallContext.current()).thenReturn(callContext);
+            Assert.assertThrows(CloudRuntimeException.class, () -> configurationManagerImplSpy.createPodIpRange(createManagementNetworkIpRangeCmdMock));
+        }
     }
 }

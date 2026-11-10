@@ -79,7 +79,7 @@ public abstract class ServerResourceBase implements ServerResource {
             tryToAutoDiscoverResourcePrivateNetworkInterface();
         }
 
-        String infos[] = NetUtils.getNetworkParams(privateNic);
+        String infos[] = NetUtils.getNetworkParams(privateNic, false);
         if (infos == null) {
             logger.warn("Incorrect details for private Nic during initialization of ServerResourceBase");
             return false;
@@ -187,9 +187,13 @@ public abstract class ServerResourceBase implements ServerResource {
     }
 
     protected void fillNetworkInformation(final StartupCommand cmd) {
+        fillNetworkInformation(cmd, false);
+    }
+
+    protected void fillNetworkInformation(final StartupCommand cmd, final boolean preferIpv6) {
         String[] info = null;
         if (privateNic != null) {
-            info = NetUtils.getNetworkParams(privateNic);
+            info = NetUtils.getNetworkParams(privateNic, preferIpv6);
             if (info != null) {
                 if (logger.isDebugEnabled()) {
                     logger.debug("Parameters for private nic: " + info[0] + " - " + info[1] + "-" + info[2]);
@@ -204,7 +208,7 @@ public abstract class ServerResourceBase implements ServerResource {
             if (logger.isDebugEnabled()) {
                 logger.debug("Storage has its now nic: " + storageNic.getName());
             }
-            info = NetUtils.getNetworkParams(storageNic);
+            info = NetUtils.getNetworkParams(storageNic, preferIpv6);
         }
 
         // NOTE: In case you're wondering, this is not here by mistake.
@@ -218,7 +222,7 @@ public abstract class ServerResourceBase implements ServerResource {
         }
 
         if (publicNic != null) {
-            info = NetUtils.getNetworkParams(publicNic);
+            info = NetUtils.getNetworkParams(publicNic, preferIpv6);
             if (info != null) {
                 if (logger.isDebugEnabled()) {
                     logger.debug("Parameters for public nic: " + info[0] + " - " + info[1] + "-" + info[2]);
@@ -230,7 +234,7 @@ public abstract class ServerResourceBase implements ServerResource {
         }
 
         if (storageNic2 != null) {
-            info = NetUtils.getNetworkParams(storageNic2);
+            info = NetUtils.getNetworkParams(storageNic2, preferIpv6);
             if (info != null) {
                 if (logger.isDebugEnabled()) {
                     logger.debug("Parameters for storage nic 2: " + info[0] + " - " + info[1] + "-" + info[2]);

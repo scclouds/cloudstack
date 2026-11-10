@@ -51,7 +51,7 @@ public interface ServerResource extends Manager {
      */
     StartupCommand[] initialize();
 
-    default StartupCommand[] initialize(boolean isTransferredConnection) {
+    default StartupCommand[] initialize(boolean isTransferredConnection, boolean preferIpv6) {
         return initialize();
     }
 

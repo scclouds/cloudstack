@@ -29,6 +29,7 @@ import java.util.Map;
 import javax.inject.Inject;
 import javax.naming.ConfigurationException;
 
+import com.cloud.utils.net.NetUtils;
 import org.apache.cloudstack.agent.lb.IndirectAgentLB;
 import org.apache.cloudstack.ca.CAManager;
 import org.apache.cloudstack.direct.download.DirectDownloadManager;
@@ -296,6 +297,15 @@ public abstract class LibvirtServerDiscoverer extends DiscovererBase implements 
             parameters += " --prvNic=" + kvmPrivateNic;
             parameters += " --guestNic=" + kvmGuestNic;
             parameters += " --hypervisor=" + cluster.getHypervisorType().toString().toLowerCase();
+
+            boolean preferIpv6;
+            String uriHost = uri.getHost();
+            if (uriHost.startsWith("[") && uriHost.endsWith("]")) {
+                preferIpv6 = NetUtils.isValidIp6(uriHost.substring(1, uriHost.length() - 1));
+            } else {
+                preferIpv6 = NetUtils.isValidIp6(uriHost);
+            }
+            parameters += " --ipv6Prefer=" + preferIpv6;
 
             String setupAgentCommand = "cloudstack-setup-agent ";
             if (!username.equals("root")) {

@@ -18,6 +18,7 @@ package com.cloud.network.guru;
 
 import javax.inject.Inject;
 
+import com.cloud.network.Ipv6Service;
 import com.cloud.network.NetworkModel;
 
 import com.cloud.dc.Pod;
@@ -49,6 +50,8 @@ public class StorageNetworkGuru extends PodBasedNetworkGuru implements NetworkGu
     NetworkModel _networkModel;
     @Inject
     NetworkDao _nwDao;
+    @Inject
+    Ipv6Service ipv6Service;
 
     protected StorageNetworkGuru() {
         super();
@@ -143,6 +146,7 @@ public class StorageNetworkGuru extends PodBasedNetworkGuru implements NetworkGu
             nic.setBroadcastUri(null);
         }
         nic.setIsolationUri(null);
+        ipv6Service.updateNicIpv6(nic, dest.getDataCenter(), network, vm.getType());
         logger.debug("Allocated a storage nic " + nic + " for " + vm);
     }
 

@@ -23,6 +23,12 @@ import java.util.List;
 
 import javax.inject.Inject;
 
+import com.cloud.vm.NicVO;
+import com.cloud.vm.VMInstanceVO;
+import com.cloud.vm.dao.NicDao;
+import com.cloud.vm.dao.VMInstanceDao;
+import com.googlecode.ipv6.IPv6Network;
+import org.apache.commons.lang3.ObjectUtils;
 import org.springframework.stereotype.Component;
 
 import org.apache.cloudstack.api.command.admin.network.CreateStorageNetworkIpRangeCmd;
@@ -69,8 +75,16 @@ public class StorageNetworkManagerImpl extends ManagerBase implements StorageNet
     HostPodDao _podDao;
     @Inject
     SecondaryStorageVmDao _ssvmDao;
+    @Inject
+    NicDao nicDao;
+    @Inject
+    VMInstanceDao vmInstanceDao;
 
     private void checkOverlapPrivateIpRange(long podId, String startIp, String endIp) {
+        if (startIp == null) {
+            return;
+        }
+
         HostPodVO pod = _podDao.findById(podId);
         if (pod == null) {
             throw new CloudRuntimeException("Cannot find pod " + podId);
@@ -94,8 +108,16 @@ public class StorageNetworkManagerImpl extends ManagerBase implements StorageNet
     }
 
     private void checkOverlapStorageIpRange(long podId, String startIp, String endIp) {
+        if (startIp == null) {
+            return;
+        }
+
         List<StorageNetworkIpRangeVO> curRanges = _sNwIpRangeDao.listByPodId(podId);
         for (StorageNetworkIpRangeVO range : curRanges) {
+            if (ObjectUtils.anyNull(range.getStartIp(), range.getEndIp())) {
+                continue;
+            }
+
             if (NetUtils.ipRangesOverlap(startIp, endIp, range.getStartIp(), range.getEndIp())) {
                 throw new InvalidParameterValueException("The Storage network Start IP and endIP address range overlap with private IP :" + range.getStartIp() + " - " +
                     range.getEndIp());
@@ -104,6 +126,10 @@ public class StorageNetworkManagerImpl extends ManagerBase implements StorageNet
     }
 
     private void createStorageIpEntires(TransactionLegacy txn, long rangeId, String startIp, String endIp, long zoneId) throws SQLException {
+        if (startIp == null) {
+            return;
+        }
+
         long startIPLong = NetUtils.ip2Long(startIp);
         long endIPLong = NetUtils.ip2Long(endIp);
         String insertSql =
@@ -198,15 +224,40 @@ public class StorageNetworkManagerImpl extends ManagerBase implements StorageNet
         final Long podId = cmd.getPodId();
         final String startIp = cmd.getStartIp();
         String endIp = cmd.getEndIp();
+        String gateway = cmd.getGateway();
         final Integer vlan = cmd.getVlan();
         final String netmask = cmd.getNetmask();
+        String ip6Gateway = cmd.getIp6Gateway();
+        String ip6Cidr = cmd.getIp6Cidr();
 
         if (endIp == null) {
             endIp = startIp;
         }
 
-        if (!NetUtils.isValidIp4Netmask(netmask)) {
+        boolean ipv4 = startIp != null;
+        boolean ipv6 = ip6Cidr != null;
+
+        if (!ipv4 && !ipv6) {
+            throw new InvalidParameterValueException("StartIP or IPv6 CIDR is missing in the parameters.");
+        }
+
+        if (ipv4 && (!NetUtils.isValidIp4(gateway) || netmask == null)) {
+            throw new InvalidParameterValueException("Gateway and netmask are required with startip.");
+        }
+
+        if (ipv6 && (!NetUtils.isValidIp6(ip6Gateway) || !NetUtils.isIp6InNetwork(ip6Gateway, ip6Cidr))) {
+            throw new InvalidParameterValueException("ip6gateway is invalid or outside ip6cidr");
+        }
+
+        if (ipv4 && !NetUtils.isValidIp4Netmask(netmask)) {
             throw new CloudRuntimeException("Invalid netmask:" + netmask);
+        }
+
+        if (ipv6) {
+            IPv6Network iPv6Network = IPv6Network.fromString(ip6Cidr);
+            if (iPv6Network.getNetmask().asPrefixLength() > Ipv6Service.IPV6_SLAAC_CIDR_NETMASK) {
+                throw new InvalidParameterValueException(String.format("For IPv6 range, prefix must be /%d or less", Ipv6Service.IPV6_SLAAC_CIDR_NETMASK));
+            }
         }
 
         HostPodVO pod = _podDao.findById(podId);
@@ -226,6 +277,7 @@ public class StorageNetworkManagerImpl extends ManagerBase implements StorageNet
 
         checkOverlapPrivateIpRange(podId, startIp, endIp);
         checkOverlapStorageIpRange(podId, startIp, endIp);
+        checkOverlapStorageIpv6Range(podId, ip6Cidr);
 
         StorageNetworkIpRangeVO range = null;
 
@@ -233,7 +285,7 @@ public class StorageNetworkManagerImpl extends ManagerBase implements StorageNet
         return Transaction.execute(new TransactionCallbackWithException<StorageNetworkIpRangeVO, SQLException>() {
             @Override
             public StorageNetworkIpRangeVO doInTransaction(TransactionStatus status) throws SQLException {
-                StorageNetworkIpRangeVO range = new StorageNetworkIpRangeVO(zoneId, podId, nw.getId(), startIp, endIpFinal, vlan, netmask, cmd.getGateWay());
+                StorageNetworkIpRangeVO range = new StorageNetworkIpRangeVO(zoneId, podId, nw.getId(), startIp, endIpFinal, vlan, netmask, gateway, ip6Gateway, ip6Cidr);
                 _sNwIpRangeDao.persist(range);
                 try {
                     createStorageIpEntires(TransactionLegacy.currentTxn(), range.getId(), startIp, endIpFinal, zoneId);
@@ -244,6 +296,8 @@ public class StorageNetworkManagerImpl extends ManagerBase implements StorageNet
                     err.append("endIp=" + endIpFinal);
                     err.append("netmask=" + netmask);
                     err.append("zoneId=" + zoneId);
+                    err.append("ip6gateway=" + ip6Gateway);
+                    err.append("ip6cidr=" + ip6Cidr);
                     logger.debug(err.toString(), e);
                     throw e;
                 }
@@ -251,6 +305,24 @@ public class StorageNetworkManagerImpl extends ManagerBase implements StorageNet
                 return range;
             }
         });
+    }
+
+    private void checkOverlapStorageIpv6Range(long podId, String ip6Cidr) {
+        if (ip6Cidr == null) {
+            return;
+        }
+
+        IPv6Network newNetwork = IPv6Network.fromString(ip6Cidr);
+        for (StorageNetworkIpRangeVO range : _sNwIpRangeDao.listByPodId(podId)) {
+            if (range.getIp6Cidr() == null) {
+                continue;
+            }
+
+            IPv6Network existingNetwork = IPv6Network.fromString(range.getIp6Cidr());
+            if (existingNetwork.contains(newNetwork) || newNetwork.contains(existingNetwork)) {
+                throw new InvalidParameterValueException(String.format("The Storage network IPv6 range %s overlaps with the existing range %s.", ip6Cidr, range.getIp6Cidr()));
+            }
+        }
     }
 
     private String getInUseIpAddress(long rangeId) {
@@ -287,6 +359,9 @@ public class StorageNetworkManagerImpl extends ManagerBase implements StorageNet
                         logger.warn(msg);
                         throw new CloudRuntimeException(msg);
                     }
+
+                    checkIfIpv6RangeCanBeDeleted(range);
+
                     /*
                      * entries in op_dc_storage_network_ip_address will be deleted automatically due to
                      * fk_storage_ip_address__range_id constraint key
@@ -300,6 +375,21 @@ public class StorageNetworkManagerImpl extends ManagerBase implements StorageNet
             }
         });
 
+    }
+
+    private void checkIfIpv6RangeCanBeDeleted(StorageNetworkIpRangeVO range) {
+        if (range.getIp6Cidr() == null) {
+            return;
+        }
+
+        for (VMInstanceVO vm : vmInstanceDao.listByPodIdAndTypes(range.getPodId(), VirtualMachine.Type.SecondaryStorageVm)) {
+            for (NicVO nic : nicDao.listByVmId(vm.getId())) {
+                final String nicIp6 = nic.getIPv6Address();
+                if (nicIp6 != null && NetUtils.isIp6InNetwork(nicIp6, range.getIp6Cidr())) {
+                    throw new CloudRuntimeException(String.format("Some IPv6 addresses of the range %s are in use by VM %s, so it cannot be deleted.", range.getIp6Cidr(), vm));
+                }
+            }
+        }
     }
 
     @Override

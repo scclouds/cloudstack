@@ -43,8 +43,8 @@ public class XenServer620SP1Resource extends XenServer620Resource {
 
 
     @Override
-    protected void fillHostInfo(final Connection conn, final StartupRoutingCommand cmd) {
-        super.fillHostInfo(conn, cmd);
+    protected void fillHostInfo(final Connection conn, final StartupRoutingCommand cmd, final boolean preferIpv6) {
+        super.fillHostInfo(conn, cmd, preferIpv6);
         try {
             final HashMap<String, HashMap<String, VgpuTypesInfo>> groupDetails = getGPUGroupDetails(conn);
             cmd.setGpuGroupDetails(groupDetails);

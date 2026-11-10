@@ -25,6 +25,7 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.OutputStreamWriter;
+import java.net.InetAddress;
 import java.net.MalformedURLException;
 import java.net.URI;
 import java.net.URISyntaxException;
@@ -1783,7 +1784,7 @@ public abstract class CitrixResourceBase extends ServerResourceBase implements S
         }
     }
 
-    protected void fillHostInfo(final Connection conn, final StartupRoutingCommand cmd) {
+    protected void fillHostInfo(final Connection conn, final StartupRoutingCommand cmd, final boolean preferIpv6) {
         final StringBuilder caps = new StringBuilder();
         try {
 
@@ -1853,7 +1854,24 @@ public abstract class CitrixResourceBase extends ServerResourceBase implements S
 
             PIF pif = PIF.getByUuid(conn, _host.getPrivatePif());
             PIF.Record pifr = pif.getRecord(conn);
-            if (pifr.IP != null && !pifr.IP.isEmpty()) {
+            if (preferIpv6 && CollectionUtils.isNotEmpty(pifr.IPv6)) {
+                for (String ipv6Entry : pifr.IPv6) {
+                    int slash = ipv6Entry.indexOf('/');
+                    if (slash < 0) {
+                        continue;
+                    }
+
+                    String ipv6Address = ipv6Entry.substring(0, slash);
+                    if (!NetUtils.isValidIp6(ipv6Address) || InetAddress.getByName(ipv6Address).isLinkLocalAddress()) {
+                        continue;
+                    }
+
+                    cmd.setPrivateIpAddress(ipv6Address);
+                    cmd.setPrivateMacAddress(pifr.MAC);
+                    cmd.setPrefixLength(ipv6Entry.substring(slash + 1));
+                    break;
+                }
+            } else if (pifr.IP != null && !pifr.IP.isEmpty()) {
                 cmd.setPrivateIpAddress(pifr.IP);
                 cmd.setPrivateMacAddress(pifr.MAC);
                 cmd.setPrivateNetmask(pifr.netmask);
@@ -3024,10 +3042,14 @@ public abstract class CitrixResourceBase extends ServerResourceBase implements S
         return stats;
     }
 
-    public SR getNfsSR(final Connection conn, final String poolid, final String uuid, final String server, String serverpath, final String pooldesc) {
+    public SR getNfsSR(final Connection conn, final String poolid, final String uuid, String server, String serverpath, final String pooldesc) {
         final Map<String, String> deviceConfig = new HashMap<>();
         try {
             serverpath = serverpath.replace("//", "/");
+            if (server.startsWith("[") && server.endsWith("]")) {
+                server = server.substring(1, server.length() - 1);
+                deviceConfig.put("nfsversion", "4");
+            }
             final Set<SR> srs = SR.getAll(conn);
             if (srs != null && !srs.isEmpty()) {
                 for (final SR sr : srs) {
@@ -3695,18 +3717,18 @@ public abstract class CitrixResourceBase extends ServerResourceBase implements S
 
     @Override
     public StartupCommand[] initialize() throws IllegalArgumentException {
-        return initialize(false);
+        return initialize(false, false);
     }
 
     @Override
-    public StartupCommand[] initialize(boolean isTransferredConnection) throws IllegalArgumentException {
+    public StartupCommand[] initialize(boolean isTransferredConnection, boolean preferIpv6) throws IllegalArgumentException {
         final Connection conn = getConnection();
         if (!getHostInfo(conn)) {
             logger.warn("Unable to get host information for " + _host.getIp());
             return null;
         }
         final StartupRoutingCommand cmd = new StartupRoutingCommand();
-        fillHostInfo(conn, cmd);
+        fillHostInfo(conn, cmd, preferIpv6);
         cmd.setHypervisorType(HypervisorType.XenServer);
         cmd.setCluster(_cluster);
         cmd.setPoolSync(false);

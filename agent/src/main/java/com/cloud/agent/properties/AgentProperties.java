@@ -966,6 +966,14 @@ public class AgentProperties{
      */
     public static final Property<Integer> BACKUP_COMPRESSION_MAX_CONCURRENT_OPERATIONS_PER_HOST = new Property<>("backup.compression.max.concurrent.operations.per.host", null, Integer.class);
 
+    /**
+     * If set to <code>true</code>, gives preference to the host's IPv6 address over its IPv4 address when
+     * selecting the address to be used by the host. Falls back to IPv4 if no usable IPv6 address is found. <br>
+     * Data type: Boolean. <br>
+     * Default value: <code>false</code>
+     */
+    public static final Property<Boolean> IPV6_PREFER = new Property<>("ipv6prefer", false, Boolean.class);
+
     public static class Property <T>{
         private String name;
         private T defaultValue;

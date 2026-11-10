@@ -18,6 +18,7 @@ package com.cloud.network;
 
 import java.util.List;
 
+import com.cloud.vm.VirtualMachine;
 import org.apache.cloudstack.api.command.user.ipv6.CreateIpv6FirewallRuleCmd;
 import org.apache.cloudstack.api.command.user.ipv6.ListIpv6FirewallRulesCmd;
 import org.apache.cloudstack.api.command.user.ipv6.UpdateIpv6FirewallRuleCmd;
@@ -54,6 +55,20 @@ public interface Ipv6Service extends PluggableService, Configurable {
             "Determines how long (in seconds) to wait before deallocating prefix subnets which are in Allocating state. The default value = 1800 seconds.",
             true);
 
+    ConfigKey<Boolean> ConsoleProxyVmEnableIpv6 = new ConfigKey<>("Advanced", Boolean.class,
+            "console.proxy.vm.enable.ipv6",
+            "false",
+            "Indicates whether the IPv6 is enabled or not in Console Proxy Virtual Machine.",
+            true,
+            ConfigKey.Scope.Zone);
+
+    ConfigKey<Boolean> SecondaryStorageVmEnableIpv6 = new ConfigKey<>("Advanced", Boolean.class,
+            "secondary.storage.vm.enable.ipv6",
+            "false",
+            "Indicates whether the IPv6 is enabled or not in Secondary Storage Virtual Machine.",
+            true,
+            ConfigKey.Scope.Zone);
+
     Pair<Integer, Integer> getUsedTotalIpv6SubnetForPrefix(DataCenterGuestIpv6Prefix prefix);
 
     Pair<Integer, Integer> getUsedTotalIpv6SubnetForZone(long zoneId);
@@ -68,7 +83,7 @@ public interface Ipv6Service extends PluggableService, Configurable {
 
     Nic assignPublicIpv6ToNetwork(Network network, Nic nic);
 
-    void updateNicIpv6(NicProfile nic, DataCenter dc, Network network) throws InsufficientAddressCapacityException;
+    void updateNicIpv6(NicProfile nic, DataCenter dc, Network network, VirtualMachine.Type virtualMachineType) throws InsufficientAddressCapacityException;
 
     List<String> getPublicIpv6AddressesForNetwork(Network network);
 

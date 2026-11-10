@@ -1434,6 +1434,11 @@ public class ApiResponseHelper implements ResponseGenerator, ResourceIdSupport {
             podResponse.setZoneId(zone.getUuid());
             podResponse.setZoneName(zone.getName());
         }
+        String cidrAddress = pod.getCidrAddress();
+        int cidrSize = pod.getCidrSize();
+        if (StringUtils.isNotEmpty(cidrAddress)) {
+            podResponse.setCidr(String.format("%s/%d", cidrAddress, cidrSize));
+        }
         podResponse.setNetmask(NetUtils.getCidrNetmask(pod.getCidrSize()));
         podResponse.setIpRanges(ipRanges);
         podResponse.setStartIp(startIps);
@@ -1444,6 +1449,9 @@ public class ApiResponseHelper implements ResponseGenerator, ResourceIdSupport {
         podResponse.setAllocationState(pod.getAllocationState().toString());
         podResponse.setStorageAccessGroups(pod.getStorageAccessGroups());
         podResponse.setZoneStorageAccessGroups(zone.getStorageAccessGroups());
+        podResponse.setIp6Gateway(pod.getIp6Gateway());
+        podResponse.setIp6Cidr(pod.getIp6Cidr());
+        podResponse.setIp6Vlan(pod.getIp6Vlan() != null ? BroadcastDomainType.Vlan.toUri(pod.getIp6Vlan()).toString() : BroadcastDomainType.Vlan.toUri(Vlan.UNTAGGED).toString());
         if (showCapacities != null && showCapacities) {
             List<SummedCapacity> capacities = ApiDBUtils.getCapacityByClusterPodZone(null, pod.getId(), null);
             Set<CapacityResponse> capacityResponses = new HashSet<CapacityResponse>();
@@ -1880,6 +1888,7 @@ public class ApiResponseHelper implements ResponseGenerator, ResourceIdSupport {
                 if (network != null) {
                     if (network.getTrafficType() == TrafficType.Management) {
                         vmResponse.setPrivateIp(singleNicProfile.getIPv4Address());
+                        vmResponse.setPrivateIpv6(singleNicProfile.getIPv6Address());
                         vmResponse.setPrivateMacAddress(singleNicProfile.getMacAddress());
                         vmResponse.setPrivateNetmask(singleNicProfile.getIPv4Netmask());
                     } else if (network.getTrafficType() == TrafficType.Control) {
@@ -1888,6 +1897,7 @@ public class ApiResponseHelper implements ResponseGenerator, ResourceIdSupport {
                         vmResponse.setLinkLocalNetmask(singleNicProfile.getIPv4Netmask());
                     } else if (network.getTrafficType() == TrafficType.Public) {
                         vmResponse.setPublicIp(singleNicProfile.getIPv4Address());
+                        vmResponse.setPublicIpv6(singleNicProfile.getIPv6Address());
                         vmResponse.setPublicMacAddress(singleNicProfile.getMacAddress());
                         vmResponse.setPublicNetmask(singleNicProfile.getIPv4Netmask());
                         vmResponse.setGateway(singleNicProfile.getIPv4Gateway());
@@ -1914,6 +1924,7 @@ public class ApiResponseHelper implements ResponseGenerator, ResourceIdSupport {
                         }
                     } else if (network.getTrafficType() == TrafficType.Storage) {
                         vmResponse.setStorageIp(singleNicProfile.getIPv4Address());
+                        vmResponse.setStorageIpv6(singleNicProfile.getIPv6Address());
                     }
                 }
             }
@@ -3517,8 +3528,18 @@ public class ApiResponseHelper implements ResponseGenerator, ResourceIdSupport {
         response.setPodUuid(result.getPodUuid());
         response.setZoneUuid(result.getZoneUuid());
         response.setNetworkUuid(result.getNetworkUuid());
+
+        String gateway = result.getGateway();
+        String netmask = result.getNetmask();
         response.setNetmask(result.getNetmask());
         response.setGateway(result.getGateway());
+        if (StringUtils.isNotEmpty(gateway) && StringUtils.isNotEmpty(netmask)) {
+            response.setCidr(NetUtils.getCidrFromGatewayAndNetmask(gateway, netmask));
+        }
+
+        response.setIp6Gateway(result.getIp6Gateway());
+        response.setIp6Cidr(result.getIp6Cidr());
+
         response.setObjectName("storagenetworkiprange");
         return response;
     }

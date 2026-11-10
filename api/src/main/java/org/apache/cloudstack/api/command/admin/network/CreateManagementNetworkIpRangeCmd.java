@@ -17,6 +17,7 @@
 package org.apache.cloudstack.api.command.admin.network;
 
 
+import com.cloud.utils.net.NetUtils;
 import org.apache.cloudstack.acl.RoleType;
 import org.apache.cloudstack.api.ApiArgValidator;
 import org.apache.cloudstack.api.APICommand;
@@ -59,19 +60,16 @@ public class CreateManagementNetworkIpRangeCmd extends BaseAsyncCmd {
 
     @Parameter(name = ApiConstants.GATEWAY,
             type = CommandType.STRING,
-            required = true,
             description = "The gateway for the management network.")
     private String gateway;
 
     @Parameter(name = ApiConstants.NETMASK,
             type = CommandType.STRING,
-            required = true,
             description = "The netmask for the management network.")
     private String netmask;
 
     @Parameter(name = ApiConstants.START_IP,
             type = CommandType.STRING,
-            required = true,
             description = "The starting IP address.")
     private String startIp;
 
@@ -79,6 +77,12 @@ public class CreateManagementNetworkIpRangeCmd extends BaseAsyncCmd {
             type = CommandType.STRING,
             description = "The ending IP address.")
     private String endIp;
+
+    @Parameter(name = ApiConstants.IP6_GATEWAY, type = CommandType.STRING, description = "The gateway of the IPv6 management network")
+    private String ip6Gateway;
+
+    @Parameter(name = ApiConstants.IP6_CIDR, type = CommandType.STRING, description = "The CIDR of IPv6 management network")
+    private String ip6Cidr;
 
     @Parameter(name = ApiConstants.FOR_SYSTEM_VMS,
             type = CommandType.BOOLEAN,
@@ -123,6 +127,20 @@ public class CreateManagementNetworkIpRangeCmd extends BaseAsyncCmd {
             vlan = "untagged";
         }
         return vlan;
+    }
+
+    public String getIp6Gateway() {
+        if (ip6Gateway == null) {
+            return null;
+        }
+        return NetUtils.standardizeIp6Address(ip6Gateway);
+    }
+
+    public String getIp6Cidr() {
+        if (ip6Cidr == null) {
+            return null;
+        }
+        return NetUtils.standardizeIp6Cidr(ip6Cidr);
     }
 
     @Override

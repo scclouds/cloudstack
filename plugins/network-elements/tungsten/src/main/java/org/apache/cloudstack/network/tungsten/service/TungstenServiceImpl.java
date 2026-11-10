@@ -902,7 +902,7 @@ public class TungstenServiceImpl extends ManagerBase implements TungstenService 
                     network.getTrafficType() == Networks.TrafficType.Guest
                             && network.getGuestType() == Network.GuestType.Shared) &&
                     ipAddressDao.findByIpAndDcId(zoneId, ip) != null)) {
-                return ipAddressDao.mark(zoneId, new Ip(ip));
+                return ipAddressDao.mark(zoneId, ip);
             }
 
             if (network.getTrafficType() == Networks.TrafficType.Management && pod != null) {

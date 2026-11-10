@@ -50,6 +50,12 @@ public interface SecondaryStorageVmManager extends Manager {
             true, ConfigKey.Scope.Zone, null, "User Data for SSVMs",
             null, ConfigKey.GROUP_SYSTEM_VMS, ConfigKey.SUBGROUP_SEC_STORAGE_VM);
 
+    ConfigKey<Boolean> SecondaryStorageVmPreferIpv6 = new ConfigKey<>("Advanced", Boolean.class,
+            "secondary.storage.vm.prefer.ipv6",
+            "false",
+            "Indicates whether the public IPv6 address should be used in the Secondary Storage Virtual Machine URL (if secstorage.ssl.cert.domain is not set). Falls back to the public IPv4 address if no public IPv6 address is found.",
+            true,
+            ConfigKey.Scope.Zone);
 
     public static final int DEFAULT_SS_VM_RAMSIZE = 512;            // 512M
     public static final int DEFAULT_SS_VM_CPUMHZ = 500;             // 500 MHz

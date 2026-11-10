@@ -103,6 +103,13 @@ public interface ConsoleProxyManager extends Manager, ConsoleProxyService {
             true, ConfigKey.Scope.Zone, null, "User Data for CPVMs",
             null, ConfigKey.GROUP_SYSTEM_VMS, ConfigKey.SUBGROUP_CONSOLE_PROXY_VM);
 
+    ConfigKey<Boolean> ConsoleProxyVmPreferIpv6 = new ConfigKey<>("Advanced", Boolean.class,
+            "console.proxy.vm.prefer.ipv6",
+            "false",
+            "Indicates whether the public IPv6 address should be used in the Console Proxy Virtual Machine URL (if consoleproxy.url.domain is not set). Falls back to the public IPv4 address if no public IPv6 address is found.",
+            true,
+            ConfigKey.Scope.Zone);
+
     void setManagementState(ConsoleProxyManagementState state);
 
     ConsoleProxyManagementState getManagementState();

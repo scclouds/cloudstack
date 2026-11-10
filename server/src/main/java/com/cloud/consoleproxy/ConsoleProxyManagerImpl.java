@@ -338,14 +338,15 @@ public class ConsoleProxyManagerImpl extends ManagerBase implements ConsoleProxy
         }
 
         String consoleProxyUrlDomain = ConsoleProxyUrlDomain.valueIn(dataCenterId);
-        ConsoleProxyInfo info;
         if (staticPublicIp == null) {
-            info = new ConsoleProxyInfo(proxy.isSslEnabled(), proxy.getPublicIpAddress(), consoleProxyPort, proxy.getPort(), consoleProxyUrlDomain);
-        } else {
-            info = new ConsoleProxyInfo(proxy.isSslEnabled(), staticPublicIp, consoleProxyPort, staticPort, consoleProxyUrlDomain);
+            if (ConsoleProxyManager.ConsoleProxyVmPreferIpv6.valueIn(dataCenterId) && proxy.getPublicIp6Address() != null) {
+                return new ConsoleProxyInfo(proxy.isSslEnabled(), proxy.getPublicIp6Address(), consoleProxyPort, proxy.getPort(), consoleProxyUrlDomain, proxy.getHostName());
+            }
+
+            return new ConsoleProxyInfo(proxy.isSslEnabled(), proxy.getPublicIpAddress(), consoleProxyPort, proxy.getPort(), consoleProxyUrlDomain, proxy.getHostName());
         }
-        info.setProxyName(proxy.getHostName());
-        return  info;
+
+        return new ConsoleProxyInfo(proxy.isSslEnabled(), staticPublicIp, consoleProxyPort, staticPort, consoleProxyUrlDomain, proxy.getHostName());
     }
 
     public ConsoleProxyVO doAssignProxy(long dataCenterId, VMInstanceVO vm) {
@@ -1239,6 +1240,11 @@ public class ConsoleProxyManagerImpl extends ManagerBase implements ConsoleProxy
                 buf.append(" eth").append(deviceId).append("mask=").append(nic.getIPv4Netmask());
             }
 
+            if (nic.getIPv6Address() != null) {
+                buf.append(" eth").append(deviceId).append("ip6=").append(nic.getIPv6Address());
+                buf.append(" eth").append(deviceId).append("ip6prelen=").append(NetUtils.getIp6CidrSize(nic.getIPv6Cidr()));
+            }
+
             if (nic.isDefaultNic()) {
                 buf.append(" gateway=").append(nic.getIPv4Gateway());
             }
@@ -1301,11 +1307,15 @@ public class ConsoleProxyManagerImpl extends ManagerBase implements ConsoleProxy
         DataCenter dc = dest.getDataCenter();
         List<NicProfile> nics = profile.getNics();
         for (NicProfile nic : nics) {
-            if ((nic.getTrafficType() == TrafficType.Public && dc.getNetworkType() == NetworkType.Advanced) ||
+                if ((nic.getTrafficType() == TrafficType.Public && dc.getNetworkType() == NetworkType.Advanced) ||
                 (nic.getTrafficType() == TrafficType.Guest && (dc.getNetworkType() == NetworkType.Basic || dc.isSecurityGroupEnabled()))) {
                 proxy.setPublicIpAddress(nic.getIPv4Address());
                 proxy.setPublicNetmask(nic.getIPv4Netmask());
                 proxy.setPublicMacAddress(nic.getMacAddress());
+                if (nic.getIPv6Address() != null) {
+                    proxy.setPublicIp6Address(nic.getIPv6Address());
+                    proxy.setPublicIp6Cidr(nic.getIPv6Cidr());
+                }
             } else if (nic.getTrafficType() == TrafficType.Management) {
                 proxy.setPrivateIpAddress(nic.getIPv4Address());
                 proxy.setPrivateMacAddress(nic.getMacAddress());
@@ -1589,7 +1599,7 @@ public class ConsoleProxyManagerImpl extends ManagerBase implements ConsoleProxy
         return new ConfigKey<?>[] {ConsoleProxySslEnabled, NoVncConsoleDefault, NoVncConsoleSourceIpCheckEnabled, ConsoleProxyServiceOffering,
                                    ConsoleProxyCapacityStandby, ConsoleProxyCapacityScanInterval, ConsoleProxyRestart, ConsoleProxyUrlDomain, ConsoleProxySessionMax, ConsoleProxySessionTimeout, ConsoleProxyDisableRpFilter, ConsoleProxyLaunchMax,
                                    ConsoleProxyManagementLastState, ConsoleProxyServiceManagementState, NoVncConsoleShowDot,
-                                   ConsoleProxyVmUserData, ConsoleProxySessionReconnectionWindow};
+                                   ConsoleProxyVmUserData, ConsoleProxySessionReconnectionWindow, ConsoleProxyVmPreferIpv6};
     }
 
     protected ConsoleProxyStatus parseJsonToConsoleProxyStatus(String json) throws JsonParseException {

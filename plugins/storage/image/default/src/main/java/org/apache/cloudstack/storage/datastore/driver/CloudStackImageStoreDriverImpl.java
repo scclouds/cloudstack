@@ -27,8 +27,10 @@ import com.cloud.agent.api.to.DataObjectType;
 import com.cloud.host.dao.HostDao;
 import com.cloud.hypervisor.Hypervisor.HypervisorType;
 import com.cloud.storage.Upload;
+import com.cloud.storage.secondary.SecondaryStorageVmManager;
 import com.cloud.utils.StringUtils;
 
+import com.cloud.utils.net.NetUtils;
 import org.apache.cloudstack.engine.subsystem.api.storage.DataObject;
 import org.apache.cloudstack.engine.subsystem.api.storage.DataStore;
 import org.apache.cloudstack.engine.subsystem.api.storage.EndPoint;
@@ -123,12 +125,24 @@ public class CloudStackImageStoreDriverImpl extends NfsImageStoreDriverImpl {
             throw new CloudRuntimeException(errorString);
         }
         // Construct actual URL locally now that the symlink exists at SSVM
-        return generateCopyUrl(ep.getPublicAddr(), objectNameInUrl, objectPathInUrl);
+        String ipAddress = ep.getPublicAddr();
+
+        Boolean preferIpv6 = SecondaryStorageVmManager.SecondaryStorageVmPreferIpv6.valueIn(((ImageStoreEntity) store).getDataCenterId());
+        if (preferIpv6 && ep.getPublicIp6Address() != null) {
+            ipAddress = ep.getPublicIp6Address();
+        }
+
+        return generateCopyUrl(ipAddress, objectNameInUrl, objectPathInUrl);
     }
 
     private String generateCopyUrl(String ipAddress, String fileName, String filePath) {
 
-        String hostname = ipAddress;
+        String hostname;
+        if (NetUtils.isValidIp6(ipAddress)) {
+            hostname = String.format("[%s]", ipAddress);
+        } else {
+            hostname = ipAddress;
+        }
         String scheme = "http";
         boolean _sslCopy = false;
         String sslCfg = _configDao.getValue(Config.SecStorageEncryptCopy.toString());

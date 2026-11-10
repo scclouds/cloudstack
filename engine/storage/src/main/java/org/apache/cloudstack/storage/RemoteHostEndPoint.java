@@ -58,6 +58,7 @@ public class RemoteHostEndPoint implements EndPoint {
     private String hostUuid;
     private String hostAddress;
     private String publicAddress;
+    private String publicIp6Address;
 
     @Inject
     AgentManager agentMgr;
@@ -83,6 +84,7 @@ public class RemoteHostEndPoint implements EndPoint {
             SecondaryStorageVmVO ssvm = vmDao.findByInstanceName(vmName);
             if (ssvm != null) {
                 publicAddress = ssvm.getPublicIpAddress();
+                publicIp6Address = ssvm.getPublicIp6Address();
             }
         }
     }
@@ -119,6 +121,11 @@ public class RemoteHostEndPoint implements EndPoint {
         if (host != null) {
             configure(host);
         }
+    }
+
+    @Override
+    public String getPublicIp6Address() {
+        return publicIp6Address;
     }
 
     @Override

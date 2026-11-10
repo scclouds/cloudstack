@@ -269,7 +269,7 @@ public class NetUtils {
 
             String[] info = null;
             try {
-                info = NetUtils.getNetworkParams(nic);
+                info = NetUtils.getNetworkParams(nic, false);
             } catch (final NullPointerException ignored) {
                 LOGGER.debug("Caught NullPointerException when trying to getDefaultHostIp");
             }
@@ -430,13 +430,13 @@ public class NetUtils {
     public static String[] getNicParams(final String nicName) {
         try {
             final NetworkInterface nic = NetworkInterface.getByName(nicName);
-            return getNetworkParams(nic);
+            return getNetworkParams(nic, false);
         } catch (final SocketException e) {
             return null;
         }
     }
 
-    public static String[] getNetworkParams(NetworkInterface nic) {
+    public static String[] getNetworkParams(NetworkInterface nic, boolean preferIpv6) {
         LOGGER.debug(String.format("Retrieving network params of NIC [%s].", nic));
 
         LOGGER.trace(String.format("Retrieving all NIC [%s] addresses.", nic));
@@ -454,16 +454,29 @@ public class NetUtils {
         InterfaceAddress addr = null;
 
         LOGGER.trace(String.format("Iterating through the NIC [%s] addresses [%s] to find a valid address.", nic, addrsToString));
-        for (InterfaceAddress iaddr : addrs) {
-            InetAddress inet = iaddr.getAddress();
-            LOGGER.trace(String.format("Validating address [%s].", inet));
-            if (!inet.isLinkLocalAddress() && !inet.isLoopbackAddress() && !inet.isMulticastAddress() && inet.getAddress().length == 4) {
-                addr = iaddr;
-                break;
+
+        InterfaceAddress ipv4Address = null;
+        InterfaceAddress ipv6Address = null;
+        for (InterfaceAddress interfaceAddress : addrs) {
+            InetAddress inetAddress = interfaceAddress.getAddress();
+            LOGGER.trace(String.format("Validating address [%s].", inetAddress));
+            if (inetAddress.isLinkLocalAddress() || inetAddress.isLoopbackAddress() || inetAddress.isMulticastAddress()) {
+                continue;
             }
-            LOGGER.trace(String.format("Address [%s] is link local [%s], loopback [%s], multicast [%s], or does not have 4 octets [%s]; therefore we will not retrieve its" +
-                    " interface params.", inet, inet.isLinkLocalAddress(), inet.isLoopbackAddress(), inet.isMulticastAddress(), inet.getAddress().length));
+
+            if (inetAddress instanceof Inet4Address && ipv4Address == null) {
+                ipv4Address = interfaceAddress;
+            }
+            else if (inetAddress instanceof Inet6Address && ipv6Address == null) {
+                ipv6Address = interfaceAddress;
+            } else {
+                LOGGER.trace(String.format("Address [%s] is link local [%s], loopback [%s], multicast [%s], or does not have 4 octets [%s]; therefore we will not retrieve its" +
+                        " interface params.", inetAddress, inetAddress.isLinkLocalAddress(), inetAddress.isLoopbackAddress(), inetAddress.isMulticastAddress(), inetAddress.getAddress().length));
+            }
         }
+
+        addr = preferIpv6 ? (ipv6Address != null ? ipv6Address : ipv4Address) : ipv4Address;
+
         if (addr == null) {
             LOGGER.debug(String.format("Could not find a valid address in NIC [%s], returning null.", nic));
             return null;
@@ -472,7 +485,9 @@ public class NetUtils {
         LOGGER.debug(String.format("Retrieving params of address [%s] of NIC [%s].", addr, nic));
 
         String[] result = new String[3];
-        result[0] = addr.getAddress().getHostAddress();
+        String hostAddress = addr.getAddress().getHostAddress();
+        int scopeIndex = hostAddress.indexOf('%');
+        result[0] = scopeIndex >= 0 ? hostAddress.substring(0, scopeIndex) : hostAddress;
 
         try {
             final byte[] mac = nic.getHardwareAddress();
@@ -481,7 +496,10 @@ public class NetUtils {
             LOGGER.warn(String.format("Unable to get NIC's [%s] MAC address due to [%s].", nic, e.getMessage()), e);
         }
 
-        result[2] = prefix2Netmask(addr.getNetworkPrefixLength());
+        if (addr.getAddress() instanceof Inet4Address) {
+            result[2] = prefix2Netmask(addr.getNetworkPrefixLength());
+        }
+
         return result;
     }
 

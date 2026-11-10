@@ -64,12 +64,12 @@ public class XenServerResourceNewBase extends XenServer620SP1Resource {
 
     @Override
     public StartupCommand[] initialize() throws IllegalArgumentException {
-        return initialize(false);
+        return initialize(false, false);
     }
 
     @Override
-    public StartupCommand[] initialize(boolean isTransferredConnection) throws IllegalArgumentException {
-        final StartupCommand[] cmds = super.initialize(isTransferredConnection);
+    public StartupCommand[] initialize(boolean isTransferredConnection, boolean preferIpv6) throws IllegalArgumentException {
+        final StartupCommand[] cmds = super.initialize(isTransferredConnection, preferIpv6);
 
         final Connection conn = getConnection();
         Pool pool;

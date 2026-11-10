@@ -63,6 +63,18 @@ public class StorageNetworkIpRangeResponse extends BaseResponse {
     @Param(description = "The netmask of the storage Network IP range")
     private String netmask;
 
+    @SerializedName(ApiConstants.CIDR)
+    @Param(description = "The CIDR of the storage Network IP range")
+    private String cidr;
+
+    @SerializedName(ApiConstants.IP6_GATEWAY)
+    @Param(description = "The IPv6 gateway of the storage network")
+    private String ip6Gateway;
+
+    @SerializedName(ApiConstants.IP6_CIDR)
+    @Param(description = "The IPv6 CIDR of the storage network")
+    private String ip6Cidr;
+
     public void setUuid(String uuid) {
         this.uuid = uuid;
     }
@@ -97,5 +109,17 @@ public class StorageNetworkIpRangeResponse extends BaseResponse {
 
     public void setGateway(String gateway) {
         this.gateway = gateway;
+    }
+
+    public void setIp6Gateway(String ip6Gateway) {
+        this.ip6Gateway = ip6Gateway;
+    }
+
+    public void setIp6Cidr(String ip6Cidr) {
+        this.ip6Cidr = ip6Cidr;
+    }
+
+    public void setCidr(String cidr) {
+        this.cidr = cidr;
     }
 }

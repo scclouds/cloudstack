@@ -137,6 +137,7 @@ if __name__ == "__main__":
     parser.add_option("--pubNic", dest="pubNic", help="Public traffic interface")
     parser.add_option("--prvNic", dest="prvNic", help="Private traffic interface")
     parser.add_option("--guestNic", dest="guestNic", help="Guest traffic interface")
+    parser.add_option("--ipv6Prefer", dest="ipv6Prefer", help="Whether IPv6 should be prioritized")
 
     old_config = configFileOps("@AGENTSYSCONFDIR@/agent.properties")
     bridgeType = old_config.getEntry("network.bridge.type").lower()
@@ -179,6 +180,7 @@ if __name__ == "__main__":
         glbEnv.nics.append(options.prvNic)
         glbEnv.nics.append(options.pubNic)
         glbEnv.nics.append(options.guestNic)
+        glbEnv.ipv6Prefer = options.ipv6Prefer
 
     glbEnv.secure = options.secure
 

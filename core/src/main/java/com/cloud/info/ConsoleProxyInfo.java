@@ -19,6 +19,7 @@
 
 package com.cloud.info;
 
+import com.cloud.utils.net.NetUtils;
 import org.apache.commons.lang3.StringUtils;
 
 public class ConsoleProxyInfo {
@@ -34,6 +35,11 @@ public class ConsoleProxyInfo {
         this.proxyUrlPort = proxyUrlPort;
     }
 
+    public ConsoleProxyInfo(boolean sslEnabled, String proxyIpAddress, int port, int proxyUrlPort, String consoleProxyUrlDomain, String proxyName) {
+        this(sslEnabled, proxyIpAddress, port, proxyUrlPort, consoleProxyUrlDomain);
+        this.proxyName = proxyName;
+    }
+
     public ConsoleProxyInfo(boolean sslEnabled, String proxyIpAddress, int port, int proxyUrlPort, String consoleProxyUrlDomain) {
         this.sslEnabled = sslEnabled;
         this.proxyPort = port;
@@ -47,7 +53,11 @@ public class ConsoleProxyInfo {
             }
 
         } else {
-            proxyImageUrl = "//" + proxyAddress;
+            if (NetUtils.isValidIp6(proxyAddress)) {
+                proxyImageUrl = String.format("//[%s]", proxyAddress);
+            } else {
+                proxyImageUrl = "//" + proxyAddress;
+            }
             if (proxyUrlPort != 80) {
                 proxyImageUrl += ":" + proxyUrlPort;
             }

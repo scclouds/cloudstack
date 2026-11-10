@@ -396,7 +396,7 @@ public class HypervServerDiscoverer extends DiscovererBase implements Discoverer
         HostPodVO pod = _podDao.findById(host.getPodId());
         DataCenterVO dc = _dcDao.findById(host.getDataCenterId());
 
-        _resourceMgr.checkCIDR(pod, dc, ssCmd.getPrivateIpAddress(), ssCmd.getPrivateNetmask());
+        _resourceMgr.checkCIDR(pod, dc, ssCmd);
 
         return _resourceMgr.fillRoutingHostVO(host, ssCmd, HypervisorType.Hyperv, details, hostTags);
     }

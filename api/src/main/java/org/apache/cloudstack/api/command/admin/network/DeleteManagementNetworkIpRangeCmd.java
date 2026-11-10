@@ -57,15 +57,18 @@ public class DeleteManagementNetworkIpRangeCmd extends BaseAsyncCmd {
 
     @Parameter(name = ApiConstants.START_IP,
             type = CommandType.STRING,
-            required = true,
             description = "The starting IP address.")
     private String startIp;
 
     @Parameter(name = ApiConstants.END_IP,
             type = CommandType.STRING,
-            required = true,
             description = "The ending IP address.")
     private String endIp;
+
+    @Parameter(name = ApiConstants.IP6_CIDR,
+            type = CommandType.STRING,
+            description = "The CIDR of the IPv6 range of the pod")
+    private String ip6Cidr;
 
     @Parameter(name = ApiConstants.VLAN,
             type = CommandType.STRING,
@@ -91,6 +94,10 @@ public class DeleteManagementNetworkIpRangeCmd extends BaseAsyncCmd {
 
     public String getVlan() {
         return vlan;
+    }
+
+    public String getIp6Cidr() {
+        return ip6Cidr;
     }
 
     @Override

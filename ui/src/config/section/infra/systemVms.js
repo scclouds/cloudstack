@@ -27,7 +27,7 @@ export default {
   permission: ['listSystemVms'],
   searchFilters: ['name', 'zoneid', 'podid', 'hostid', 'systemvmtype', 'storageid', 'arch'],
   columns: ['name', 'state', 'agentstate', 'systemvmtype', 'publicip', 'privateip', 'linklocalip', 'version', 'hostname', 'arch', 'zonename'],
-  details: ['name', 'id', 'agentstate', 'systemvmtype', 'publicip', 'privateip', 'linklocalip', 'gateway', 'hostname', 'arch', 'version', 'zonename', 'created', 'activeviewersessions', 'isdynamicallyscalable', 'hostcontrolstate', 'storageip'],
+  details: ['name', 'id', 'agentstate', 'systemvmtype', 'publicip', 'publicipv6', 'privateip', 'privateipv6', 'linklocalip', 'gateway', 'hostname', 'arch', 'version', 'zonename', 'created', 'activeviewersessions', 'isdynamicallyscalable', 'hostcontrolstate', 'storageip', 'storageipv6'],
   resourceType: 'SystemVm',
   filters: () => {
     const filters = ['starting', 'running', 'stopping', 'stopped', 'destroyed', 'expunging', 'migrating', 'error', 'unknown', 'shutdown']

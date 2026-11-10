@@ -74,6 +74,15 @@ public class HostPodVO implements Pod {
     @Column(name = "storage_access_groups")
     String storageAccessGroups;
 
+    @Column(name = "ip6_gateway")
+    private String ip6Gateway;
+
+    @Column(name = "ip6_cidr")
+    private String ip6Cidr;
+
+    @Column(name = "ip6_vlan")
+    private Integer ip6Vlan;
+
     public HostPodVO(String name, long dcId, String gateway, String cidrAddress, int cidrSize, String description) {
         this.name = name;
         this.dataCenterId = dcId;
@@ -208,6 +217,31 @@ public class HostPodVO implements Pod {
 
     public void setStorageAccessGroups(String storageAccessGroups) {
         this.storageAccessGroups = storageAccessGroups;
+    }
+
+    public String getIp6Gateway() {
+        return ip6Gateway;
+    }
+
+    public void setIp6Gateway(String ip6Gateway) {
+        this.ip6Gateway = ip6Gateway;
+    }
+
+    public String getIp6Cidr() {
+        return ip6Cidr;
+    }
+
+    public void setIp6Cidr(String ip6Cidr) {
+        this.ip6Cidr = ip6Cidr;
+    }
+
+    @Override
+    public Integer getIp6Vlan() {
+        return ip6Vlan;
+    }
+
+    public void setIp6Vlan(Integer ip6Vlan) {
+        this.ip6Vlan = ip6Vlan;
     }
 
     @Override

@@ -128,12 +128,12 @@ public class XenServer56Resource extends CitrixResourceBase {
 
     @Override
     public StartupCommand[] initialize() {
-        return initialize(false);
+        return initialize(false, false);
     }
 
     @Override
-    public StartupCommand[] initialize(boolean isTransferredConnection) {
+    public StartupCommand[] initialize(boolean isTransferredConnection, boolean preferIpv6) {
         pingXAPI();
-        return super.initialize(isTransferredConnection);
+        return super.initialize(isTransferredConnection, preferIpv6);
     }
 }

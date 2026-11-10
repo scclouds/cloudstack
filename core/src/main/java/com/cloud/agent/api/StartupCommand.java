@@ -37,6 +37,7 @@ public class StartupCommand extends Command {
     String privateIpAddress;
     String privateMacAddress;
     String privateNetmask;
+    String prefixLength;
     String storageIpAddress;
     String storageNetmask;
     String storageMacAddress;
@@ -306,6 +307,14 @@ public class StartupCommand extends Command {
 
     public void setArch(String arch) {
         this.arch = arch;
+    }
+
+    public String getPrefixLength() {
+        return prefixLength;
+    }
+
+    public void setPrefixLength(String prefixLength) {
+        this.prefixLength = prefixLength;
     }
 
     @Override

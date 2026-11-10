@@ -33,4 +33,6 @@ public interface EndPoint {
     Answer sendMessage(Command cmd);
 
     void sendMessageAsync(Command cmd, AsyncCompletionCallback<Answer> callback);
+
+    String getPublicIp6Address();
 }

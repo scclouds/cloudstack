@@ -3125,7 +3125,14 @@ public class NfsSecondaryStorageResource extends ServerResourceBase implements S
      * @throws UnknownHostException
      */
     protected String mountUri(URI uri, String nfsVersion) throws UnknownHostException {
+        boolean isHostIpv6 = false;
         String uriHostIp = getUriHostIp(uri);
+
+        if (NetUtils.isValidIp6(uriHostIp)) {
+            uriHostIp = String.format("[%s]", uriHostIp);
+            isHostIpv6 = true;
+        }
+
         String nfsPath = uriHostIp + ":" + uri.getPath();
 
         // Single means of calculating mount directory regardless of scheme
@@ -3141,11 +3148,11 @@ public class NfsSecondaryStorageResource extends ServerResourceBase implements S
             remoteDevice = nfsPath;
             logger.debug("Mounting device with nfs-style path of " + remoteDevice);
         }
-        mount(localRootPath, remoteDevice, uri, nfsVersion);
+        mount(localRootPath, remoteDevice, uri, nfsVersion, isHostIpv6);
         return dir;
     }
 
-    protected void mount(String localRootPath, String remoteDevice, URI uri, String nfsVersion) {
+    protected void mount(String localRootPath, String remoteDevice, URI uri, String nfsVersion, boolean isHostIpv6) {
         logger.debug("mount " + uri.toString() + " on " + localRootPath + ((nfsVersion != null) ? " nfsVersion=" + nfsVersion : ""));
         ensureLocalRootPathExists(localRootPath, uri);
 
@@ -3153,7 +3160,7 @@ public class NfsSecondaryStorageResource extends ServerResourceBase implements S
             return;
         }
 
-        attemptMount(localRootPath, remoteDevice, uri, nfsVersion);
+        attemptMount(localRootPath, remoteDevice, uri, nfsVersion, isHostIpv6);
 
         // XXX: Adding the check for creation of snapshots dir here. Might have
         // to move it somewhere more logical later.
@@ -3161,7 +3168,7 @@ public class NfsSecondaryStorageResource extends ServerResourceBase implements S
         checkForVolumesDir(localRootPath);
     }
 
-    protected void attemptMount(String localRootPath, String remoteDevice, URI uri, String nfsVersion) {
+    protected void attemptMount(String localRootPath, String remoteDevice, URI uri, String nfsVersion, boolean isHostIpv6) {
         String result;
         logger.debug("Make cmdline call to mount " + remoteDevice + " at " + localRootPath + " based on uri " + uri + ((nfsVersion != null) ? " nfsVersion=" + nfsVersion : ""));
         Script command = new Script(!_inSystemVM, "mount", _timeout, logger);
@@ -3175,7 +3182,7 @@ public class NfsSecondaryStorageResource extends ServerResourceBase implements S
                 command.add("-o", "resvport");
             }
             if (_inSystemVM) {
-                command.add("-o", "soft,timeo=133,retrans=2147483647,tcp,acdirmax=0,acdirmin=0" + ((nfsVersion != null) ? ",vers=" + nfsVersion : ""));
+                command.add("-o", "soft,timeo=133,retrans=2147483647" + ((isHostIpv6) ? ",proto=tcp6" : ",tcp") + ",acdirmax=0,acdirmin=0" + ((nfsVersion != null) ? ",vers=" + nfsVersion : ""));
             }
         } else if (scheme.equals("cifs")) {
             String extraOpts = parseCifsMountOptions(uri);

@@ -594,6 +594,8 @@ public class LibvirtComputingResource extends ServerResourceBase implements Serv
 
     protected Boolean enableManuallySettingCpuTopologyOnKvmVm = AgentPropertiesFileHandler.getPropertyValue(AgentProperties.ENABLE_MANUALLY_SETTING_CPU_TOPOLOGY_ON_KVM_VM);
 
+    private Boolean ipv6Prefer = AgentPropertiesFileHandler.getPropertyValue(AgentProperties.IPV6_PREFER);
+
     protected LibvirtDomainXMLParser parser = new LibvirtDomainXMLParser();
 
     private boolean isTungstenEnabled = false;
@@ -1460,7 +1462,7 @@ public class LibvirtComputingResource extends ServerResourceBase implements Serv
 
         this.cpuFeatures = parseCpuFeatures(AgentPropertiesFileHandler.getPropertyValue(AgentProperties.GUEST_CPU_FEATURES));
 
-        final String[] info = NetUtils.getNetworkParams(privateNic);
+        final String[] info = NetUtils.getNetworkParams(privateNic, ipv6Prefer);
 
         kvmhaMonitor = new KVMHAMonitor(info[0]);
         final Thread haMonitorThread = new Thread(kvmhaMonitor);
@@ -4409,7 +4411,12 @@ public class LibvirtComputingResource extends ServerResourceBase implements Serv
     }
 
     @Override
-    public StartupCommand[] initialize() {
+    public StartupCommand[] initialize() throws IllegalArgumentException {
+        return initialize(false, ipv6Prefer);
+    }
+
+    @Override
+    public StartupCommand[] initialize(boolean isTransferredConnection, boolean preferIpv6) {
         final KVMHostInfo info = new KVMHostInfo(dom0MinMem, dom0OvercommitMem, manualCpuSpeed, dom0MinCpuCores);
         calculateHostCpuMaxCapacity(info.getAllocatableCpus(), info.getCpuSpeed());
 
@@ -4421,7 +4428,7 @@ public class LibvirtComputingResource extends ServerResourceBase implements Serv
                 new StartupRoutingCommand(info.getAllocatableCpus(), info.getCpuSpeed(), info.getTotalMemory(), info.getReservedMemory(), capabilities, hypervisorType,
                         RouterPrivateIpStrategy.HostLocal);
         cmd.setCpuSockets(info.getCpuSockets());
-        fillNetworkInformation(cmd);
+        fillNetworkInformation(cmd, preferIpv6);
         privateIp = cmd.getPrivateIpAddress();
         cmd.getHostDetails().putAll(getVersionStrings());
         cmd.getHostDetails().put(KeyStoreUtils.SECURED, String.valueOf(isHostSecured()).toLowerCase());
@@ -6208,8 +6215,9 @@ public class LibvirtComputingResource extends ServerResourceBase implements Serv
         }
 
         // Test for libvirt TLS configuration
+        String ipForConnection = NetUtils.isValidIp6(privateIp) ? String.format("[%s]", privateIp) : privateIp;
         try {
-            new Connect(String.format("qemu+tls://%s/system", privateIp));
+            new Connect(String.format("qemu+tls://%s/system", ipForConnection));
         } catch (final LibvirtException ignored) {
             return false;
         }

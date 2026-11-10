@@ -114,7 +114,7 @@ public interface ResourceManager extends ResourceService, Configurable {
 
     public HostVO createHostVOForConnectedAgent(StartupCommand[] cmds);
 
-    public void checkCIDR(HostPodVO pod, DataCenterVO dc, String serverPrivateIP, String serverPrivateNetmask);
+    public void checkCIDR(HostPodVO pod, DataCenterVO dc, StartupRoutingCommand startupRoutingCommand);
 
     public HostVO fillRoutingHostVO(HostVO host, StartupRoutingCommand ssCmd, HypervisorType hyType, Map<String, String> details, List<String> hostTags);
 

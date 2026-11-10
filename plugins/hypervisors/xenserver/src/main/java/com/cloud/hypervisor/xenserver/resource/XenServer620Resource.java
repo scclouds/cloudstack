@@ -48,8 +48,8 @@ public class XenServer620Resource extends XenServer610Resource {
     }
 
     @Override
-    protected void fillHostInfo(final Connection conn, final StartupRoutingCommand cmd) {
-        super.fillHostInfo(conn, cmd);
+    protected void fillHostInfo(final Connection conn, final StartupRoutingCommand cmd, final boolean preferIpv6) {
+        super.fillHostInfo(conn, cmd, preferIpv6);
         final Map<String, String> details = cmd.getHostDetails();
         final Boolean hotFix62ESP1004 = hostHasHotFix(conn, XenserverConfigs.XSHotFix62ESP1004);
         if( hotFix62ESP1004 != null && hotFix62ESP1004 ) {

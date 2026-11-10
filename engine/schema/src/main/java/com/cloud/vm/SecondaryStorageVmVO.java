@@ -63,6 +63,12 @@ public class SecondaryStorageVmVO extends VMInstanceVO implements SecondaryStora
     @Column(name = "last_update", updatable = true, nullable = true)
     private Date lastUpdateTime;
 
+    @Column(name = "public_ip6_address")
+    private String publicIp6Address;
+
+    @Column(name = "public_ip6_cidr")
+    private String publicIp6Cidr;
+
     public SecondaryStorageVmVO(long id, long serviceOfferingId, String name, long templateId, HypervisorType hypervisorType, long guestOSId, long dataCenterId,
                                 long domainId, long accountId, long userId, Role role, boolean haEnabled) {
         super(id, serviceOfferingId, name, name, Type.SecondaryStorageVm, templateId, hypervisorType, guestOSId, domainId, accountId, userId, haEnabled);
@@ -132,6 +138,24 @@ public class SecondaryStorageVmVO extends VMInstanceVO implements SecondaryStora
 
     public void setRole(Role role) {
         this.role = role;
+    }
+
+    @Override
+    public String getPublicIp6Address() {
+        return publicIp6Address;
+    }
+
+    public void setPublicIp6Address(String publicIp6Address) {
+        this.publicIp6Address = publicIp6Address;
+    }
+
+    @Override
+    public String getPublicIp6Cidr() {
+        return publicIp6Cidr;
+    }
+
+    public void setPublicIp6Cidr(String publicIp6Cidr) {
+        this.publicIp6Cidr = publicIp6Cidr;
     }
 
     @Override

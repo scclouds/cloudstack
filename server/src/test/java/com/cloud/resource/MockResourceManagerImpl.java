@@ -286,7 +286,7 @@ public class MockResourceManagerImpl extends ManagerBase implements ResourceMana
      * @see com.cloud.resource.ResourceManager#checkCIDR(com.cloud.dc.HostPodVO, com.cloud.dc.DataCenterVO, java.lang.String, java.lang.String)
      */
     @Override
-    public void checkCIDR(final HostPodVO pod, final DataCenterVO dc, final String serverPrivateIP, final String serverPrivateNetmask) {
+    public void checkCIDR(final HostPodVO pod, final DataCenterVO dc, final StartupRoutingCommand startupRoutingCommand) {
         // TODO Auto-generated method stub
 
     }

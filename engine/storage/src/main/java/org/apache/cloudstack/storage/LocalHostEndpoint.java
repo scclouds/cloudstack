@@ -130,4 +130,8 @@ public class LocalHostEndpoint implements EndPoint {
         this.resource = resource;
     }
 
+    @Override
+    public String getPublicIp6Address() {
+        return null;
+    }
 }

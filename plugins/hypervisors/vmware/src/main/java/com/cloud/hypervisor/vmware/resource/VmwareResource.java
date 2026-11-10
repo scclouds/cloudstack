@@ -6154,11 +6154,11 @@ public class VmwareResource extends ServerResourceBase implements StoragePoolRes
 
     @Override
     public StartupCommand[] initialize() {
-        return initialize(false);
+        return initialize(false, false);
     }
 
     @Override
-    public StartupCommand[] initialize(boolean isTransferredConnection) {
+    public StartupCommand[] initialize(boolean isTransferredConnection, boolean preferIpv6) {
         try {
             String hostApiVersion;
             VmwareContext context = getServiceContext();

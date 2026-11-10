@@ -49,6 +49,7 @@ import com.cloud.resource.ResourceWrapper;
 import com.cloud.storage.Storage;
 import com.cloud.utils.Ternary;
 import com.cloud.utils.exception.CloudRuntimeException;
+import com.cloud.utils.net.NetUtils;
 import com.cloud.vm.VirtualMachine;
 import org.apache.cloudstack.utils.security.ParserUtils;
 import org.apache.commons.collections.MapUtils;
@@ -95,9 +96,12 @@ public final class LibvirtMigrateCommandWrapper extends CommandWrapper<MigrateCo
     private static final String CONTENTS_WILDCARD = "(?s).*";
     private static final String CDROM_LABEL = "hdc";
 
-    protected String createMigrationURI(final String destinationIp, final LibvirtComputingResource libvirtComputingResource) {
+    protected String createMigrationURI(String destinationIp, LibvirtComputingResource libvirtComputingResource) {
         if (StringUtils.isEmpty(destinationIp)) {
             throw new CloudRuntimeException("Provided libvirt destination ip is invalid");
+        }
+        if (NetUtils.isValidIp6(destinationIp)) {
+            destinationIp = String.format("[%s]", destinationIp);
         }
         return String.format("%s://%s/system", libvirtComputingResource.isHostSecured() ? "qemu+tls" : "qemu+tcp", destinationIp);
     }

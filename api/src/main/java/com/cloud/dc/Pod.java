@@ -45,4 +45,10 @@ public interface Pod extends InfrastructureEntity, Grouping, Identity, InternalI
     boolean getExternalDhcp();
 
     String getStorageAccessGroups();
+
+    String getIp6Gateway();
+
+    String getIp6Cidr();
+
+    Integer getIp6Vlan();
 }
