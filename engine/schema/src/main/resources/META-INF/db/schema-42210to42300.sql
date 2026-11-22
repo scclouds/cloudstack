@@ -676,7 +676,7 @@ CREATE TABLE IF NOT EXISTS `cloud`.`host_pci_devices` (
   `account_id` bigint unsigned DEFAULT NULL COMMENT 'Device allocator account id. Foreign key that points to the account table',
   `domain_id` bigint unsigned DEFAULT NULL COMMENT 'Device allocator domain id. Foreign key that points to the domain table',
   `host_id` bigint unsigned DEFAULT NULL COMMENT 'Device host id. Foreign key that points to the host table',
-  `parent_device_id` bigint unsigned DEFAULT NULL COMMENT 'Main function (function 0) of the multi-function device, for companion functions. Foreign key that points to the host_pci_devices table',
+  `parent_device_id` bigint unsigned DEFAULT NULL COMMENT 'Main function (function 0) of the multi-function device, for secondary functions. Foreign key that points to the host_pci_devices table',
   PRIMARY KEY (`id`),
   INDEX `i_host_pci_devices_host_id_state` (`host_id`, `state`),
   INDEX `i_host_pci_devices_device_tag` (`device_tag`),

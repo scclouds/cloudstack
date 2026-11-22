@@ -331,7 +331,7 @@ public class HostDeviceVO implements HostDevice {
         return NumberUtils.toInt(pciFunction, -1) == 0;
     }
 
-    public boolean isCompanionFunction() {
+    public boolean isSecondaryFunction() {
         return parentDeviceId != null;
     }
 

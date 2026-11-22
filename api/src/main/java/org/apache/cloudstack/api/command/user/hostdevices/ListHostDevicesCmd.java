@@ -53,7 +53,7 @@ public class ListHostDevicesCmd extends BaseListCmd {
     @Parameter(name = ApiConstants.ID, type = CommandType.UUID, entityType = HostDeviceResponse.class, description = "The ID of the host device")
     private Long id;
 
-    @Parameter(name = ApiConstants.PARENT_ID, type = CommandType.UUID, entityType = HostDeviceResponse.class, description = "The ID of the main function (function 0) of a multi-function device. Lists its companion functions, which are hidden from the listing by default.", since = "4.23.0.0")
+    @Parameter(name = ApiConstants.PARENT_ID, type = CommandType.UUID, entityType = HostDeviceResponse.class, description = "The ID of the main function (function 0) of a multi-function device. Lists its secondary functions, which are hidden from the listing by default.", since = "4.23.0.0")
     private Long parentId;
 
     @ACL

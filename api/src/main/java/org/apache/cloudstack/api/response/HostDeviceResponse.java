@@ -125,7 +125,7 @@ public class HostDeviceResponse extends BaseResponse {
     private Boolean oneTimeUse;
 
     @SerializedName(ApiConstants.PARENT_ID)
-    @Param(description = "the ID of the main function (function 0) of the multi-function device, if this device is one of its companion functions", since = "4.23.0.0")
+    @Param(description = "the ID of the main function (function 0) of the multi-function device, if this device is one of its secondary functions", since = "4.23.0.0")
     private String parentId;
 
     public String getId() {

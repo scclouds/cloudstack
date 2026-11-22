@@ -322,7 +322,7 @@ public class HostDevicesManagerImpl extends ManagerBase implements HostDevicesMa
                 hostDeviceDao.persist(device);
             }
 
-            linkCompanionFunctionsToMainFunction(incomingDevices);
+            linkSecondaryFunctionsToMainFunction(incomingDevices);
 
             return new DeviceScanReconciliation(new ArrayList<>(), new ArrayList<>(), incomingDevices);
         }
@@ -341,7 +341,7 @@ public class HostDevicesManagerImpl extends ManagerBase implements HostDevicesMa
 
         List<HostDeviceVO> devicesPresentAtHost = getDevicesPresentAtHost(currentDevices, registeredDevices, incomingIdentities);
 
-        linkCompanionFunctionsToMainFunction(devicesPresentAtHost);
+        linkSecondaryFunctionsToMainFunction(devicesPresentAtHost);
 
         return new DeviceScanReconciliation(missingDevices, recoveredDevices, registeredDevices);
     }
@@ -358,7 +358,7 @@ public class HostDevicesManagerImpl extends ManagerBase implements HostDevicesMa
         return devicesPresentAtHost;
     }
 
-    private void linkCompanionFunctionsToMainFunction(List<HostDeviceVO> devices) {
+    private void linkSecondaryFunctionsToMainFunction(List<HostDeviceVO> devices) {
         Map<String, HostDeviceVO> mainDevicePerSlot = new HashMap<>();
 
         for (HostDeviceVO device : devices) {
@@ -662,7 +662,7 @@ public class HostDevicesManagerImpl extends ManagerBase implements HostDevicesMa
                 throw new InvalidParameterValueException("Host device with id " + updateHostDeviceCmd.getDeviceId() + " was not found.");
             }
 
-            List<HostDeviceVO> companions = hostDeviceDao.listAndLockCompanionDevices(List.of(device.getId()));
+            List<HostDeviceVO> secondaries = hostDeviceDao.listAndLockSecondaryDevices(List.of(device.getId()));
 
             validateHostDeviceForUpdate(device, enabled, tag, newDeviceType, oneTimeUse);
 
@@ -691,17 +691,17 @@ public class HostDevicesManagerImpl extends ManagerBase implements HostDevicesMa
             hostDeviceDao.update(device.getId(), device);
             updatedDevices.add(device);
 
-            for (HostDeviceVO companion : companions) {
+            for (HostDeviceVO secondary : secondaries) {
                 if (enabled != null) {
-                    updateHostDeviceState(companion, enabled, mainDeviceOneTimeUse);
+                    updateHostDeviceState(secondary, enabled, mainDeviceOneTimeUse);
                 }
 
                 if (oneTimeUse != null) {
-                    companion.setOneTimeUse(oneTimeUse);
+                    secondary.setOneTimeUse(oneTimeUse);
                 }
 
-                hostDeviceDao.update(companion.getId(), companion);
-                updatedDevices.add(companion);
+                hostDeviceDao.update(secondary.getId(), secondary);
+                updatedDevices.add(secondary);
             }
 
             return device;
@@ -716,9 +716,9 @@ public class HostDevicesManagerImpl extends ManagerBase implements HostDevicesMa
     }
 
     private void validateHostDeviceForUpdate(HostDeviceVO device, Boolean enabled, String tag, HostDevice.Type type, Boolean oneTimeUse) {
-        if (device.isCompanionFunction() && ObjectUtils.anyNotNull(enabled, tag, type, oneTimeUse)) {
-            logger.error("Could not update host device [{}] because it is a companion function of the device with ID {}.", device.getPciName(), device.getParentDeviceId());
-            throw new InvalidParameterValueException("Only the display name of a companion function can be updated. Please, update its main function instead.");
+        if (device.isSecondaryFunction() && ObjectUtils.anyNotNull(enabled, tag, type, oneTimeUse)) {
+            logger.error("Could not update host device [{}] because it is a secondary function of the device with ID {}.", device.getPciName(), device.getParentDeviceId());
+            throw new InvalidParameterValueException("Only the display name of a secondary function can be updated. Please, update its main function instead.");
         }
 
         if (HostDevice.INVALID_UPDATE_STATES.contains(device.getState())) {
@@ -796,7 +796,7 @@ public class HostDevicesManagerImpl extends ManagerBase implements HostDevicesMa
         device.setAccountId(null);
         device.setDomainId(null);
 
-        if (!device.isCompanionFunction()) {
+        if (!device.isSecondaryFunction()) {
             resourceLimitMgr.decrementResourceCount(accountId, Resource.ResourceType.host_device, 1L);
         }
     }
@@ -938,12 +938,12 @@ public class HostDevicesManagerImpl extends ManagerBase implements HostDevicesMa
     private List<HostDeviceVO> selectDevicesToRelease(List<HostDeviceVO> vmDevices, Map<String, Integer> tagToAmount) {
         Map<String, Integer> selectedAmountPerTag = new HashMap<>();
         List<HostDeviceVO> selectedDevices = new ArrayList<>();
-        Map<Long, List<HostDeviceVO>> companionsPerMainDevice = new HashMap<>();
+        Map<Long, List<HostDeviceVO>> secondariesPerMainDevice = new HashMap<>();
 
         LinkedList<HostDeviceVO> orderedDevices = new LinkedList<>();
         for (HostDeviceVO device : vmDevices) {
-            if (device.isCompanionFunction()) {
-                companionsPerMainDevice.computeIfAbsent(device.getParentDeviceId(), id -> new ArrayList<>()).add(device);
+            if (device.isSecondaryFunction()) {
+                secondariesPerMainDevice.computeIfAbsent(device.getParentDeviceId(), id -> new ArrayList<>()).add(device);
                 continue;
             }
 
@@ -961,7 +961,7 @@ public class HostDevicesManagerImpl extends ManagerBase implements HostDevicesMa
             if (selectedAmountPerTag.getOrDefault(tag, 0) < tagToAmount.getOrDefault(tag, 0)) {
                 selectedAmountPerTag.merge(tag, 1, Integer::sum);
                 selectedDevices.add(device);
-                selectedDevices.addAll(companionsPerMainDevice.getOrDefault(device.getId(), Collections.emptyList()));
+                selectedDevices.addAll(secondariesPerMainDevice.getOrDefault(device.getId(), Collections.emptyList()));
             }
         }
 
@@ -981,7 +981,7 @@ public class HostDevicesManagerImpl extends ManagerBase implements HostDevicesMa
         for (HostDeviceVO dev : devices) {
             pciNames.add(dev.getPciName());
 
-            if (!dev.isCompanionFunction()) {
+            if (!dev.isSecondaryFunction()) {
                 oneTimeUsePerMainDevice.put(dev.getId(), dev.getOneTimeUse());
                 releasedMainDevicesAmount++;
             }
@@ -1100,7 +1100,7 @@ public class HostDevicesManagerImpl extends ManagerBase implements HostDevicesMa
                     publishHostDeviceUsageEvent(EventTypes.EVENT_HOST_DEVICE_RESERVE, device, vm, newAccount.getId());
                     logger.debug("Updated ownership of host device {} to account {}.", device.getPciName(), newAccount.getId());
 
-                    if (!device.isCompanionFunction()) {
+                    if (!device.isSecondaryFunction()) {
                         transferredMainDevicesAmount++;
                     }
                 }
@@ -1169,7 +1169,7 @@ public class HostDevicesManagerImpl extends ManagerBase implements HostDevicesMa
                 throw new CloudRuntimeException(String.format("VM %s is bound to devices that are not in host %s, therefore it cannot be started in it.", vm.getUuid(), host.getUuid()));
             }
 
-            if (!device.isCompanionFunction()) {
+            if (!device.isSecondaryFunction()) {
                 assignedDevicesPerTag.merge(device.getDeviceTag(), 1, Integer::sum);
             }
         }
@@ -1185,8 +1185,8 @@ public class HostDevicesManagerImpl extends ManagerBase implements HostDevicesMa
             return false;
         }
 
-        Map<Long, List<HostDeviceVO>> companionsPerMainDevice = getCompanionsPerMainDevice(availableDevices);
-        Map<String, List<HostDeviceVO>> usableDevicesPerTag = getUsableDevicesPerTag(availableDevices, companionsPerMainDevice, vm.getId());
+        Map<Long, List<HostDeviceVO>> secondariesPerMainDevice = getSecondariesPerMainDevice(availableDevices);
+        Map<String, List<HostDeviceVO>> usableDevicesPerTag = getUsableDevicesPerTag(availableDevices, secondariesPerMainDevice, vm.getId());
         List<HostDeviceVO> devicesToReserve = selectDevicesToReserve(usableDevicesPerTag, devicesToReservePerTag, vm.getId());
 
         if (devicesToReserve == null) {
@@ -1196,8 +1196,8 @@ public class HostDevicesManagerImpl extends ManagerBase implements HostDevicesMa
         for (HostDeviceVO device : devicesToReserve) {
             reserveDeviceForVm(device, vm);
 
-            for (HostDeviceVO companion : companionsPerMainDevice.getOrDefault(device.getId(), Collections.emptyList())) {
-                reserveDeviceForVm(companion, vm);
+            for (HostDeviceVO secondary : secondariesPerMainDevice.getOrDefault(device.getId(), Collections.emptyList())) {
+                reserveDeviceForVm(secondary, vm);
             }
         }
 
@@ -1206,12 +1206,12 @@ public class HostDevicesManagerImpl extends ManagerBase implements HostDevicesMa
         return true;
     }
 
-    private Map<String, List<HostDeviceVO>> getUsableDevicesPerTag(List<HostDeviceVO> availableDevices, Map<Long, List<HostDeviceVO>> companionsPerMainDevice, Long vmId) {
+    private Map<String, List<HostDeviceVO>> getUsableDevicesPerTag(List<HostDeviceVO> availableDevices, Map<Long, List<HostDeviceVO>> secondariesPerMainDevice, Long vmId) {
         Map<String, List<HostDeviceVO>> usableDevicesPerTag = new HashMap<>();
 
         for (HostDeviceVO device : availableDevices) {
-            if (!areAllCompanionsFree(companionsPerMainDevice.getOrDefault(device.getId(), Collections.emptyList()))) {
-                logger.debug("Host device [{}] will not be considered for VM {} because not all of its companion functions are free.", device.getPciName(), vmId);
+            if (!areAllSecondariesFree(secondariesPerMainDevice.getOrDefault(device.getId(), Collections.emptyList()))) {
+                logger.debug("Host device [{}] will not be considered for VM {} because not all of its secondary functions are free.", device.getPciName(), vmId);
                 continue;
             }
 
@@ -1232,10 +1232,10 @@ public class HostDevicesManagerImpl extends ManagerBase implements HostDevicesMa
     }
 
     /**
-     * Publishes the usage event of a host device that was reserved by or released from a VM. Companion functions are not charged, as they come along with their main device.
+     * Publishes the usage event of a host device that was reserved by or released from a VM. Secondary functions are not charged, as they come along with their main device.
      */
     private void publishHostDeviceUsageEvent(String eventType, HostDeviceVO device, VirtualMachine vm, long accountId) {
-        if (device.isCompanionFunction()) {
+        if (device.isSecondaryFunction()) {
             return;
         }
 
@@ -1243,25 +1243,25 @@ public class HostDevicesManagerImpl extends ManagerBase implements HostDevicesMa
                 device.getUuid(), vm.getId(), true);
     }
 
-    private Map<Long, List<HostDeviceVO>> getCompanionsPerMainDevice(List<HostDeviceVO> mainDevices) {
+    private Map<Long, List<HostDeviceVO>> getSecondariesPerMainDevice(List<HostDeviceVO> mainDevices) {
         List<Long> mainDeviceIds = new ArrayList<>();
 
         for (HostDeviceVO device : mainDevices) {
             mainDeviceIds.add(device.getId());
         }
 
-        Map<Long, List<HostDeviceVO>> companionsPerMainDevice = new HashMap<>();
+        Map<Long, List<HostDeviceVO>> secondariesPerMainDevice = new HashMap<>();
 
-        for (HostDeviceVO companion : hostDeviceDao.listAndLockCompanionDevices(mainDeviceIds)) {
-            companionsPerMainDevice.computeIfAbsent(companion.getParentDeviceId(), id -> new ArrayList<>()).add(companion);
+        for (HostDeviceVO secondary : hostDeviceDao.listAndLockSecondaryDevices(mainDeviceIds)) {
+            secondariesPerMainDevice.computeIfAbsent(secondary.getParentDeviceId(), id -> new ArrayList<>()).add(secondary);
         }
 
-        return companionsPerMainDevice;
+        return secondariesPerMainDevice;
     }
 
-    private boolean areAllCompanionsFree(List<HostDeviceVO> companions) {
-        for (HostDeviceVO companion : companions) {
-            if (!HostDevice.State.Free.equals(companion.getState())) {
+    private boolean areAllSecondariesFree(List<HostDeviceVO> secondaries) {
+        for (HostDeviceVO secondary : secondaries) {
+            if (!HostDevice.State.Free.equals(secondary.getState())) {
                 return false;
             }
         }
@@ -1273,7 +1273,7 @@ public class HostDevicesManagerImpl extends ManagerBase implements HostDevicesMa
         List<HostDeviceVO> mainDevices = new ArrayList<>();
 
         for (HostDeviceVO device : devices) {
-            if (!device.isCompanionFunction()) {
+            if (!device.isSecondaryFunction()) {
                 mainDevices.add(device);
             }
         }
@@ -1344,9 +1344,9 @@ public class HostDevicesManagerImpl extends ManagerBase implements HostDevicesMa
                 throw new InvalidParameterValueException("Could not delete host device because no device was found with the provided ID.");
             }
 
-            if (device.isCompanionFunction()) {
-                logger.error("Could not delete host device [{}] because it is a companion function of the device with ID {}.", device.getPciName(), device.getParentDeviceId());
-                throw new InvalidParameterValueException("Could not delete a companion function. Please, delete its main function instead.");
+            if (device.isSecondaryFunction()) {
+                logger.error("Could not delete host device [{}] because it is a secondary function of the device with ID {}.", device.getPciName(), device.getParentDeviceId());
+                throw new InvalidParameterValueException("Could not delete a secondary function. Please, delete its main function instead.");
             }
 
             if (device.getInstanceId() != null) {
@@ -1357,12 +1357,12 @@ public class HostDevicesManagerImpl extends ManagerBase implements HostDevicesMa
             logger.info("Removing host device [{}] from host [{}].", device.getPciName(), device.getHostId());
             hostDeviceDao.remove(id);
 
-            List<HostDeviceVO> companions = hostDeviceDao.listAndLockCompanionDevices(List.of(device.getId()));
-            logger.debug("Found {} companion functions for host device [{}]. Removing them.", companions.size(), device.getPciName());
+            List<HostDeviceVO> secondaries = hostDeviceDao.listAndLockSecondaryDevices(List.of(device.getId()));
+            logger.debug("Found {} secondary functions for host device [{}]. Removing them.", secondaries.size(), device.getPciName());
 
-            for (HostDeviceVO companion : companions) {
-                logger.info("Removing companion function [{}] of host device [{}].", companion.getPciName(), device.getPciName());
-                hostDeviceDao.remove(companion.getId());
+            for (HostDeviceVO secondary : secondaries) {
+                logger.info("Removing secondary function [{}] of host device [{}].", secondary.getPciName(), device.getPciName());
+                hostDeviceDao.remove(secondary.getId());
             }
 
             return true;

@@ -44,5 +44,5 @@ public interface HostDeviceDao extends GenericDao<HostDeviceVO, Long> {
 
     List<HostDeviceVO> listAndLockHostDevicesByVmId(Long vmId);
 
-    List<HostDeviceVO> listAndLockCompanionDevices(List<Long> mainDeviceIds);
+    List<HostDeviceVO> listAndLockSecondaryDevices(List<Long> mainDeviceIds);
 }

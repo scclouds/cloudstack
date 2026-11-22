@@ -52,7 +52,7 @@ public class HostDeviceDaoImpl extends GenericDaoBase<HostDeviceVO, Long> implem
     private final SearchBuilder<HostDeviceVO> hostDevicesSearch;
     private final SearchBuilder<HostDeviceVO> hostDevicesAvailableForAllocationSearch;
     private final SearchBuilder<HostDeviceVO> vmHostDeviceSearch;
-    private final SearchBuilder<HostDeviceVO> companionDevicesSearch;
+    private final SearchBuilder<HostDeviceVO> secondaryDevicesSearch;
     private final SearchBuilder<HostDeviceVO> mainHostDevicesSearch;
     private final GenericSearchBuilder<HostDeviceVO, Long> mainHostDevicesCountSearch;
     private final SearchBuilder<HostDeviceVO> offeringAndVMSearch;
@@ -97,9 +97,9 @@ public class HostDeviceDaoImpl extends GenericDaoBase<HostDeviceVO, Long> implem
         vmHostDeviceSearch.and(VIRTUAL_MACHINE_ID, vmHostDeviceSearch.entity().getInstanceId(), SearchCriteria.Op.EQ);
         vmHostDeviceSearch.done();
 
-        companionDevicesSearch = createSearchBuilder();
-        companionDevicesSearch.and(PARENT_DEVICE_ID_IN, companionDevicesSearch.entity().getParentDeviceId(), SearchCriteria.Op.IN);
-        companionDevicesSearch.done();
+        secondaryDevicesSearch = createSearchBuilder();
+        secondaryDevicesSearch.and(PARENT_DEVICE_ID_IN, secondaryDevicesSearch.entity().getParentDeviceId(), SearchCriteria.Op.IN);
+        secondaryDevicesSearch.done();
     }
 
     @Override
@@ -226,12 +226,12 @@ public class HostDeviceDaoImpl extends GenericDaoBase<HostDeviceVO, Long> implem
     }
 
     @Override
-    public List<HostDeviceVO> listAndLockCompanionDevices(List<Long> mainDeviceIds) {
+    public List<HostDeviceVO> listAndLockSecondaryDevices(List<Long> mainDeviceIds) {
         if (CollectionUtils.isEmpty(mainDeviceIds)) {
             return new ArrayList<>();
         }
 
-        SearchCriteria<HostDeviceVO> sc = companionDevicesSearch.create();
+        SearchCriteria<HostDeviceVO> sc = secondaryDevicesSearch.create();
         sc.setParameters(PARENT_DEVICE_ID_IN, mainDeviceIds.toArray());
 
         return lockRows(sc, null, true);
